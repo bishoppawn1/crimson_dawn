@@ -168,7 +168,8 @@ canvas {
 }
 
 .ability,
-.secondary {
+.secondary,
+.command-button {
   width: 100%;
   border: 1px solid #44373e;
   border-radius: 6px;
@@ -219,6 +220,56 @@ canvas {
   background: #19161b;
   color: #bdb6bf;
   font-size: 12px;
+}
+
+.command-group + .command-group {
+  margin-top: 12px;
+}
+
+.sub-label {
+  margin: 10px 0 7px;
+  color: #8e858f;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.command-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.command-button {
+  min-height: 43px;
+  padding: 7px;
+  background: #19161b;
+  color: #d5cdd5;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.command-button small {
+  display: block;
+  margin-top: 3px;
+  color: #8e858f;
+  font-size: 9px;
+}
+
+.command-button strong {
+  display: block;
+}
+
+.cancel-command {
+  border-color: #793744;
+  color: #ff9cab;
+}
+
+.command-button.active {
+  border-color: #e05e70;
+  background: #351b23;
+  color: #fff;
 }
 
 button:not(:disabled):hover {

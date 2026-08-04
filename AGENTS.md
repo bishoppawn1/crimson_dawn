@@ -26,6 +26,32 @@ implementation decision establishes or changes player-facing behavior.
   the unit's normal role and consume energy.
 - Preserve meaningful counterplay. Mobile energy suppliers, reclamation drones,
   reactors, power relays, and other economic infrastructure must be attackable.
+- Player combat units automatically engage hostile units that enter weapon range
+  unless a future stance rule explicitly prevents it.
+- The enemy AI must use the same resource, power, construction, production,
+  energy, combat, and salvage rules available to the player. Do not grant hidden
+  free units or functional immunity to normal requirements.
+- Worker drones construct the player's buildings. Mech factories produce the
+  worker generation matching the factory tier.
+- Do not impose an arbitrary cap on the number of production buildings a player
+  may construct.
+- Standard match starts give each side exactly three Tier 1 Worker Drones, one
+  Tier 1 Mech Factory, and one generator. Do not pre-place other units or buildings.
+- Metal Mines may only be constructed on unused map-defined metal deposits and
+  snap to the deposit location. Energy-production buildings remain freely
+  placeable on ordinary valid terrain.
+- Ordinary buildings snap to the 40-unit construction grid. Player and AI
+  construction must use the same footprint validation and may not overlap living
+  structures, unfinished foundations, units, or reclamation drones.
+- Snap building centers according to footprint parity so every footprint edge lands
+  on a grid line. Preserve distinct cell footprints for compact defenses, economy
+  structures, and increasingly large factory tiers.
+- Pulse Generators produce their stated energy-per-second rate continuously and
+  never deplete or consume fuel. Battery capacity limits storage, not generation.
+- Keep the Induction Charger's recharge-radius circle static. Do not add animated
+  electrical-field effects around its operating area.
+- Static defenses use an internal grid-charged weapon capacitor. Never require a
+  generator to provide an entire per-shot energy cost inside one simulation tick.
 - Treat wreckage and disabled units as battlefield objectives, not merely visual
   remains.
 - Keep metal/energy conversion lossy so reciprocal conversion cannot generate
@@ -58,6 +84,8 @@ When implementation begins, prove the core loop before expanding the roster:
 6. Wreck creation, salvage value, and automated reclamation drones.
 7. Parallel production branches and tier prerequisites.
 8. Research structures, upgrades, and selected unit abilities.
+9. Worker-driven construction, factories, metal mines, and static defenses.
+10. Enemy economic and military AI using player-equivalent simulation commands.
 
 ## Working Conventions
 

@@ -17,7 +17,7 @@ export const UNIT_DEFINITIONS = Object.freeze({
     metalCost: 45,
     productionTime: 5,
     workerTier: 1,
-    buildRate: 13,
+    buildRate: 1,
   },
   worker_drone_t2: {
     name: "Tier 2 Worker Drone",
@@ -34,7 +34,7 @@ export const UNIT_DEFINITIONS = Object.freeze({
     metalCost: 75,
     productionTime: 5,
     workerTier: 2,
-    buildRate: 21,
+    buildRate: 1.65,
   },
   worker_drone_t3: {
     name: "Tier 3 Worker Drone",
@@ -51,7 +51,7 @@ export const UNIT_DEFINITIONS = Object.freeze({
     metalCost: 120,
     productionTime: 5,
     workerTier: 3,
-    buildRate: 34,
+    buildRate: 2.6,
   },
   scout_mech: {
     name: "Vanguard Mech",
@@ -131,15 +131,30 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   generator: {
     name: "Pulse Generator",
     radius: 34,
+    footprint: [2, 2],
     maxHp: 500,
     powerRadius: 245,
     generationRate: 14,
     metalCost: 120,
     buildTime: 8,
   },
+  battery: {
+    name: "Grid Battery",
+    radius: 30,
+    footprint: [2, 2],
+    maxHp: 380,
+    powerRadius: 225,
+    storageCapacity: 360,
+    chargeRate: 48,
+    dischargeRate: 180,
+    metalCost: 100,
+    buildTime: 7,
+    provisionalBalance: true,
+  },
   power_tower: {
     name: "Power Relay Tower",
-    radius: 22,
+    radius: 18,
+    footprint: [1, 1],
     maxHp: 270,
     powerDemand: 0.5,
     relayRadius: 245,
@@ -149,6 +164,7 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   charger: {
     name: "Induction Charger",
     radius: 31,
+    footprint: [2, 2],
     maxHp: 360,
     powerDemand: 3,
     chargeRadius: 135,
@@ -158,7 +174,8 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   metal_mine: {
     name: "Metal Mine",
-    radius: 38,
+    radius: 34,
+    footprint: [2, 2],
     maxHp: 410,
     powerDemand: 2,
     metalRate: 5,
@@ -167,7 +184,8 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   mech_factory_t1: {
     name: "Tier 1 Mech Factory",
-    radius: 48,
+    radius: 60,
+    footprint: [3, 2],
     maxHp: 650,
     powerDemand: 3,
     tier: 1,
@@ -177,7 +195,8 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   mech_factory_t2: {
     name: "Tier 2 Mech Factory",
-    radius: 52,
+    radius: 80,
+    footprint: [4, 3],
     maxHp: 820,
     powerDemand: 5,
     tier: 2,
@@ -187,7 +206,8 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   mech_factory_t3: {
     name: "Tier 3 Mech Factory",
-    radius: 57,
+    radius: 100,
+    footprint: [5, 4],
     maxHp: 1050,
     powerDemand: 8,
     tier: 3,
@@ -197,19 +217,23 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   sentry_turret: {
     name: "Sentry Turret",
-    radius: 25,
+    radius: 18,
+    footprint: [1, 1],
     maxHp: 390,
     powerDemand: 1.5,
     attackRange: 185,
     attackDamage: 12,
     attackEnergy: 3,
     attackCooldown: 0.85,
+    capacitorCapacity: 12,
+    capacitorChargeRate: 8,
     metalCost: 85,
     buildTime: 6,
   },
   salvage_yard: {
     name: "Salvage Reclamation Yard",
-    radius: 43,
+    radius: 60,
+    footprint: [3, 2],
     maxHp: 430,
     powerDemand: 2,
     droneCount: 3,
@@ -221,10 +245,13 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
 
 export const BUILD_MENU = Object.freeze([
   "generator",
+  "battery",
   "power_tower",
   "charger",
   "metal_mine",
   "mech_factory_t1",
+  "mech_factory_t2",
+  "mech_factory_t3",
   "sentry_turret",
   "salvage_yard",
 ]);
@@ -242,4 +269,23 @@ export const SIMULATION_RULES = Object.freeze({
   stasisRegenerationRate: 2.5,
   reactivationThreshold: 18,
   lowEnergyRatio: 0.2,
+  structureCollisionPadding: 3,
+  buildingGridSize: 40,
+  constructionCancelRefundRate: 0.75,
+  enemyAttackWaveSize: 4,
 });
+
+export function structureFootprint(structureType) {
+  const definition = STRUCTURE_DEFINITIONS[structureType];
+  const [columns = 1, rows = 1] = definition?.footprint || [];
+  const width = columns * SIMULATION_RULES.buildingGridSize;
+  const height = rows * SIMULATION_RULES.buildingGridSize;
+  return {
+    columns,
+    rows,
+    width,
+    height,
+    halfWidth: width / 2,
+    halfHeight: height / 2,
+  };
+}

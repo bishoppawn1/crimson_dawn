@@ -41,6 +41,11 @@ Energy powers the base and military. It is required for:
 Energy can be obtained from power generators and high-output structures such as
 nuclear reactors. Metal atomizers can convert metal into energy.
 
+Generated energy is not automatically retained in a global pool. A player must
+construct Grid Batteries to store surplus energy. The energy display reports total
+stored energy against the combined capacity of all completed, surviving batteries.
+Surplus generation is discarded when no connected battery has available capacity.
+
 ### 2.3 Resource Conversion
 
 Converters transform energy into metal. Atomizers transform metal into energy.
@@ -55,17 +60,51 @@ mining, generation, or salvage.
 
 ### 3.1 Building Power
 
-Power-supply buildings provide energy to nearby buildings. A building without
-sufficient power cannot perform its normal function, or performs at a reduced rate
-if a future design explicitly permits partial operation.
+Power-supply buildings provide energy to nearby buildings through local grids.
+Generators, Grid Batteries, and powered relay towers connect nearby structures.
+Relay towers extend a grid; ordinary consumers do not relay power through
+themselves. A building outside an energized grid is disconnected and cannot perform
+its normal function. The battlefield marks disconnected structures with a red
+broken-grid indicator. A connected building that cannot receive enough energy is
+shown as having no power.
+
+Generators provide constant live energy to their connected grid and never consume
+fuel or run out. Their energy-per-second output continues indefinitely, even when
+there is nowhere to store surplus power. After current operational demand is met,
+remaining generation charges connected batteries up to their individual charge
+rates and storage capacities. A charged battery can energize its
+local grid without a generator and counts as a power source while it discharges.
+Battery discharge is rate-limited, so stored energy does not guarantee that an
+arbitrarily large instantaneous demand can be served. Destroying a battery destroys
+its stored energy and immediately removes its capacity from the player's total.
+
+The current Grid Battery capacity, charge rate, discharge rate, cost, build time,
+and distribution radius are provisional balance values.
 
 The building roster may include:
 
 - Standard power generators.
 - High-output, high-risk reactors that can explode.
 - Power relays or other local distribution buildings.
-- Energy storage.
+- Grid Batteries that provide finite energy storage and act as local power sources
+  while discharging.
 - Charging structures that replenish nearby units.
+
+Power Relay Towers may chain together, allowing distant structures to connect only
+when there is an unbroken powered path back to a generator or charged Grid
+Battery. Destroying a relay can disconnect every downstream structure.
+
+While the player is placing any building, the battlefield displays the coverage
+areas of the player's completed, energized generators, Grid Batteries, and Power
+Relay Towers. A placement preview for a generator, Grid Battery, or Power Relay
+Tower also displays a static circle for the coverage it would provide from the
+snapped construction location. The proposed circle remains visible in the invalid
+placement color when the footprint cannot be built, so its range and placement
+error can be evaluated together.
+
+The Induction Charger displays a static circle marking its unit-recharge radius.
+It must not show animated electrical fields or moving energy effects throughout
+that circle.
 
 The exact grid, radius, connection, and prioritization rules remain to be tested.
 
@@ -121,6 +160,18 @@ A minority of units may have one or more special abilities. Each ability must:
 Some abilities are available by default; others may be unlocked through a relevant
 research building such as a Mech Lab.
 
+Combat-capable units automatically attack hostile units that enter their weapon
+range. Explicit movement, attack, stop, and hold-position commands remain
+available. Commands are contextual rather than limited to special-ability buttons.
+An explicit terrain move takes priority over an automatically acquired target:
+units continue toward the destination while firing at enemies within range. A
+force move, armed with `G` before right-clicking, ignores enemies until the units
+reach their destination. Direct attack commands still pursue their chosen target.
+
+Ground units treat completed buildings and unfinished foundations as solid
+obstacles. Movement resolves against structure footprints and slides around them;
+units cannot pass through buildings to reach a destination.
+
 ## 5. Production Branches and Technology Tiers
 
 Production categories are parallel branches, not consecutive steps in a single
@@ -139,6 +190,87 @@ production branch does not inherently replace or advance another branch.
 The precise method for moving a branch between tiers—upgrading an existing
 building, constructing a higher-tier version, or unlocking it globally—remains
 undecided.
+
+There is no fixed cap on the number of factories or equivalent production
+buildings a player may construct.
+
+### 5.1 Worker Drones and Construction
+
+Worker drones construct the player's primary buildings. Tier 1, Tier 2, and Tier 3
+Mech Factories produce increasingly capable Tier 1, Tier 2, and Tier 3 Worker
+Drones respectively. Advanced workers construct faster and may later gain access
+to advanced building options.
+
+Workers receive a placement order, travel to the site, and build the structure over
+time. Metal is spent when placement is confirmed. Incomplete buildings remain
+visible and vulnerable. Factories maintain production queues and consume power
+while operating.
+
+Completed units deploy to the nearest valid factory exit that does not overlap a
+living structure or the battlefield boundary. If all factory exits are blocked,
+the completed production order waits inside the factory until an exit becomes
+available rather than creating an immobilized unit inside a building.
+
+The player can select a production building and right-click terrain to set its
+rally point. The interface displays the rally point and its path from the selected
+building. Newly completed units automatically attack-move toward that point,
+engaging hostile units they encounter along the way before continuing toward the
+rally destination.
+
+A new ordinary foundation snaps to footprint-aware centers on the visible 40-unit
+construction grid, with every footprint edge aligned to a grid line, and must fit
+inside the battlefield. Buildings use visibly different rectangular footprints,
+from compact one-cell towers and turrets to multi-cell factories. A foundation
+cannot overlap a living building, unfinished
+foundation, worker, combat unit, or reclamation drone. Metal Mines instead snap to
+their required deposit location. Invalid placement does not spend metal and reports
+the reason to the player. The player sees a green or red footprint preview before
+confirming placement, and the enemy AI searches nearby grid cells when its preferred
+site is blocked.
+
+An incomplete friendly building is a contextual construction target. Right-clicking
+it with one or more selected workers assigns those workers to continue construction,
+including when the original builder was destroyed or given another order. A worker
+that enters energy stasis keeps its construction assignment and resumes traveling or
+building after reactivation. An unfinished building with no surviving assigned
+worker is visibly marked as paused and explains the right-click recovery command.
+
+Selecting an unfinished friendly building exposes a Cancel Construction command,
+also available with the `C` shortcut. Cancellation removes the foundation, releases
+its assigned workers, and refunds 75% of the metal represented by its unbuilt
+progress. Metal already represented by completed progress is not refundable. The
+75% refund rate is provisional.
+
+### 5.2 Economy and Static Defense Buildings
+
+Metal Mines provide continuous income while connected to a functioning power
+network. Static defenses automatically engage hostile targets within range,
+consume grid energy when firing, and stop functioning when disconnected or
+unpowered.
+
+Static defenses charge an internal weapon capacitor continuously from their local
+grid. A shot spends capacitor energy, allowing normal generator output to build up
+between shots without requiring a Grid Battery to satisfy the entire weapon cost
+in one simulation tick. The selected-defense interface displays weapon range,
+capacitor charge, and current behavior such as charging, ready, tracking, or firing.
+
+Metal Mines are location-constrained. They may only be constructed on unused,
+map-defined metal deposits and snap to the selected deposit. A second mine cannot
+occupy the same deposit while the existing mine remains alive. Power generators
+and other energy-production buildings are not deposit-constrained and may be
+constructed on any otherwise valid terrain.
+
+### 5.3 Standard Match Start
+
+The player and enemy each begin with exactly:
+
+- Three Tier 1 Worker Drones.
+- One Tier 1 Mech Factory.
+- One power generator.
+
+No mine, battery, relay, charger, reclamation yard, static defense, energy carrier,
+or combat unit is pre-built. Both sides must use their workers and starting metal
+to establish an economy and military.
 
 ## 6. Research and Military Improvements
 
@@ -184,17 +316,45 @@ a defined amount of time, preventing instant replacement while preserving the
 building's low-maintenance automation role. A yard can never have more than three
 active or rebuilding drones.
 
+If a reclamation drone is destroyed while carrying scrap, all carried metal drops
+at the destruction location as a reclaimable scrap pile. Its replacement begins
+empty.
+
 Drone pathing, carrying capacity, collection time, replacement time, target
 reservation, and behavior when the yard loses power remain tuning decisions. The
 implementation must prevent multiple drones from indefinitely blocking one another
 or collecting more metal than a wreck contains.
 
-## 8. Initial Playable Scope
+## 8. Enemy AI
+
+The enemy AI performs the same categories of action as the player: gathering
+metal, generating and relaying power, storing grid energy, constructing buildings
+with workers, producing units, maintaining defenses, supplying unit energy,
+fighting, and reclaiming wreckage. It uses the same simulation commands and pays
+the same costs; it does not receive hidden free units or buildings.
+
+The AI reassigns an available worker to an unfinished enemy foundation when its
+original builder is destroyed or otherwise lost. If a preferred ordinary build
+cell is blocked, it searches nearby valid grid cells; if a planned Metal Mine
+deposit is unavailable, it searches the remaining deposits rather than abandoning
+its construction plan.
+
+The AI reserves enough metal for its next planned building before queueing ordinary
+combat units. Replacing a missing worker takes priority over that reserve so the AI
+cannot permanently lose its ability to construct.
+
+Enemy combat units stage until four active attackers are ready, then launch as a
+coordinated wave against one target. Newly produced attackers wait for a later wave
+instead of crossing the map individually. Automatic attacks within weapon range
+still allow staged units to defend themselves locally. The four-unit wave size is
+provisional.
+
+## 9. Initial Playable Scope
 
 The first vertical slice should validate energy logistics and automated salvage,
 not attempt the final unit roster. It should include:
 
-- Metal and energy storage.
+- Metal storage and battery-limited energy storage.
 - One metal mine and one generator.
 - A local building-power rule.
 - One charging structure.
@@ -207,7 +367,7 @@ not attempt the final unit roster. It should include:
 - At least one energy-consuming special ability, used to validate the ability
   framework without making abilities universal.
 
-### 8.1 Technical Direction
+### 9.1 Technical Direction
 
 The browser game is the production foundation, not a temporary prototype for a
 future dedicated-engine port. Simulation rules remain separate from rendering and
@@ -217,10 +377,8 @@ synchronization, and rendering optimizations within the web platform.
 The battlefield uses Canvas rendering. Menus, command panels, accessibility
 features, and other interface elements may use HTML and CSS where appropriate.
 
-## 9. Open Design Questions
+## 10. Open Design Questions
 
-- Is building power represented by radius, connected networks, or both?
-- Does the economy use stored resource pools, continuous flow, or a hybrid?
 - How does a player choose whether a mobile supplier transfers energy, and how is
   its reserve protected from accidental depletion?
 - Can enemies capture or reclaim units in stasis?

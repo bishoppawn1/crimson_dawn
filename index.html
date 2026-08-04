@@ -37,23 +37,54 @@
 
           <section>
             <p class="panel-label">COMMANDS</p>
-            <button id="overdrive-button" class="ability" disabled>
-              <span>Q</span>
-              <div>
-                <strong>Overdrive</strong>
-                <small>30 energy · faster movement and weapons</small>
+            <div id="unit-commands" class="command-group" hidden>
+              <button id="overdrive-button" class="ability" disabled>
+                <span>Q</span>
+                <div>
+                  <strong>Overdrive</strong>
+                  <small>30 energy · faster movement and weapons</small>
+                </div>
+              </button>
+              <div class="command-grid">
+                <button id="stop-button" class="command-button">Stop</button>
+                <button id="hold-button" class="command-button">Hold position</button>
               </div>
-            </button>
+            </div>
+
+            <div id="build-commands" class="command-group" hidden>
+              <p class="sub-label">WORKER CONSTRUCTION</p>
+              <div id="build-command-grid" class="command-grid"></div>
+            </div>
+
+            <div id="production-commands" class="command-group" hidden>
+              <p class="sub-label">PRODUCTION</p>
+              <div id="production-command-grid" class="command-grid"></div>
+            </div>
+
+            <div id="structure-commands" class="command-group" hidden>
+              <button id="cancel-construction-button" class="command-button cancel-command">
+                <strong>C · Cancel Construction</strong>
+                <small><span id="cancel-refund-value">0</span> metal refunded</small>
+              </button>
+            </div>
+
             <button id="pause-button" class="secondary">Pause simulation</button>
             <button id="reset-button" class="secondary">Reset field test</button>
           </section>
 
           <section class="legend">
             <p class="panel-label">FIELD MANUAL</p>
-            <p><b>Left-click</b> a unit to select it. Hold Shift to add units.</p>
-            <p><b>Right-click</b> terrain to move or an enemy to attack.</p>
+            <p><b>Left-click</b> or drag a selection box. Hold Shift to add units.</p>
+            <p><b>Right-click</b> terrain to move, an enemy to attack, or an unfinished friendly building to resume construction.</p>
+            <p><b>G</b>, then right-click to force-move and ignore enemies until arrival.</p>
             <p><b>Q</b> activates Overdrive on selected assault mechs.</p>
-            <p>Blue rings recharge units. Energy carriers automatically share reserves.</p>
+            <p><b>C</b> cancels a selected unfinished building and refunds part of its unbuilt metal.</p>
+            <p>Buildings block ground movement. Workers automatically slide around them.</p>
+            <p>Workers construct buildings. Select a factory to queue units; right-click terrain to set their attack-move rally point.</p>
+            <p>Ordinary buildings snap to the grid and cannot overlap units or structures. Metal mines snap to marked deposits.</p>
+            <p>Build mode shows the friendly grid's coverage. Generators, batteries, and relay previews show their future coverage.</p>
+            <p>Relay towers extend power. Red rings and crosses mark disconnected structures.</p>
+            <p>Generators provide constant power and never run out. Batteries store surplus; full batteries discard overflow.</p>
             <p>Disabled units slowly build an emergency charge, then reactivate.</p>
             <p>Salvage drones automatically recover metal from wrecks.</p>
           </section>
