@@ -113,6 +113,8 @@ When implementation begins, prove the core loop before expanding the roster:
 
 ## Working Conventions
 
+- Every completed change must be committed and pushed to `origin/main` before
+  handoff. Do not leave completed task-scoped changes only in the local worktree.
 - After each completed change request, run `npm test`, `npm run check`, and
   `git diff --check`. If validation passes, commit only the task-scoped files and
   push the commit to `origin/main`.
