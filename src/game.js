@@ -87,18 +87,35 @@ const buildButtons = new Map();
 for (const tier of [1, 2, 3]) {
   const tierGroup = document.createElement("section");
   tierGroup.className = "build-tier-group";
-  const tierLabel = document.createElement("p");
+  const tierToggle = document.createElement("button");
+  tierToggle.type = "button";
+  tierToggle.className = "build-tier-toggle";
+  tierToggle.setAttribute("aria-expanded", "false");
+  const tierLabel = document.createElement("span");
   tierLabel.className = "build-tier-label";
   tierLabel.textContent = `Tier ${tier}`;
+  const tierChevron = document.createElement("span");
+  tierChevron.className = "build-tier-chevron";
+  tierChevron.setAttribute("aria-hidden", "true");
+  tierChevron.textContent = "›";
+  tierToggle.append(tierLabel, tierChevron);
   const tierGrid = document.createElement("div");
   tierGrid.className = "command-grid build-tier-grid";
-  tierGroup.append(tierLabel, tierGrid);
+  tierGrid.id = `build-tier-${tier}-options`;
+  tierGrid.hidden = true;
+  tierToggle.setAttribute("aria-controls", tierGrid.id);
+  tierToggle.addEventListener("click", () => {
+    const expanded = tierToggle.getAttribute("aria-expanded") === "true";
+    tierToggle.setAttribute("aria-expanded", String(!expanded));
+    tierGrid.hidden = expanded;
+  });
+  tierGroup.append(tierToggle, tierGrid);
   buildCommandGrid.append(tierGroup);
 
   for (const structureType of BUILD_MENU_BY_TIER[tier]) {
     const definition = STRUCTURE_DEFINITIONS[structureType];
     const button = document.createElement("button");
-    button.className = "command-button";
+    button.className = "command-button build-command-button";
     button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · T${definition.minimumWorkerTier} worker</small>`;
     button.addEventListener("click", () => {
       placementStructureType = placementStructureType === structureType ? null : structureType;
@@ -1445,11 +1462,17 @@ function updateInterface() {
   for (const [structureType, button] of buildButtons) {
     const definition = STRUCTURE_DEFINITIONS[structureType];
     const workerCanBuild = canWorkerTierBuildStructure(selectedWorkerTier, structureType);
-    button.disabled = !workerCanBuild || simulation.resources.player.metal < definition.metalCost;
+    const canAfford = simulation.resources.player.metal >= definition.metalCost;
+    const canBuild = workerCanBuild && canAfford;
+    button.disabled = !canBuild;
+    button.classList.toggle("available", canBuild);
     button.classList.toggle("locked", !workerCanBuild);
-    button.title = workerCanBuild
-      ? ""
-      : `Requires a Tier ${definition.minimumWorkerTier} Worker Drone`;
+    button.classList.toggle("unaffordable", workerCanBuild && !canAfford);
+    button.title = !workerCanBuild
+      ? `Requires a Tier ${definition.minimumWorkerTier} Worker Drone`
+      : !canAfford
+        ? `Requires ${definition.metalCost.toLocaleString()} metal`
+        : `Build ${definition.name}`;
     button.classList.toggle("active", placementStructureType === structureType);
   }
   if (

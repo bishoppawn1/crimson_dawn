@@ -303,26 +303,86 @@ canvas {
 
 .build-tier-list {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .command-panel .build-tier-group {
   padding: 0;
+  overflow: hidden;
+  border: 1px solid #44373e;
+  border-radius: 6px;
+  background: #171318;
+}
+
+.build-tier-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 11px;
   border: 0;
-  background: transparent;
+  background: #24171c;
+  color: #f2e9eb;
+  cursor: pointer;
+  text-align: left;
+}
+
+.build-tier-toggle:hover,
+.build-tier-toggle[aria-expanded="true"] {
+  background: #321b22;
+}
+
+.build-tier-toggle:focus-visible {
+  outline: 2px solid #e05e70;
+  outline-offset: -2px;
 }
 
 .build-tier-label {
-  margin: 0;
-  color: #d75565;
-  font-size: 10px;
+  color: #f06b7c;
+  font-size: 11px;
   font-weight: 850;
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
+.build-tier-chevron {
+  color: #d75565;
+  font-size: 20px;
+  line-height: 0.7;
+  transform: rotate(0deg);
+  transition: transform 120ms ease;
+}
+
+.build-tier-toggle[aria-expanded="true"] .build-tier-chevron {
+  transform: rotate(90deg);
+}
+
 .build-tier-grid {
-  margin-top: 6px;
+  margin: 0;
+  padding: 8px;
+  border-top: 1px solid #44373e;
+}
+
+.build-tier-grid[hidden] {
+  display: none;
+}
+
+.build-command-button {
+  transition: opacity 120ms ease, filter 120ms ease, border-color 120ms ease,
+    background 120ms ease;
+}
+
+.build-command-button.available {
+  border-color: #83505a;
+  background: #2c1b21;
+  color: #fff7f8;
+  box-shadow: inset 0 0 0 1px rgb(224 94 112 / 12%);
+}
+
+.build-command-button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.65);
+  opacity: 0.38;
 }
 
 .command-button {
@@ -356,7 +416,7 @@ canvas {
   color: #fff;
 }
 
-.command-button.locked {
+.build-command-button.locked {
   border-style: dashed;
 }
 

@@ -343,6 +343,12 @@ Worker construction capability is cumulative:
 - A Tier 3 Worker Drone inherits every Tier 1 and Tier 2 option, constructs every
   Tier 3 building, and constructs the Experimental Factory.
 
+The worker construction interface presents exactly three independently collapsible
+boxes labeled Tier 1, Tier 2, and Tier 3. Players may open or close each box at any
+time. Within an open box, structures the current worker selection can build and
+afford are displayed brightly, while structures blocked by worker tier or current
+metal are dimmed but remain visible so the progression path stays clear.
+
 Pulse Generators, Grid Batteries, Power Relay Towers, Induction Chargers, Metal
 Mines, Sentry Turrets, and Salvage Reclamation Yards currently have separate Tier
 1, Tier 2, and Tier 3 construction definitions. Higher-tier versions have larger
