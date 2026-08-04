@@ -140,6 +140,7 @@ export class Simulation {
       attackTargetId: null,
       attackTargetMode: null,
       buildTargetId: null,
+      buildQueue: [],
       holdPosition: false,
       navigationObstacleId: null,
       navigationSide: null,
@@ -149,6 +150,7 @@ export class Simulation {
     };
     unit.hp = clamp(unit.hp, 0, definition.maxHp);
     unit.energy = clamp(unit.energy, 0, definition.maxEnergy);
+    unit.buildQueue = Array.isArray(unit.buildQueue) ? [...unit.buildQueue] : [];
     if (unit.energy <= EPSILON) unit.state = "stasis";
     this.units.push(unit);
     return unit;
@@ -293,6 +295,7 @@ export class Simulation {
       unit.attackTargetId = null;
       unit.attackTargetMode = null;
       unit.buildTargetId = null;
+      unit.buildQueue = [];
       unit.holdPosition = false;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -348,6 +351,7 @@ export class Simulation {
       unit.moveTarget = null;
       unit.moveMode = null;
       unit.buildTargetId = null;
+      unit.buildQueue = [];
       unit.holdPosition = false;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -366,6 +370,7 @@ export class Simulation {
       unit.attackTargetId = null;
       unit.attackTargetMode = null;
       unit.buildTargetId = null;
+      unit.buildQueue = [];
       unit.holdPosition = holdPosition;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -374,7 +379,36 @@ export class Simulation {
     return accepted;
   }
 
-  commandBuild(unitIds, structureId) {
+  assignActiveBuildTarget(worker, structureId) {
+    worker.buildTargetId = structureId;
+    worker.attackTargetId = null;
+    worker.attackTargetMode = null;
+    worker.moveTarget = null;
+    worker.moveMode = null;
+    worker.holdPosition = false;
+    worker.navigationObstacleId = null;
+    worker.navigationSide = null;
+  }
+
+  advanceBuildQueue(worker) {
+    worker.buildTargetId = null;
+    worker.buildQueue = Array.isArray(worker.buildQueue) ? worker.buildQueue : [];
+    while (worker.buildQueue.length > 0) {
+      const nextStructureId = worker.buildQueue.shift();
+      const nextStructure = this.getStructure(nextStructureId);
+      if (
+        nextStructure?.alive &&
+        !nextStructure.complete &&
+        nextStructure.team === worker.team
+      ) {
+        this.assignActiveBuildTarget(worker, nextStructure.id);
+        return nextStructure;
+      }
+    }
+    return null;
+  }
+
+  commandBuild(unitIds, structureId, { queue = false } = {}) {
     const structure = this.getStructure(structureId);
     if (!structure?.alive || structure.complete) return 0;
 
@@ -389,14 +423,24 @@ export class Simulation {
       ) {
         continue;
       }
-      worker.buildTargetId = structure.id;
-      worker.attackTargetId = null;
-      worker.attackTargetMode = null;
-      worker.moveTarget = null;
-      worker.moveMode = null;
-      worker.holdPosition = false;
-      worker.navigationObstacleId = null;
-      worker.navigationSide = null;
+      worker.buildQueue = Array.isArray(worker.buildQueue) ? worker.buildQueue : [];
+      if (!queue) {
+        worker.buildQueue = [];
+        this.assignActiveBuildTarget(worker, structure.id);
+      } else {
+        const currentTarget = this.getStructure(worker.buildTargetId);
+        const hasActiveBuildTarget =
+          currentTarget?.alive &&
+          !currentTarget.complete &&
+          currentTarget.team === worker.team;
+        if (
+          worker.buildTargetId !== structure.id &&
+          !worker.buildQueue.includes(structure.id)
+        ) {
+          worker.buildQueue.push(structure.id);
+        }
+        if (!hasActiveBuildTarget) this.advanceBuildQueue(worker);
+      }
       accepted += 1;
     }
     return accepted;
@@ -427,7 +471,8 @@ export class Simulation {
     structure.powerStatus = "cancelled";
 
     for (const unit of this.units) {
-      if (unit.buildTargetId === structure.id) unit.buildTargetId = null;
+      unit.buildQueue = (unit.buildQueue || []).filter((id) => id !== structure.id);
+      if (unit.buildTargetId === structure.id) this.advanceBuildQueue(unit);
     }
     this.emit("construction_cancelled", structure.x, structure.y, {
       structureId: structure.id,
@@ -742,7 +787,7 @@ export class Simulation {
     return true;
   }
 
-  startConstruction(workerIds, structureType, x, y) {
+  startConstruction(workerIds, structureType, x, y, { queue = false } = {}) {
     this.lastPlacementError = null;
     const definition = STRUCTURE_DEFINITIONS[structureType];
     const workers = workerIds
@@ -786,7 +831,7 @@ export class Simulation {
       weaponEnergy: definition.capacitorCapacity ? 0 : null,
     });
     this.clearFriendlyUnitsFromConstructionSite(structure);
-    this.commandBuild(workers.map((worker) => worker.id), structure.id);
+    this.commandBuild(workers.map((worker) => worker.id), structure.id, { queue });
     return structure;
   }
 
@@ -1932,7 +1977,7 @@ export class Simulation {
       if (!worker.alive || worker.state !== "active" || !workerDefinition.workerTier || !worker.buildTargetId) continue;
       const structure = this.getStructure(worker.buildTargetId);
       if (!structure?.alive || structure.complete || structure.team !== worker.team) {
-        worker.buildTargetId = null;
+        this.advanceBuildQueue(worker);
         continue;
       }
 
@@ -1955,7 +2000,7 @@ export class Simulation {
         structure.complete = true;
         structure.hp = definition.maxHp;
         this.recordStructureTierUnlock(structure);
-        worker.buildTargetId = null;
+        this.advanceBuildQueue(worker);
         if (STRUCTURE_DEFINITIONS[structure.type].droneCount && structure.drones.length === 0) {
           for (let slot = 0; slot < definition.droneCount; slot += 1) {
             structure.drones.push(this.createDrone(structure, slot));
@@ -2199,7 +2244,10 @@ export class Simulation {
 
       const buildTarget = this.getStructure(unit.buildTargetId);
       if (buildTarget?.alive && !buildTarget.complete) continue;
-      if (unit.buildTargetId) unit.buildTargetId = null;
+      if (unit.buildTargetId || unit.buildQueue?.length) {
+        const nextBuildTarget = this.advanceBuildQueue(unit);
+        if (nextBuildTarget) continue;
+      }
 
       const attackTarget = this.getEntity(unit.attackTargetId);
       if (unit.attackTargetId && (!attackTarget || !attackTarget.alive || attackTarget.team === unit.team)) {

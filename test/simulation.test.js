@@ -1371,6 +1371,123 @@ test("workers spend metal and complete new structures", () => {
   assert.equal(worker.buildTargetId, null);
 });
 
+test("Shift-queued construction completes foundations in placement order", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 1000;
+  const worker = simulation.addUnit("worker_drone_t1", "player", 160, 100);
+  const first = simulation.startConstruction(
+    [worker.id],
+    "power_tower",
+    220,
+    100,
+    { queue: true },
+  );
+  const second = simulation.startConstruction(
+    [worker.id],
+    "power_tower",
+    260,
+    100,
+    { queue: true },
+  );
+  const third = simulation.startConstruction(
+    [worker.id],
+    "power_tower",
+    300,
+    100,
+    { queue: true },
+  );
+
+  assert.ok(first && second && third);
+  assert.equal(worker.buildTargetId, first.id);
+  assert.deepEqual(worker.buildQueue, [second.id, third.id]);
+
+  let safetyTicks = 3000;
+  while (!first.complete && safetyTicks > 0) {
+    simulation.tick(1 / 30);
+    safetyTicks -= 1;
+  }
+  assert.equal(first.complete, true);
+  assert.equal(second.complete, false);
+  assert.equal(third.complete, false);
+  assert.equal(worker.buildTargetId, second.id);
+  assert.deepEqual(worker.buildQueue, [third.id]);
+
+  while (!second.complete && safetyTicks > 0) {
+    simulation.tick(1 / 30);
+    safetyTicks -= 1;
+  }
+  assert.equal(second.complete, true);
+  assert.equal(third.complete, false);
+  assert.equal(worker.buildTargetId, third.id);
+
+  while (!third.complete && safetyTicks > 0) {
+    simulation.tick(1 / 30);
+    safetyTicks -= 1;
+  }
+  assert.equal(third.complete, true);
+  assert.equal(worker.buildTargetId, null);
+  assert.deepEqual(worker.buildQueue, []);
+});
+
+test("ordinary build orders replace queued construction and move orders clear it", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 1000;
+  const worker = simulation.addUnit("worker_drone_t1", "player", 160, 100);
+  const first = simulation.startConstruction([worker.id], "power_tower", 220, 100);
+  const queued = simulation.startConstruction(
+    [worker.id],
+    "power_tower",
+    260,
+    100,
+    { queue: true },
+  );
+  const replacement = simulation.startConstruction(
+    [worker.id],
+    "power_tower",
+    300,
+    100,
+  );
+
+  assert.ok(first && queued && replacement);
+  assert.equal(worker.buildTargetId, replacement.id);
+  assert.deepEqual(worker.buildQueue, []);
+
+  simulation.commandBuild([worker.id], first.id);
+  simulation.commandBuild([worker.id], queued.id, { queue: true });
+  simulation.commandMove([worker.id], 500, 100);
+  assert.equal(worker.buildTargetId, null);
+  assert.deepEqual(worker.buildQueue, []);
+});
+
+test("cancelling construction removes it from worker queues and advances current work", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 1000;
+  const worker = simulation.addUnit("worker_drone_t1", "player", 160, 100);
+  const first = simulation.startConstruction([worker.id], "power_tower", 220, 100);
+  const cancelledQueued = simulation.startConstruction(
+    [worker.id],
+    "power_tower",
+    260,
+    100,
+    { queue: true },
+  );
+  const third = simulation.startConstruction(
+    [worker.id],
+    "power_tower",
+    300,
+    100,
+    { queue: true },
+  );
+
+  simulation.cancelConstruction(cancelledQueued.id, "player");
+  assert.equal(worker.buildTargetId, first.id);
+  assert.deepEqual(worker.buildQueue, [third.id]);
+
+  simulation.cancelConstruction(first.id, "player");
+  assert.equal(worker.buildTargetId, third.id);
+  assert.deepEqual(worker.buildQueue, []);
+});
+
 test("powered sentry turrets automatically defend against nearby enemies", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);

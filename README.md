@@ -55,6 +55,7 @@ The current build is the first playable field test. It includes:
   reservations, and powered 8×6 Strategic Supply Complexes that upgrade from
   5,000 to 10,000 and 20,000 added capacity.
 - Worker-driven building placement and construction.
+- Shift-queued building placement, with workers completing foundations in order.
 - Collision-safe factory exits and spread rally formations for player and enemy units.
 - Resumable and cancellable construction with abandoned-project recovery for AI workers.
 - A visible 40-unit construction grid with valid/blocked footprint previews and
@@ -105,6 +106,7 @@ No package installation or external runtime is required.
 - Select an unfinished building and press `C` to cancel it for a partial refund.
 - Press `Q` to use Overdrive with selected Bulwark Mechs.
 - Select a worker to place buildings, or select a mech factory to queue units.
+- Hold Shift while placing buildings to queue multiple foundations for the selected workers.
 - With a production building selected, right-click terrain to set the attack-move rally point for newly produced units.
 - Press Space to pause or resume.
 
