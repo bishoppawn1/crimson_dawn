@@ -568,19 +568,43 @@ its steady generation capacity.
 
 The AI makes its first decision after one second and reevaluates every second. Its
 opening prioritizes a battery, local static defense, a charger, and a three-unit
-combat force before expensive expansion. The Strategic Supply Complex is a late
-infrastructure project rather than an opening reservation. Once the initial force
-is secured, the AI reserves enough metal for its next planned building before
-queueing ordinary combat units. Replacing a missing worker and rebuilding a
-deployed or destroyed combat reserve take priority over that building reserve.
+combat force before expensive infrastructure. The Strategic Supply Complex is not
+part of a fixed build sequence: the AI constructs one only when its remaining
+supply falls to 10 percent of current capacity or less, and it purchases each
+later capacity upgrade only when supply becomes that constrained again. Once the
+initial force is secured, the AI reserves enough metal for its next currently
+needed building before queueing ordinary combat units. Replacing a missing worker
+and rebuilding a deployed or destroyed combat reserve take priority over that
+building reserve.
+
+After establishing its opening battery, defense, and charger, the AI begins paid
+economic expansion instead of relying indefinitely on its starting mine. It seeks
+the nearest unused non-frontier deposit first, constructs a normally vulnerable
+generator outpost within power range when needed, and then has a worker construct
+the mine. Expansion has no mine-count cap or fixed deposit sequence: after the
+basic opening is covered, the AI maintains at least two mines and seeks another
+whenever its available metal is at or below 400 or reaches a 900-metal expansion
+surplus. There is no upper mine limit, so recurring economic pressure or later
+surpluses can carry expansion across the entire map. It prefers non-frontier
+deposits before farther frontier deposits and reevaluates ownership and placement
+on every decision, so deposits already claimed by either side or temporarily
+blocked by hostile units are skipped. Construction costs, travel, construction
+time, power demand, and destruction all use normal simulation rules. The metal
+decision thresholds are provisional.
 
 Enemy combat units stage until three active attackers are ready, then launch as a
 coordinated wave against one target. Newly produced attackers wait for a later wave
 instead of crossing the map individually. Automatic attacks within weapon range
 still allow staged units to defend themselves locally. If a player unit or structure
 appears within 800 world units of enemy infrastructure, available defenders respond
-immediately without waiting for a complete wave. The cadence, response radius, and
-three-unit wave size are provisional.
+immediately without waiting for a complete wave. If at least three completed player
+Sentry Turrets are clustered within 420 world units of one another, ordinary assault
+waves grow from three to five units. An assault force more than 800 world units from
+its generator fallback retreats toward that generator when hostile combat strength
+within 520 world units exceeds its nearby strength by a factor of 1.5. Retreat uses
+a normal force-move command, so the units disengage and regroup rather than continuing
+an obviously losing attack. The cadence, response radius, strength estimate, defense
+cluster, retreat, and wave-size values are provisional.
 
 ## 9. Initial Playable Scope
 
