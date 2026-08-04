@@ -2081,3 +2081,55 @@ test("cancelling construction removes the foundation, clears workers, and refund
   assert.equal(simulation.resources.player.metal, startingMetal + expectedRefund);
   assert.equal(simulation.events.at(-1).type, "construction_cancelled");
 });
+
+test("destroying every enemy unit and building ends the match in victory", () => {
+  const simulation = new Simulation({ matchRulesEnabled: true });
+  simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  simulation.addStructure("generator", "player", 160, 100);
+  const enemyUnit = simulation.addUnit("scout_mech", "enemy", 700, 100);
+  const enemyFoundation = simulation.addStructure("battery", "enemy", 760, 100, {
+    complete: false,
+    constructionProgress: 1,
+  });
+
+  simulation.applyDamage(enemyUnit, enemyUnit.hp);
+  assert.equal(simulation.matchResult, null);
+
+  simulation.applyDamage(enemyFoundation, enemyFoundation.hp);
+  simulation.tick(1 / 30);
+  assert.equal(simulation.matchResult, "victory");
+  assert.equal(simulation.events.at(-1).type, "match_complete");
+  assert.equal(simulation.events.at(-1).winner, "player");
+
+  const completedAt = simulation.time;
+  simulation.tick(1);
+  assert.equal(simulation.time, completedAt);
+});
+
+test("losing every player unit and building ends the match in defeat", () => {
+  const simulation = new Simulation({ matchRulesEnabled: true });
+  const playerUnit = simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const playerStructure = simulation.addStructure("generator", "player", 160, 100);
+  simulation.addUnit("scout_mech", "enemy", 700, 100);
+  simulation.addStructure("generator", "enemy", 760, 100);
+
+  simulation.applyDamage(playerUnit, playerUnit.hp);
+  assert.equal(simulation.matchResult, null);
+
+  simulation.applyDamage(playerStructure, playerStructure.hp);
+  simulation.tick(1 / 30);
+  assert.equal(simulation.matchResult, "defeat");
+  assert.equal(simulation.events.at(-1).type, "match_complete");
+  assert.equal(simulation.events.at(-1).winner, "enemy");
+});
+
+test("field tests enable elimination while isolated simulations remain opt-in", () => {
+  const isolated = new Simulation();
+  isolated.addUnit("worker_drone_t1", "player", 100, 100);
+  isolated.tick(1 / 30);
+  assert.equal(isolated.matchResult, null);
+
+  const fieldTest = Simulation.createFieldTest();
+  assert.equal(fieldTest.matchRulesEnabled, true);
+  assert.equal(fieldTest.matchResult, null);
+});

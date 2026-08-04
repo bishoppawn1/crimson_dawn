@@ -27,6 +27,19 @@
             Crimson Dawn requires a browser with Canvas support.
           </canvas>
           <div id="status-banner" class="status-banner" hidden></div>
+          <section
+            id="match-result"
+            class="match-result"
+            role="dialog"
+            aria-live="assertive"
+            aria-labelledby="match-result-title"
+            hidden
+          >
+            <p class="match-result-label">MATCH COMPLETE</p>
+            <h2 id="match-result-title">You win.</h2>
+            <p id="match-result-details">All enemy buildings and units have been destroyed.</p>
+            <button id="restart-match-button" type="button">Restart match</button>
+          </section>
         </div>
 
         <aside class="command-panel">

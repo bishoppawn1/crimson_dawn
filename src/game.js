@@ -39,6 +39,10 @@ const buildingUpgradeDetails = document.querySelector("#building-upgrade-details
 const pauseButton = document.querySelector("#pause-button");
 const resetButton = document.querySelector("#reset-button");
 const statusBanner = document.querySelector("#status-banner");
+const matchResultPanel = document.querySelector("#match-result");
+const matchResultTitle = document.querySelector("#match-result-title");
+const matchResultDetails = document.querySelector("#match-result-details");
+const restartMatchButton = document.querySelector("#restart-match-button");
 
 let simulation = Simulation.createFieldTest();
 let selectedUnitIds = new Set();
@@ -1331,6 +1335,17 @@ function polygon(sides, radius, rotation = 0) {
 }
 
 function updateInterface() {
+  const matchEnded = Boolean(simulation.matchResult);
+  matchResultPanel.hidden = !matchEnded;
+  if (matchEnded) {
+    const victory = simulation.matchResult === "victory";
+    matchResultTitle.textContent = victory ? "You win." : "You lose.";
+    matchResultDetails.textContent = victory
+      ? "All enemy buildings and units have been destroyed."
+      : "All of your buildings and units have been destroyed.";
+  }
+  pauseButton.disabled = matchEnded;
+
   metalValue.textContent = Math.floor(simulation.resources.player.metal).toLocaleString();
   const netEnergyRate = simulation.getNetEnergyRate("player");
   const netEnergyText = netEnergyRate.toLocaleString(undefined, { maximumFractionDigits: 1 });
@@ -1416,10 +1431,10 @@ function updateInterface() {
     return ability && unit.state === "active" && unit.energy >= ability.energyCost;
   });
   overdriveButton.disabled = !canOverdrive;
-  unitCommands.hidden = selectedUnits.length === 0;
+  unitCommands.hidden = matchEnded || selectedUnits.length === 0;
 
   const selectedWorkers = selectedUnits.filter((unit) => UNIT_DEFINITIONS[unit.type].workerTier);
-  buildCommands.hidden = selectedWorkers.length === 0;
+  buildCommands.hidden = matchEnded || selectedWorkers.length === 0;
   const selectedWorkerTier = selectedWorkers.reduce(
     (highest, unit) => Math.max(highest, UNIT_DEFINITIONS[unit.type].workerTier),
     0,
@@ -1445,7 +1460,7 @@ function updateInterface() {
 
   const factoryDefinition = selectedStructure && STRUCTURE_DEFINITIONS[selectedStructure.type];
   const availableProduction = factoryDefinition?.production || [];
-  productionCommands.hidden = availableProduction.length === 0;
+  productionCommands.hidden = matchEnded || availableProduction.length === 0;
   for (const [unitType, button] of productionButtons) {
     const available = availableProduction.includes(unitType);
     const unitDefinition = UNIT_DEFINITIONS[unitType];
@@ -1502,7 +1517,7 @@ function updateInterface() {
     buildingUpgradeButton.disabled = !buildingUpgrade.valid;
   }
   structureCommands.hidden =
-    !canCancelConstruction && !canShowSupplyUpgrade && !canShowBuildingUpgrade;
+    matchEnded || (!canCancelConstruction && !canShowSupplyUpgrade && !canShowBuildingUpgrade);
 
   const lowEnergyUnits = simulation.units.filter(
     (unit) => unit.alive && unit.team === "player" && energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio,
@@ -1634,7 +1649,7 @@ function findEnemyAt(point) {
 }
 
 canvas.addEventListener("mousedown", (event) => {
-  if (event.button !== 0) return;
+  if (simulation.matchResult || event.button !== 0) return;
   pointerScreen = canvasScreenPoint(event);
   const point = screenToWorld(pointerScreen);
   selectionDrag = {
@@ -1745,6 +1760,7 @@ canvas.addEventListener("click", (event) => {
 
 canvas.addEventListener("contextmenu", (event) => {
   event.preventDefault();
+  if (simulation.matchResult) return;
   if (placementStructureType) {
     placementStructureType = null;
     placementMessage = null;
@@ -1825,9 +1841,11 @@ pauseButton.addEventListener("click", () => {
   pauseButton.textContent = paused ? "Resume simulation" : "Pause simulation";
 });
 resetButton.addEventListener("click", resetGame);
+restartMatchButton.addEventListener("click", resetGame);
 
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
+  if (simulation.matchResult) return;
   if (["w", "a", "s", "d"].includes(key)) {
     event.preventDefault();
     cameraKeys.add(key);

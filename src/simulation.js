@@ -18,7 +18,12 @@ const EPSILON = 0.0001;
 const STORAGE_PRIORITY = Object.freeze({ battery: 0, power_tower: 1, generator: 2 });
 
 export class Simulation {
-  constructor({ width = WORLD_WIDTH, height = WORLD_HEIGHT, terrain = [] } = {}) {
+  constructor({
+    width = WORLD_WIDTH,
+    height = WORLD_HEIGHT,
+    terrain = [],
+    matchRulesEnabled = false,
+  } = {}) {
     this.width = width;
     this.height = height;
     this.time = 0;
@@ -38,6 +43,8 @@ export class Simulation {
     this.lastPlacementError = null;
     this.lastProductionError = null;
     this.lastUpgradeError = null;
+    this.matchRulesEnabled = matchRulesEnabled;
+    this.matchResult = null;
     this.structureTechTier = { player: 1, enemy: 1 };
     this.resources = {
       player: { metal: 520, energy: 0, energyCapacity: 0 },
@@ -96,6 +103,8 @@ export class Simulation {
 
     simulation.aiBuildIndex = 1;
     simulation.refreshPowerState(0);
+    simulation.matchRulesEnabled = true;
+    simulation.updateMatchResult();
     return simulation;
   }
 
@@ -1082,7 +1091,7 @@ export class Simulation {
   }
 
   tick(deltaSeconds) {
-    if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return;
+    if (this.matchResult || !Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return;
     const delta = Math.min(deltaSeconds, 0.25);
     this.time += delta;
 
@@ -1101,6 +1110,25 @@ export class Simulation {
     this.syncStoredEnergy();
     this.events = this.events.filter((event) => this.time - event.time < 1.2);
     this.wrecks = this.wrecks.filter((wreck) => wreck.metal > EPSILON);
+    this.updateMatchResult();
+  }
+
+  updateMatchResult() {
+    if (!this.matchRulesEnabled || this.matchResult) return this.matchResult;
+
+    const hasLivingAssets = (team) =>
+      this.units.some((unit) => unit.alive && unit.team === team) ||
+      this.structures.some((structure) => structure.alive && structure.team === team);
+    const playerAlive = hasLivingAssets("player");
+    const enemyAlive = hasLivingAssets("enemy");
+    if (playerAlive && enemyAlive) return null;
+
+    this.matchResult = playerAlive ? "victory" : "defeat";
+    this.emit("match_complete", this.width / 2, this.height / 2, {
+      result: this.matchResult,
+      winner: this.matchResult === "victory" ? "player" : "enemy",
+    });
+    return this.matchResult;
   }
 
   refreshPowerState(delta) {

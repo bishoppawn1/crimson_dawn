@@ -474,6 +474,18 @@ reclamation yard, static defense, energy carrier, or combat unit is pre-built. B
 sides use their workers and starting metal income to expand their economy and
 military.
 
+### 5.5 Match End and Restart
+
+A player wins when the opposing side has no living units and no living buildings.
+The same elimination rule causes defeat when the player has no living units and no
+living buildings. Active, stasis, and unfinished entities count while they remain
+alive; wrecks and reclamation drones do not postpone elimination. If both sides are
+eliminated by the same resolution, the player receives a defeat.
+
+The simulation stops advancing once the result is decided. The battlefield displays
+`You win.` or `You lose.` with an explanation and a restart button. Restarting creates
+a fresh standard match with its normal starting forces, resources, terrain, and AI.
+
 ## 6. Research and Military Improvements
 
 Dedicated research or support buildings improve groups of units. Intended effects

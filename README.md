@@ -57,6 +57,7 @@ The current build is the first playable field test. It includes:
 - Worker-driven building placement and construction.
 - Collision-safe factory exits and spread rally formations for player and enemy units.
 - Resumable and cancellable construction with abandoned-project recovery for AI workers.
+- Elimination victory and defeat screens with a one-click fresh-match restart.
 - A visible 40-unit construction grid with valid/blocked footprint previews and
   shared no-overlap rules for player and AI building placement.
 - Edge-adjacent buildings can share grid boundaries without invisible placement gaps.
