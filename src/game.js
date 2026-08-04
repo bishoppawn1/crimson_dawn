@@ -1,11 +1,13 @@
 import {
-  BUILD_MENU,
+  BUILD_MENU_BY_TIER,
+  canWorkerTierBuildStructure,
   DRONE_DEFINITION,
   SIMULATION_RULES,
   STRUCTURE_DEFINITIONS,
   UNIT_DEFINITIONS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  powerCoverageBounds,
   structureFootprint,
 } from "./data.js";
 import { energyRatio, Simulation } from "./simulation.js";
@@ -31,6 +33,9 @@ const cancelRefundValue = document.querySelector("#cancel-refund-value");
 const supplyUpgradeButton = document.querySelector("#supply-upgrade-button");
 const supplyUpgradeTitle = document.querySelector("#supply-upgrade-title");
 const supplyUpgradeDetails = document.querySelector("#supply-upgrade-details");
+const buildingUpgradeButton = document.querySelector("#building-upgrade-button");
+const buildingUpgradeTitle = document.querySelector("#building-upgrade-title");
+const buildingUpgradeDetails = document.querySelector("#building-upgrade-details");
 const pauseButton = document.querySelector("#pause-button");
 const resetButton = document.querySelector("#reset-button");
 const statusBanner = document.querySelector("#status-banner");
@@ -75,18 +80,30 @@ const colors = {
 };
 
 const buildButtons = new Map();
-for (const structureType of BUILD_MENU) {
-  const definition = STRUCTURE_DEFINITIONS[structureType];
-  const button = document.createElement("button");
-  button.className = "command-button";
-  button.innerHTML = `${definition.name}<small>${definition.metalCost} metal</small>`;
-  button.addEventListener("click", () => {
-    placementStructureType = placementStructureType === structureType ? null : structureType;
-    placementMessage = null;
-    updateInterface();
-  });
-  buildCommandGrid.append(button);
-  buildButtons.set(structureType, button);
+for (const tier of [1, 2, 3]) {
+  const tierGroup = document.createElement("section");
+  tierGroup.className = "build-tier-group";
+  const tierLabel = document.createElement("p");
+  tierLabel.className = "build-tier-label";
+  tierLabel.textContent = `Tier ${tier}`;
+  const tierGrid = document.createElement("div");
+  tierGrid.className = "command-grid build-tier-grid";
+  tierGroup.append(tierLabel, tierGrid);
+  buildCommandGrid.append(tierGroup);
+
+  for (const structureType of BUILD_MENU_BY_TIER[tier]) {
+    const definition = STRUCTURE_DEFINITIONS[structureType];
+    const button = document.createElement("button");
+    button.className = "command-button";
+    button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · T${definition.minimumWorkerTier} worker</small>`;
+    button.addEventListener("click", () => {
+      placementStructureType = placementStructureType === structureType ? null : structureType;
+      placementMessage = null;
+      updateInterface();
+    });
+    tierGrid.append(button);
+    buildButtons.set(structureType, button);
+  }
 }
 
 const productionButtons = new Map();
@@ -254,11 +271,43 @@ function drawTerrain() {
   context.ellipse(480, WORLD_HEIGHT / 2, 560, 720, 0.15, 0, Math.PI * 2);
   context.fill();
 
+  drawImpassableTerrain();
+
   context.fillStyle = "#83909d";
   context.font = "700 12px ui-monospace, monospace";
   context.fillText("FRIENDLY GRID", 55, 500);
   context.fillStyle = "#a56a70";
   context.fillText("HOSTILE APPROACH", WORLD_WIDTH - 235, 500);
+}
+
+function drawImpassableTerrain() {
+  for (const obstacle of simulation.terrain) {
+    const left = obstacle.x - obstacle.width / 2;
+    const top = obstacle.y - obstacle.height / 2;
+    context.save();
+    context.fillStyle = "#252b31";
+    context.strokeStyle = "#59636b";
+    context.lineWidth = 4;
+    context.fillRect(left, top, obstacle.width, obstacle.height);
+    context.strokeRect(left, top, obstacle.width, obstacle.height);
+    context.beginPath();
+    context.rect(left, top, obstacle.width, obstacle.height);
+    context.clip();
+    context.strokeStyle = "#77818a28";
+    context.lineWidth = 2;
+    for (
+      let offset = -obstacle.height;
+      offset < obstacle.width + obstacle.height;
+      offset += SIMULATION_RULES.buildingGridSize
+    ) {
+      context.beginPath();
+      context.moveTo(left + offset, top + obstacle.height);
+      context.lineTo(left + offset + obstacle.height, top);
+      context.stroke();
+    }
+    context.restore();
+    drawLabel(obstacle.x, obstacle.y, `${obstacle.name} · Impassable`, true, "#9aa3aa");
+  }
 }
 
 function drawPlacementPreview() {
@@ -269,22 +318,24 @@ function drawPlacementPreview() {
     placementStructureType,
     placementCursor.x,
     placementCursor.y,
+    "player",
   );
   const previewColor = placement.valid ? colors.health : colors.disconnected;
   const powerCoverageRadius = definition.powerRadius || definition.relayRadius || 0;
 
   if (powerCoverageRadius > 0) {
     drawPowerCoverage(
+      placementStructureType,
       placement.x,
       placement.y,
-      powerCoverageRadius,
       placement.valid ? colors.energy : colors.disconnected,
       true,
     );
+    const coverage = powerCoverageBounds(placementStructureType, placement.x, placement.y);
     drawLabel(
       placement.x,
-      Math.max(18, placement.y - powerCoverageRadius - 12),
-      `Power coverage · ${powerCoverageRadius}`,
+      Math.max(18, coverage.top - 12),
+      `Power grid · ${coverage.columns}×${coverage.rows} cells`,
       true,
       placement.valid ? colors.energy : colors.disconnected,
     );
@@ -315,6 +366,21 @@ function drawPlacementPreview() {
   context.stroke();
   context.restore();
 
+  const createsGrid = Boolean(definition.generationRate);
+  const gridConnected = simulation.isBuildSiteConnectedToPower(
+    placementStructureType,
+    "player",
+    placement.x,
+    placement.y,
+  );
+  drawLabel(
+    placement.x,
+    placement.y + footprint.halfHeight + (placement.valid ? 24 : 46),
+    createsGrid ? "Creates power grid" : gridConnected ? "Inside power grid" : "Outside power grid",
+    true,
+    createsGrid || gridConnected ? colors.energy : colors.disconnected,
+  );
+
   if (!placement.valid && placement.reason) {
     drawLabel(
       placement.x,
@@ -329,21 +395,42 @@ function drawPlacementPreview() {
 function drawMetalDeposits() {
   const occupiedIds = new Set(
     simulation.structures
-      .filter((structure) => structure.alive && structure.type === "metal_mine" && structure.depositId)
+      .filter(
+        (structure) =>
+          structure.alive && STRUCTURE_DEFINITIONS[structure.type].metalRate && structure.depositId,
+      )
       .map((structure) => structure.depositId),
   );
   for (const deposit of simulation.metalDeposits) {
     const available = !occupiedIds.has(deposit.id);
-    const emphasized = placementStructureType === "metal_mine" && available;
+    const remote = Boolean(deposit.remote);
+    const emphasized = Boolean(
+      placementStructureType &&
+      STRUCTURE_DEFINITIONS[placementStructureType].metalRate &&
+      available,
+    );
     context.save();
     context.translate(deposit.x, deposit.y);
-    context.strokeStyle = emphasized ? colors.selection : available ? "#aaa39170" : "#5e5a5240";
-    context.fillStyle = emphasized ? "#d0c9b91c" : "#8b867a10";
-    context.lineWidth = emphasized ? 3 : 2;
+    context.strokeStyle = emphasized
+      ? colors.selection
+      : remote && available
+        ? "#d8b76fbb"
+        : available
+          ? "#aaa39170"
+          : "#5e5a5240";
+    context.fillStyle = emphasized ? "#d0c9b91c" : remote ? "#d8b76f18" : "#8b867a10";
+    context.lineWidth = emphasized || remote ? 3 : 2;
     context.beginPath();
-    context.arc(0, 0, 43, 0, Math.PI * 2);
+    context.arc(0, 0, remote ? 49 : 43, 0, Math.PI * 2);
     context.fill();
     context.stroke();
+    if (remote) {
+      context.strokeStyle = "#d8b76f66";
+      context.setLineDash([8, 7]);
+      context.beginPath();
+      context.arc(0, 0, 58, 0, Math.PI * 2);
+      context.stroke();
+    }
     context.fillStyle = available ? "#77776f" : "#444540";
     context.beginPath();
     context.moveTo(-21, 14);
@@ -354,20 +441,35 @@ function drawMetalDeposits() {
     context.closePath();
     context.fill();
     context.restore();
-    if (available) drawLabel(deposit.x, deposit.y + 57, "Metal Deposit", true, emphasized ? colors.selection : "#8f8b82");
+    if (available) {
+      drawLabel(
+        deposit.x,
+        deposit.y + (remote ? 70 : 57),
+        remote ? `${deposit.cluster} · Remote Deposit` : "Metal Deposit",
+        true,
+        emphasized ? colors.selection : remote ? "#d8b76f" : "#8f8b82",
+      );
+    }
   }
 }
 
 function drawPowerNetwork() {
   const nodes = simulation.structures.filter(
-    (structure) => structure.alive && structure.complete && ["generator", "power_tower", "battery"].includes(structure.type),
+    (structure) => {
+      const definition = STRUCTURE_DEFINITIONS[structure.type];
+      return Boolean(
+        structure.alive &&
+        structure.complete &&
+        (definition.generationRate || definition.powerRadius || definition.relayRadius),
+      );
+    },
   );
   if (placementStructureType) {
     for (const node of nodes) {
       if (node.team !== "player" || !node.connected) continue;
       const definition = STRUCTURE_DEFINITIONS[node.type];
       const reach = definition.powerRadius || definition.relayRadius;
-      if (reach) drawPowerCoverage(node.x, node.y, reach, colors.energy);
+      if (reach) drawPowerCoverage(node.type, node.x, node.y, colors.energy);
     }
   }
   for (const link of simulation.powerLinks || []) {
@@ -388,27 +490,29 @@ function drawPowerNetwork() {
     const nodeDefinition = STRUCTURE_DEFINITIONS[node.type];
     const reach = nodeDefinition.powerRadius || nodeDefinition.relayRadius;
     if (selectedStructureId === node.id) {
-      context.save();
-      context.strokeStyle = `${colors.energy}35`;
-      context.setLineDash([8, 12]);
-      context.beginPath();
-      context.arc(node.x, node.y, reach, 0, Math.PI * 2);
-      context.stroke();
-      context.restore();
+      if (reach) drawPowerCoverage(node.type, node.x, node.y, colors.energy, true);
     }
   }
 }
 
-function drawPowerCoverage(x, y, radius, color, emphasized = false) {
+function drawPowerCoverage(structureType, x, y, color, emphasized = false) {
+  const coverage = powerCoverageBounds(structureType, x, y);
+  if (!coverage) return;
+  const gridSize = SIMULATION_RULES.buildingGridSize;
   context.save();
-  context.fillStyle = `${color}${emphasized ? "18" : "0b"}`;
-  context.strokeStyle = `${color}${emphasized ? "cc" : "55"}`;
+  context.fillStyle = `${color}${emphasized ? "1d" : "0c"}`;
+  context.strokeStyle = `${color}${emphasized ? "58" : "24"}`;
+  context.lineWidth = 1;
+  for (let cellX = coverage.left; cellX < coverage.right; cellX += gridSize) {
+    for (let cellY = coverage.top; cellY < coverage.bottom; cellY += gridSize) {
+      context.fillRect(cellX + 1, cellY + 1, gridSize - 2, gridSize - 2);
+      context.strokeRect(cellX + 0.5, cellY + 0.5, gridSize - 1, gridSize - 1);
+    }
+  }
+  context.strokeStyle = `${color}${emphasized ? "dd" : "70"}`;
   context.lineWidth = emphasized ? 2.5 : 1.5;
   context.setLineDash(emphasized ? [10, 7] : [6, 10]);
-  context.beginPath();
-  context.arc(x, y, radius, 0, Math.PI * 2);
-  context.fill();
-  context.stroke();
+  context.strokeRect(coverage.left, coverage.top, coverage.width, coverage.height);
   context.restore();
 }
 
@@ -493,6 +597,7 @@ function drawDestination(x, y, color) {
 
 function drawStructure(structure) {
   const definition = STRUCTURE_DEFINITIONS[structure.type];
+  const family = definition.family;
   const footprint = structureFootprint(structure.type);
   const footprintInset = 5;
   const teamColor = structure.team === "player" ? colors.player : colors.enemy;
@@ -511,7 +616,7 @@ function drawStructure(structure) {
     );
   }
 
-  if (structure.type === "charger") {
+  if (family === "charger") {
     context.strokeStyle = structure.powered ? `${colors.energy}30` : "#a34e4e20";
     context.lineWidth = 3;
     context.beginPath();
@@ -519,7 +624,7 @@ function drawStructure(structure) {
     context.stroke();
   }
 
-  if (structure.type === "sentry_turret" && selectedStructureId === structure.id) {
+  if (family === "sentry_turret" && selectedStructureId === structure.id) {
     context.strokeStyle = "#ef596455";
     context.lineWidth = 2;
     context.setLineDash([7, 9]);
@@ -533,9 +638,9 @@ function drawStructure(structure) {
   context.strokeStyle = structure.powered ? teamColor : "#6e4a4e";
   context.lineWidth = 4;
   context.beginPath();
-  if (structure.type === "metal_mine") {
+  if (family === "metal_mine") {
     polygon(6, Math.min(footprint.halfWidth, footprint.halfHeight) - footprintInset, Math.PI / 6);
-  } else if (structure.type === "power_tower" || structure.type === "sentry_turret") {
+  } else if (family === "power_tower" || family === "sentry_turret") {
     context.arc(0, 0, Math.min(footprint.halfWidth, footprint.halfHeight) - footprintInset, 0, Math.PI * 2);
   } else {
     context.rect(
@@ -550,7 +655,7 @@ function drawStructure(structure) {
 
   context.strokeStyle = structure.powered ? colors.energy : "#7b5558";
   context.lineWidth = 3;
-  if (structure.type === "generator") {
+  if (family === "generator") {
     context.beginPath();
     context.arc(0, 0, 16, 0, Math.PI * 2);
     context.stroke();
@@ -560,14 +665,14 @@ function drawStructure(structure) {
     context.lineTo(7, 0);
     context.lineTo(0, 16);
     context.stroke();
-  } else if (structure.type === "charger") {
+  } else if (family === "charger") {
     context.beginPath();
     context.arc(0, 0, 18, 0, Math.PI * 2);
     context.stroke();
     context.fillStyle = structure.powered ? colors.energy : "#6b4d50";
     context.fillRect(-3, -12, 6, 24);
     context.fillRect(-12, -3, 24, 6);
-  } else if (structure.type === "power_tower") {
+  } else if (family === "power_tower") {
     context.beginPath();
     context.moveTo(0, -15);
     context.lineTo(-11, 14);
@@ -576,12 +681,12 @@ function drawStructure(structure) {
     context.moveTo(-7, 4);
     context.lineTo(7, 4);
     context.stroke();
-  } else if (structure.type === "battery") {
+  } else if (family === "battery") {
     context.strokeRect(-14, -18, 28, 36);
     context.fillStyle = structure.storedEnergy > 0 ? colors.energy : "#6b4d50";
     const batteryRatio = structure.storedEnergy / definition.storageCapacity;
     context.fillRect(-9, 13 - batteryRatio * 26, 18, batteryRatio * 26);
-  } else if (structure.type === "metal_mine") {
+  } else if (family === "metal_mine") {
     context.beginPath();
     context.moveTo(-15, 12);
     context.lineTo(-8, -12);
@@ -589,7 +694,7 @@ function drawStructure(structure) {
     context.lineTo(9, -15);
     context.lineTo(16, 12);
     context.stroke();
-  } else if (structure.type.startsWith("mech_factory")) {
+  } else if (family === "factory") {
     const bayWidth = footprint.width * 0.58;
     const bayHeight = footprint.height * 0.48;
     context.strokeRect(-bayWidth / 2, -bayHeight / 2, bayWidth, bayHeight);
@@ -599,7 +704,7 @@ function drawStructure(structure) {
     context.moveTo(-bayWidth * 0.36, 0);
     context.lineTo(bayWidth * 0.36, 0);
     context.stroke();
-  } else if (structure.type === "supply_complex") {
+  } else if (family === "supply_complex") {
     const level = structure.supplyLevel || 1;
     const coreWidth = footprint.width * 0.5;
     const coreHeight = footprint.height * 0.5;
@@ -611,7 +716,7 @@ function drawStructure(structure) {
     for (let marker = 0; marker < level; marker += 1) {
       context.fillRect((marker - (level - 1) / 2) * 22 - 6, -6, 12, 12);
     }
-  } else if (structure.type === "sentry_turret") {
+  } else if (family === "sentry_turret") {
     const defenseTarget = simulation.getEntity(structure.defenseTargetId);
     if (defenseTarget?.alive) {
       context.rotate(Math.atan2(defenseTarget.y - structure.y, defenseTarget.x - structure.x));
@@ -630,7 +735,7 @@ function drawStructure(structure) {
     context.lineTo(19, 10);
     context.stroke();
   }
-  if (structure.complete && structure.type !== "generator" && !structure.connected) {
+  if (structure.complete && !definition.generationRate && !structure.connected) {
     context.strokeStyle = colors.disconnected;
     context.lineWidth = 3;
     context.setLineDash([5, 6]);
@@ -692,7 +797,7 @@ function drawStructure(structure) {
       structure.storedEnergy / definition.storageCapacity,
       structure.powerStatus === "discharging" ? "#bdaaff" : colors.energy,
     );
-  } else if (structure.type === "sentry_turret") {
+  } else if (family === "sentry_turret") {
     drawBar(
       structure.x,
       structure.y - footprint.halfHeight - 5,
@@ -710,7 +815,7 @@ function drawStructure(structure) {
       !warning,
       warning ? colors.disconnected : structure.powerStatus === "discharging" ? "#bdaaff" : colors.energy,
     );
-  } else if (structure.complete && structure.type === "sentry_turret" && selectedStructureId === structure.id) {
+  } else if (structure.complete && family === "sentry_turret" && selectedStructureId === structure.id) {
     drawLabel(
       structure.x,
       structure.y + footprint.halfHeight + 33,
@@ -1208,10 +1313,10 @@ function updateInterface() {
     const storageText = definition.storageCapacity
       ? ` · ${Math.floor(selectedStructure.storedEnergy)}/${definition.storageCapacity} stored energy`
       : "";
-    const generatorText = selectedStructure.type === "generator"
+    const generatorText = definition.generationRate
       ? ` · +${definition.generationRate} energy/s constant · ${Math.floor(selectedStructure.energyGenerated)} generated`
       : "";
-    const defenseText = selectedStructure.type === "sentry_turret"
+    const defenseText = definition.capacitorCapacity
       ? ` · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
       : "";
     const builderCount = selectedStructure.complete
@@ -1267,10 +1372,27 @@ function updateInterface() {
 
   const selectedWorkers = selectedUnits.filter((unit) => UNIT_DEFINITIONS[unit.type].workerTier);
   buildCommands.hidden = selectedWorkers.length === 0;
+  const selectedWorkerTier = selectedWorkers.reduce(
+    (highest, unit) => Math.max(highest, UNIT_DEFINITIONS[unit.type].workerTier),
+    0,
+  );
   for (const [structureType, button] of buildButtons) {
     const definition = STRUCTURE_DEFINITIONS[structureType];
-    button.disabled = simulation.resources.player.metal < definition.metalCost;
+    const workerCanBuild = canWorkerTierBuildStructure(selectedWorkerTier, structureType);
+    button.disabled = !workerCanBuild || simulation.resources.player.metal < definition.metalCost;
+    button.classList.toggle("locked", !workerCanBuild);
+    button.title = workerCanBuild
+      ? ""
+      : `Requires a Tier ${definition.minimumWorkerTier} Worker Drone`;
     button.classList.toggle("active", placementStructureType === structureType);
+  }
+  if (
+    placementStructureType &&
+    !canWorkerTierBuildStructure(selectedWorkerTier, placementStructureType)
+  ) {
+    placementStructureType = null;
+    placementMessage = null;
+    placementCursor = null;
   }
 
   const factoryDefinition = selectedStructure && STRUCTURE_DEFINITIONS[selectedStructure.type];
@@ -1318,7 +1440,21 @@ function updateInterface() {
       supplyUpgradeButton.disabled = simulation.resources.player.metal < upgrade.metalCost;
     }
   }
-  structureCommands.hidden = !canCancelConstruction && !canShowSupplyUpgrade;
+  const buildingUpgrade = selectedStructure?.complete
+    ? simulation.getStructureUpgradeInfo(selectedStructure.id)
+    : null;
+  const canShowBuildingUpgrade = Boolean(buildingUpgrade?.targetType);
+  buildingUpgradeButton.hidden = !canShowBuildingUpgrade;
+  if (canShowBuildingUpgrade) {
+    const targetDefinition = STRUCTURE_DEFINITIONS[buildingUpgrade.targetType];
+    buildingUpgradeTitle.textContent = `Upgrade to ${targetDefinition.name}`;
+    buildingUpgradeDetails.textContent = buildingUpgrade.valid
+      ? `${buildingUpgrade.metalCost.toLocaleString()} metal · immediate in-place upgrade`
+      : buildingUpgrade.reason;
+    buildingUpgradeButton.disabled = !buildingUpgrade.valid;
+  }
+  structureCommands.hidden =
+    !canCancelConstruction && !canShowSupplyUpgrade && !canShowBuildingUpgrade;
 
   const lowEnergyUnits = simulation.units.filter(
     (unit) => unit.alive && unit.team === "player" && energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio,
@@ -1329,7 +1465,7 @@ function updateInterface() {
       structure.alive &&
       structure.complete &&
       structure.team === "player" &&
-      structure.type !== "generator" &&
+      !STRUCTURE_DEFINITIONS[structure.type].generationRate &&
       !structure.connected,
   );
   if (forceMoveArmed) {
@@ -1393,6 +1529,7 @@ function syncPointerToCamera() {
       placementStructureType,
       placementCursor.x,
       placementCursor.y,
+      "player",
     );
     placementMessage = placement.valid ? null : placement.reason.toUpperCase();
   }
@@ -1627,6 +1764,10 @@ overdriveButton.addEventListener("click", activateOverdrive);
 cancelConstructionButton.addEventListener("click", cancelSelectedConstruction);
 supplyUpgradeButton.addEventListener("click", () => {
   if (selectedStructureId) simulation.queueSupplyUpgrade(selectedStructureId);
+  updateInterface();
+});
+buildingUpgradeButton.addEventListener("click", () => {
+  if (selectedStructureId) simulation.upgradeStructure(selectedStructureId, "player");
   updateInterface();
 });
 stopButton.addEventListener("click", () => simulation.commandStop([...selectedUnitIds], false));

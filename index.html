@@ -54,7 +54,7 @@
 
             <div id="build-commands" class="command-group" hidden>
               <p class="sub-label">WORKER CONSTRUCTION</p>
-              <div id="build-command-grid" class="command-grid"></div>
+              <div id="build-command-grid" class="build-tier-list"></div>
             </div>
 
             <div id="production-commands" class="command-group" hidden>
@@ -71,6 +71,10 @@
                 <strong id="supply-upgrade-title">Upgrade Supply Complex</strong>
                 <small id="supply-upgrade-details"></small>
               </button>
+              <button id="building-upgrade-button" class="command-button" hidden>
+                <strong id="building-upgrade-title">Upgrade Structure</strong>
+                <small id="building-upgrade-details"></small>
+              </button>
             </div>
 
             <button id="pause-button" class="secondary">Pause simulation</button>
@@ -83,14 +87,20 @@
             <p><b>Left-click</b> or drag a selection box. Hold Shift to add units.</p>
             <p><b>Right-click</b> terrain to move, an enemy to attack, or an unfinished friendly building to resume construction.</p>
             <p><b>G</b>, then right-click to force-move and ignore enemies until arrival.</p>
+            <p>Combat units on both teams pursue enemies that damage them unless a force-move or explicit attack order takes priority.</p>
             <p><b>Q</b> activates Overdrive on selected assault mechs.</p>
             <p><b>C</b> cancels a selected unfinished building and refunds part of its unbuilt metal.</p>
             <p>Buildings block ground movement. Workers automatically slide around them.</p>
             <p>Units are compact but physical: dense groups spread out instead of stacking in one spot.</p>
             <p>Workers construct buildings. Select a factory to queue units; right-click terrain to set their attack-move rally point.</p>
+            <p>Worker construction is grouped by tier. Higher-tier drones inherit lower-tier options; locked buttons show the required worker tier.</p>
+            <p>A completed Tier 2 or Tier 3 Mech Factory unlocks in-place upgrades to that tier for your existing structures.</p>
             <p>Units consume supply when queued. Strategic Supply Complexes add massive capacity and can be upgraded twice.</p>
             <p>Ordinary buildings snap to the grid and cannot overlap units or structures. Metal mines snap to marked deposits.</p>
-            <p>Build mode shows the friendly grid's coverage. Generators, batteries, and relay previews show their future coverage.</p>
+            <p>Rocky ridges and crags are impassable to ground units and construction. Remote frontier clusters contain several metal deposits.</p>
+            <p>Buildings can sit directly beside each other when their visible grid footprints only share an edge.</p>
+            <p>Tier 1 infrastructure is compact: generators and batteries are 1×1, while Tier 1 factories are 2×2. Higher tiers are larger.</p>
+            <p>Build mode marks power as filled construction-grid cells. Placement previews say whether the snapped site is inside or outside the grid.</p>
             <p>Relay towers extend power. Red rings and crosses mark disconnected structures.</p>
             <p>Induction Chargers cover a large area, recharge every unit in their field at once, and fairly share limited grid power.</p>
             <p>The energy HUD shows net building power plus stored capacity. Mines draw passive power, and factories draw more while producing.</p>

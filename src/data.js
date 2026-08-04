@@ -1,5 +1,14 @@
-export const WORLD_WIDTH = 3200;
-export const WORLD_HEIGHT = 1800;
+export const WORLD_WIDTH = 5200;
+export const WORLD_HEIGHT = 3200;
+
+export const TERRAIN_OBSTACLES = Object.freeze([
+  Object.freeze({ id: "north-divide", name: "Northern Divide", x: 2600, y: 840, width: 480, height: 880 }),
+  Object.freeze({ id: "south-divide", name: "Southern Divide", x: 2600, y: 2360, width: 480, height: 880 }),
+  Object.freeze({ id: "western-shelf", name: "Western Shelf", x: 1560, y: 2040, width: 640, height: 240 }),
+  Object.freeze({ id: "eastern-shelf", name: "Eastern Shelf", x: 3640, y: 1160, width: 640, height: 240 }),
+  Object.freeze({ id: "northwest-crags", name: "Northwest Crags", x: 1040, y: 600, width: 400, height: 320 }),
+  Object.freeze({ id: "southeast-crags", name: "Southeast Crags", x: 4160, y: 2600, width: 400, height: 320 }),
+]);
 
 export const UNIT_DEFINITIONS = Object.freeze({
   worker_drone_t1: {
@@ -289,11 +298,14 @@ export const UNIT_DEFINITIONS = Object.freeze({
   },
 });
 
-export const STRUCTURE_DEFINITIONS = Object.freeze({
+const structureDefinitions = {
   generator: {
     name: "Pulse Generator",
-    radius: 34,
-    footprint: [2, 2],
+    family: "generator",
+    buildTier: 1,
+    minimumWorkerTier: 1,
+    radius: 18,
+    footprint: [1, 1],
     maxHp: 500,
     powerRadius: 245,
     generationRate: 14,
@@ -306,8 +318,11 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   battery: {
     name: "Grid Battery",
-    radius: 30,
-    footprint: [2, 2],
+    family: "battery",
+    buildTier: 1,
+    minimumWorkerTier: 1,
+    radius: 18,
+    footprint: [1, 1],
     maxHp: 380,
     powerRadius: 225,
     storageCapacity: 360,
@@ -319,6 +334,9 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   power_tower: {
     name: "Power Relay Tower",
+    family: "power_tower",
+    buildTier: 1,
+    minimumWorkerTier: 1,
     radius: 18,
     footprint: [1, 1],
     maxHp: 270,
@@ -333,8 +351,11 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   charger: {
     name: "Induction Charger",
-    radius: 31,
-    footprint: [2, 2],
+    family: "charger",
+    buildTier: 1,
+    minimumWorkerTier: 1,
+    radius: 18,
+    footprint: [1, 1],
     maxHp: 360,
     powerDemand: 3,
     chargeRadius: 260,
@@ -345,8 +366,11 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   metal_mine: {
     name: "Metal Mine",
-    radius: 34,
-    footprint: [2, 2],
+    family: "metal_mine",
+    buildTier: 1,
+    minimumWorkerTier: 1,
+    radius: 18,
+    footprint: [1, 1],
     maxHp: 410,
     powerDemand: 2,
     metalRate: 5,
@@ -355,8 +379,12 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   mech_factory_t1: {
     name: "Tier 1 Mech Factory",
-    radius: 60,
-    footprint: [3, 2],
+    family: "factory",
+    factoryBranch: "mech",
+    buildTier: 1,
+    minimumWorkerTier: 1,
+    radius: 34,
+    footprint: [2, 2],
     maxHp: 650,
     powerDemand: 3,
     productionPowerDemand: 6,
@@ -367,8 +395,12 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   mech_factory_t2: {
     name: "Tier 2 Mech Factory",
-    radius: 80,
-    footprint: [4, 3],
+    family: "factory",
+    factoryBranch: "mech",
+    buildTier: 2,
+    minimumWorkerTier: 1,
+    radius: 52,
+    footprint: [3, 3],
     maxHp: 820,
     powerDemand: 5,
     productionPowerDemand: 10,
@@ -379,8 +411,12 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   mech_factory_t3: {
     name: "Tier 3 Mech Factory",
-    radius: 100,
-    footprint: [5, 4],
+    family: "factory",
+    factoryBranch: "mech",
+    buildTier: 3,
+    minimumWorkerTier: 2,
+    radius: 72,
+    footprint: [4, 4],
     maxHp: 1050,
     powerDemand: 8,
     productionPowerDemand: 16,
@@ -391,6 +427,9 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   supply_complex: {
     name: "Strategic Supply Complex",
+    family: "supply_complex",
+    buildTier: 1,
+    minimumWorkerTier: 1,
     radius: 160,
     footprint: [8, 6],
     maxHp: 2400,
@@ -407,6 +446,9 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   sentry_turret: {
     name: "Sentry Turret",
+    family: "sentry_turret",
+    buildTier: 1,
+    minimumWorkerTier: 1,
     radius: 18,
     footprint: [1, 1],
     maxHp: 390,
@@ -422,8 +464,11 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
   },
   salvage_yard: {
     name: "Salvage Reclamation Yard",
-    radius: 60,
-    footprint: [3, 2],
+    family: "salvage_yard",
+    buildTier: 1,
+    minimumWorkerTier: 1,
+    radius: 34,
+    footprint: [2, 2],
     maxHp: 430,
     powerDemand: 2,
     droneCount: 3,
@@ -431,21 +476,171 @@ export const STRUCTURE_DEFINITIONS = Object.freeze({
     metalCost: 150,
     buildTime: 10,
   },
+};
+
+Object.assign(structureDefinitions, {
+  vehicle_factory_t1: {
+    name: "Tier 1 Vehicle Factory", family: "factory", factoryBranch: "vehicle",
+    buildTier: 1, minimumWorkerTier: 1, tier: 1, radius: 34, footprint: [2, 2],
+    maxHp: 700, powerDemand: 4, productionPowerDemand: 7, production: [],
+    metalCost: 200, buildTime: 13, provisionalBalance: true,
+  },
+  air_factory_t1: {
+    name: "Tier 1 Air Factory", family: "factory", factoryBranch: "air",
+    buildTier: 1, minimumWorkerTier: 1, tier: 1, radius: 34, footprint: [2, 2],
+    maxHp: 620, powerDemand: 5, productionPowerDemand: 8, production: [],
+    metalCost: 220, buildTime: 14, provisionalBalance: true,
+  },
+  generator_t2: {
+    ...structureDefinitions.generator, name: "Tier 2 Pulse Generator", buildTier: 2,
+    minimumWorkerTier: 2, radius: 34, footprint: [2, 2], maxHp: 750, powerRadius: 285,
+    generationRate: 25, storageCapacity: 150, chargeRate: 25, dischargeRate: 70,
+    metalCost: 240, buildTime: 14,
+  },
+  battery_t2: {
+    ...structureDefinitions.battery, name: "Tier 2 Grid Battery", buildTier: 2,
+    minimumWorkerTier: 2, radius: 34, footprint: [2, 2], maxHp: 570, powerRadius: 260,
+    storageCapacity: 650, chargeRate: 80, dischargeRate: 280, metalCost: 190, buildTime: 12,
+  },
+  power_tower_t2: {
+    ...structureDefinitions.power_tower, name: "Tier 2 Power Relay Tower", buildTier: 2,
+    minimumWorkerTier: 2, radius: 28, footprint: [2, 2], maxHp: 400, powerDemand: 0.75, relayRadius: 285,
+    storageCapacity: 55, chargeRate: 14, dischargeRate: 22, metalCost: 100, buildTime: 8,
+  },
+  charger_t2: {
+    ...structureDefinitions.charger, name: "Tier 2 Induction Charger", buildTier: 2,
+    minimumWorkerTier: 2, radius: 34, footprint: [2, 2], maxHp: 540, powerDemand: 5,
+    chargeRadius: 310, chargeRate: 170, metalCost: 175, buildTime: 12,
+  },
+  metal_mine_t2: {
+    ...structureDefinitions.metal_mine, name: "Tier 2 Metal Mine", buildTier: 2,
+    minimumWorkerTier: 2, radius: 34, footprint: [2, 2], maxHp: 620, powerDemand: 3,
+    metalRate: 8, metalCost: 210, buildTime: 13, provisionalBalance: true,
+  },
+  mech_factory_t2: structureDefinitions.mech_factory_t2,
+  vehicle_factory_t2: {
+    name: "Tier 2 Vehicle Factory", family: "factory", factoryBranch: "vehicle",
+    buildTier: 2, minimumWorkerTier: 2, tier: 2, radius: 52, footprint: [3, 3],
+    maxHp: 900, powerDemand: 7, productionPowerDemand: 12, production: [],
+    metalCost: 380, buildTime: 20, provisionalBalance: true,
+  },
+  air_factory_t2: {
+    name: "Tier 2 Air Factory", family: "factory", factoryBranch: "air",
+    buildTier: 2, minimumWorkerTier: 2, tier: 2, radius: 52, footprint: [3, 3],
+    maxHp: 810, powerDemand: 8, productionPowerDemand: 14, production: [],
+    metalCost: 420, buildTime: 21, provisionalBalance: true,
+  },
+  sentry_turret_t2: {
+    ...structureDefinitions.sentry_turret, name: "Tier 2 Sentry Turret", buildTier: 2,
+    minimumWorkerTier: 2, radius: 28, footprint: [2, 2], maxHp: 570, attackRange: 220, attackDamage: 20,
+    attackEnergy: 5, capacitorCapacity: 20, capacitorChargeRate: 12,
+    metalCost: 160, buildTime: 10, provisionalBalance: true,
+  },
+  salvage_yard_t2: {
+    ...structureDefinitions.salvage_yard, name: "Tier 2 Salvage Reclamation Yard", buildTier: 2,
+    minimumWorkerTier: 2, radius: 52, footprint: [3, 3], maxHp: 620, powerDemand: 3,
+    droneCount: 4, droneReplacementTime: 7, metalCost: 280, buildTime: 16,
+    provisionalBalance: true,
+  },
+  generator_t3: {
+    ...structureDefinitions.generator, name: "Tier 3 Pulse Generator", buildTier: 3,
+    minimumWorkerTier: 3, radius: 52, footprint: [3, 3], maxHp: 1100, powerRadius: 330,
+    generationRate: 45, storageCapacity: 280, chargeRate: 45, dischargeRate: 120,
+    metalCost: 480, buildTime: 22,
+  },
+  battery_t3: {
+    ...structureDefinitions.battery, name: "Tier 3 Grid Battery", buildTier: 3,
+    minimumWorkerTier: 3, radius: 52, footprint: [3, 3], maxHp: 840, powerRadius: 300,
+    storageCapacity: 1100, chargeRate: 130, dischargeRate: 430, metalCost: 360, buildTime: 19,
+  },
+  power_tower_t3: {
+    ...structureDefinitions.power_tower, name: "Tier 3 Power Relay Tower", buildTier: 3,
+    minimumWorkerTier: 3, radius: 38, footprint: [3, 3], maxHp: 590, powerDemand: 1,
+    relayRadius: 330, storageCapacity: 100, chargeRate: 24, dischargeRate: 38,
+    metalCost: 180, buildTime: 12,
+  },
+  charger_t3: {
+    ...structureDefinitions.charger, name: "Tier 3 Induction Charger", buildTier: 3,
+    minimumWorkerTier: 3, radius: 52, footprint: [3, 3], maxHp: 800, powerDemand: 8,
+    chargeRadius: 360, chargeRate: 250, metalCost: 330, buildTime: 19,
+  },
+  metal_mine_t3: {
+    ...structureDefinitions.metal_mine, name: "Tier 3 Metal Mine", buildTier: 3,
+    minimumWorkerTier: 3, radius: 52, footprint: [3, 3], maxHp: 900, powerDemand: 5,
+    metalRate: 12, metalCost: 390, buildTime: 20, provisionalBalance: true,
+  },
+  mech_factory_t3: structureDefinitions.mech_factory_t3,
+  vehicle_factory_t3: {
+    name: "Tier 3 Vehicle Factory", family: "factory", factoryBranch: "vehicle",
+    buildTier: 3, minimumWorkerTier: 3, tier: 3, radius: 72, footprint: [4, 4],
+    maxHp: 1180, powerDemand: 11, productionPowerDemand: 19, production: [],
+    metalCost: 680, buildTime: 28, provisionalBalance: true,
+  },
+  air_factory_t3: {
+    name: "Tier 3 Air Factory", family: "factory", factoryBranch: "air",
+    buildTier: 3, minimumWorkerTier: 3, tier: 3, radius: 72, footprint: [4, 4],
+    maxHp: 1050, powerDemand: 13, productionPowerDemand: 22, production: [],
+    metalCost: 740, buildTime: 30, provisionalBalance: true,
+  },
+  sentry_turret_t3: {
+    ...structureDefinitions.sentry_turret, name: "Tier 3 Sentry Turret", buildTier: 3,
+    minimumWorkerTier: 3, radius: 38, footprint: [3, 3], maxHp: 820, attackRange: 260,
+    attackDamage: 32, attackEnergy: 8, capacitorCapacity: 32, capacitorChargeRate: 18,
+    metalCost: 300, buildTime: 16, provisionalBalance: true,
+  },
+  salvage_yard_t3: {
+    ...structureDefinitions.salvage_yard, name: "Tier 3 Salvage Reclamation Yard", buildTier: 3,
+    minimumWorkerTier: 3, radius: 72, footprint: [4, 4], maxHp: 900, powerDemand: 5,
+    droneCount: 5, droneReplacementTime: 6, metalCost: 500, buildTime: 24,
+    provisionalBalance: true,
+  },
+  experimental_factory: {
+    name: "Experimental Factory", family: "factory", factoryBranch: "experimental",
+    buildTier: 3, minimumWorkerTier: 3, tier: 3, radius: 90, footprint: [5, 5],
+    maxHp: 1500, powerDemand: 18, productionPowerDemand: 30, production: [],
+    metalCost: 1000, buildTime: 36, provisionalBalance: true,
+  },
 });
 
-export const BUILD_MENU = Object.freeze([
-  "generator",
-  "battery",
-  "power_tower",
-  "charger",
-  "metal_mine",
-  "mech_factory_t1",
-  "mech_factory_t2",
-  "mech_factory_t3",
-  "supply_complex",
-  "sentry_turret",
-  "salvage_yard",
-]);
+export const STRUCTURE_DEFINITIONS = Object.freeze(structureDefinitions);
+
+export const BUILD_MENU_BY_TIER = Object.freeze({
+  1: Object.freeze([
+    "generator", "battery", "power_tower", "charger", "metal_mine",
+    "mech_factory_t1", "vehicle_factory_t1", "air_factory_t1",
+    "sentry_turret", "salvage_yard", "supply_complex",
+  ]),
+  2: Object.freeze([
+    "generator_t2", "battery_t2", "power_tower_t2", "charger_t2", "metal_mine_t2",
+    "mech_factory_t2", "vehicle_factory_t2", "air_factory_t2",
+    "sentry_turret_t2", "salvage_yard_t2",
+  ]),
+  3: Object.freeze([
+    "generator_t3", "battery_t3", "power_tower_t3", "charger_t3", "metal_mine_t3",
+    "mech_factory_t3", "vehicle_factory_t3", "air_factory_t3",
+    "sentry_turret_t3", "salvage_yard_t3", "experimental_factory",
+  ]),
+});
+
+export const BUILD_MENU = Object.freeze(Object.values(BUILD_MENU_BY_TIER).flat());
+
+export function canWorkerTierBuildStructure(workerTier, structureType) {
+  const definition = STRUCTURE_DEFINITIONS[structureType];
+  return Boolean(definition && workerTier >= (definition.minimumWorkerTier || definition.buildTier || 1));
+}
+
+export function getNextStructureTierType(structureType) {
+  const definition = STRUCTURE_DEFINITIONS[structureType];
+  if (!definition) return null;
+  const nextTier = (definition.buildTier || definition.tier || 1) + 1;
+  const match = Object.entries(STRUCTURE_DEFINITIONS).find(([, candidate]) => {
+    if ((candidate.buildTier || candidate.tier || 1) !== nextTier) return false;
+    if (candidate.family !== definition.family) return false;
+    if (definition.family !== "factory") return true;
+    return candidate.factoryBranch === definition.factoryBranch;
+  });
+  return match?.[0] || null;
+}
 
 export const DRONE_DEFINITION = Object.freeze({
   name: "Reclamation Drone",
@@ -463,13 +658,56 @@ export const SIMULATION_RULES = Object.freeze({
   lowEnergyRegenerationThreshold: 18,
   reactivationThreshold: 18,
   lowEnergyRatio: 0.2,
-  structureCollisionPadding: 3,
+  structureCollisionPadding: 0,
   unitCollisionPadding: 2,
   rallyFormationSpacing: 32,
   buildingGridSize: 40,
   constructionCancelRefundRate: 0.75,
-  enemyAttackWaveSize: 4,
+  enemyInitialThinkDelay: 1,
+  enemyThinkInterval: 1,
+  enemyAttackWaveSize: 3,
+  enemyRushResponseRadius: 800,
 });
+
+export function gridCoverageBounds(x, y, reach) {
+  if (!Number.isFinite(reach) || reach <= 0) return null;
+  const gridSize = SIMULATION_RULES.buildingGridSize;
+  const halfCell = gridSize / 2;
+  const minimumColumn = Math.ceil((x - reach - halfCell) / gridSize);
+  const maximumColumn = Math.floor((x + reach - halfCell) / gridSize);
+  const minimumRow = Math.ceil((y - reach - halfCell) / gridSize);
+  const maximumRow = Math.floor((y + reach - halfCell) / gridSize);
+  const left = minimumColumn * gridSize;
+  const right = (maximumColumn + 1) * gridSize;
+  const top = minimumRow * gridSize;
+  const bottom = (maximumRow + 1) * gridSize;
+  return {
+    left,
+    right,
+    top,
+    bottom,
+    width: right - left,
+    height: bottom - top,
+    columns: maximumColumn - minimumColumn + 1,
+    rows: maximumRow - minimumRow + 1,
+  };
+}
+
+export function powerCoverageBounds(structureType, x, y) {
+  const definition = STRUCTURE_DEFINITIONS[structureType];
+  const reach = definition?.relayRadius || definition?.powerRadius || 0;
+  return gridCoverageBounds(x, y, reach);
+}
+
+export function pointInGridCoverage(bounds, x, y) {
+  return Boolean(
+    bounds &&
+    x >= bounds.left &&
+    x < bounds.right &&
+    y >= bounds.top &&
+    y < bounds.bottom
+  );
+}
 
 export function structureFootprint(structureType) {
   const definition = STRUCTURE_DEFINITIONS[structureType];

@@ -32,11 +32,17 @@ implementation decision establishes or changes player-facing behavior.
   permanently stalling without replacing the role of chargers and carriers.
 - Player combat units automatically engage hostile units that enter weapon range
   unless a future stance rule explicitly prevents it.
+- Surviving combat units on both teams retaliate against their aggressor and pursue
+  it beyond automatic-acquisition range. Preserve force-move and existing explicit
+  attack orders as higher-priority commands.
 - Keep mobile units visually compact relative to buildings. Living units on either
   team maintain physical separation and may not stack at the same position.
 - The enemy AI must use the same resource, power, construction, production,
   energy, combat, and salvage rules available to the player. Do not grant hidden
   free units or functional immunity to normal requirements.
+- The enemy AI must establish and replenish a basic combat force before reserving
+  metal for expensive infrastructure, and available defenders must respond
+  immediately to player units or structures rushed near enemy infrastructure.
 - Worker drones construct the player's buildings. Mech factories produce the
   worker generation matching the factory tier.
 - Do not impose an arbitrary cap on the number of production buildings a player
@@ -50,10 +56,19 @@ implementation decision establishes or changes player-facing behavior.
   placeable on ordinary valid terrain.
 - Ordinary buildings snap to the 40-unit construction grid. Player and AI
   construction must use the same footprint validation and may not overlap living
-  structures, unfinished foundations, units, or reclamation drones.
+  structures, unfinished foundations, hostile units, or reclamation drones.
+  Friendly player-controlled units do not block placement; move any overlapping
+  friendly units outside the new foundation when construction is confirmed.
+- Building-to-building placement uses exact visible grid footprints with no hidden
+  collision padding. Adjacent footprints may share a grid edge.
+- Do not add extra structure collision padding. Unit centers stop at their own
+  physical radius from the exact structure footprint.
 - Snap building centers according to footprint parity so every footprint edge lands
   on a grid line. Preserve distinct cell footprints for compact defenses, economy
   structures, and increasingly large factory tiers.
+- Tier 1 generators, batteries, chargers, mines, towers, and turrets use compact
+  1×1 footprints. Tier 1 factories use 2×2 footprints; corresponding Tier 2 and
+  Tier 3 buildings scale upward to 2×2/3×3 infrastructure and 3×3/4×4 factories.
 - Pulse Generators produce their stated energy-per-second rate continuously and
   never deplete or consume fuel. Battery capacity limits storage, not generation.
 - The main HUD energy value shows total live production per second only. Keep

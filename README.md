@@ -29,13 +29,26 @@ The current build is the first playable field test. It includes:
 - Multiple reclamation drones can harvest the same wreck or scrap pile concurrently,
   then chain directly to nearby piles until their cargo is full.
 - Automatic attacks against hostile units entering weapon range.
+- Player and enemy combat units retaliate against and pursue hostile aggressors.
 - Compact unit silhouettes with physical unit-to-unit separation for dense groups.
 - Drag-box unit selection plus stop and hold-position commands.
 - Metal mines, relay-tower power networks, and static sentry defenses.
 - Grid-charged sentry capacitors with visible range, charge, and targeting status.
 - Map-defined metal deposits that restrict mine construction locations.
+- A 5,200×3,200 battlefield with 27 deposits, including two remote five-deposit
+  frontier clusters.
+- Visible impassable ridges, shelves, and crags that block ground movement and
+  construction for both players and AI.
 - Tier 1–3 mech factories, each offering matching-tier Worker, Vanguard, Bulwark,
   and Arc Energy Carrier production lines.
+- Tiered Vehicle and Air factories, plus the Tier 3 Experimental Factory, with
+  their future unit rosters explicitly left open for design.
+- Tier 1–3 worker construction inheritance and a three-category build menu;
+  Tier 1 and Tier 2 workers can construct the next Mech Factory to advance.
+- Tiered generator, storage, relay, charger, mine, sentry, and salvage-yard
+  variants with provisional values.
+- Completed Tier 2 and Tier 3 Mech Factories globally unlock one-step, in-place
+  upgrades for existing tiered structures.
 - A massive supply system with role- and tier-specific unit costs, queue
   reservations, and powered 8×6 Strategic Supply Complexes that upgrade from
   5,000 to 10,000 and 20,000 added capacity.
@@ -44,8 +57,12 @@ The current build is the first playable field test. It includes:
 - Resumable and cancellable construction with abandoned-project recovery for AI workers.
 - A visible 40-unit construction grid with valid/blocked footprint previews and
   shared no-overlap rules for player and AI building placement.
+- Edge-adjacent buildings can share grid boundaries without invisible placement gaps.
 - Footprint-aware snapping and distinct one-cell through five-cell-wide building
   sizes, with every ordinary foundation edge aligned to a grid line.
+- Compact Tier 1 infrastructure with 1×1 Generator and Battery footprints, 2×2
+  Tier 1 factories, and progressively larger Tier 2 and Tier 3 buildings.
+- Exact structure collision boundaries without extra invisible movement padding.
 - Pulse Generators with visible, constant per-second output that never depletes.
 - A concise HUD energy readout showing net building power per second and combined
   stored grid energy against capacity.

@@ -247,6 +247,30 @@ canvas {
   margin-top: 8px;
 }
 
+.build-tier-list {
+  display: grid;
+  gap: 12px;
+}
+
+.command-panel .build-tier-group {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.build-tier-label {
+  margin: 0;
+  color: #d75565;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.build-tier-grid {
+  margin-top: 6px;
+}
+
 .command-button {
   min-height: 43px;
   padding: 7px;
@@ -276,6 +300,10 @@ canvas {
   border-color: #e05e70;
   background: #351b23;
   color: #fff;
+}
+
+.command-button.locked {
+  border-style: dashed;
 }
 
 button:not(:disabled):hover {

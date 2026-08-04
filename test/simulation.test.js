@@ -2,12 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  BUILD_MENU,
+  BUILD_MENU_BY_TIER,
+  canWorkerTierBuildStructure,
   DRONE_DEFINITION,
+  getNextStructureTierType,
   SIMULATION_RULES,
   STRUCTURE_DEFINITIONS,
+  TERRAIN_OBSTACLES,
   UNIT_DEFINITIONS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  powerCoverageBounds,
   structureFootprint,
 } from "../src/data.js";
 import { Simulation } from "../src/simulation.js";
@@ -17,7 +23,207 @@ function advance(simulation, seconds, step = 1 / 30) {
   for (let tick = 0; tick < ticks; tick += 1) simulation.tick(step);
 }
 
-test("the standard battlefield uses the expanded map and separated starting bases", () => {
+test("worker tiers expose the requested inherited construction matrix", () => {
+  for (const tier of [1, 2, 3]) {
+    assert.ok(BUILD_MENU_BY_TIER[tier].length > 0);
+    assert.ok(
+      BUILD_MENU_BY_TIER[tier].every(
+        (structureType) => STRUCTURE_DEFINITIONS[structureType].buildTier === tier,
+      ),
+    );
+  }
+
+  for (const structureType of BUILD_MENU_BY_TIER[1]) {
+    assert.equal(canWorkerTierBuildStructure(1, structureType), true);
+  }
+  assert.equal(canWorkerTierBuildStructure(1, "mech_factory_t2"), true);
+  assert.equal(canWorkerTierBuildStructure(1, "vehicle_factory_t2"), false);
+  assert.equal(canWorkerTierBuildStructure(1, "air_factory_t2"), false);
+  assert.equal(canWorkerTierBuildStructure(1, "generator_t2"), false);
+  assert.equal(canWorkerTierBuildStructure(1, "mech_factory_t3"), false);
+
+  for (const structureType of [...BUILD_MENU_BY_TIER[1], ...BUILD_MENU_BY_TIER[2]]) {
+    assert.equal(canWorkerTierBuildStructure(2, structureType), true);
+  }
+  assert.equal(canWorkerTierBuildStructure(2, "mech_factory_t3"), true);
+  assert.equal(canWorkerTierBuildStructure(2, "vehicle_factory_t3"), false);
+  assert.equal(canWorkerTierBuildStructure(2, "air_factory_t3"), false);
+  assert.equal(canWorkerTierBuildStructure(2, "generator_t3"), false);
+  assert.equal(canWorkerTierBuildStructure(2, "experimental_factory"), false);
+
+  for (const structureType of BUILD_MENU) {
+    assert.equal(canWorkerTierBuildStructure(3, structureType), true);
+  }
+});
+
+test("construction authorization is enforced by the simulation", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  const tierOneWorker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const startingMetal = simulation.resources.player.metal;
+
+  assert.equal(
+    simulation.startConstruction([tierOneWorker.id], "vehicle_factory_t2", 400, 400),
+    null,
+  );
+  assert.match(simulation.lastPlacementError, /Tier 2 Worker Drone/);
+  assert.equal(simulation.resources.player.metal, startingMetal);
+
+  const tierTwoMechFactory = simulation.startConstruction(
+    [tierOneWorker.id],
+    "mech_factory_t2",
+    400,
+    400,
+  );
+  assert.ok(tierTwoMechFactory);
+  assert.equal(tierTwoMechFactory.type, "mech_factory_t2");
+
+  const secondSimulation = new Simulation();
+  secondSimulation.resources.player.metal = 10_000;
+  const tierTwoWorker = secondSimulation.addUnit("worker_drone_t2", "player", 100, 100);
+  assert.ok(
+    secondSimulation.startConstruction(
+      [tierTwoWorker.id],
+      "mech_factory_t3",
+      600,
+      400,
+    ),
+  );
+  assert.equal(
+    secondSimulation.startConstruction(
+      [tierTwoWorker.id],
+      "experimental_factory",
+      1000,
+      400,
+    ),
+    null,
+  );
+});
+
+test("every requested production-building branch has all three tiers", () => {
+  for (const branch of ["mech", "vehicle", "air"]) {
+    const tiers = Object.values(STRUCTURE_DEFINITIONS)
+      .filter((definition) => definition.factoryBranch === branch)
+      .map((definition) => definition.tier)
+      .sort();
+    assert.deepEqual(tiers, [1, 2, 3]);
+  }
+  assert.equal(STRUCTURE_DEFINITIONS.experimental_factory.buildTier, 3);
+  assert.equal(STRUCTURE_DEFINITIONS.experimental_factory.minimumWorkerTier, 3);
+});
+
+test("higher-tier building variants retain their family behavior", () => {
+  const simulation = new Simulation();
+  const generator = simulation.addStructure("generator_t2", "player", 100, 100);
+  const mine = simulation.addStructure("metal_mine_t2", "player", 220, 100);
+  const yard = simulation.addStructure("salvage_yard_t2", "player", 320, 220);
+  const turret = simulation.addStructure("sentry_turret_t2", "player", 300, 100);
+  const enemy = simulation.addStructure("generator", "enemy", 480, 100);
+  const startingMetal = simulation.resources.player.metal;
+  const enemyStartingHp = enemy.hp;
+
+  advance(simulation, 1);
+
+  assert.equal(simulation.getGenerationRate("player"), generator.type === "generator_t2" ? 25 : 0);
+  assert.equal(mine.powered, true);
+  assert.ok(simulation.resources.player.metal >= startingMetal + 7.99);
+  assert.equal(yard.drones.length, 4);
+  assert.ok(enemy.hp < enemyStartingHp);
+  assert.ok(turret.weaponEnergy < STRUCTURE_DEFINITIONS.sentry_turret_t2.capacitorCapacity);
+});
+
+test("completed mech factories globally unlock matching structure upgrades", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  const generator = simulation.addStructure("generator", "player", 300, 300, {
+    hp: STRUCTURE_DEFINITIONS.generator.maxHp / 2,
+    storedEnergy: 50,
+  });
+  const startingMetal = simulation.resources.player.metal;
+
+  assert.equal(getNextStructureTierType("generator"), "generator_t2");
+  assert.equal(getNextStructureTierType("generator_t2"), "generator_t3");
+  assert.equal(getNextStructureTierType("mech_factory_t1"), "mech_factory_t2");
+  assert.equal(getNextStructureTierType("supply_complex"), null);
+  assert.equal(simulation.getStructureUpgradeInfo(generator.id).valid, false);
+  assert.match(simulation.getStructureUpgradeInfo(generator.id).reason, /Tier 2 Mech Factory/);
+
+  const unlockingFactory = simulation.addStructure("mech_factory_t2", "player", 700, 300, {
+    complete: false,
+    constructionProgress: STRUCTURE_DEFINITIONS.mech_factory_t2.buildTime - 0.25,
+  });
+  assert.equal(simulation.getStructureUpgradeInfo(generator.id).valid, false);
+
+  const builder = simulation.addUnit("worker_drone_t1", "player", 770, 300);
+  simulation.commandBuild([builder.id], unlockingFactory.id);
+  simulation.tick(0.25);
+  assert.equal(unlockingFactory.complete, true);
+  const storedEnergyBeforeUpgrade = generator.storedEnergy;
+  const tierTwoUpgrade = simulation.getStructureUpgradeInfo(generator.id);
+  assert.equal(tierTwoUpgrade.valid, true);
+  assert.equal(
+    tierTwoUpgrade.metalCost,
+    STRUCTURE_DEFINITIONS.generator_t2.metalCost - STRUCTURE_DEFINITIONS.generator.metalCost,
+  );
+  assert.equal(simulation.upgradeStructure(generator.id, "player"), true);
+  assert.equal(generator.type, "generator_t2");
+  assert.equal(generator.hp, STRUCTURE_DEFINITIONS.generator_t2.maxHp / 2);
+  assert.equal(generator.storedEnergy, storedEnergyBeforeUpgrade);
+  assert.equal(simulation.resources.player.metal, startingMetal - tierTwoUpgrade.metalCost);
+  const tierTwoFootprint = structureFootprint(generator.type);
+  assert.equal((generator.x - tierTwoFootprint.halfWidth) % SIMULATION_RULES.buildingGridSize, 0);
+  assert.equal((generator.y - tierTwoFootprint.halfHeight) % SIMULATION_RULES.buildingGridSize, 0);
+  simulation.applyDamage(unlockingFactory, unlockingFactory.hp);
+  assert.equal(simulation.getUnlockedStructureTier("player"), 2);
+
+  assert.equal(simulation.getStructureUpgradeInfo(generator.id).valid, false);
+  assert.match(simulation.getStructureUpgradeInfo(generator.id).reason, /Tier 3 Mech Factory/);
+  simulation.addStructure("mech_factory_t3", "player", 1100, 300);
+  assert.equal(simulation.upgradeStructure(generator.id, "player"), true);
+  assert.equal(generator.type, "generator_t3");
+});
+
+test("structure upgrade unlocks are team-specific and expanded footprints need clear space", () => {
+  const simulation = new Simulation();
+  simulation.resources.enemy.metal = 10_000;
+  const enemyGenerator = simulation.addStructure("generator", "enemy", 300, 300);
+  simulation.addStructure("mech_factory_t2", "player", 900, 300);
+
+  assert.equal(simulation.getStructureUpgradeInfo(enemyGenerator.id).valid, false);
+  assert.match(simulation.getStructureUpgradeInfo(enemyGenerator.id).reason, /Tier 2 Mech Factory/);
+
+  simulation.addStructure("mech_factory_t2", "enemy", 900, 700);
+  for (const [x, y] of [[260, 300], [340, 300], [300, 260], [300, 340]]) {
+    simulation.addStructure("battery", "enemy", x, y);
+  }
+  const startingMetal = simulation.resources.enemy.metal;
+  const blockedUpgrade = simulation.getStructureUpgradeInfo(enemyGenerator.id);
+  assert.equal(blockedUpgrade.valid, false);
+  assert.match(blockedUpgrade.reason, /clear space/i);
+  assert.equal(simulation.upgradeStructure(enemyGenerator.id, "enemy"), false);
+  assert.equal(enemyGenerator.type, "generator");
+  assert.equal(simulation.resources.enemy.metal, startingMetal);
+});
+
+test("higher-tier Metal Mines still snap to deposits", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  const worker = simulation.addUnit("worker_drone_t2", "player", 100, 100);
+  const deposit = simulation.addMetalDeposit(300, 300);
+  const mine = simulation.startConstruction(
+    [worker.id],
+    "metal_mine_t2",
+    deposit.x + 10,
+    deposit.y + 10,
+  );
+
+  assert.ok(mine);
+  assert.equal(mine.x, deposit.x);
+  assert.equal(mine.y, deposit.y);
+  assert.equal(mine.depositId, deposit.id);
+});
+
+test("the standard battlefield uses the much larger map and separated starting bases", () => {
   const simulation = Simulation.createFieldTest();
   const playerGenerator = simulation.structures.find(
     (structure) => structure.team === "player" && structure.type === "generator",
@@ -26,13 +232,21 @@ test("the standard battlefield uses the expanded map and separated starting base
     (structure) => structure.team === "enemy" && structure.type === "generator",
   );
 
-  assert.equal(WORLD_WIDTH, 3200);
-  assert.equal(WORLD_HEIGHT, 1800);
+  assert.equal(WORLD_WIDTH, 5200);
+  assert.equal(WORLD_HEIGHT, 3200);
   assert.equal(simulation.width, WORLD_WIDTH);
   assert.equal(simulation.height, WORLD_HEIGHT);
   assert.ok(playerGenerator.x < WORLD_WIDTH * 0.25);
   assert.ok(enemyGenerator.x > WORLD_WIDTH * 0.75);
   assert.ok(enemyGenerator.x - playerGenerator.x > WORLD_WIDTH / 2);
+  assert.ok(simulation.metalDeposits.length >= 27);
+  const remoteDeposits = simulation.metalDeposits.filter((deposit) => deposit.remote);
+  assert.equal(remoteDeposits.length, 10);
+  assert.deepEqual(
+    [...new Set(remoteDeposits.map((deposit) => deposit.cluster))].sort(),
+    ["Northern Frontier", "Southern Frontier"],
+  );
+  assert.equal(simulation.terrain.length, TERRAIN_OBSTACLES.length);
   assert.ok(
     simulation.metalDeposits.every(
       (deposit) =>
@@ -42,6 +256,63 @@ test("the standard battlefield uses the expanded map and separated starting base
         deposit.y <= WORLD_HEIGHT,
     ),
   );
+});
+
+test("impassable terrain rejects construction and redirects destinations inside it", () => {
+  const terrain = [{ id: "test-ridge", name: "Test Ridge", x: 200, y: 100, width: 80, height: 120 }];
+  const simulation = new Simulation({ width: 500, height: 300, terrain });
+  const unit = simulation.addUnit("scout_mech", "player", 100, 100);
+
+  const placement = simulation.evaluatePlacement("generator", 200, 100, "player");
+  assert.equal(placement.valid, false);
+  assert.match(placement.reason, /impassable terrain/i);
+
+  simulation.commandMove([unit.id], 200, 100);
+  assert.deepEqual(unit.moveTarget, {
+    x: 200 - terrain[0].width / 2 - UNIT_DEFINITIONS.scout_mech.radius,
+    y: 100,
+  });
+});
+
+test("ground units route around impassable terrain without entering it", () => {
+  const obstacle = { id: "test-ridge", name: "Test Ridge", x: 200, y: 100, width: 80, height: 120 };
+  const simulation = new Simulation({ width: 500, height: 300, terrain: [obstacle] });
+  const unit = simulation.addUnit("scout_mech", "player", 100, 100);
+  const clearance = UNIT_DEFINITIONS.scout_mech.radius;
+
+  simulation.commandMove([unit.id], 350, 100);
+  for (let tick = 0; tick < 300; tick += 1) {
+    simulation.tick(1 / 30);
+    const insideExpandedTerrain =
+      unit.x > obstacle.x - obstacle.width / 2 - clearance &&
+      unit.x < obstacle.x + obstacle.width / 2 + clearance &&
+      unit.y > obstacle.y - obstacle.height / 2 - clearance &&
+      unit.y < obstacle.y + obstacle.height / 2 + clearance;
+    assert.equal(insideExpandedTerrain, false, "the unit entered impassable terrain");
+  }
+
+  assert.ok(unit.x > obstacle.x + obstacle.width / 2 + clearance);
+  assert.equal(unit.moveTarget, null);
+});
+
+test("reclamation drones also route around impassable terrain", () => {
+  const obstacle = { id: "test-ridge", name: "Test Ridge", x: 200, y: 100, width: 80, height: 120 };
+  const simulation = new Simulation({ width: 500, height: 300, terrain: [obstacle] });
+  const yard = simulation.addStructure("salvage_yard", "player", 72, 100);
+  const drone = yard.drones[0];
+  const target = { x: 350, y: 100 };
+
+  for (let tick = 0; tick < 300; tick += 1) {
+    simulation.moveDroneToward(drone, target, 1 / 30);
+    const insideExpandedTerrain =
+      drone.x > obstacle.x - obstacle.width / 2 - DRONE_DEFINITION.radius &&
+      drone.x < obstacle.x + obstacle.width / 2 + DRONE_DEFINITION.radius &&
+      drone.y > obstacle.y - obstacle.height / 2 - DRONE_DEFINITION.radius &&
+      drone.y < obstacle.y + obstacle.height / 2 + DRONE_DEFINITION.radius;
+    assert.equal(insideExpandedTerrain, false, "the drone entered impassable terrain");
+  }
+
+  assert.ok(drone.x > obstacle.x + obstacle.width / 2 + DRONE_DEFINITION.radius);
 });
 
 test("mobile units use compact battlefield footprints", () => {
@@ -201,6 +472,21 @@ test("the faster Induction Charger transfers its provisional maximum rate", () =
   assert.equal(charger.powered, true);
   assert.ok(Math.abs(unit.energy - (20 + STRUCTURE_DEFINITIONS.charger.chargeRate * 0.25)) < 0.001);
   assert.equal(STRUCTURE_DEFINITIONS.charger.chargeRate, 112);
+});
+
+test("the enlarged Induction Charger field reaches 260 world units", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 100, 100);
+  simulation.addStructure("battery", "player", 175, 100, { storedEnergy: 100 });
+  const charger = simulation.addStructure("charger", "player", 250, 100);
+  const edgeUnit = simulation.addUnit("scout_mech", "player", 510, 100, { energy: 20 });
+  const outsideUnit = simulation.addUnit("scout_mech", "player", 250, 361, { energy: 20 });
+
+  simulation.tick(0.25);
+
+  assert.equal(STRUCTURE_DEFINITIONS.charger.chargeRadius, 260);
+  assert.ok(edgeUnit.energy > 20);
+  assert.equal(outsideUnit.energy, 20);
 });
 
 test("an Induction Charger charges every unit in its field simultaneously", () => {
@@ -577,6 +863,40 @@ test("combat units automatically attack hostile structures in weapon range", () 
   assert.ok(enemyStructure.hp < startingHp);
 });
 
+test("player and enemy units pursue the hostile aggressor that damages them", () => {
+  for (const defendingTeam of ["player", "enemy"]) {
+    const simulation = new Simulation();
+    const attackingTeam = defendingTeam === "player" ? "enemy" : "player";
+    const defender = simulation.addUnit("scout_mech", defendingTeam, 100, 100);
+    const aggressor = simulation.addUnit("raider", attackingTeam, 500, 100);
+    const startingX = defender.x;
+
+    simulation.applyDamage(defender, 1, aggressor);
+
+    assert.equal(defender.attackTargetId, aggressor.id);
+    assert.equal(defender.attackTargetMode, "retaliation");
+    assert.equal(defender.moveTarget, null);
+
+    simulation.tick(1 / 30);
+
+    assert.ok(defender.x > startingX);
+    assert.equal(defender.attackTargetId, aggressor.id);
+  }
+});
+
+test("force-moving units do not abandon their order to retaliate", () => {
+  const simulation = new Simulation();
+  const defender = simulation.addUnit("scout_mech", "player", 100, 100);
+  const aggressor = simulation.addUnit("raider", "enemy", 500, 100);
+  simulation.commandMove([defender.id], 100, 500, { force: true });
+
+  simulation.applyDamage(defender, 1, aggressor);
+
+  assert.equal(defender.attackTargetId, null);
+  assert.equal(defender.moveMode, "force");
+  assert.deepEqual(defender.moveTarget, { x: 100, y: 500 });
+});
+
 test("a normal move order overrides target lock while firing at enemies in range", () => {
   const simulation = new Simulation();
   const unit = simulation.addUnit("scout_mech", "player", 100, 100);
@@ -626,6 +946,31 @@ test("power relay towers extend a generator network to distant structures", () =
 
   assert.equal(relay.powered, true);
   assert.equal(charger.powered, true);
+});
+
+test("power coverage uses the same grid-aligned square cells as network connections", () => {
+  const simulation = new Simulation();
+  const generator = simulation.addStructure("generator", "player", 320, 800);
+  const coverage = powerCoverageBounds(generator.type, generator.x, generator.y);
+  const insideSquareOutsideCircle = simulation.addStructure("charger", "player", 520, 1000);
+  const justOutsideGrid = simulation.addStructure("sentry_turret", "player", coverage.right, 1000);
+
+  simulation.tick(0.25);
+
+  assert.equal(coverage.left % SIMULATION_RULES.buildingGridSize, 0);
+  assert.equal(coverage.right % SIMULATION_RULES.buildingGridSize, 0);
+  assert.equal(coverage.top % SIMULATION_RULES.buildingGridSize, 0);
+  assert.equal(coverage.bottom % SIMULATION_RULES.buildingGridSize, 0);
+  assert.ok(
+    Math.hypot(
+      insideSquareOutsideCircle.x - generator.x,
+      insideSquareOutsideCircle.y - generator.y,
+    ) > STRUCTURE_DEFINITIONS.generator.powerRadius,
+  );
+  assert.equal(insideSquareOutsideCircle.connected, true);
+  assert.equal(insideSquareOutsideCircle.powered, true);
+  assert.equal(justOutsideGrid.connected, false);
+  assert.equal(justOutsideGrid.powered, false);
 });
 
 test("powered metal mines generate metal over time", () => {
@@ -910,17 +1255,22 @@ test("setting a new factory rally point resets its formation slots", () => {
 
 test("a completed unit waits in a surrounded factory until an exit opens", () => {
   const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 400, 200);
   const factory = simulation.addStructure("mech_factory_t1", "player", 400, 400);
+  const spawnDistance =
+    STRUCTURE_DEFINITIONS.mech_factory_t1.radius +
+    UNIT_DEFINITIONS.scout_mech.radius +
+    SIMULATION_RULES.structureCollisionPadding +
+    18;
   const blockers = [];
-  for (let index = 0; index < 8; index += 1) {
-    const angle = (index / 8) * Math.PI * 2;
-    const type = index === 4 ? "generator" : "battery";
+  for (let index = 0; index < 32; index += 1) {
+    const angle = (index / 32) * Math.PI * 2;
     blockers.push(
       simulation.addStructure(
-        type,
+        "battery",
         "player",
-        factory.x + Math.cos(angle) * 87,
-        factory.y + Math.sin(angle) * 87,
+        factory.x + Math.cos(angle) * spawnDistance,
+        factory.y + Math.sin(angle) * spawnDistance,
       ),
     );
   }
@@ -932,14 +1282,14 @@ test("a completed unit waits in a surrounded factory until an exit opens", () =>
   assert.equal(factory.productionQueue.length, 1);
   assert.ok(factory.productionQueue[0].progress >= UNIT_DEFINITIONS.scout_mech.productionTime);
 
-  simulation.applyDamage(blockers[0], blockers[0].hp);
+  for (const blocker of blockers) simulation.applyDamage(blocker, blocker.hp);
   advance(simulation, 0.2);
 
   assert.equal(simulation.units.length, 1);
   assert.equal(factory.productionQueue.length, 0);
 });
 
-test("newly produced combat units attack-move to their factory rally point", () => {
+test("newly produced combat units engage threats while rallying", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 300);
   const factory = simulation.addStructure("mech_factory_t1", "player", 220, 300);
@@ -952,8 +1302,9 @@ test("newly produced combat units attack-move to their factory rally point", () 
 
   const unit = simulation.units.find((candidate) => candidate.type === "scout_mech");
   assert.ok(unit);
-  assert.deepEqual(unit.moveTarget, { x: 700, y: 300 });
-  assert.equal(unit.moveMode, "normal");
+  assert.equal(unit.moveTarget, null);
+  assert.equal(unit.attackTargetId, enemy.id);
+  assert.equal(unit.attackTargetMode, "retaliation");
   assert.ok(enemy.hp < enemyStartingHp, "the unit should engage an enemy along its rally path");
 });
 
@@ -1141,8 +1492,8 @@ test("energy-production buildings can be placed away from metal deposits", () =>
   const generator = simulation.startConstruction([worker.id], "generator", 777, 333);
 
   assert.ok(generator);
-  assert.equal(generator.x, 760);
-  assert.equal(generator.y, 320);
+  assert.equal(generator.x, 780);
+  assert.equal(generator.y, 340);
   assert.equal(generator.depositId, null);
 });
 
@@ -1197,7 +1548,7 @@ test("workers can construct from a corner of a rectangular building footprint", 
     complete: false,
     constructionProgress: 0,
   });
-  const worker = simulation.addUnit("worker_drone_t1", "player", 910, 540);
+  const worker = simulation.addUnit("worker_drone_t1", "player", 890, 530);
   simulation.commandBuild([worker.id], project.id);
 
   simulation.tick(1 / 30);
@@ -1263,14 +1614,57 @@ test("construction placement rejects foundations that overlap existing buildings
   simulation.addStructure("generator", "player", 220, 100);
   const startingMetal = simulation.resources.player.metal;
 
-  const overlapping = simulation.startConstruction([worker.id], "battery", 240, 100);
+  const overlapping = simulation.startConstruction([worker.id], "battery", 220, 100);
 
   assert.equal(overlapping, null);
   assert.equal(simulation.resources.player.metal, startingMetal);
   assert.match(simulation.lastPlacementError, /cannot overlap/i);
 });
 
-test("construction placement rejects sites occupied by units without spending metal", () => {
+test("buildings may occupy directly adjacent grid cells without invisible padding", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("sentry_turret", "player", 220, 220);
+
+  const adjacentSentry = simulation.evaluatePlacement("sentry_turret", 260, 220);
+  const adjacentBattery = simulation.evaluatePlacement("battery", 260, 220);
+
+  assert.equal(adjacentSentry.valid, true);
+  assert.deepEqual([adjacentSentry.x, adjacentSentry.y], [260, 220]);
+  assert.equal(adjacentBattery.valid, true);
+  assert.deepEqual([adjacentBattery.x, adjacentBattery.y], [260, 220]);
+});
+
+test("friendly units vacate a construction site when its foundation is placed", () => {
+  const simulation = new Simulation();
+  const builder = simulation.addUnit("worker_drone_t1", "player", 400, 400);
+  const ally = simulation.addUnit("scout_mech", "player", 410, 400);
+  const startingMetal = simulation.resources.player.metal;
+  const expectedPlacement = simulation.evaluatePlacement("generator", 401, 399, "player");
+
+  const structure = simulation.startConstruction([builder.id], "generator", 401, 399);
+
+  assert.ok(structure);
+  assert.deepEqual([structure.x, structure.y], [expectedPlacement.x, expectedPlacement.y]);
+  assert.equal(builder.buildTargetId, structure.id);
+  assert.equal(
+    simulation.resources.player.metal,
+    startingMetal - STRUCTURE_DEFINITIONS.generator.metalCost,
+  );
+  const footprint = structureFootprint("generator");
+  for (const unit of [builder, ally]) {
+    const deltaX = Math.max(Math.abs(unit.x - structure.x) - footprint.halfWidth, 0);
+    const deltaY = Math.max(Math.abs(unit.y - structure.y) - footprint.halfHeight, 0);
+    assert.ok(
+      Math.hypot(deltaX, deltaY) + 0.0001 >=
+        UNIT_DEFINITIONS[unit.type].radius + SIMULATION_RULES.structureCollisionPadding,
+    );
+  }
+
+  simulation.tick(1 / 30);
+  assert.ok(structure.constructionProgress > 0);
+});
+
+test("construction placement still rejects sites occupied by hostile units", () => {
   const simulation = new Simulation();
   const builder = simulation.addUnit("worker_drone_t1", "player", 100, 100);
   simulation.addUnit("worker_drone_t1", "enemy", 400, 400);
@@ -1290,10 +1684,10 @@ test("ordinary buildings snap to the shared 40-unit construction grid", () => {
   const placement = simulation.startConstruction([worker.id], "battery", 777, 333);
 
   assert.ok(placement);
-  assert.equal(placement.x, 760);
-  assert.equal(placement.y, 320);
-  assert.equal(placement.x % SIMULATION_RULES.buildingGridSize, 0);
-  assert.equal(placement.y % SIMULATION_RULES.buildingGridSize, 0);
+  assert.equal(placement.x, 780);
+  assert.equal(placement.y, 340);
+  assert.equal((placement.x - SIMULATION_RULES.buildingGridSize / 2) % SIMULATION_RULES.buildingGridSize, 0);
+  assert.equal((placement.y - SIMULATION_RULES.buildingGridSize / 2) % SIMULATION_RULES.buildingGridSize, 0);
 });
 
 test("odd and even building footprints align every edge to a grid line", () => {
@@ -1303,7 +1697,7 @@ test("odd and even building footprints align every edge to a grid line", () => {
   const footprint = structureFootprint("mech_factory_t1");
 
   assert.ok(factory);
-  assert.equal(factory.x, 780);
+  assert.equal(factory.x, 760);
   assert.equal(factory.y, 320);
   assert.equal((factory.x - footprint.halfWidth) % SIMULATION_RULES.buildingGridSize, 0);
   assert.equal((factory.x + footprint.halfWidth) % SIMULATION_RULES.buildingGridSize, 0);
@@ -1313,10 +1707,12 @@ test("odd and even building footprints align every edge to a grid line", () => {
 
 test("building classes use distinct grid footprints", () => {
   assert.deepEqual(STRUCTURE_DEFINITIONS.power_tower.footprint, [1, 1]);
-  assert.deepEqual(STRUCTURE_DEFINITIONS.generator.footprint, [2, 2]);
-  assert.deepEqual(STRUCTURE_DEFINITIONS.mech_factory_t1.footprint, [3, 2]);
-  assert.deepEqual(STRUCTURE_DEFINITIONS.mech_factory_t2.footprint, [4, 3]);
-  assert.deepEqual(STRUCTURE_DEFINITIONS.mech_factory_t3.footprint, [5, 4]);
+  assert.deepEqual(STRUCTURE_DEFINITIONS.generator.footprint, [1, 1]);
+  assert.deepEqual(STRUCTURE_DEFINITIONS.battery.footprint, [1, 1]);
+  assert.deepEqual(STRUCTURE_DEFINITIONS.mech_factory_t1.footprint, [2, 2]);
+  assert.deepEqual(STRUCTURE_DEFINITIONS.mech_factory_t2.footprint, [3, 3]);
+  assert.deepEqual(STRUCTURE_DEFINITIONS.mech_factory_t3.footprint, [4, 4]);
+  assert.equal(SIMULATION_RULES.structureCollisionPadding, 0);
 });
 
 test("enemy AI searches nearby grid cells when its preferred site is occupied", () => {
@@ -1331,10 +1727,11 @@ test("enemy AI searches nearby grid cells when its preferred site is occupied", 
   const battery = simulation.structures.find(
     (structure) => structure.alive && structure.team === "enemy" && structure.type === "battery",
   );
+  const batteryFootprint = structureFootprint("battery");
   assert.ok(battery);
   assert.notDeepEqual([battery.x, battery.y], [2740, 800]);
-  assert.equal(battery.x % SIMULATION_RULES.buildingGridSize, 0);
-  assert.equal(battery.y % SIMULATION_RULES.buildingGridSize, 0);
+  assert.equal((battery.x - batteryFootprint.halfWidth) % SIMULATION_RULES.buildingGridSize, 0);
+  assert.equal((battery.y - batteryFootprint.halfHeight) % SIMULATION_RULES.buildingGridSize, 0);
   assert.equal(
     simulation.isBuildSiteConnectedToPower("battery", "enemy", battery.x, battery.y),
     true,
@@ -1350,7 +1747,7 @@ test("enemy AI searches nearby grid cells when its preferred site is occupied", 
 test("enemy AI builds generation before spending metal on an unpowered consumer", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
-  simulation.aiBuildIndex = 4;
+  simulation.aiBuildIndex = 3;
   simulation.resources.enemy.metal = 1000;
   simulation.addUnit("worker_drone_t1", "enemy", 2300, 780);
   const startingMetal = simulation.resources.enemy.metal;
@@ -1363,7 +1760,7 @@ test("enemy AI builds generation before spending metal on an unpowered consumer"
     ),
     false,
   );
-  assert.equal(simulation.aiBuildIndex, 4);
+  assert.equal(simulation.aiBuildIndex, 3);
   assert.ok(
     simulation.structures.some(
       (structure) => structure.alive && structure.team === "enemy" && structure.type === "generator",
@@ -1378,7 +1775,7 @@ test("enemy AI builds generation before spending metal on an unpowered consumer"
 test("enemy AI moves a planned relay onto the connected edge of its grid", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
-  simulation.aiBuildIndex = 2;
+  simulation.aiBuildIndex = 4;
   simulation.resources.enemy.metal = 1000;
   const generator = simulation.addStructure("generator", "enemy", 2880, 800);
   simulation.addUnit("worker_drone_t1", "enemy", 2800, 1000);
@@ -1403,7 +1800,7 @@ test("enemy AI moves a planned relay onto the connected edge of its grid", () =>
 test("enemy AI places powered consumers inside its energized grid", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
-  simulation.aiBuildIndex = 4;
+  simulation.aiBuildIndex = 3;
   simulation.resources.enemy.metal = 1000;
   simulation.addStructure("generator", "enemy", 2880, 800);
   simulation.addUnit("worker_drone_t1", "enemy", 2800, 1000);
@@ -1428,7 +1825,7 @@ test("enemy AI places powered consumers inside its energized grid", () => {
 test("enemy AI completes extra generation before projected demand exceeds supply", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
-  simulation.aiBuildIndex = 4;
+  simulation.aiBuildIndex = 3;
   simulation.resources.enemy.metal = 5000;
   simulation.addStructure("generator", "enemy", 2880, 800);
   simulation.addStructure("mech_factory_t1", "enemy", 2680, 920);
@@ -1450,9 +1847,9 @@ test("enemy AI completes extra generation before projected demand exceeds supply
     ),
     false,
   );
-  assert.equal(simulation.aiBuildIndex, 4);
+  assert.equal(simulation.aiBuildIndex, 3);
 
-  advance(simulation, 22);
+  advance(simulation, 30);
   const charger = simulation.structures.find(
     (structure) => structure.alive && structure.team === "enemy" && structure.type === "charger",
   );
@@ -1478,7 +1875,24 @@ test("enemy AI reassigns an idle worker to an abandoned foundation", () => {
   assert.equal(project.complete, true);
 });
 
-test("enemy AI reserves metal for its next building before queueing combat units", () => {
+test("enemy AI builds an initial combat force before reserving for expensive construction", () => {
+  const simulation = new Simulation();
+  simulation.aiThinkRemaining = 0;
+  simulation.aiBuildIndex = 10;
+  simulation.resources.enemy.metal = UNIT_DEFINITIONS.scout_mech.metalCost;
+  simulation.addUnit("worker_drone_t1", "enemy", 1200, 600);
+  simulation.addUnit("worker_drone_t1", "enemy", 1240, 600);
+  simulation.addUnit("worker_drone_t1", "enemy", 1280, 600);
+  const factory = simulation.addStructure("mech_factory_t1", "enemy", 1400, 700);
+
+  simulation.tick(1 / 30);
+
+  assert.equal(factory.productionQueue.length, 1);
+  assert.equal(factory.productionQueue[0].unitType, "scout_mech");
+  assert.equal(simulation.resources.enemy.metal, 0);
+});
+
+test("enemy AI reserves metal for its next building after fielding a combat force", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
   simulation.aiBuildIndex = 1;
@@ -1486,6 +1900,9 @@ test("enemy AI reserves metal for its next building before queueing combat units
   simulation.addUnit("worker_drone_t1", "enemy", 1200, 600);
   simulation.addUnit("worker_drone_t1", "enemy", 1240, 600);
   simulation.addUnit("worker_drone_t1", "enemy", 1280, 600);
+  simulation.addUnit("scout_mech", "enemy", 1320, 600);
+  simulation.addUnit("scout_mech", "enemy", 1360, 600);
+  simulation.addUnit("scout_mech", "enemy", 1400, 600);
   const factory = simulation.addStructure("mech_factory_t1", "enemy", 1400, 700);
 
   simulation.tick(1 / 30);
@@ -1523,20 +1940,48 @@ test("enemy combat units wait for a full wave before attacking", () => {
   const staged = [
     simulation.addUnit("scout_mech", "enemy", 1000, 440),
     simulation.addUnit("scout_mech", "enemy", 1020, 480),
-    simulation.addUnit("scout_mech", "enemy", 1040, 520),
   ];
   simulation.aiThinkRemaining = 0;
 
   simulation.tick(1 / 30);
   assert.ok(staged.every((unit) => unit.attackTargetId === null));
 
-  const fourth = simulation.addUnit("scout_mech", "enemy", 1060, 560);
+  const third = simulation.addUnit("scout_mech", "enemy", 1040, 520);
   simulation.aiThinkRemaining = 0;
   simulation.tick(1 / 30);
 
-  assert.equal(SIMULATION_RULES.enemyAttackWaveSize, 4);
-  assert.ok([...staged, fourth].every((unit) => unit.attackTargetId === target.id));
-  assert.ok([...staged, fourth].every((unit) => unit.attackTargetMode === "explicit"));
+  assert.equal(SIMULATION_RULES.enemyAttackWaveSize, 3);
+  assert.ok([...staged, third].every((unit) => unit.attackTargetId === target.id));
+  assert.ok([...staged, third].every((unit) => unit.attackTargetMode === "explicit"));
+});
+
+test("enemy combat units immediately answer structures rushed near their base", () => {
+  const simulation = new Simulation();
+  const enemyGenerator = simulation.addStructure("generator", "enemy", 1000, 800);
+  const defender = simulation.addUnit("scout_mech", "enemy", 1080, 800);
+  const forwardGenerator = simulation.addStructure("generator", "player", 1500, 800);
+  simulation.addStructure("sentry_turret", "player", 1460, 800);
+  simulation.aiThinkRemaining = 0;
+  const startingDistance = Math.hypot(
+    defender.x - forwardGenerator.x,
+    defender.y - forwardGenerator.y,
+  );
+
+  simulation.tick(1 / 30);
+
+  assert.ok(
+    Math.hypot(forwardGenerator.x - enemyGenerator.x, forwardGenerator.y - enemyGenerator.y) <=
+      SIMULATION_RULES.enemyRushResponseRadius,
+  );
+  assert.ok(defender.attackTargetId);
+  assert.equal(defender.attackTargetMode, "explicit");
+  assert.equal(defender.moveTarget, null);
+
+  advance(simulation, 1);
+  assert.ok(
+    Math.hypot(defender.x - forwardGenerator.x, defender.y - forwardGenerator.y) <
+      startingDistance,
+  );
 });
 
 test("cancelling construction removes the foundation, clears workers, and refunds unbuilt metal", () => {

@@ -16,6 +16,22 @@ The intended pressure is logistical rather than primarily mechanical: players
 should make meaningful decisions about range, reserves, supply, and retreat without
 having to babysit every ordinary unit.
 
+### 1.1 Battlefield Layout
+
+The provisional field-test battlefield is 5,200 by 3,200 world units. It contains
+27 map-defined Metal Mine deposits: 17 deposits distributed through the ordinary
+expansion lanes and two distant frontier clusters containing five deposits each.
+The Northern Frontier and Southern Frontier clusters sit near the far map edges,
+well away from both starting bases, so controlling their concentrated metal
+requires a substantial logistics commitment.
+
+Grid-aligned ridges, shelves, and crags form impassable terrain. Their visible
+rectangular boundaries use the same 40-unit grid as construction. Buildings and
+upgrades cannot overlap them, and player units, enemy units, and reclamation drones
+must travel around them. A move or rally command issued inside impassable terrain
+resolves to its nearest reachable edge. Player construction and enemy AI placement
+use the same terrain validation.
+
 ## 2. Resources
 
 ### 2.1 Metal
@@ -27,6 +43,9 @@ Metal can be obtained from:
 - Metal mines.
 - Converting energy into metal.
 - Reclaiming the wreckage of destroyed units.
+
+Most deposits are individually distributed, while remote frontier locations group
+several deposits into high-value expansion objectives.
 
 ### 2.2 Energy
 
@@ -127,10 +146,15 @@ structure and loses that relay's stored reserve.
 While the player is placing any building, the battlefield displays the coverage
 areas of the player's completed, energized generators, Grid Batteries, and Power
 Relay Towers. A placement preview for a generator, Grid Battery, or Power Relay
-Tower also displays a static circle for the coverage it would provide from the
-snapped construction location. The proposed circle remains visible in the invalid
-placement color when the footprint cannot be built, so its range and placement
-error can be evaluated together.
+Tower also displays the coverage it would provide from the snapped construction
+location. Grid-power coverage is represented exclusively as filled 40-world-unit
+construction-grid cells with a square, grid-aligned boundary, never as a smooth
+circle. A consumer connects when the grid cell containing its snapped building
+center is one of those covered cells. Power-node connections use the same cells,
+including when either node's field reaches the other node. The placement preview
+explicitly reports whether the proposed building is inside or outside the power
+grid, and invalid power-node previews retain the invalid-placement color so range
+and placement errors can be evaluated together.
 
 The Induction Charger displays a static circle marking its 260-world-unit
 unit-recharge radius. This large field lets one charger support a broad staging
@@ -138,7 +162,7 @@ area without adding animated electrical-field effects.
 It must not show animated electrical fields or moving energy effects throughout
 that circle.
 
-The exact grid, radius, and connection values remain to be tested.
+The exact grid reach and connection values remain to be tested.
 
 ### 3.2 Unit Energy
 
@@ -218,6 +242,10 @@ research building such as a Mech Lab.
 
 Combat-capable units automatically attack hostile units, reclamation drones, and
 structures—including unfinished foundations—that enter their weapon range.
+Surviving combat units on either team retaliate when damaged: unless they are
+force-moving or already following an explicit attack order, they abandon their
+current automatic target or ordinary movement and pursue the aggressor. Retaliation
+may carry them beyond their normal automatic-acquisition range.
 Explicit movement, attack, stop, and hold-position commands remain available.
 Commands are contextual rather than limited to special-ability buttons.
 An explicit terrain move takes priority over an automatically acquired target:
@@ -252,15 +280,19 @@ ladder.
 | --- | --- | --- |
 | Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs and related ground units |
 | Vehicle Plant | Tier 1, Tier 2, Tier 3 | Tanks, artillery, transports, and other vehicles |
-| Aerospace Facility | Tier 2, Tier 3 | Air units; no Tier 1 aerospace facility exists |
+| Air Factory | Tier 1, Tier 2, Tier 3 | Air units |
 | Experimental Facility | Tier 3 only | The most powerful experimental units |
 
 A player may pursue mech and vehicle technology at the same tier. Advancing one
 production branch does not inherently replace or advance another branch.
 
-The precise method for moving a branch between tiers—upgrading an existing
-building, constructing a higher-tier version, or unlocking it globally—remains
-undecided.
+A completed Tier 2 Mech Factory globally unlocks Tier 2 upgrades for that team's
+existing tiered structures. A completed Tier 3 Mech Factory does the same for Tier
+3. Unlocks require a fully constructed factory; an unfinished foundation does not
+count. Once earned, the team keeps the unlock even if that factory is later
+destroyed. Higher-tier factories may still be constructed separately, and the current
+field test includes constructible Vehicle, Air, and Experimental factories whose unit
+rosters remain an unresolved design and implementation task.
 
 There is no fixed cap on the number of factories or equivalent production
 buildings a player may construct.
@@ -288,8 +320,39 @@ stat increases are provisional balance values.
 
 Worker drones construct the player's primary buildings. Tier 1, Tier 2, and Tier 3
 Mech Factories produce increasingly capable Tier 1, Tier 2, and Tier 3 Worker
-Drones respectively. Advanced workers construct faster and may later gain access
-to advanced building options.
+Drones respectively. Construction options are grouped into persistent Tier 1,
+Tier 2, and Tier 3 interface categories. Options above the selected worker's
+capability remain visible but locked, making the route to the next construction
+tier explicit.
+
+Worker construction capability is cumulative:
+
+- A Tier 1 Worker Drone constructs every Tier 1 building, including Tier 1 Mech,
+  Vehicle, and Air factories. It also constructs the Tier 2 Mech Factory, which
+  produces the Tier 2 Worker Drone.
+- A Tier 2 Worker Drone inherits every Tier 1 option, constructs every Tier 2
+  production, economy, logistics, and defense building, and constructs the Tier 3
+  Mech Factory.
+- A Tier 3 Worker Drone inherits every Tier 1 and Tier 2 option, constructs every
+  Tier 3 building, and constructs the Experimental Factory.
+
+Pulse Generators, Grid Batteries, Power Relay Towers, Induction Chargers, Metal
+Mines, Sentry Turrets, and Salvage Reclamation Yards currently have separate Tier
+1, Tier 2, and Tier 3 construction definitions. Higher-tier versions have larger
+provisional costs, footprints, durability, demand, and role-specific output or
+capacity. The Strategic Supply Complex remains a Tier 1 construction option with
+its own internal upgrade levels rather than separate tiered foundations. All new
+factory and building-variant balance values are provisional.
+
+A player upgrades one selected completed structure at a time. Each upgrade advances
+only one tier and costs the provisional difference between the target tier's metal
+cost and the structure's current-tier metal cost. The conversion is immediate,
+preserves the building's integrity percentage and retained energy up to the new
+capacity, and keeps factory queues and rally orders. The larger target footprint
+snaps to the nearest compatible grid center and must fit within the battlefield
+without overlapping another structure, hostile unit, or reclamation drone. Friendly
+units are moved clear. The Strategic Supply Complex continues to use its separate
+internal supply-level upgrades rather than this structure-tier system.
 
 Workers receive a placement order, travel to the site, and build the structure over
 time. Metal is spent when placement is confirmed. Incomplete buildings remain
@@ -320,12 +383,28 @@ A new ordinary foundation snaps to footprint-aware centers on the visible 40-uni
 construction grid, with every footprint edge aligned to a grid line, and must fit
 inside the battlefield. Buildings use visibly different rectangular footprints,
 from compact one-cell towers and turrets to multi-cell factories. A foundation
-cannot overlap a living building, unfinished
-foundation, worker, combat unit, or reclamation drone. Metal Mines instead snap to
+cannot overlap a living building, unfinished foundation, hostile unit, or
+reclamation drone. Friendly player-controlled units do not block placement. When a
+foundation is confirmed beneath friendly workers or combat units, those units are
+moved to the nearest clear edge outside its collision footprint; assigned builders
+then begin construction from outside the foundation. Metal Mines instead snap to
 their required deposit location. Invalid placement does not spend metal and reports
 the reason to the player. The player sees a green or red footprint preview before
 confirming placement, and the enemy AI searches nearby grid cells when its preferred
 site is blocked.
+
+Building-to-building validation uses the exact visible grid footprints. It adds no
+invisible movement padding, so adjacent footprints—including compact one-cell
+turrets and towers—may share an edge without overlapping. Unit movement still
+stops at the moving unit's own physical radius from the exact structure footprint;
+there is no additional structure-clearance padding.
+
+Tier 1 infrastructure is deliberately compact. Pulse Generators, Grid Batteries,
+Induction Chargers, Metal Mines, Power Relay Towers, and Sentry Turrets use 1×1
+footprints. Tier 1 factories use 2×2 footprints. Equivalent Tier 2 infrastructure
+uses 2×2 footprints and Tier 2 factories use 3×3 footprints; Tier 3 infrastructure
+uses 3×3 footprints and Tier 3 factories use 4×4 footprints. Exceptional strategic
+or experimental structures may use larger bespoke footprints.
 
 An incomplete friendly building is a contextual construction target. Right-clicking
 it with one or more selected workers assigns those workers to continue construction,
@@ -468,15 +547,21 @@ finishes another generator beside that expansion before resuming the original
 plan. It does not knowingly place disconnected consumers or expand demand beyond
 its steady generation capacity.
 
-The AI reserves enough metal for its next planned building before queueing ordinary
-combat units. Replacing a missing worker takes priority over that reserve so the AI
-cannot permanently lose its ability to construct.
+The AI makes its first decision after one second and reevaluates every second. Its
+opening prioritizes a battery, local static defense, a charger, and a three-unit
+combat force before expensive expansion. The Strategic Supply Complex is a late
+infrastructure project rather than an opening reservation. Once the initial force
+is secured, the AI reserves enough metal for its next planned building before
+queueing ordinary combat units. Replacing a missing worker and rebuilding a
+deployed or destroyed combat reserve take priority over that building reserve.
 
-Enemy combat units stage until four active attackers are ready, then launch as a
+Enemy combat units stage until three active attackers are ready, then launch as a
 coordinated wave against one target. Newly produced attackers wait for a later wave
 instead of crossing the map individually. Automatic attacks within weapon range
-still allow staged units to defend themselves locally. The four-unit wave size is
-provisional.
+still allow staged units to defend themselves locally. If a player unit or structure
+appears within 800 world units of enemy infrastructure, available defenders respond
+immediately without waiting for a complete wave. The cadence, response radius, and
+three-unit wave size are provisional.
 
 ## 9. Initial Playable Scope
 
@@ -521,7 +606,6 @@ clamped so it cannot expose space beyond the battlefield boundary.
 - Can reclamation drones enter dangerous territory automatically, or can the player
   constrain their operating radius?
 - What happens to drones and carried salvage if their yard is destroyed?
-- How are production tiers unlocked and represented?
 - Are attack and defense upgrades global, branch-specific, or local to a command
   area?
 - What factions, visual style, match length, and army scale best support the energy
