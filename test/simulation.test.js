@@ -246,6 +246,13 @@ test("the standard battlefield uses the much larger map and separated starting b
     [...new Set(remoteDeposits.map((deposit) => deposit.cluster))].sort(),
     ["Northern Frontier", "Southern Frontier"],
   );
+  assert.ok(
+    remoteDeposits.every(
+      (deposit) =>
+        Math.hypot(deposit.x - playerGenerator.x, deposit.y - playerGenerator.y) > 1800 &&
+        Math.hypot(deposit.x - enemyGenerator.x, deposit.y - enemyGenerator.y) > 1800,
+    ),
+  );
   assert.equal(simulation.terrain.length, TERRAIN_OBSTACLES.length);
   assert.ok(
     simulation.metalDeposits.every(

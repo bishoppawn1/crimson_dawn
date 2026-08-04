@@ -1867,6 +1867,11 @@ export class Simulation {
       return false;
     }
 
+    const clearOfTerrain = this.terrain.every(
+      (obstacle) => !pointInsideBounds(point, terrainBounds(obstacle, definition.radius)),
+    );
+    if (!clearOfTerrain) return false;
+
     const clearOfStructures = this.structures.every((structure) => {
       if (!structure.alive) return true;
       const clearance =
@@ -2002,6 +2007,9 @@ export class Simulation {
       }
     }
     this.resolveUnitOverlaps();
+    for (const unit of this.units) {
+      if (unit.alive) this.resolveUnitTerrainOverlap(unit);
+    }
   }
 
   resolveUnitOverlaps() {
@@ -2235,6 +2243,23 @@ export class Simulation {
       const exit = exits[0];
       if (!exit) continue;
       unit[exit.axis] = exit.value;
+    }
+  }
+
+  resolveUnitTerrainOverlap(unit) {
+    const unitRadius = UNIT_DEFINITIONS[unit.type].radius;
+    for (const obstacle of this.terrain) {
+      const bounds = terrainBounds(obstacle, unitRadius);
+      if (!pointInsideBounds(unit, bounds)) continue;
+      const exits = [
+        { distance: unit.x - bounds.minX, axis: "x", value: bounds.minX },
+        { distance: bounds.maxX - unit.x, axis: "x", value: bounds.maxX },
+        { distance: unit.y - bounds.minY, axis: "y", value: bounds.minY },
+        { distance: bounds.maxY - unit.y, axis: "y", value: bounds.maxY },
+      ].sort((left, right) => left.distance - right.distance);
+      const exit = exits[0];
+      unit[exit.axis] = exit.value;
+      unit.navigationObstacleId = obstacle.id;
     }
   }
 
