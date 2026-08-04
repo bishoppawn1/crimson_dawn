@@ -1413,13 +1413,16 @@ function updateInterface() {
     const orderText = buildTarget?.alive && !buildTarget.complete
       ? ` · BUILDING ${STRUCTURE_DEFINITIONS[buildTarget.type].name.toUpperCase()}`
       : "";
+    const buildQueueText = unit.buildQueue?.length
+      ? ` · ${unit.buildQueue.length} BUILD${unit.buildQueue.length === 1 ? "" : "S"} QUEUED`
+      : "";
     const supplyText = definition.transferRate
       ? unit.energyTransferTargetIds?.length
         ? ` · SUPPLYING ${unit.energyTransferTargetIds.length} UNIT${unit.energyTransferTargetIds.length === 1 ? "" : "S"}`
         : ` · NO UNIT IN ${definition.transferRange} RANGE`
       : "";
     selectionName.textContent = definition.name;
-    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${emergencyRecoveryText}${supplyText}${orderText}`;
+    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${emergencyRecoveryText}${supplyText}${orderText}${buildQueueText}`;
   } else {
     const activeCount = selectedUnits.filter((unit) => unit.state === "active").length;
     selectionName.textContent = `${selectedUnits.length} units selected`;
@@ -1536,7 +1539,7 @@ function updateInterface() {
     statusBanner.textContent = "FORCE MOVE ARMED · RIGHT-CLICK DESTINATION · ESC TO CANCEL";
   } else if (placementStructureType) {
     statusBanner.hidden = false;
-    statusBanner.textContent = placementMessage || `PLACE ${STRUCTURE_DEFINITIONS[placementStructureType].name.toUpperCase()} · RIGHT-CLICK TO CANCEL`;
+    statusBanner.textContent = placementMessage || `PLACE ${STRUCTURE_DEFINITIONS[placementStructureType].name.toUpperCase()} · HOLD SHIFT TO QUEUE · RIGHT-CLICK TO CANCEL`;
   } else if (playerSupply.used >= playerSupply.capacity) {
     statusBanner.hidden = false;
     statusBanner.textContent = "SUPPLY LIMIT REACHED · BUILD OR UPGRADE A STRATEGIC SUPPLY COMPLEX";
@@ -1683,7 +1686,7 @@ canvas.addEventListener("wheel", (event) => {
   syncPointerToCamera();
 }, { passive: false });
 
-function placeConstruction(point) {
+function placeConstruction(point, queue = false) {
   if (!placementStructureType) return false;
   const workers = [...selectedUnitIds].filter((id) => {
     const unit = simulation.getUnit(id);
@@ -1694,11 +1697,14 @@ function placeConstruction(point) {
     placementStructureType,
     point.x,
     point.y,
+    { queue },
   );
   if (structure) {
-    placementStructureType = null;
     placementMessage = null;
-    placementCursor = null;
+    if (!queue) {
+      placementStructureType = null;
+      placementCursor = null;
+    }
   } else {
     placementMessage = (simulation.lastPlacementError || "Invalid construction location.").toUpperCase();
   }
@@ -1712,7 +1718,7 @@ canvas.addEventListener("mouseup", (event) => {
   selectionDrag = null;
 
   if (placementStructureType) {
-    placeConstruction(drag.current);
+    placeConstruction(drag.current, drag.shift);
     return;
   }
 
@@ -1752,10 +1758,6 @@ canvas.addEventListener("mouseup", (event) => {
     }
   }
   updateInterface();
-});
-
-canvas.addEventListener("click", (event) => {
-  if (placementStructureType) placeConstruction(canvasPoint(event));
 });
 
 canvas.addEventListener("contextmenu", (event) => {

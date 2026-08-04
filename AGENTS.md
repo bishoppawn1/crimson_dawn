@@ -45,6 +45,9 @@ implementation decision establishes or changes player-facing behavior.
   immediately to player units or structures rushed near enemy infrastructure.
 - Worker drones construct the player's buildings. Mech factories produce the
   worker generation matching the factory tier.
+- Holding Shift while placing foundations appends them to each selected worker's
+  construction queue and keeps placement mode active. Preserve placement order;
+  ordinary placement and explicit non-build commands replace the queued orders.
 - Do not impose an arbitrary cap on the number of production buildings a player
   may construct.
 - Standard match starts give each side exactly three Tier 1 Worker Drones, one

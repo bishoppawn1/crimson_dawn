@@ -362,8 +362,14 @@ units are moved clear. The Strategic Supply Complex continues to use its separat
 internal supply-level upgrades rather than this structure-tier system.
 
 Workers receive a placement order, travel to the site, and build the structure over
-time. Metal is spent when placement is confirmed. Incomplete buildings remain
-visible and vulnerable. Factories have an idle passive demand and add production
+time. Holding Shift while confirming additional foundations appends them to every
+selected worker's construction queue without interrupting the current project, and
+keeps placement mode active for further orders. Workers advance through valid
+foundations in placement order. Ordinary non-Shift placement replaces the current
+construction order and clears its queue, as do explicit move, attack, stop, and
+hold-position commands. A cancelled queued foundation is skipped. Metal is spent
+when each placement is confirmed. Incomplete buildings remain visible and vulnerable.
+Factories have an idle passive demand and add production
 demand while the first queued unit is actively building. Provisional production
 demands are 6 energy per second for Tier 1, 10 for Tier 2, and 16 for Tier 3, in
 addition to their respective idle demands of 3, 5, and 8. Production pauses when
