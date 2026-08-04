@@ -1532,7 +1532,7 @@ export class Simulation {
         ...this.getDrones().filter((entity) => entity.alive && entity.team !== unit.team),
         ...this.structures.filter((entity) => entity.alive && entity.team !== unit.team),
       ].filter((target) => distance(unit, target) <= definition.attackRange + entityRadius(target));
-      const target = nearest(unit, potentialTargets);
+      const target = nearest(unit, preferredTargets(definition, potentialTargets));
       unit.attackTargetId = target?.id || null;
       unit.attackTargetMode = target ? "automatic" : null;
     }
@@ -2393,7 +2393,10 @@ export class Simulation {
       ? definition.abilities.overdrive.cooldownMultiplier
       : 1;
     unit.attackCooldownRemaining = definition.attackCooldown * cooldownMultiplier;
-    this.applyDamage(target, definition.attackDamage, unit);
+    const structureDamageMultiplier = target.kind === "structure"
+      ? definition.structureDamageMultiplier || 1
+      : 1;
+    this.applyDamage(target, definition.attackDamage * structureDamageMultiplier, unit);
     this.emit("attack", target.x, target.y, { sourceId: unit.id, targetId: target.id });
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return true;
@@ -2972,6 +2975,16 @@ function nearest(origin, candidates) {
     }
   }
   return result;
+}
+
+function preferredTargets(definition, candidates) {
+  if (!definition.preferredStructureFamilies?.length) return candidates;
+  const preferredStructures = candidates.filter((candidate) => {
+    if (candidate.kind !== "structure") return false;
+    const family = STRUCTURE_DEFINITIONS[candidate.type]?.family;
+    return definition.preferredStructureFamilies.includes(family);
+  });
+  return preferredStructures.length > 0 ? preferredStructures : candidates;
 }
 
 function entityRadius(entity) {

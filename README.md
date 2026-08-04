@@ -32,6 +32,8 @@ The current build is the first playable field test. It includes:
   then chain directly to nearby piles until their cargo is full.
 - Automatic attacks against hostile units entering weapon range.
 - Player and enemy combat units retaliate against and pursue hostile aggressors.
+- Fast, long-endurance Raiders deal 1.75× damage to structures and automatically
+  prioritize exposed economic and power infrastructure.
 - Compact unit silhouettes with physical unit-to-unit separation for dense groups.
 - Drag-box unit selection plus stop and hold-position commands.
 - Metal mines, relay-tower power networks, and static sentry defenses.

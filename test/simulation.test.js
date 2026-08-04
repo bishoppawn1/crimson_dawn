@@ -472,6 +472,51 @@ test("attacking damages the target and spends the attacker's energy", () => {
   assert.equal(attacker.energy, 20 - UNIT_DEFINITIONS.scout_mech.attackEnergy);
 });
 
+test("Raiders are fast harassment units that deal bonus damage to structures", () => {
+  const definition = UNIT_DEFINITIONS.raider;
+  const vanguard = UNIT_DEFINITIONS.scout_mech;
+
+  assert.ok(definition.speed > vanguard.speed);
+  assert.ok(definition.maxHp < vanguard.maxHp);
+  assert.ok(definition.movementEnergyPerUnit < vanguard.movementEnergyPerUnit);
+  assert.ok(
+    definition.attackDamage / definition.attackCooldown <
+      vanguard.attackDamage / vanguard.attackCooldown,
+  );
+  assert.ok(definition.structureDamageMultiplier > 1);
+
+  const unitSimulation = new Simulation();
+  const unitRaider = unitSimulation.addUnit("raider", "enemy", 100, 100);
+  const unitTarget = unitSimulation.addUnit("scout_mech", "player", 150, 100);
+  unitSimulation.commandAttack([unitRaider.id], unitTarget.id);
+  unitSimulation.tick(1 / 30);
+  assert.equal(unitTarget.hp, vanguard.maxHp - definition.attackDamage);
+
+  const structureSimulation = new Simulation();
+  const structureRaider = structureSimulation.addUnit("raider", "enemy", 100, 100);
+  const structureTarget = structureSimulation.addStructure("generator", "player", 150, 100);
+  structureSimulation.commandAttack([structureRaider.id], structureTarget.id);
+  structureSimulation.tick(1 / 30);
+  assert.equal(
+    structureTarget.hp,
+    STRUCTURE_DEFINITIONS.generator.maxHp -
+      definition.attackDamage * definition.structureDamageMultiplier,
+  );
+});
+
+test("Raiders automatically prioritize exposed infrastructure", () => {
+  const simulation = new Simulation();
+  const raider = simulation.addUnit("raider", "enemy", 100, 100);
+  simulation.addUnit("scout_mech", "player", 120, 100);
+  const generator = simulation.addStructure("generator", "player", 180, 100);
+  simulation.addStructure("sentry_turret", "player", 150, 100);
+
+  simulation.assignAutomaticTargets();
+
+  assert.equal(raider.attackTargetId, generator.id);
+  assert.equal(raider.attackTargetMode, "automatic");
+});
+
 test("Overdrive is restricted by unit capability and consumes energy", () => {
   const simulation = new Simulation();
   const assault = simulation.addUnit("assault_mech", "player", 100, 100, { energy: 60 });
