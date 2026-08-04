@@ -2070,12 +2070,7 @@ export class Simulation {
   }
 
   findDroneTarget(drone) {
-    const reservedIds = new Set(
-      this.getDrones()
-        .filter((other) => other.alive && other.id !== drone.id && other.targetWreckId)
-        .map((other) => other.targetWreckId),
-    );
-    const candidates = this.wrecks.filter((wreck) => wreck.metal > EPSILON && !reservedIds.has(wreck.id));
+    const candidates = this.wrecks.filter((wreck) => wreck.metal > EPSILON);
     return nearest(drone, candidates);
   }
 

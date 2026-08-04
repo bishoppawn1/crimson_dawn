@@ -26,6 +26,7 @@ The current build is the first playable field test. It includes:
 - Hostile units and wreck creation.
 - A powered reclamation yard with three autonomous salvage drones.
 - Free, delayed replacement of destroyed reclamation drones in the simulation.
+- Multiple reclamation drones can harvest the same wreck or scrap pile concurrently.
 - Automatic attacks against hostile units entering weapon range.
 - Compact unit silhouettes with physical unit-to-unit separation for dense groups.
 - Drag-box unit selection plus stop and hold-position commands.

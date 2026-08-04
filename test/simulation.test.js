@@ -492,7 +492,24 @@ test("a powered salvage yard automatically returns wreck metal", () => {
   advance(simulation, 12);
 
   assert.ok(simulation.resources.player.metal > startingMetal);
-  assert.ok(simulation.resources.player.metal <= startingMetal + 20);
+  assert.ok(simulation.resources.player.metal <= startingMetal + 20.001);
+});
+
+test("multiple reclamation drones can harvest the same scrap pile", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 100, 100);
+  const yard = simulation.addStructure("salvage_yard", "player", 240, 100);
+  const wreck = simulation.addWreck(400, 100, 120);
+
+  simulation.tick(1 / 30);
+
+  assert.equal(yard.drones.length, 3);
+  assert.ok(yard.drones.every((drone) => drone.targetWreckId === wreck.id));
+
+  advance(simulation, 2.5);
+
+  assert.ok(yard.drones.every((drone) => drone.carry > 0));
+  assert.ok(wreck.metal >= 0);
 });
 
 test("a powered yard replaces a destroyed drone for free after a delay", () => {

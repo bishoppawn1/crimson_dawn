@@ -417,8 +417,8 @@ recovery. It is not an essential early-game economy structure.
 
 Each yard controls three reclamation drones. Its default behavior is:
 
-1. Find the nearest eligible unit wreck that is not already fully claimed by the
-   yard's drones.
+1. Find the nearest eligible unit wreck or scrap pile with metal remaining. More
+   than one drone may choose the same pile.
 2. Dispatch an available drone to the wreck.
 3. Mine or collect metal from that wreck.
 4. Return the recovered metal to the yard.
@@ -434,10 +434,10 @@ If a reclamation drone is destroyed while carrying scrap, all carried metal drop
 at the destruction location as a reclaimable scrap pile. Its replacement begins
 empty.
 
-Drone pathing, carrying capacity, collection time, replacement time, target
-reservation, and behavior when the yard loses power remain tuning decisions. The
-implementation must prevent multiple drones from indefinitely blocking one another
-or collecting more metal than a wreck contains.
+Drone pathing, carrying capacity, collection time, replacement time, and behavior
+when the yard loses power remain tuning decisions. Multiple drones may harvest the
+same wreck concurrently, but the implementation must preserve its finite metal and
+prevent them from collecting more than the pile contains.
 
 ## 8. Enemy AI
 

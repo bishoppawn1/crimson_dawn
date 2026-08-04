@@ -74,6 +74,8 @@ implementation decision establishes or changes player-facing behavior.
   capacitor energy spent by firing.
 - Treat wreckage and disabled units as battlefield objectives, not merely visual
   remains.
+- Allow multiple reclamation drones to harvest the same wreck or scrap pile at the
+  same time. Preserve finite salvage and never collect more metal than remains.
 - Keep metal/energy conversion lossy so reciprocal conversion cannot generate
   unlimited resources.
 - Do not interpret factory categories as a linear tier ladder. Mech, vehicle, and
