@@ -265,6 +265,44 @@ test("the standard battlefield uses the much larger map and separated starting b
   );
 });
 
+test("both starting bases have sparse symmetrical walls with open central gates", () => {
+  const startingWalls = TERRAIN_OBSTACLES.filter(
+    (obstacle) => obstacle.terrainType === "starting_wall",
+  );
+  const playerWalls = startingWalls.filter((obstacle) => obstacle.side === "player");
+  const enemyWalls = startingWalls.filter((obstacle) => obstacle.side === "enemy");
+
+  assert.equal(playerWalls.length, 4);
+  assert.equal(enemyWalls.length, 4);
+  for (const wall of startingWalls) {
+    assert.equal(Math.min(wall.width, wall.height), SIMULATION_RULES.buildingGridSize);
+    assert.equal((wall.x - wall.width / 2) % SIMULATION_RULES.buildingGridSize, 0);
+    assert.equal((wall.y - wall.height / 2) % SIMULATION_RULES.buildingGridSize, 0);
+  }
+  for (const playerWall of playerWalls) {
+    assert.ok(
+      enemyWalls.some(
+        (enemyWall) =>
+          enemyWall.x === WORLD_WIDTH - playerWall.x &&
+          enemyWall.y === playerWall.y &&
+          enemyWall.width === playerWall.width &&
+          enemyWall.height === playerWall.height,
+      ),
+    );
+  }
+
+  const simulation = new Simulation({ width: 1400, height: 2200, terrain: playerWalls });
+  const unit = simulation.addUnit("scout_mech", "player", 900, 1600);
+  simulation.commandMove([unit.id], 1250, 1600);
+  advance(simulation, 5);
+
+  assert.ok(unit.x > 1100, "the unit could not pass through the starting wall gate");
+  assert.equal(unit.moveTarget, null);
+  const blockedPlacement = simulation.evaluatePlacement("generator", 1060, 1400, "player");
+  assert.equal(blockedPlacement.valid, false);
+  assert.match(blockedPlacement.reason, /impassable terrain/i);
+});
+
 test("impassable terrain rejects construction and redirects destinations inside it", () => {
   const terrain = [{ id: "test-ridge", name: "Test Ridge", x: 200, y: 100, width: 80, height: 120 }];
   const simulation = new Simulation({ width: 500, height: 300, terrain });

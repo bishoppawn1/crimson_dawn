@@ -284,16 +284,17 @@ function drawImpassableTerrain() {
   for (const obstacle of simulation.terrain) {
     const left = obstacle.x - obstacle.width / 2;
     const top = obstacle.y - obstacle.height / 2;
+    const isStartingWall = obstacle.terrainType === "starting_wall";
     context.save();
-    context.fillStyle = "#252b31";
-    context.strokeStyle = "#59636b";
+    context.fillStyle = isStartingWall ? "#34434b" : "#252b31";
+    context.strokeStyle = isStartingWall ? "#78909a" : "#59636b";
     context.lineWidth = 4;
     context.fillRect(left, top, obstacle.width, obstacle.height);
     context.strokeRect(left, top, obstacle.width, obstacle.height);
     context.beginPath();
     context.rect(left, top, obstacle.width, obstacle.height);
     context.clip();
-    context.strokeStyle = "#77818a28";
+    context.strokeStyle = isStartingWall ? "#b2cad443" : "#77818a28";
     context.lineWidth = 2;
     for (
       let offset = -obstacle.height;
@@ -306,7 +307,9 @@ function drawImpassableTerrain() {
       context.stroke();
     }
     context.restore();
-    drawLabel(obstacle.x, obstacle.y, `${obstacle.name} · Impassable`, true, "#9aa3aa");
+    if (!isStartingWall) {
+      drawLabel(obstacle.x, obstacle.y, `${obstacle.name} · Impassable`, true, "#9aa3aa");
+    }
   }
 }
 
@@ -1316,6 +1319,9 @@ function updateInterface() {
     const generatorText = definition.generationRate
       ? ` · +${definition.generationRate} energy/s constant · ${Math.floor(selectedStructure.energyGenerated)} generated`
       : "";
+    const relayText = definition.relayRadius
+      ? ` · ${definition.relayRadius} relay range · ${definition.chargeRate}/s buffer charge · ${definition.dischargeRate}/s discharge`
+      : "";
     const defenseText = definition.capacitorCapacity
       ? ` · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
       : "";
@@ -1335,7 +1341,7 @@ function updateInterface() {
         ? ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · UPGRADING TO ${selectedStructure.supplyUpgrade.targetLevel}`
         : ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · +${definition.supplyLevels[selectedStructure.supplyLevel - 1].capacity.toLocaleString()} capacity`
       : "";
-    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${demandText}${defenseText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
+    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${demandText}${defenseText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
   } else if (selectedUnits.length === 0) {
     selectionName.textContent = "No units selected";
     selectionDetails.textContent = "Select friendly units or a structure on the battlefield.";

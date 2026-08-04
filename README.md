@@ -37,8 +37,8 @@ The current build is the first playable field test. It includes:
 - Map-defined metal deposits that restrict mine construction locations.
 - A 5,200×3,200 battlefield with 27 deposits, including two remote five-deposit
   frontier clusters.
-- Visible impassable ridges, shelves, and crags that block ground movement and
-  construction for both players and AI.
+- Visible impassable ridges, shelves, crags, and broken starting walls that block
+  ground movement and construction for both players and AI while leaving open gates.
 - Tier 1–3 mech factories, each offering matching-tier Worker, Vanguard, Bulwark,
   and Arc Energy Carrier production lines.
 - Tiered Vehicle and Air factories, plus the Tier 3 Experimental Factory, with

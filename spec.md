@@ -32,6 +32,12 @@ must travel around them. A move or rally command issued inside impassable terrai
 resolves to its nearest reachable edge. Player construction and enemy AI placement
 use the same terrain validation.
 
+Each starting location also has four thin, grid-aligned wall segments arranged as
+a shallow defensive enclosure. Two broken forward segments leave a central gate,
+while short upper and lower segments leave the rear and corners open. These walls
+are symmetrical, impassable, and unavailable for construction overlap. They slow a
+direct opening rush without sealing either side into its base.
+
 ## 2. Resources
 
 ### 2.1 Metal
