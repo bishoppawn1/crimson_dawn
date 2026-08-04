@@ -234,12 +234,14 @@ than bases and defensive structures. All living units, friendly or hostile,
 maintain physical separation. Dense formations spread around one another instead
 of occupying an unlimited stack at one position.
 
-The Canvas battlefield uses simple role-readable unit sprites rather than generic
-diamonds with forward gun barrels. Vanguard, Bulwark, Carrier, and hostile combat
-sprites have visibly separated legs, torsos, heads, and arms so they read as mechs
-rather than tanks. Worker Drones use a compact multi-arm tool silhouette, while Arc
-Energy Carriers use a bipedal support frame with a visible energy core. Team color,
-stasis state, tier markings, health, and energy remain visible at gameplay scale.
+The Canvas battlefield uses role-readable mechanical sprites rather than generic
+diamonds with forward gun barrels. Mechs are predominantly neutral gray, with
+articulated legs, visible joints, layered torso plating, and role-specific
+equipment. Vanguard, Bulwark, Carrier, and hostile combat silhouettes remain
+distinct at gameplay scale. Worker Drones use a compact multi-arm tool silhouette,
+while Arc Energy Carriers use a bipedal support frame with a visible energy core.
+Player blue and enemy red appear only on restrained identification panels, cockpit
+trim, and tier markings. Stasis state, health, and energy remain separately visible.
 
 ## 5. Production Branches and Technology Tiers
 

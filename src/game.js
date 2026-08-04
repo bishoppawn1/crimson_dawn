@@ -839,82 +839,213 @@ function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis) {
 }
 
 function drawMechSprite(definition, teamColor, darkColor, stasis) {
-  const outline = stasis ? colors.stasis : teamColor;
-  const armor = stasis ? "#403b32" : darkColor;
-  const accent = stasis ? colors.stasis : teamColor;
   const role = definition.role || "vanguard";
+  const heavy = role === "bulwark";
+  const carrier = role === "carrier";
+  const raider = role === "raider";
+  const outline = stasis ? "#24231f" : "#171d23";
+  const armor = stasis ? "#555047" : "#68727c";
+  const armorDark = stasis ? "#35322d" : "#343d46";
+  const armorLight = stasis ? "#777066" : "#9ca6af";
+  const joint = stasis ? "#292721" : "#20272e";
+  const accent = stasis ? `${teamColor}88` : teamColor;
+  const glass = stasis ? "#776b4d" : "#183642";
   context.save();
   context.scale(definition.radius, definition.radius);
-  context.lineCap = "round";
-  context.lineJoin = "round";
+  context.lineCap = "butt";
+  context.lineJoin = "bevel";
   context.strokeStyle = outline;
+  context.lineWidth = 0.1;
+
+  // Wide planted feet, segmented shins, and exposed knee joints give the unit
+  // a load-bearing mechanical stance instead of a single icon-like body shape.
+  for (const side of [-1, 1]) {
+    context.fillStyle = armorDark;
+    context.beginPath();
+    context.moveTo(side * 0.18, 0.78);
+    context.lineTo(side * 0.58, 0.78);
+    context.lineTo(side * 0.68, 0.98);
+    context.lineTo(side * 0.16, 0.98);
+    context.closePath();
+    context.fill();
+    context.stroke();
+
+    context.fillStyle = armor;
+    context.beginPath();
+    context.moveTo(side * 0.2, 0.28);
+    context.lineTo(side * 0.51, 0.28);
+    context.lineTo(side * 0.57, 0.78);
+    context.lineTo(side * 0.18, 0.78);
+    context.closePath();
+    context.fill();
+    context.stroke();
+
+    context.fillStyle = joint;
+    context.beginPath();
+    context.arc(side * 0.36, 0.25, 0.13, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+
+    context.fillStyle = armorDark;
+    context.beginPath();
+    context.moveTo(side * 0.17, -0.12);
+    context.lineTo(side * 0.53, -0.08);
+    context.lineTo(side * 0.45, 0.2);
+    context.lineTo(side * 0.25, 0.2);
+    context.closePath();
+    context.fill();
+    context.stroke();
+
+    context.strokeStyle = armorLight;
+    context.lineWidth = 0.055;
+    context.beginPath();
+    context.moveTo(side * 0.27, 0.39);
+    context.lineTo(side * 0.43, 0.67);
+    context.stroke();
+    context.strokeStyle = outline;
+    context.lineWidth = 0.1;
+  }
+
+  // Pelvis and torso use layered armor plates over a darker internal chassis.
+  context.fillStyle = joint;
+  context.fillRect(-0.46, -0.18, 0.92, 0.32);
+  context.strokeRect(-0.46, -0.18, 0.92, 0.32);
   context.fillStyle = armor;
-  context.lineWidth = 0.15;
-
-  // Two separated legs and broad feet keep the silhouette unmistakably bipedal.
-  context.fillRect(-0.52, 0.2, 0.3, 0.62);
-  context.strokeRect(-0.52, 0.2, 0.3, 0.62);
-  context.fillRect(0.22, 0.2, 0.3, 0.62);
-  context.strokeRect(0.22, 0.2, 0.3, 0.62);
-  context.fillRect(-0.62, 0.72, 0.42, 0.2);
-  context.strokeRect(-0.62, 0.72, 0.42, 0.2);
-  context.fillRect(0.2, 0.72, 0.42, 0.2);
-  context.strokeRect(0.2, 0.72, 0.42, 0.2);
-
   context.beginPath();
-  context.moveTo(-0.62, 0.28);
-  context.lineTo(-0.72, -0.35);
-  context.lineTo(-0.42, -0.7);
-  context.lineTo(0.42, -0.7);
-  context.lineTo(0.72, -0.35);
-  context.lineTo(0.62, 0.28);
-  context.lineTo(0, 0.48);
+  context.moveTo(-0.58, -0.63);
+  context.lineTo(-0.36, -0.79);
+  context.lineTo(0.36, -0.79);
+  context.lineTo(0.58, -0.63);
+  context.lineTo(0.46, -0.15);
+  context.lineTo(0, 0.08);
+  context.lineTo(-0.46, -0.15);
   context.closePath();
   context.fill();
   context.stroke();
 
-  // Head/cockpit and arms read independently from the torso at small sizes.
-  context.fillStyle = accent;
-  context.fillRect(-0.22, -0.82, 0.44, 0.28);
-  context.strokeRect(-0.22, -0.82, 0.44, 0.28);
-  context.fillStyle = armor;
-  context.fillRect(-0.94, -0.42, 0.3, 0.58);
-  context.strokeRect(-0.94, -0.42, 0.3, 0.58);
-  context.fillRect(0.64, -0.42, 0.3, 0.58);
-  context.strokeRect(0.64, -0.42, 0.3, 0.58);
+  context.fillStyle = armorLight;
+  context.beginPath();
+  context.moveTo(-0.36, -0.7);
+  context.lineTo(0, -0.78);
+  context.lineTo(0, -0.1);
+  context.lineTo(-0.35, -0.25);
+  context.closePath();
+  context.fill();
 
-  if (role === "bulwark") {
-    context.fillRect(-0.92, -0.68, 0.42, 0.24);
-    context.strokeRect(-0.92, -0.68, 0.42, 0.24);
-    context.fillRect(0.5, -0.68, 0.42, 0.24);
-    context.strokeRect(0.5, -0.68, 0.42, 0.24);
-    context.lineWidth = 0.22;
+  // Compact cockpit with dark glazing; team color is limited to identification
+  // panels on the brow, shoulders, chest, and tier pips.
+  context.fillStyle = glass;
+  context.beginPath();
+  context.moveTo(-0.23, -0.86);
+  context.lineTo(-0.14, -1.02);
+  context.lineTo(0.14, -1.02);
+  context.lineTo(0.23, -0.86);
+  context.lineTo(0.15, -0.72);
+  context.lineTo(-0.15, -0.72);
+  context.closePath();
+  context.fill();
+  context.stroke();
+  context.fillStyle = accent;
+  context.fillRect(-0.18, -0.88, 0.36, 0.075);
+
+  const shoulderWidth = heavy ? 0.42 : carrier ? 0.34 : 0.3;
+  for (const side of [-1, 1]) {
+    context.fillStyle = armorDark;
     context.beginPath();
-    context.moveTo(0.82, -0.25);
-    context.lineTo(1.12, -0.78);
+    context.moveTo(side * 0.5, -0.67);
+    context.lineTo(side * (0.5 + shoulderWidth), -0.6);
+    context.lineTo(side * (0.54 + shoulderWidth), -0.28);
+    context.lineTo(side * 0.54, -0.22);
+    context.closePath();
+    context.fill();
     context.stroke();
-  } else if (role === "carrier") {
+
+    context.fillStyle = accent;
+    context.beginPath();
+    context.moveTo(side * 0.56, -0.6);
+    context.lineTo(side * (0.43 + shoulderWidth), -0.54);
+    context.lineTo(side * (0.46 + shoulderWidth), -0.43);
+    context.lineTo(side * 0.57, -0.46);
+    context.closePath();
+    context.fill();
+  }
+
+  context.fillStyle = accent;
+  context.beginPath();
+  context.moveTo(-0.25, -0.3);
+  context.lineTo(0, -0.17);
+  context.lineTo(0.25, -0.3);
+  context.lineTo(0.18, -0.18);
+  context.lineTo(0, -0.07);
+  context.lineTo(-0.18, -0.18);
+  context.closePath();
+  context.fill();
+
+  if (heavy) {
+    // Bulwarks carry a thick left forearm shield and a braced twin-barrel cannon.
+    context.fillStyle = armor;
+    context.fillRect(-1.02, -0.48, 0.28, 0.64);
+    context.strokeRect(-1.02, -0.48, 0.28, 0.64);
+    context.fillStyle = accent;
+    context.fillRect(-0.98, -0.4, 0.08, 0.45);
+    context.strokeStyle = joint;
+    context.lineWidth = 0.11;
+    for (const offset of [-0.07, 0.07]) {
+      context.beginPath();
+      context.moveTo(0.8 + offset, -0.38);
+      context.lineTo(1.14 + offset, -0.76);
+      context.stroke();
+    }
+  } else if (carrier) {
+    // Carriers replace weapons with protected capacitor drums and a visible core.
+    context.fillStyle = armorDark;
+    for (const side of [-1, 1]) {
+      context.fillRect(side * 0.7 - 0.1, -0.2, 0.2, 0.48);
+      context.strokeRect(side * 0.7 - 0.1, -0.2, 0.2, 0.48);
+      context.fillStyle = accent;
+      context.fillRect(side * 0.7 - 0.07, -0.14, 0.14, 0.08);
+      context.fillStyle = armorDark;
+    }
     context.strokeStyle = stasis ? colors.stasis : colors.energy;
-    context.lineWidth = 0.18;
+    context.lineWidth = 0.1;
     context.beginPath();
-    context.arc(0, -0.08, 0.34, 0, Math.PI * 2);
+    context.arc(0, -0.43, 0.22, 0, Math.PI * 2);
     context.stroke();
-    context.beginPath();
-    context.arc(0, -0.08, 0.16, 0, Math.PI * 2);
     context.fillStyle = stasis ? colors.stasis : colors.energy;
+    context.beginPath();
+    context.arc(0, -0.43, 0.1, 0, Math.PI * 2);
     context.fill();
   } else {
-    context.lineWidth = role === "raider" ? 0.2 : 0.16;
+    // Vanguards and raiders use a compact articulated gun arm.
+    context.fillStyle = armor;
     context.beginPath();
-    context.moveTo(0.82, -0.18);
-    context.lineTo(1.18, -0.72);
+    context.moveTo(0.73, -0.36);
+    context.lineTo(0.93, -0.31);
+    context.lineTo(1.12, -0.72);
+    context.lineTo(1.01, -0.79);
+    context.lineTo(0.79, -0.5);
+    context.closePath();
+    context.fill();
     context.stroke();
-    if (role === "raider") {
+    context.fillStyle = joint;
+    context.beginPath();
+    context.arc(0.78, -0.39, 0.1, 0, Math.PI * 2);
+    context.fill();
+    if (raider) {
+      context.fillStyle = armorDark;
       context.beginPath();
-      context.moveTo(-0.2, -0.82);
-      context.lineTo(-0.42, -1.02);
-      context.moveTo(0.2, -0.82);
-      context.lineTo(0.42, -1.02);
+      context.moveTo(-0.18, -0.98);
+      context.lineTo(-0.43, -1.15);
+      context.lineTo(-0.28, -0.86);
+      context.closePath();
+      context.fill();
+      context.stroke();
+      context.beginPath();
+      context.moveTo(0.18, -0.98);
+      context.lineTo(0.43, -1.15);
+      context.lineTo(0.28, -0.86);
+      context.closePath();
+      context.fill();
       context.stroke();
     }
   }
@@ -922,7 +1053,7 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
   context.fillStyle = accent;
   const pipCount = Math.max(1, definition.tier || 1);
   for (let pip = 0; pip < pipCount; pip += 1) {
-    context.fillRect(-0.2 + pip * 0.16, 0.02, 0.1, 0.1);
+    context.fillRect(-0.2 + pip * 0.16, 0.08, 0.1, 0.08);
   }
   context.restore();
 }
