@@ -1490,8 +1490,8 @@ export class Simulation {
     const buildPlans = [
       { type: "metal_mine", x: baseX - 160, y: baseY - 160 },
       { type: "battery", x: baseX - 120, y: baseY },
-      { type: "sentry_turret", x: baseX - 200, y: baseY - 40 },
-      { type: "charger", x: baseX - 80, y: baseY - 120 },
+      { type: "sentry_turret", x: baseX - 60, y: baseY + 180 },
+      { type: "charger", x: baseX + 20, y: baseY + 180 },
       { type: "power_tower", x: baseX - 360, y: baseY + 40 },
       { type: "power_tower", x: baseX - 500, y: baseY - 200 },
       { type: "metal_mine", x: baseX - 400, y: baseY - 680 },

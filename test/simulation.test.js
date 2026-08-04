@@ -1744,6 +1744,33 @@ test("enemy AI searches nearby grid cells when its preferred site is occupied", 
   );
 });
 
+test("the standard enemy opening establishes defenses and launches promptly", () => {
+  const simulation = Simulation.createFieldTest();
+
+  advance(simulation, 30);
+
+  for (const structureType of ["battery", "sentry_turret", "charger"]) {
+    assert.ok(
+      simulation.structures.some(
+        (structure) =>
+          structure.alive &&
+          structure.complete &&
+          structure.team === "enemy" &&
+          structure.type === structureType,
+      ),
+      `${structureType} should be operational during the opening`,
+    );
+  }
+  const enemyCombatUnits = simulation.units.filter(
+    (unit) => unit.alive && unit.team === "enemy" && UNIT_DEFINITIONS[unit.type].attackRange > 0,
+  );
+  assert.ok(enemyCombatUnits.length >= SIMULATION_RULES.enemyAttackWaveSize);
+  assert.equal(
+    enemyCombatUnits.filter((unit) => unit.attackTargetMode === "explicit").length,
+    SIMULATION_RULES.enemyAttackWaveSize,
+  );
+});
+
 test("enemy AI builds generation before spending metal on an unpowered consumer", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
