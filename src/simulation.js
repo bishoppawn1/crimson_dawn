@@ -9,6 +9,7 @@ import {
 } from "./data.js";
 
 const EPSILON = 0.0001;
+const STORAGE_PRIORITY = Object.freeze({ battery: 0, power_tower: 1, generator: 2 });
 
 export class Simulation {
   constructor({ width = WORLD_WIDTH, height = WORLD_HEIGHT } = {}) {
@@ -26,6 +27,8 @@ export class Simulation {
     this.aiThinkRemaining = 5;
     this.aiBuildIndex = 0;
     this.lastPlacementError = null;
+    this.lastProductionError = null;
+    this.lastUpgradeError = null;
     this.resources = {
       player: { metal: 520, energy: 0, energyCapacity: 0 },
       enemy: { metal: 520, energy: 0, energyCapacity: 0 },
@@ -35,25 +38,42 @@ export class Simulation {
   static createFieldTest() {
     const simulation = new Simulation();
 
-    simulation.addMetalDeposit(250, 220);
-    simulation.addMetalDeposit(510, 760);
-    simulation.addMetalDeposit(730, 250);
-    simulation.addMetalDeposit(870, 650);
-    simulation.addMetalDeposit(1090, 760);
-    simulation.addMetalDeposit(1350, 220);
+    const playerStartingDeposit = simulation.addMetalDeposit(500, 680);
+    simulation.addMetalDeposit(760, 1340);
+    simulation.addMetalDeposit(1180, 620);
+    simulation.addMetalDeposit(1600, 900);
+    simulation.addMetalDeposit(2020, 1180);
+    simulation.addMetalDeposit(2440, 420);
+    simulation.addMetalDeposit(2700, 1380);
+    const enemyStartingDeposit = simulation.addMetalDeposit(2700, 680);
 
-    simulation.addStructure("generator", "player", 160, 400);
-    simulation.addStructure("mech_factory_t1", "player", 300, 520);
-    simulation.addUnit("worker_drone_t1", "player", 220, 500);
-    simulation.addUnit("worker_drone_t1", "player", 220, 560);
-    simulation.addUnit("worker_drone_t1", "player", 300, 590);
+    simulation.addStructure("generator", "player", 320, 800);
+    simulation.addStructure("mech_factory_t1", "player", 520, 920);
+    simulation.addStructure(
+      "metal_mine",
+      "player",
+      playerStartingDeposit.x,
+      playerStartingDeposit.y,
+      { depositId: playerStartingDeposit.id },
+    );
+    simulation.addUnit("worker_drone_t1", "player", 420, 880);
+    simulation.addUnit("worker_drone_t1", "player", 420, 960);
+    simulation.addUnit("worker_drone_t1", "player", 520, 1020);
 
-    simulation.addStructure("generator", "enemy", 1440, 400);
-    simulation.addStructure("mech_factory_t1", "enemy", 1300, 520);
-    simulation.addUnit("worker_drone_t1", "enemy", 1380, 500);
-    simulation.addUnit("worker_drone_t1", "enemy", 1380, 560);
-    simulation.addUnit("worker_drone_t1", "enemy", 1300, 590);
+    simulation.addStructure("generator", "enemy", 2880, 800);
+    simulation.addStructure("mech_factory_t1", "enemy", 2680, 920);
+    simulation.addStructure(
+      "metal_mine",
+      "enemy",
+      enemyStartingDeposit.x,
+      enemyStartingDeposit.y,
+      { depositId: enemyStartingDeposit.id },
+    );
+    simulation.addUnit("worker_drone_t1", "enemy", 2780, 880);
+    simulation.addUnit("worker_drone_t1", "enemy", 2780, 960);
+    simulation.addUnit("worker_drone_t1", "enemy", 2680, 1020);
 
+    simulation.aiBuildIndex = 1;
     simulation.refreshPowerState(0);
     return simulation;
   }
@@ -98,6 +118,10 @@ export class Simulation {
       attackTargetMode: null,
       buildTargetId: null,
       holdPosition: false,
+      navigationObstacleId: null,
+      navigationSide: null,
+      energyTransferTargetIds: [],
+      energyTransferredThisTick: 0,
       ...overrides,
     };
     unit.hp = clamp(unit.hp, 0, definition.maxHp);
@@ -124,7 +148,7 @@ export class Simulation {
       connected: type === "generator",
       powerStatus: type === "generator" ? "generating" : "disconnected",
       gridId: null,
-      storedEnergy: type === "battery" ? 0 : null,
+      storedEnergy: definition.storageCapacity ? 0 : null,
       energyGenerated: type === "generator" ? 0 : null,
       depositId: null,
       powerFlow: 0,
@@ -133,6 +157,8 @@ export class Simulation {
       complete: true,
       productionQueue: [],
       rallyPoint: null,
+      supplyLevel: definition.supplyLevels ? 1 : null,
+      supplyUpgrade: null,
       attackCooldownRemaining: 0,
       weaponEnergy: type === "sentry_turret" ? definition.capacitorCapacity : null,
       defenseTargetId: null,
@@ -140,8 +166,15 @@ export class Simulation {
       ...overrides,
     };
 
-    if (type === "battery") {
+    if (definition.storageCapacity) {
       structure.storedEnergy = clamp(structure.storedEnergy, 0, definition.storageCapacity);
+    }
+    if (definition.supplyLevels) {
+      structure.supplyLevel = clamp(
+        Math.floor(structure.supplyLevel || 1),
+        1,
+        definition.supplyLevels.length,
+      );
     }
 
     if (type === "salvage_yard" && structure.complete) {
@@ -229,6 +262,8 @@ export class Simulation {
       unit.attackTargetMode = null;
       unit.buildTargetId = null;
       unit.holdPosition = false;
+      unit.navigationObstacleId = null;
+      unit.navigationSide = null;
       accepted += 1;
     }
     return accepted;
@@ -257,6 +292,8 @@ export class Simulation {
       unit.moveMode = null;
       unit.buildTargetId = null;
       unit.holdPosition = false;
+      unit.navigationObstacleId = null;
+      unit.navigationSide = null;
       accepted += 1;
     }
     return accepted;
@@ -273,6 +310,8 @@ export class Simulation {
       unit.attackTargetMode = null;
       unit.buildTargetId = null;
       unit.holdPosition = holdPosition;
+      unit.navigationObstacleId = null;
+      unit.navigationSide = null;
       accepted += 1;
     }
     return accepted;
@@ -299,6 +338,8 @@ export class Simulation {
       worker.moveTarget = null;
       worker.moveMode = null;
       worker.holdPosition = false;
+      worker.navigationObstacleId = null;
+      worker.navigationSide = null;
       accepted += 1;
     }
     return accepted;
@@ -339,6 +380,7 @@ export class Simulation {
   }
 
   queueProduction(structureId, unitType) {
+    this.lastProductionError = null;
     const factory = this.getStructure(structureId);
     const factoryDefinition = factory && STRUCTURE_DEFINITIONS[factory.type];
     const unitDefinition = UNIT_DEFINITIONS[unitType];
@@ -349,12 +391,89 @@ export class Simulation {
       !factoryDefinition.production?.includes(unitType) ||
       !unitDefinition
     ) {
+      this.lastProductionError = "This factory cannot produce that unit.";
       return false;
     }
     const account = this.resources[factory.team];
-    if (account.metal + EPSILON < unitDefinition.metalCost) return false;
+    if (account.metal + EPSILON < unitDefinition.metalCost) {
+      this.lastProductionError = "Not enough metal.";
+      return false;
+    }
+    const supply = this.getSupplyState(factory.team);
+    if (supply.remaining + EPSILON < unitDefinition.supplyCost) {
+      this.lastProductionError = "Supply limit reached.";
+      return false;
+    }
     account.metal -= unitDefinition.metalCost;
     factory.productionQueue.push({ unitType, progress: 0 });
+    return true;
+  }
+
+  getSupplyState(team) {
+    const unitSupply = this.units
+      .filter((unit) => unit.alive && unit.team === team)
+      .reduce((total, unit) => total + (UNIT_DEFINITIONS[unit.type].supplyCost || 0), 0);
+    const reservedSupply = this.structures
+      .filter((structure) => structure.alive && structure.team === team)
+      .flatMap((structure) => structure.productionQueue || [])
+      .reduce(
+        (total, order) => total + (UNIT_DEFINITIONS[order.unitType]?.supplyCost || 0),
+        0,
+      );
+    const structureCapacity = this.structures
+      .filter(
+        (structure) =>
+          structure.alive &&
+          structure.complete &&
+          structure.powered &&
+          structure.team === team,
+      )
+      .reduce((total, structure) => {
+        const levels = STRUCTURE_DEFINITIONS[structure.type].supplyLevels;
+        if (!levels) return total;
+        const level = clamp(structure.supplyLevel || 1, 1, levels.length);
+        return total + levels[level - 1].capacity;
+      }, 0);
+    const capacity = SIMULATION_RULES.baseSupplyCapacity + structureCapacity;
+    const used = unitSupply + reservedSupply;
+    return {
+      used,
+      capacity,
+      remaining: Math.max(0, capacity - used),
+      unitSupply,
+      reservedSupply,
+    };
+  }
+
+  queueSupplyUpgrade(structureId) {
+    this.lastUpgradeError = null;
+    const structure = this.getStructure(structureId);
+    const definition = structure && STRUCTURE_DEFINITIONS[structure.type];
+    if (!structure?.alive || !structure.complete || !definition?.supplyLevels) {
+      this.lastUpgradeError = "Select a completed supply structure.";
+      return false;
+    }
+    if (structure.supplyUpgrade) {
+      this.lastUpgradeError = "A supply upgrade is already in progress.";
+      return false;
+    }
+    const nextLevel = (structure.supplyLevel || 1) + 1;
+    const upgrade = definition.supplyLevels[nextLevel - 1];
+    if (!upgrade) {
+      this.lastUpgradeError = "This supply structure is fully upgraded.";
+      return false;
+    }
+    const account = this.resources[structure.team];
+    if (account.metal + EPSILON < upgrade.metalCost) {
+      this.lastUpgradeError = "Not enough metal.";
+      return false;
+    }
+    account.metal -= upgrade.metalCost;
+    structure.supplyUpgrade = { targetLevel: nextLevel, progress: 0 };
+    this.emit("supply_upgrade_started", structure.x, structure.y, {
+      structureId: structure.id,
+      targetLevel: nextLevel,
+    });
     return true;
   }
 
@@ -531,6 +650,112 @@ export class Simulation {
     return preferred;
   }
 
+  findNearestValidPoweredBuildSite(structureType, team, preferredX, preferredY) {
+    if (structureType === "generator") {
+      return this.findNearestValidBuildSite(structureType, preferredX, preferredY);
+    }
+
+    const preferred = this.evaluatePlacement(structureType, preferredX, preferredY);
+    if (
+      preferred.valid &&
+      this.isBuildSiteConnectedToPower(structureType, team, preferred.x, preferred.y)
+    ) {
+      return preferred;
+    }
+
+    if (structureType === "metal_mine") {
+      const deposits = [...this.metalDeposits].sort(
+        (left, right) =>
+          distance(left, { x: preferredX, y: preferredY }) -
+          distance(right, { x: preferredX, y: preferredY }),
+      );
+      for (const deposit of deposits) {
+        const candidate = this.evaluatePlacement(structureType, deposit.x, deposit.y);
+        if (
+          candidate.valid &&
+          this.isBuildSiteConnectedToPower(structureType, team, candidate.x, candidate.y)
+        ) {
+          return candidate;
+        }
+      }
+      return { ...preferred, valid: false, reason: "No powered metal deposit is available." };
+    }
+
+    const powerNodes = this.structures.filter(
+      (structure) =>
+        structure.alive &&
+        structure.complete &&
+        structure.team === team &&
+        structure.connected &&
+        isPowerNode(structure),
+    );
+    if (powerNodes.length === 0) {
+      return { ...preferred, valid: false, reason: "No energized grid can reach this site." };
+    }
+
+    const gridSize = SIMULATION_RULES.buildingGridSize;
+    const footprint = structureFootprint(structureType);
+    const offsetX = footprint.columns % 2 === 0 ? 0 : gridSize / 2;
+    const offsetY = footprint.rows % 2 === 0 ? 0 : gridSize / 2;
+    let bestCandidate = null;
+    let bestDistance = Infinity;
+    const visited = new Set();
+
+    for (const node of powerNodes) {
+      const candidateNodeReach = isPowerNodeType(structureType)
+        ? Math.max(powerReach(node), powerReachForType(structureType))
+        : powerReach(node);
+      const minimumColumn = Math.floor((node.x - candidateNodeReach - offsetX) / gridSize);
+      const maximumColumn = Math.ceil((node.x + candidateNodeReach - offsetX) / gridSize);
+      const minimumRow = Math.floor((node.y - candidateNodeReach - offsetY) / gridSize);
+      const maximumRow = Math.ceil((node.y + candidateNodeReach - offsetY) / gridSize);
+
+      for (let column = minimumColumn; column <= maximumColumn; column += 1) {
+        for (let row = minimumRow; row <= maximumRow; row += 1) {
+          const x = column * gridSize + offsetX;
+          const y = row * gridSize + offsetY;
+          const key = `${x}:${y}`;
+          if (visited.has(key)) continue;
+          visited.add(key);
+          if (!this.isBuildSiteConnectedToPower(structureType, team, x, y)) continue;
+          const candidate = this.evaluatePlacement(structureType, x, y);
+          if (!candidate.valid) continue;
+          const candidateDistance = distance(candidate, { x: preferredX, y: preferredY });
+          if (candidateDistance + EPSILON >= bestDistance) continue;
+          bestCandidate = candidate;
+          bestDistance = candidateDistance;
+        }
+      }
+    }
+
+    return bestCandidate || {
+      ...preferred,
+      valid: false,
+      reason: "No valid construction cell is connected to the energized grid.",
+    };
+  }
+
+  isBuildSiteConnectedToPower(structureType, team, x, y) {
+    if (structureType === "generator") return true;
+    const candidateIsNode = isPowerNodeType(structureType);
+    const candidateReach = powerReachForType(structureType);
+    return this.structures.some((node) => {
+      if (
+        !node.alive ||
+        !node.complete ||
+        node.team !== team ||
+        !node.connected ||
+        !isPowerNode(node)
+      ) {
+        return false;
+      }
+      const connectionReach = candidateIsNode
+        ? Math.max(powerReach(node), candidateReach)
+        : powerReach(node);
+      return distance(node, { x, y }) <= connectionReach + EPSILON;
+    });
+  }
+
   findAvailableMetalDeposit(x, y, snapDistance = 75) {
     const occupiedDepositIds = new Set(
       this.structures
@@ -570,11 +795,14 @@ export class Simulation {
     this.assignAutomaticTargets();
     this.updateUnits(delta);
     this.updateConstruction(delta);
+    this.updateSupplyUpgrades(delta);
     this.updateProduction(delta);
     this.updateStaticDefenses(delta);
     this.updateChargers(delta);
     this.updateEnergyCarriers(delta);
     this.updateDrones(delta);
+    this.finalizePowerStorage(delta);
+    this.syncStoredEnergy();
     this.events = this.events.filter((event) => this.time - event.time < 1.2);
     this.wrecks = this.wrecks.filter((wreck) => wreck.metal > EPSILON);
   }
@@ -647,9 +875,14 @@ export class Simulation {
         nodes,
         structures: [...nodes],
         generators: nodes.filter((structure) => structure.type === "generator"),
-        batteries: nodes.filter((structure) => structure.type === "battery"),
+        storageNodes: nodes
+          .filter((structure) => STRUCTURE_DEFINITIONS[structure.type].storageCapacity)
+          .sort(
+            (left, right) =>
+              (STORAGE_PRIORITY[left.type] ?? 99) - (STORAGE_PRIORITY[right.type] ?? 99),
+          ),
         generationRemaining: 0,
-        batteryBudgets: new Map(),
+        storageBudgets: new Map(),
         energized: false,
       };
 
@@ -680,13 +913,13 @@ export class Simulation {
       (total, generator) => total + STRUCTURE_DEFINITIONS.generator.generationRate * delta,
       0,
     );
-    for (const battery of network.batteries) {
-      const outputLimit = STRUCTURE_DEFINITIONS.battery.dischargeRate * delta;
-      network.batteryBudgets.set(battery.id, Math.min(battery.storedEnergy, outputLimit));
+    for (const storage of network.storageNodes) {
+      const outputLimit = STRUCTURE_DEFINITIONS[storage.type].dischargeRate * delta;
+      network.storageBudgets.set(storage.id, Math.min(storage.storedEnergy, outputLimit));
     }
     network.energized =
       network.generators.length > 0 ||
-      network.batteries.some((battery) => battery.storedEnergy > EPSILON);
+      network.storageNodes.some((storage) => storage.storedEnergy > EPSILON);
 
     for (const structure of network.structures) {
       structure.gridId = network.id;
@@ -708,7 +941,7 @@ export class Simulation {
         structure.powerStatus = "disconnected";
         continue;
       }
-      const operationCost = (STRUCTURE_DEFINITIONS[structure.type].powerDemand || 0) * delta;
+      const operationCost = this.getStructurePowerDemandRate(structure) * delta;
       if (this.takeNetworkEnergy(network, operationCost) + EPSILON >= operationCost) {
         structure.powered = true;
         structure.powerStatus = "online";
@@ -717,20 +950,7 @@ export class Simulation {
       }
     }
 
-    for (const battery of network.batteries) {
-      if (network.generationRemaining <= EPSILON) break;
-      const definition = STRUCTURE_DEFINITIONS.battery;
-      const charge = Math.min(
-        network.generationRemaining,
-        definition.chargeRate * delta,
-        definition.storageCapacity - battery.storedEnergy,
-      );
-      if (charge <= EPSILON) continue;
-      battery.storedEnergy += charge;
-      battery.powerFlow += charge;
-      network.generationRemaining -= charge;
-    }
-    this.updateBatteryStatuses(network);
+    this.updateStorageStatuses(network);
   }
 
   getPowerNetworkFor(structure) {
@@ -740,10 +960,10 @@ export class Simulation {
   getNetworkAvailableEnergy(network) {
     if (!network?.energized) return 0;
     let available = network.generationRemaining;
-    for (const battery of network.batteries) {
+    for (const storage of network.storageNodes) {
       available += Math.min(
-        battery.storedEnergy,
-        network.batteryBudgets.get(battery.id) || 0,
+        storage.storedEnergy,
+        network.storageBudgets.get(storage.id) || 0,
       );
     }
     return available;
@@ -758,17 +978,17 @@ export class Simulation {
     network.generationRemaining -= generated;
     remaining -= generated;
 
-    for (const battery of network.batteries) {
+    for (const storage of network.storageNodes) {
       if (remaining <= EPSILON) break;
-      const budget = network.batteryBudgets.get(battery.id) || 0;
-      const discharge = Math.min(remaining, budget, battery.storedEnergy);
+      const budget = network.storageBudgets.get(storage.id) || 0;
+      const discharge = Math.min(remaining, budget, storage.storedEnergy);
       if (discharge <= EPSILON) continue;
-      battery.storedEnergy -= discharge;
-      battery.powerFlow -= discharge;
-      network.batteryBudgets.set(battery.id, budget - discharge);
+      storage.storedEnergy -= discharge;
+      storage.powerFlow -= discharge;
+      network.storageBudgets.set(storage.id, budget - discharge);
       remaining -= discharge;
     }
-    this.updateBatteryStatuses(network);
+    this.updateStorageStatuses(network);
     return requested - Math.max(0, remaining);
   }
 
@@ -780,38 +1000,77 @@ export class Simulation {
     return taken;
   }
 
-  updateBatteryStatuses(network) {
-    for (const battery of network.batteries) {
-      const definition = STRUCTURE_DEFINITIONS.battery;
-      battery.powered = network.energized;
-      battery.connected = network.energized;
-      if (battery.powerFlow < -EPSILON) battery.powerStatus = "discharging";
-      else if (battery.powerFlow > EPSILON) battery.powerStatus = "charging";
-      else if (!network.energized) battery.powerStatus = "disconnected";
-      else if (battery.storedEnergy <= EPSILON) battery.powerStatus = "empty";
-      else if (battery.storedEnergy + EPSILON >= definition.storageCapacity) battery.powerStatus = "full";
-      else battery.powerStatus = "standby";
+  updateStorageStatuses(network) {
+    for (const storage of network.storageNodes) {
+      const definition = STRUCTURE_DEFINITIONS[storage.type];
+      storage.powered = network.energized;
+      storage.connected = network.energized;
+      if (storage.type === "generator") {
+        storage.powered = true;
+        storage.connected = true;
+        storage.powerStatus = "generating";
+      } else if (storage.powerFlow < -EPSILON) storage.powerStatus = "discharging";
+      else if (storage.powerFlow > EPSILON) storage.powerStatus = "charging";
+      else if (!network.energized) storage.powerStatus = "disconnected";
+      else if (storage.storedEnergy <= EPSILON) storage.powerStatus = "empty";
+      else if (storage.storedEnergy + EPSILON >= definition.storageCapacity) storage.powerStatus = "full";
+      else storage.powerStatus = "standby";
+    }
+  }
+
+  finalizePowerStorage(delta) {
+    for (const network of this.powerNetworks) {
+      for (const storage of network.storageNodes) {
+        if (network.generationRemaining <= EPSILON) break;
+        const definition = STRUCTURE_DEFINITIONS[storage.type];
+        const charge = Math.min(
+          network.generationRemaining,
+          definition.chargeRate * delta,
+          definition.storageCapacity - storage.storedEnergy,
+        );
+        if (charge <= EPSILON) continue;
+        storage.storedEnergy += charge;
+        storage.powerFlow += charge;
+        network.generationRemaining -= charge;
+      }
+      this.updateStorageStatuses(network);
     }
   }
 
   syncStoredEnergy() {
     for (const team of Object.keys(this.resources)) {
-      const batteries = this.structures.filter(
+      const storageStructures = this.structures.filter(
         (structure) =>
           structure.alive &&
           structure.complete &&
           structure.team === team &&
-          structure.type === "battery",
+          STRUCTURE_DEFINITIONS[structure.type].storageCapacity,
       );
-      this.resources[team].energy = batteries.reduce(
-        (total, battery) => total + battery.storedEnergy,
+      this.resources[team].energy = storageStructures.reduce(
+        (total, structure) => total + structure.storedEnergy,
         0,
       );
-      this.resources[team].energyCapacity = batteries.reduce(
-        (total) => total + STRUCTURE_DEFINITIONS.battery.storageCapacity,
+      this.resources[team].energyCapacity = storageStructures.reduce(
+        (total, structure) => total + STRUCTURE_DEFINITIONS[structure.type].storageCapacity,
         0,
       );
     }
+  }
+
+  getStructurePowerDemandRate(structure) {
+    const definition = STRUCTURE_DEFINITIONS[structure.type];
+    let demand = definition.powerDemand || 0;
+    if (structure.supplyUpgrade && definition.upgradePowerDemand) {
+      demand += definition.upgradePowerDemand;
+    }
+    const order = structure.productionQueue?.[0];
+    if (order && definition.productionPowerDemand) {
+      const unitDefinition = UNIT_DEFINITIONS[order.unitType];
+      if (order.progress + EPSILON < unitDefinition.productionTime) {
+        demand += definition.productionPowerDemand;
+      }
+    }
+    return demand;
   }
 
   getGenerationRate(team) {
@@ -827,6 +1086,44 @@ export class Simulation {
         (total) => total + STRUCTURE_DEFINITIONS.generator.generationRate,
         0,
       );
+  }
+
+  getPlannedPowerDemandRate(team, additionalStructureType = null) {
+    let demand = this.structures
+      .filter((structure) => structure.alive && structure.team === team)
+      .reduce(
+        (total, structure) => total + plannedStructurePowerDemand(structure.type),
+        0,
+      );
+    if (additionalStructureType) {
+      demand += plannedStructurePowerDemand(additionalStructureType);
+    }
+    return demand;
+  }
+
+  needsAdditionalGeneration(team, additionalStructureType) {
+    if (!additionalStructureType || additionalStructureType === "generator") return false;
+    return (
+      this.getPlannedPowerDemandRate(team, additionalStructureType) >
+      this.getGenerationRate(team) + EPSILON
+    );
+  }
+
+  getEnergyDemandRate(team) {
+    return this.structures
+      .filter(
+        (structure) =>
+          structure.alive &&
+          structure.complete &&
+          structure.team === team &&
+          structure.powered &&
+          structure.type !== "generator",
+      )
+      .reduce((total, structure) => total + this.getStructurePowerDemandRate(structure), 0);
+  }
+
+  getNetEnergyRate(team) {
+    return this.getGenerationRate(team) - this.getEnergyDemandRate(team);
   }
 
   assignAutomaticTargets() {
@@ -854,6 +1151,7 @@ export class Simulation {
       const potentialTargets = [
         ...this.units.filter((entity) => entity.alive && entity.team !== unit.team),
         ...this.getDrones().filter((entity) => entity.alive && entity.team !== unit.team),
+        ...this.structures.filter((entity) => entity.alive && entity.team !== unit.team),
       ].filter((target) => distance(unit, target) <= definition.attackRange + entityRadius(target));
       const target = nearest(unit, potentialTargets);
       unit.attackTargetId = target?.id || null;
@@ -875,35 +1173,113 @@ export class Simulation {
     this.reassignEnemyConstruction(enemyWorkers);
 
     const buildPlans = [
-      { type: "metal_mine", x: 1350, y: 220 },
-      { type: "battery", x: 1335, y: 400 },
-      { type: "power_tower", x: 1190, y: 430 },
-      { type: "charger", x: 1080, y: 390 },
-      { type: "sentry_turret", x: 860, y: 610 },
-      { type: "power_tower", x: 1030, y: 790 },
-      { type: "salvage_yard", x: 1100, y: 700 },
-      { type: "mech_factory_t1", x: 1220, y: 790 },
-      { type: "sentry_turret", x: 850, y: 360 },
+      { type: "metal_mine", x: 2700, y: 680 },
+      { type: "battery", x: 2740, y: 800 },
+      { type: "power_tower", x: 2500, y: 850 },
+      { type: "supply_complex", x: 2350, y: 1100 },
+      { type: "charger", x: 2300, y: 780 },
+      { type: "sentry_turret", x: 2050, y: 1050 },
+      { type: "power_tower", x: 2200, y: 1400 },
+      { type: "salvage_yard", x: 2400, y: 1250 },
+      { type: "mech_factory_t1", x: 2620, y: 1400 },
+      { type: "sentry_turret", x: 2050, y: 650 },
     ];
     const plan = buildPlans[this.aiBuildIndex];
     const availableWorker = enemyWorkers.find((worker) => !worker.buildTargetId && worker.state === "active");
-    if (plan && availableWorker && this.resources.enemy.metal >= STRUCTURE_DEFINITIONS[plan.type].metalCost) {
-      const site = this.findNearestValidBuildSite(plan.type, plan.x, plan.y);
+    const pendingGenerator = this.structures.find(
+      (structure) =>
+        structure.alive &&
+        !structure.complete &&
+        structure.team === "enemy" &&
+        structure.type === "generator",
+    );
+    const needsGeneration = plan && this.needsAdditionalGeneration("enemy", plan.type);
+    let constructionRequest = null;
+    if (plan && (!needsGeneration || !pendingGenerator)) {
+      if (needsGeneration) {
+        const direction = plan.x >= this.width / 2 ? 1 : -1;
+        const offset = STRUCTURE_DEFINITIONS.generator.powerRadius * 0.65;
+        constructionRequest = {
+          type: "generator",
+          x: plan.x + direction * offset,
+          y: plan.y,
+          advancesPlan: false,
+        };
+      } else {
+        constructionRequest = { ...plan, advancesPlan: true };
+      }
+    }
+    if (
+      constructionRequest &&
+      availableWorker &&
+      this.resources.enemy.metal >= STRUCTURE_DEFINITIONS[constructionRequest.type].metalCost
+    ) {
+      const site = constructionRequest.type === "generator"
+        ? this.findNearestValidBuildSite(
+          constructionRequest.type,
+          constructionRequest.x,
+          constructionRequest.y,
+        )
+        : this.findNearestValidPoweredBuildSite(
+          constructionRequest.type,
+          "enemy",
+          constructionRequest.x,
+          constructionRequest.y,
+        );
       const construction = site.valid
-        ? this.startConstruction([availableWorker.id], plan.type, site.x, site.y)
+        ? this.startConstruction(
+          [availableWorker.id],
+          constructionRequest.type,
+          site.x,
+          site.y,
+        )
         : null;
-      if (construction) this.aiBuildIndex += 1;
+      if (construction && constructionRequest.advancesPlan) this.aiBuildIndex += 1;
     }
 
     const reservedPlan = buildPlans[this.aiBuildIndex];
-    const reservedMetal = reservedPlan
+    const reservedPlanMetal = reservedPlan
       ? STRUCTURE_DEFINITIONS[reservedPlan.type].metalCost
       : 0;
+    const needsReservedGenerator =
+      reservedPlan &&
+      !this.structures.some(
+        (structure) =>
+          structure.alive &&
+          !structure.complete &&
+          structure.team === "enemy" &&
+          structure.type === "generator",
+      ) &&
+      this.needsAdditionalGeneration("enemy", reservedPlan.type);
+    const reservedMetal = reservedPlanMetal + (
+      needsReservedGenerator ? STRUCTURE_DEFINITIONS.generator.metalCost : 0
+    );
+    if (!reservedPlan) {
+      const supplyComplex = this.structures.find((structure) => {
+        const definition = STRUCTURE_DEFINITIONS[structure.type];
+        return (
+          structure.alive &&
+          structure.complete &&
+          structure.team === "enemy" &&
+          definition.supplyLevels &&
+          !structure.supplyUpgrade &&
+          structure.supplyLevel < definition.supplyLevels.length
+        );
+      });
+      if (supplyComplex) this.queueSupplyUpgrade(supplyComplex.id);
+    }
     for (const factory of enemyFactories) {
       if (factory.productionQueue.length >= 2) continue;
-      const workerType = `worker_drone_t${STRUCTURE_DEFINITIONS[factory.type].tier}`;
+      const factoryDefinition = STRUCTURE_DEFINITIONS[factory.type];
+      const workerType = factoryDefinition.production.find(
+        (unitType) => UNIT_DEFINITIONS[unitType].workerTier,
+      );
+      const combatType = factoryDefinition.production.find(
+        (unitType) => UNIT_DEFINITIONS[unitType].attackRange > 0,
+      );
       const replacingWorker = enemyWorkers.length < 3;
-      const choice = replacingWorker ? workerType : "scout_mech";
+      const choice = replacingWorker ? workerType : combatType;
+      if (!choice) continue;
       const productionCost = UNIT_DEFINITIONS[choice].metalCost;
       const requiredReserve = replacingWorker ? 0 : reservedMetal;
       if (this.resources.enemy.metal + EPSILON < productionCost + requiredReserve) continue;
@@ -983,9 +1359,9 @@ export class Simulation {
         continue;
       }
 
-      const buildDistance = STRUCTURE_DEFINITIONS[structure.type].radius + 24;
-      if (distance(worker, structure) > buildDistance + EPSILON) {
-        this.moveUnitToward(worker, structure, delta, buildDistance);
+      const buildDistance = 24;
+      if (distanceToStructureFootprint(worker, structure) > buildDistance + EPSILON) {
+        this.moveUnitToward(worker, structure, delta);
         continue;
       }
 
@@ -1039,6 +1415,30 @@ export class Simulation {
     }
   }
 
+  updateSupplyUpgrades(delta) {
+    for (const structure of this.structures) {
+      if (!structure.alive || !structure.complete || !structure.supplyUpgrade) continue;
+      const definition = STRUCTURE_DEFINITIONS[structure.type];
+      const level = definition.supplyLevels?.[structure.supplyUpgrade.targetLevel - 1];
+      if (!level) {
+        structure.supplyUpgrade = null;
+        continue;
+      }
+      if (!structure.powered) continue;
+      structure.supplyUpgrade.progress = Math.min(
+        level.upgradeTime,
+        structure.supplyUpgrade.progress + delta,
+      );
+      if (structure.supplyUpgrade.progress + EPSILON < level.upgradeTime) continue;
+      structure.supplyLevel = structure.supplyUpgrade.targetLevel;
+      structure.supplyUpgrade = null;
+      this.emit("supply_upgrade_complete", structure.x, structure.y, {
+        structureId: structure.id,
+        level: structure.supplyLevel,
+      });
+    }
+  }
+
   findUnitSpawn(factory, unitType) {
     const factoryDefinition = STRUCTURE_DEFINITIONS[factory.type];
     const unitDefinition = UNIT_DEFINITIONS[unitType];
@@ -1077,13 +1477,23 @@ export class Simulation {
       return false;
     }
 
-    return this.structures.every((structure) => {
+    const clearOfStructures = this.structures.every((structure) => {
       if (!structure.alive) return true;
       const clearance =
         definition.radius +
         STRUCTURE_DEFINITIONS[structure.type].radius +
         SIMULATION_RULES.structureCollisionPadding;
       return distance(point, structure) + EPSILON >= clearance;
+    });
+    if (!clearOfStructures) return false;
+
+    return this.units.every((unit) => {
+      if (!unit.alive) return true;
+      const clearance =
+        definition.radius +
+        UNIT_DEFINITIONS[unit.type].radius +
+        SIMULATION_RULES.unitCollisionPadding;
+      return distance(point, unit) + EPSILON >= clearance;
     });
   }
 
@@ -1109,6 +1519,7 @@ export class Simulation {
       const targets = [
         ...this.units.filter((entity) => entity.alive && entity.team !== defense.team),
         ...this.getDrones().filter((entity) => entity.alive && entity.team !== defense.team),
+        ...this.structures.filter((entity) => entity.alive && entity.team !== defense.team),
       ].filter((target) => distance(defense, target) <= definition.attackRange + entityRadius(target));
       const target = nearest(defense, targets);
       if (!target) {
@@ -1151,6 +1562,17 @@ export class Simulation {
         continue;
       }
 
+      const emergencyEnergyThreshold = Math.min(
+        definition.maxEnergy * SIMULATION_RULES.lowEnergyRatio,
+        SIMULATION_RULES.lowEnergyRegenerationThreshold,
+      );
+      if (unit.energy + EPSILON < emergencyEnergyThreshold) {
+        unit.energy = Math.min(
+          emergencyEnergyThreshold,
+          unit.energy + SIMULATION_RULES.lowEnergyRegenerationRate * delta,
+        );
+      }
+
       const buildTarget = this.getStructure(unit.buildTargetId);
       if (buildTarget?.alive && !buildTarget.complete) continue;
       if (unit.buildTargetId) unit.buildTargetId = null;
@@ -1186,6 +1608,70 @@ export class Simulation {
         }
       }
     }
+    this.resolveUnitOverlaps();
+  }
+
+  resolveUnitOverlaps() {
+    const aliveUnits = this.units.filter((unit) => unit.alive);
+    if (aliveUnits.length < 2) return;
+
+    const cellSize = 40;
+    const solverPasses = 8;
+    for (let pass = 0; pass < solverPasses; pass += 1) {
+      const cells = new Map();
+      for (const unit of aliveUnits) {
+        const cellX = Math.floor(unit.x / cellSize);
+        const cellY = Math.floor(unit.y / cellSize);
+        for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+          for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+            const nearby = cells.get(`${cellX + offsetX},${cellY + offsetY}`);
+            if (!nearby) continue;
+            for (const other of nearby) this.separateUnitPair(unit, other);
+          }
+        }
+
+        const key = `${cellX},${cellY}`;
+        const occupants = cells.get(key);
+        if (occupants) occupants.push(unit);
+        else cells.set(key, [unit]);
+      }
+
+      for (const unit of aliveUnits) this.resolveUnitStructureOverlap(unit);
+    }
+  }
+
+  separateUnitPair(first, second) {
+    const minimumDistance =
+      UNIT_DEFINITIONS[first.type].radius +
+      UNIT_DEFINITIONS[second.type].radius +
+      SIMULATION_RULES.unitCollisionPadding;
+    const deltaX = second.x - first.x;
+    const deltaY = second.y - first.y;
+    const separation = Math.hypot(deltaX, deltaY);
+    if (separation + EPSILON >= minimumDistance) return;
+
+    let normalX;
+    let normalY;
+    if (separation <= EPSILON) {
+      const angle = deterministicPairAngle(first.id, second.id);
+      normalX = Math.cos(angle);
+      normalY = Math.sin(angle);
+    } else {
+      normalX = deltaX / separation;
+      normalY = deltaY / separation;
+    }
+
+    const overlap = minimumDistance - separation;
+    const firstIsMoving = Boolean(first.moveTarget);
+    const secondIsMoving = Boolean(second.moveTarget);
+    const firstShare = firstIsMoving === secondIsMoving ? 0.5 : firstIsMoving ? 0.2 : 0.8;
+    const secondShare = 1 - firstShare;
+    const firstRadius = UNIT_DEFINITIONS[first.type].radius;
+    const secondRadius = UNIT_DEFINITIONS[second.type].radius;
+    first.x = clamp(first.x - normalX * overlap * firstShare, firstRadius, this.width - firstRadius);
+    first.y = clamp(first.y - normalY * overlap * firstShare, firstRadius, this.height - firstRadius);
+    second.x = clamp(second.x + normalX * overlap * secondShare, secondRadius, this.width - secondRadius);
+    second.y = clamp(second.y + normalY * overlap * secondShare, secondRadius, this.height - secondRadius);
   }
 
   tryAttack(unit, target, definition) {
@@ -1275,11 +1761,25 @@ export class Simulation {
         slideY -= collision.normalY * inward;
       }
 
-      if (Math.hypot(slideX, slideY) <= EPSILON) {
-        const remainingDistance = Math.hypot(remainingX, remainingY) * leftoverScale;
-        const side = deterministicSide(unit.id, collision.structure.id);
-        slideX = -collision.normalY * remainingDistance * side;
-        slideY = collision.normalX * remainingDistance * side;
+      const remainingDistance = Math.hypot(remainingX, remainingY) * leftoverScale;
+      let side = unit.navigationSide;
+      if (unit.navigationObstacleId !== collision.structure.id || !side) {
+        const positiveTangentX = -collision.normalY;
+        const positiveTangentY = collision.normalX;
+        const naturalTangent = slideX * positiveTangentX + slideY * positiveTangentY;
+        side = Math.abs(naturalTangent) > EPSILON
+          ? Math.sign(naturalTangent)
+          : deterministicSide(unit.id, collision.structure.id);
+        unit.navigationObstacleId = collision.structure.id;
+        unit.navigationSide = side;
+      }
+      const preferredTangentX = -collision.normalY * side;
+      const preferredTangentY = collision.normalX * side;
+      const tangentProgress =
+        slideX * preferredTangentX + slideY * preferredTangentY;
+      if (tangentProgress <= EPSILON) {
+        slideX = preferredTangentX * remainingDistance;
+        slideY = preferredTangentY * remainingDistance;
       }
       remainingX = slideX;
       remainingY = slideY;
@@ -1292,11 +1792,9 @@ export class Simulation {
     let first = null;
     for (const structure of this.structures) {
       if (!structure.alive) continue;
-      const clearance =
-        UNIT_DEFINITIONS[unit.type].radius +
-        STRUCTURE_DEFINITIONS[structure.type].radius +
-        SIMULATION_RULES.structureCollisionPadding;
-      const collision = sweepCircle(unit, movementX, movementY, structure, clearance);
+      const padding =
+        UNIT_DEFINITIONS[unit.type].radius + SIMULATION_RULES.structureCollisionPadding;
+      const collision = sweepExpandedFootprint(unit, movementX, movementY, structure, padding);
       if (!collision || (first && collision.time >= first.time)) continue;
       first = { ...collision, structure };
     }
@@ -1307,19 +1805,25 @@ export class Simulation {
     const unitRadius = UNIT_DEFINITIONS[unit.type].radius;
     for (const structure of this.structures) {
       if (!structure.alive) continue;
-      const clearance =
-        unitRadius +
-        STRUCTURE_DEFINITIONS[structure.type].radius +
-        SIMULATION_RULES.structureCollisionPadding;
-      const dx = unit.x - structure.x;
-      const dy = unit.y - structure.y;
-      const separation = Math.hypot(dx, dy);
-      if (separation + EPSILON >= clearance) continue;
-      const fallbackSide = deterministicSide(unit.id, structure.id);
-      const normalX = separation > EPSILON ? dx / separation : fallbackSide;
-      const normalY = separation > EPSILON ? dy / separation : 0;
-      unit.x = clamp(structure.x + normalX * clearance, unitRadius, this.width - unitRadius);
-      unit.y = clamp(structure.y + normalY * clearance, unitRadius, this.height - unitRadius);
+      const padding = unitRadius + SIMULATION_RULES.structureCollisionPadding;
+      const bounds = expandedStructureBounds(structure, padding);
+      if (!pointInsideBounds(unit, bounds)) continue;
+
+      const exits = [
+        { distance: unit.x - bounds.minX, axis: "x", value: bounds.minX },
+        { distance: bounds.maxX - unit.x, axis: "x", value: bounds.maxX },
+        { distance: unit.y - bounds.minY, axis: "y", value: bounds.minY },
+        { distance: bounds.maxY - unit.y, axis: "y", value: bounds.maxY },
+      ]
+        .filter((exit) =>
+          exit.axis === "x"
+            ? exit.value >= unitRadius && exit.value <= this.width - unitRadius
+            : exit.value >= unitRadius && exit.value <= this.height - unitRadius,
+        )
+        .sort((left, right) => left.distance - right.distance);
+      const exit = exits[0];
+      if (!exit) continue;
+      unit[exit.axis] = exit.value;
     }
   }
 
@@ -1331,6 +1835,8 @@ export class Simulation {
     unit.moveMode = null;
     unit.attackTargetId = null;
     unit.attackTargetMode = null;
+    unit.navigationObstacleId = null;
+    unit.navigationSide = null;
     this.emit("stasis", unit.x, unit.y, { unitId: unit.id });
   }
 
@@ -1338,23 +1844,42 @@ export class Simulation {
     for (const charger of this.structures) {
       if (!charger.alive || charger.type !== "charger" || !charger.powered) continue;
       const definition = STRUCTURE_DEFINITIONS.charger;
-      const nearbyUnits = this.units.filter(
-        (unit) => unit.alive && unit.team === charger.team && distance(unit, charger) <= definition.chargeRadius,
-      );
+      const recipients = this.units
+        .filter(
+          (unit) =>
+            unit.alive &&
+            unit.team === charger.team &&
+            unit.energy + EPSILON < UNIT_DEFINITIONS[unit.type].maxEnergy &&
+            distance(unit, charger) <= definition.chargeRadius,
+        )
+        .map((unit) => ({
+          unit,
+          capacity: Math.min(
+            UNIT_DEFINITIONS[unit.type].maxEnergy - unit.energy,
+            definition.chargeRate * delta,
+          ),
+          allocation: 0,
+        }))
+        .sort((left, right) => left.capacity - right.capacity);
+      if (recipients.length === 0) continue;
 
-      for (const unit of nearbyUnits) {
-        const unitDefinition = UNIT_DEFINITIONS[unit.type];
-        const missing = unitDefinition.maxEnergy - unit.energy;
-        const network = this.getPowerNetworkFor(charger);
-        const transfer = Math.min(
-          missing,
-          definition.chargeRate * delta,
-          this.getNetworkAvailableEnergy(network),
-        );
-        if (transfer <= EPSILON) continue;
-        const supplied = this.takeStructureEnergy(charger, transfer);
-        unit.energy += supplied;
-        this.tryReactivateFromSupply(unit);
+      const network = this.getPowerNetworkFor(charger);
+      const requested = recipients.reduce((total, recipient) => total + recipient.capacity, 0);
+      let remainingBudget = Math.min(requested, this.getNetworkAvailableEnergy(network));
+      for (let index = 0; index < recipients.length; index += 1) {
+        const remainingRecipients = recipients.length - index;
+        const fairShare = remainingBudget / remainingRecipients;
+        recipients[index].allocation = Math.min(recipients[index].capacity, fairShare);
+        remainingBudget -= recipients[index].allocation;
+      }
+
+      const allocated = recipients.reduce((total, recipient) => total + recipient.allocation, 0);
+      if (allocated <= EPSILON) continue;
+      const supplied = this.takeStructureEnergy(charger, allocated);
+      const supplyRatio = supplied / allocated;
+      for (const recipient of recipients) {
+        recipient.unit.energy += recipient.allocation * supplyRatio;
+        this.tryReactivateFromSupply(recipient.unit);
       }
     }
   }
@@ -1366,24 +1891,49 @@ export class Simulation {
 
     for (const carrier of carriers) {
       const definition = UNIT_DEFINITIONS[carrier.type];
-      let transferBudget = definition.transferRate * delta;
-      const allies = this.units
+      carrier.energyTransferTargetIds = [];
+      carrier.energyTransferredThisTick = 0;
+      const availableEnergy = Math.max(0, carrier.energy - definition.protectedReserve);
+      let remainingBudget = Math.min(definition.transferRate * delta, availableEnergy);
+      if (remainingBudget <= EPSILON) continue;
+
+      const recipients = this.units
         .filter((unit) => {
           if (!unit.alive || unit.id === carrier.id || unit.team !== carrier.team) return false;
           const targetDefinition = UNIT_DEFINITIONS[unit.type];
-          return unit.energy < targetDefinition.maxEnergy && distance(unit, carrier) <= definition.transferRange;
+          return (
+            !targetDefinition.transferRate &&
+            unit.energy + EPSILON < targetDefinition.maxEnergy &&
+            distance(unit, carrier) <= definition.transferRange
+          );
         })
-        .sort((a, b) => energyRatio(a) - energyRatio(b));
+        .map((unit) => ({
+          unit,
+          capacity: UNIT_DEFINITIONS[unit.type].maxEnergy - unit.energy,
+          allocation: 0,
+        }))
+        .sort((left, right) => left.capacity - right.capacity);
+      if (recipients.length === 0) continue;
 
-      for (const ally of allies) {
-        const available = Math.max(0, carrier.energy - definition.protectedReserve);
-        if (available <= EPSILON || transferBudget <= EPSILON) break;
-        const missing = UNIT_DEFINITIONS[ally.type].maxEnergy - ally.energy;
-        const transfer = Math.min(available, transferBudget, missing);
-        carrier.energy -= transfer;
-        ally.energy += transfer;
-        transferBudget -= transfer;
-        this.tryReactivateFromSupply(ally);
+      for (let index = 0; index < recipients.length; index += 1) {
+        const remainingRecipients = recipients.length - index;
+        const fairShare = remainingBudget / remainingRecipients;
+        recipients[index].allocation = Math.min(recipients[index].capacity, fairShare);
+        remainingBudget -= recipients[index].allocation;
+      }
+
+      const transferred = recipients.reduce(
+        (total, recipient) => total + recipient.allocation,
+        0,
+      );
+      if (transferred <= EPSILON) continue;
+      carrier.energy -= transferred;
+      carrier.energyTransferredThisTick = transferred;
+      for (const recipient of recipients) {
+        if (recipient.allocation <= EPSILON) continue;
+        recipient.unit.energy += recipient.allocation;
+        carrier.energyTransferTargetIds.push(recipient.unit.id);
+        this.tryReactivateFromSupply(recipient.unit);
       }
     }
   }
@@ -1512,6 +2062,8 @@ export class Simulation {
       target.attackTargetId = null;
       target.attackTargetMode = null;
       target.buildTargetId = null;
+      target.navigationObstacleId = null;
+      target.navigationSide = null;
       const salvageMetal = Math.round(UNIT_DEFINITIONS[target.type].metalValue * 0.55);
       this.addWreck(target.x, target.y, salvageMetal, target.team);
     }
@@ -1585,12 +2137,25 @@ function entityRadius(entity) {
 }
 
 function powerReach(structure) {
-  const definition = STRUCTURE_DEFINITIONS[structure.type];
+  return powerReachForType(structure.type);
+}
+
+function powerReachForType(structureType) {
+  const definition = STRUCTURE_DEFINITIONS[structureType];
   return definition.relayRadius || definition.powerRadius || 0;
 }
 
 function isPowerNode(structure) {
-  return structure.type === "generator" || structure.type === "power_tower" || structure.type === "battery";
+  return isPowerNodeType(structure.type);
+}
+
+function isPowerNodeType(structureType) {
+  return structureType === "generator" || structureType === "power_tower" || structureType === "battery";
+}
+
+function plannedStructurePowerDemand(structureType) {
+  const definition = STRUCTURE_DEFINITIONS[structureType];
+  return (definition.powerDemand || 0) + (definition.productionPowerDemand || 0);
 }
 
 function nearestReachablePowerNode(structure, nodes) {
@@ -1599,40 +2164,73 @@ function nearestReachablePowerNode(structure, nodes) {
     .sort((left, right) => distance(left, structure) - distance(right, structure))[0] || null;
 }
 
-function sweepCircle(origin, movementX, movementY, obstacle, clearance) {
-  const offsetX = origin.x - obstacle.x;
-  const offsetY = origin.y - obstacle.y;
-  const movementLengthSquared = movementX * movementX + movementY * movementY;
-  const offsetLengthSquared = offsetX * offsetX + offsetY * offsetY;
+function distanceToStructureFootprint(entity, structure) {
+  const footprint = structureFootprint(structure.type);
+  const deltaX = Math.max(Math.abs(entity.x - structure.x) - footprint.halfWidth, 0);
+  const deltaY = Math.max(Math.abs(entity.y - structure.y) - footprint.halfHeight, 0);
+  return Math.hypot(deltaX, deltaY);
+}
 
-  if (offsetLengthSquared < clearance * clearance) {
-    const separation = Math.sqrt(offsetLengthSquared);
-    const side = deterministicSide(origin.id, obstacle.id);
-    return {
-      time: 0,
-      normalX: separation > EPSILON ? offsetX / separation : side,
-      normalY: separation > EPSILON ? offsetY / separation : 0,
-    };
-  }
-  if (movementLengthSquared <= EPSILON) return null;
-
-  const projection = offsetX * movementX + offsetY * movementY;
-  if (projection >= 0) return null;
-  const discriminant =
-    projection * projection -
-    movementLengthSquared * (offsetLengthSquared - clearance * clearance);
-  if (discriminant < 0) return null;
-
-  const time = (-projection - Math.sqrt(discriminant)) / movementLengthSquared;
-  if (time < 0 || time > 1) return null;
-  const contactX = offsetX + movementX * time;
-  const contactY = offsetY + movementY * time;
-  const contactLength = Math.hypot(contactX, contactY);
+function expandedStructureBounds(structure, padding) {
+  const footprint = structureFootprint(structure.type);
   return {
-    time,
-    normalX: contactLength > EPSILON ? contactX / contactLength : 1,
-    normalY: contactLength > EPSILON ? contactY / contactLength : 0,
+    minX: structure.x - footprint.halfWidth - padding,
+    maxX: structure.x + footprint.halfWidth + padding,
+    minY: structure.y - footprint.halfHeight - padding,
+    maxY: structure.y + footprint.halfHeight + padding,
   };
+}
+
+function pointInsideBounds(point, bounds) {
+  return (
+    point.x > bounds.minX + EPSILON &&
+    point.x < bounds.maxX - EPSILON &&
+    point.y > bounds.minY + EPSILON &&
+    point.y < bounds.maxY - EPSILON
+  );
+}
+
+function sweepExpandedFootprint(origin, movementX, movementY, structure, padding) {
+  const bounds = expandedStructureBounds(structure, padding);
+  if (pointInsideBounds(origin, bounds)) {
+    const exits = [
+      { distance: origin.x - bounds.minX, normalX: -1, normalY: 0 },
+      { distance: bounds.maxX - origin.x, normalX: 1, normalY: 0 },
+      { distance: origin.y - bounds.minY, normalX: 0, normalY: -1 },
+      { distance: bounds.maxY - origin.y, normalX: 0, normalY: 1 },
+    ].sort((left, right) => left.distance - right.distance);
+    return { time: 0, normalX: exits[0].normalX, normalY: exits[0].normalY };
+  }
+
+  let nearX = -Infinity;
+  let farX = Infinity;
+  if (Math.abs(movementX) <= EPSILON) {
+    if (origin.x < bounds.minX || origin.x > bounds.maxX) return null;
+  } else {
+    const first = (bounds.minX - origin.x) / movementX;
+    const second = (bounds.maxX - origin.x) / movementX;
+    nearX = Math.min(first, second);
+    farX = Math.max(first, second);
+  }
+
+  let nearY = -Infinity;
+  let farY = Infinity;
+  if (Math.abs(movementY) <= EPSILON) {
+    if (origin.y < bounds.minY || origin.y > bounds.maxY) return null;
+  } else {
+    const first = (bounds.minY - origin.y) / movementY;
+    const second = (bounds.maxY - origin.y) / movementY;
+    nearY = Math.min(first, second);
+    farY = Math.max(first, second);
+  }
+
+  const entryTime = Math.max(nearX, nearY);
+  const exitTime = Math.min(farX, farY);
+  if (entryTime > exitTime || entryTime < -EPSILON || entryTime > 1 || exitTime < 0) return null;
+  if (nearX > nearY) {
+    return { time: Math.max(0, entryTime), normalX: movementX > 0 ? -1 : 1, normalY: 0 };
+  }
+  return { time: Math.max(0, entryTime), normalX: 0, normalY: movementY > 0 ? -1 : 1 };
 }
 
 function deterministicSide(firstId, secondId) {
@@ -1640,6 +2238,13 @@ function deterministicSide(firstId, secondId) {
     .split("")
     .reduce((total, character) => total + character.charCodeAt(0), 0);
   return value % 2 === 0 ? 1 : -1;
+}
+
+function deterministicPairAngle(firstId, secondId) {
+  const value = `${firstId}:${secondId}`
+    .split("")
+    .reduce((total, character) => (total * 31 + character.charCodeAt(0)) % 360, 0);
+  return value * (Math.PI / 180);
 }
 
 function clamp(value, min, max) {

@@ -88,7 +88,8 @@ h2 {
 }
 
 .metal-dot,
-.energy-dot {
+.energy-dot,
+.supply-dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -99,6 +100,11 @@ h2 {
 .energy-dot {
   background: #50c9ff;
   box-shadow: 0 0 10px #50c9ffaa;
+}
+
+.supply-dot {
+  background: #d8a6ff;
+  box-shadow: 0 0 10px #d8a6ffaa;
 }
 
 .play-area {

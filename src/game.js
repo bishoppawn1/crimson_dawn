@@ -14,6 +14,7 @@ const canvas = document.querySelector("#battlefield");
 const context = canvas.getContext("2d");
 const metalValue = document.querySelector("#metal-value");
 const energyValue = document.querySelector("#energy-value");
+const supplyValue = document.querySelector("#supply-value");
 const selectionName = document.querySelector("#selection-name");
 const selectionDetails = document.querySelector("#selection-details");
 const overdriveButton = document.querySelector("#overdrive-button");
@@ -27,6 +28,9 @@ const productionCommandGrid = document.querySelector("#production-command-grid")
 const structureCommands = document.querySelector("#structure-commands");
 const cancelConstructionButton = document.querySelector("#cancel-construction-button");
 const cancelRefundValue = document.querySelector("#cancel-refund-value");
+const supplyUpgradeButton = document.querySelector("#supply-upgrade-button");
+const supplyUpgradeTitle = document.querySelector("#supply-upgrade-title");
+const supplyUpgradeDetails = document.querySelector("#supply-upgrade-details");
 const pauseButton = document.querySelector("#pause-button");
 const resetButton = document.querySelector("#reset-button");
 const statusBanner = document.querySelector("#status-banner");
@@ -38,11 +42,21 @@ let selectionDrag = null;
 let placementStructureType = null;
 let placementMessage = null;
 let placementCursor = null;
+let pointerScreen = null;
 let forceMoveArmed = false;
 let paused = false;
 let lastFrameTime = performance.now();
 let accumulator = 0;
 const fixedStep = 1 / 30;
+const camera = {
+  x: canvas.width / 2,
+  y: WORLD_HEIGHT / 2,
+  zoom: 1,
+};
+const cameraKeys = new Set();
+const cameraPanSpeed = 700;
+const minCameraZoom = 0.5;
+const maxCameraZoom = 2;
 
 const colors = {
   background: "#10141a",
@@ -76,11 +90,16 @@ for (const structureType of BUILD_MENU) {
 }
 
 const productionButtons = new Map();
-for (const unitType of ["worker_drone_t1", "worker_drone_t2", "worker_drone_t3", "scout_mech", "assault_mech", "energy_carrier"]) {
+const producibleUnitTypes = [
+  ...new Set(
+    Object.values(STRUCTURE_DEFINITIONS).flatMap((definition) => definition.production || []),
+  ),
+];
+for (const unitType of producibleUnitTypes) {
   const definition = UNIT_DEFINITIONS[unitType];
   const button = document.createElement("button");
   button.className = "command-button";
-  button.innerHTML = `${definition.name}<small>${definition.metalCost} metal</small>`;
+  button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · ${definition.supplyCost} supply</small>`;
   button.addEventListener("click", () => {
     if (selectedStructureId) simulation.queueProduction(selectedStructureId, unitType);
     updateInterface();
@@ -97,7 +116,10 @@ function resetGame() {
   placementStructureType = null;
   placementMessage = null;
   placementCursor = null;
+  pointerScreen = null;
   forceMoveArmed = false;
+  cameraKeys.clear();
+  resetCamera();
   paused = false;
   pauseButton.textContent = "Pause simulation";
   accumulator = 0;
@@ -107,6 +129,7 @@ function resetGame() {
 function frame(now) {
   const elapsed = Math.min(0.1, (now - lastFrameTime) / 1000);
   lastFrameTime = now;
+  updateCamera(elapsed);
   if (!paused) {
     accumulator += elapsed;
     while (accumulator >= fixedStep) {
@@ -123,6 +146,10 @@ function frame(now) {
 
 function render() {
   context.clearRect(0, 0, canvas.width, canvas.height);
+  context.save();
+  context.translate(canvas.width / 2, canvas.height / 2);
+  context.scale(camera.zoom, camera.zoom);
+  context.translate(-camera.x, -camera.y);
   drawTerrain();
   drawMetalDeposits();
   drawPowerNetwork();
@@ -141,6 +168,48 @@ function render() {
   drawPlacementPreview();
   drawEvents();
   drawSelectionBox();
+  context.restore();
+  drawCameraHud();
+}
+
+function resetCamera() {
+  camera.x = canvas.width / 2;
+  camera.y = WORLD_HEIGHT / 2;
+  camera.zoom = 1;
+  clampCamera();
+}
+
+function updateCamera(elapsed) {
+  const horizontal = Number(cameraKeys.has("d")) - Number(cameraKeys.has("a"));
+  const vertical = Number(cameraKeys.has("s")) - Number(cameraKeys.has("w"));
+  if (horizontal === 0 && vertical === 0) return;
+
+  const magnitude = Math.hypot(horizontal, vertical);
+  const movement = (cameraPanSpeed * elapsed) / camera.zoom;
+  camera.x += (horizontal / magnitude) * movement;
+  camera.y += (vertical / magnitude) * movement;
+  clampCamera();
+  syncPointerToCamera();
+}
+
+function clampCamera() {
+  const halfViewWidth = canvas.width / (2 * camera.zoom);
+  const halfViewHeight = canvas.height / (2 * camera.zoom);
+  camera.x = halfViewWidth >= WORLD_WIDTH / 2
+    ? WORLD_WIDTH / 2
+    : clampValue(camera.x, halfViewWidth, WORLD_WIDTH - halfViewWidth);
+  camera.y = halfViewHeight >= WORLD_HEIGHT / 2
+    ? WORLD_HEIGHT / 2
+    : clampValue(camera.y, halfViewHeight, WORLD_HEIGHT - halfViewHeight);
+}
+
+function drawCameraHud() {
+  const label = `WASD PAN · WHEEL ZOOM · ${Math.round(camera.zoom * 100)}%`;
+  context.font = "700 12px ui-monospace, monospace";
+  context.fillStyle = "#080a0dcc";
+  context.fillRect(14, canvas.height - 38, context.measureText(label).width + 20, 25);
+  context.fillStyle = "#aeb8c2";
+  context.fillText(label, 24, canvas.height - 21);
 }
 
 function drawTerrain() {
@@ -178,18 +247,18 @@ function drawTerrain() {
 
   context.fillStyle = "#6f303018";
   context.beginPath();
-  context.ellipse(1260, 455, 270, 350, -0.35, 0, Math.PI * 2);
+  context.ellipse(WORLD_WIDTH - 480, WORLD_HEIGHT / 2, 520, 700, -0.2, 0, Math.PI * 2);
   context.fill();
   context.fillStyle = "#236b7a10";
   context.beginPath();
-  context.ellipse(280, 500, 330, 390, 0.15, 0, Math.PI * 2);
+  context.ellipse(480, WORLD_HEIGHT / 2, 560, 720, 0.15, 0, Math.PI * 2);
   context.fill();
 
   context.fillStyle = "#83909d";
   context.font = "700 12px ui-monospace, monospace";
-  context.fillText("FRIENDLY GRID", 30, 38);
+  context.fillText("FRIENDLY GRID", 55, 500);
   context.fillStyle = "#a56a70";
-  context.fillText("HOSTILE APPROACH", 1430, 38);
+  context.fillText("HOSTILE APPROACH", WORLD_WIDTH - 235, 500);
 }
 
 function drawPlacementPreview() {
@@ -530,6 +599,18 @@ function drawStructure(structure) {
     context.moveTo(-bayWidth * 0.36, 0);
     context.lineTo(bayWidth * 0.36, 0);
     context.stroke();
+  } else if (structure.type === "supply_complex") {
+    const level = structure.supplyLevel || 1;
+    const coreWidth = footprint.width * 0.5;
+    const coreHeight = footprint.height * 0.5;
+    context.strokeRect(-coreWidth / 2, -coreHeight / 2, coreWidth, coreHeight);
+    for (let column = -1; column <= 1; column += 1) {
+      context.strokeRect(column * 46 - 13, -coreHeight * 0.7, 26, coreHeight * 1.4);
+    }
+    context.fillStyle = structure.powered ? colors.energy : "#6b4d50";
+    for (let marker = 0; marker < level; marker += 1) {
+      context.fillRect((marker - (level - 1) / 2) * 22 - 6, -6, 12, 12);
+    }
   } else if (structure.type === "sentry_turret") {
     const defenseTarget = simulation.getEntity(structure.defenseTargetId);
     if (defenseTarget?.alive) {
@@ -603,7 +684,7 @@ function drawStructure(structure) {
       assignedBuilders > 0,
       assignedBuilders > 0 ? colors.metal : colors.stasis,
     );
-  } else if (structure.type === "battery") {
+  } else if (definition.storageCapacity) {
     drawBar(
       structure.x,
       structure.y - footprint.halfHeight - 5,
@@ -648,6 +729,32 @@ function drawUnit(unit) {
   const lowEnergy = energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio;
   const overdrive = unit.abilityActiveUntil.overdrive > simulation.time;
 
+  if (definition.transferRate && selected) {
+    context.save();
+    context.strokeStyle = `${colors.energy}80`;
+    context.fillStyle = `${colors.energy}0b`;
+    context.lineWidth = 1.5;
+    context.beginPath();
+    context.arc(unit.x, unit.y, definition.transferRange, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.restore();
+  }
+  if (definition.transferRate && unit.energyTransferTargetIds?.length) {
+    context.save();
+    context.strokeStyle = `${colors.energy}a0`;
+    context.lineWidth = 2;
+    for (const targetId of unit.energyTransferTargetIds) {
+      const target = simulation.getUnit(targetId);
+      if (!target?.alive) continue;
+      context.beginPath();
+      context.moveTo(unit.x, unit.y);
+      context.lineTo(target.x, target.y);
+      context.stroke();
+    }
+    context.restore();
+  }
+
   context.save();
   context.translate(unit.x, unit.y);
   if (selected) {
@@ -670,7 +777,7 @@ function drawUnit(unit) {
   context.strokeStyle = unit.state === "stasis" ? colors.stasis : teamColor;
   context.lineWidth = 3;
   context.beginPath();
-  if (unit.type === "energy_carrier") {
+  if (definition.transferRate) {
     context.rect(-definition.radius, -definition.radius, definition.radius * 2, definition.radius * 2);
   } else if (definition.workerTier) {
     polygon(6, definition.radius);
@@ -681,28 +788,29 @@ function drawUnit(unit) {
   context.stroke();
   context.rotate(-Math.PI / 4);
 
-  if (unit.type === "energy_carrier") {
+  if (definition.transferRate) {
     context.strokeStyle = colors.energy;
     context.lineWidth = 3;
     context.beginPath();
-    context.arc(0, 0, 9, 0, Math.PI * 2);
+    context.arc(0, 0, Math.max(5, definition.radius * 0.45), 0, Math.PI * 2);
     context.stroke();
   } else if (definition.workerTier) {
     context.strokeStyle = unit.state === "stasis" ? colors.stasis : teamColor;
     context.lineWidth = 2;
     context.beginPath();
-    context.moveTo(-6, 6);
-    context.lineTo(6, -6);
-    context.moveTo(-6, -4);
-    context.lineTo(6, 8);
+    const detailSize = definition.radius * 0.55;
+    context.moveTo(-detailSize, detailSize);
+    context.lineTo(detailSize, -detailSize);
+    context.moveTo(-detailSize, -detailSize * 0.65);
+    context.lineTo(detailSize, detailSize * 1.2);
     context.stroke();
   } else {
     context.fillStyle = unit.state === "stasis" ? colors.stasis : teamColor;
-    context.fillRect(5, -3, definition.radius + 8, 6);
+    context.fillRect(definition.radius * 0.3, -2, definition.radius + 5, 4);
   }
   context.restore();
 
-  const barWidth = Math.max(46, definition.radius * 2.3);
+  const barWidth = Math.max(24, definition.radius * 2.3);
   drawBar(unit.x, unit.y - definition.radius - 12, barWidth, unit.hp / definition.maxHp, colors.health);
   drawBar(
     unit.x,
@@ -838,8 +946,12 @@ function polygon(sides, radius, rotation = 0) {
 
 function updateInterface() {
   metalValue.textContent = Math.floor(simulation.resources.player.metal).toLocaleString();
-  const generationRate = simulation.getGenerationRate("player");
-  energyValue.textContent = `${Math.floor(simulation.resources.player.energy).toLocaleString()} / ${Math.floor(simulation.resources.player.energyCapacity).toLocaleString()} · +${generationRate}/s`;
+  const netEnergyRate = simulation.getNetEnergyRate("player");
+  const netEnergyText = netEnergyRate.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  energyValue.textContent = `${netEnergyRate >= 0 ? "+" : ""}${netEnergyText}/s · ${Math.floor(simulation.resources.player.energy)}/${simulation.resources.player.energyCapacity}`;
+  const playerSupply = simulation.getSupplyState("player");
+  supplyValue.textContent = `${playerSupply.used.toLocaleString()}/${playerSupply.capacity.toLocaleString()}`;
+  supplyValue.title = `${playerSupply.unitSupply.toLocaleString()} active · ${playerSupply.reservedSupply.toLocaleString()} queued`;
 
   const selectedUnits = [...selectedUnitIds]
     .map((id) => simulation.getUnit(id))
@@ -857,7 +969,7 @@ function updateInterface() {
     const status = selectedStructure.complete
       ? selectedStructure.powerStatus.replace("_", " ").toUpperCase()
       : `${Math.floor((selectedStructure.constructionProgress / definition.buildTime) * 100)}% BUILT`;
-    const batteryText = selectedStructure.type === "battery"
+    const storageText = definition.storageCapacity
       ? ` · ${Math.floor(selectedStructure.storedEnergy)}/${definition.storageCapacity} stored energy`
       : "";
     const generatorText = selectedStructure.type === "generator"
@@ -874,19 +986,36 @@ function updateInterface() {
       : builderCount > 0
         ? ` · ${builderCount} worker${builderCount === 1 ? "" : "s"} assigned`
         : " · paused—right-click with a worker to resume";
-    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${batteryText}${generatorText}${defenseText}${builderText}${queueText}${rallyText}`;
+    const demandText = definition.powerDemand
+      ? ` · ${simulation.getStructurePowerDemandRate(selectedStructure)} energy/s demand`
+      : "";
+    const supplyComplexText = definition.supplyLevels
+      ? selectedStructure.supplyUpgrade
+        ? ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · UPGRADING TO ${selectedStructure.supplyUpgrade.targetLevel}`
+        : ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · +${definition.supplyLevels[selectedStructure.supplyLevel - 1].capacity.toLocaleString()} capacity`
+      : "";
+    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${demandText}${defenseText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
   } else if (selectedUnits.length === 0) {
     selectionName.textContent = "No units selected";
     selectionDetails.textContent = "Select friendly units or a structure on the battlefield.";
   } else if (selectedUnits.length === 1) {
     const unit = selectedUnits[0];
     const definition = UNIT_DEFINITIONS[unit.type];
+    const emergencyRecoveryText =
+      unit.state === "active" && unit.energy < SIMULATION_RULES.lowEnergyRegenerationThreshold
+        ? ` · EMERGENCY REGEN +${SIMULATION_RULES.lowEnergyRegenerationRate}/s`
+        : "";
     const buildTarget = simulation.getStructure(unit.buildTargetId);
     const orderText = buildTarget?.alive && !buildTarget.complete
       ? ` · BUILDING ${STRUCTURE_DEFINITIONS[buildTarget.type].name.toUpperCase()}`
       : "";
+    const supplyText = definition.transferRate
+      ? unit.energyTransferTargetIds?.length
+        ? ` · SUPPLYING ${unit.energyTransferTargetIds.length} UNIT${unit.energyTransferTargetIds.length === 1 ? "" : "S"}`
+        : ` · NO UNIT IN ${definition.transferRange} RANGE`
+      : "";
     selectionName.textContent = definition.name;
-    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${orderText}`;
+    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${emergencyRecoveryText}${supplyText}${orderText}`;
   } else {
     const activeCount = selectedUnits.filter((unit) => unit.state === "active").length;
     selectionName.textContent = `${selectedUnits.length} units selected`;
@@ -913,12 +1042,16 @@ function updateInterface() {
   productionCommands.hidden = availableProduction.length === 0;
   for (const [unitType, button] of productionButtons) {
     const available = availableProduction.includes(unitType);
+    const unitDefinition = UNIT_DEFINITIONS[unitType];
     button.hidden = !available;
-    button.disabled = !selectedStructure?.powered || simulation.resources.player.metal < UNIT_DEFINITIONS[unitType].metalCost;
+    button.disabled =
+      !selectedStructure?.powered ||
+      simulation.resources.player.metal < unitDefinition.metalCost ||
+      playerSupply.remaining < unitDefinition.supplyCost;
   }
 
   const canCancelConstruction = Boolean(selectedStructure && !selectedStructure.complete);
-  structureCommands.hidden = !canCancelConstruction;
+  cancelConstructionButton.hidden = !canCancelConstruction;
   if (canCancelConstruction) {
     const definition = STRUCTURE_DEFINITIONS[selectedStructure.type];
     const unbuiltRatio = 1 - selectedStructure.constructionProgress / definition.buildTime;
@@ -928,6 +1061,28 @@ function updateInterface() {
       SIMULATION_RULES.constructionCancelRefundRate,
     ).toLocaleString();
   }
+  const supplyDefinition = selectedStructure && STRUCTURE_DEFINITIONS[selectedStructure.type];
+  const canShowSupplyUpgrade = Boolean(
+    selectedStructure?.complete &&
+    supplyDefinition?.supplyLevels &&
+    (selectedStructure.supplyUpgrade || selectedStructure.supplyLevel < supplyDefinition.supplyLevels.length),
+  );
+  supplyUpgradeButton.hidden = !canShowSupplyUpgrade;
+  if (canShowSupplyUpgrade) {
+    const targetLevel = selectedStructure.supplyUpgrade?.targetLevel || selectedStructure.supplyLevel + 1;
+    const upgrade = supplyDefinition.supplyLevels[targetLevel - 1];
+    if (selectedStructure.supplyUpgrade) {
+      const progress = Math.floor((selectedStructure.supplyUpgrade.progress / upgrade.upgradeTime) * 100);
+      supplyUpgradeTitle.textContent = `Upgrading to Supply Level ${targetLevel}`;
+      supplyUpgradeDetails.textContent = `${progress}% · ${selectedStructure.powered ? "in progress" : "waiting for power"}`;
+      supplyUpgradeButton.disabled = true;
+    } else {
+      supplyUpgradeTitle.textContent = `Upgrade to Supply Level ${targetLevel}`;
+      supplyUpgradeDetails.textContent = `${upgrade.metalCost.toLocaleString()} metal · ${upgrade.upgradeTime}s · ${upgrade.capacity.toLocaleString()} capacity`;
+      supplyUpgradeButton.disabled = simulation.resources.player.metal < upgrade.metalCost;
+    }
+  }
+  structureCommands.hidden = !canCancelConstruction && !canShowSupplyUpgrade;
 
   const lowEnergyUnits = simulation.units.filter(
     (unit) => unit.alive && unit.team === "player" && energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio,
@@ -947,6 +1102,9 @@ function updateInterface() {
   } else if (placementStructureType) {
     statusBanner.hidden = false;
     statusBanner.textContent = placementMessage || `PLACE ${STRUCTURE_DEFINITIONS[placementStructureType].name.toUpperCase()} · RIGHT-CLICK TO CANCEL`;
+  } else if (playerSupply.used >= playerSupply.capacity) {
+    statusBanner.hidden = false;
+    statusBanner.textContent = "SUPPLY LIMIT REACHED · BUILD OR UPGRADE A STRATEGIC SUPPLY COMPLEX";
   } else if (stasisUnits.length > 0) {
     statusBanner.hidden = false;
     statusBanner.textContent = `${stasisUnits.length} UNIT${stasisUnits.length === 1 ? "" : "S"} IN STASIS`;
@@ -972,12 +1130,47 @@ function pruneSelection() {
   if (!structure?.alive || structure.team !== "player") selectedStructureId = null;
 }
 
-function canvasPoint(event) {
+function canvasScreenPoint(event) {
   const bounds = canvas.getBoundingClientRect();
   return {
     x: ((event.clientX - bounds.left) / bounds.width) * canvas.width,
     y: ((event.clientY - bounds.top) / bounds.height) * canvas.height,
   };
+}
+
+function screenToWorld(point) {
+  return {
+    x: camera.x + (point.x - canvas.width / 2) / camera.zoom,
+    y: camera.y + (point.y - canvas.height / 2) / camera.zoom,
+  };
+}
+
+function canvasPoint(event) {
+  return screenToWorld(canvasScreenPoint(event));
+}
+
+function syncPointerToCamera() {
+  if (!pointerScreen) return;
+  placementCursor = screenToWorld(pointerScreen);
+  if (placementStructureType) {
+    const placement = simulation.evaluatePlacement(
+      placementStructureType,
+      placementCursor.x,
+      placementCursor.y,
+    );
+    placementMessage = placement.valid ? null : placement.reason.toUpperCase();
+  }
+  if (!selectionDrag) return;
+  selectionDrag.current = placementCursor;
+  selectionDrag.currentScreen = pointerScreen;
+  selectionDrag.moved = Math.hypot(
+    selectionDrag.currentScreen.x - selectionDrag.startScreen.x,
+    selectionDrag.currentScreen.y - selectionDrag.startScreen.y,
+  ) > 8;
+}
+
+function clampValue(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(maximum, value));
 }
 
 function findUnitAt(point, team = null) {
@@ -1021,27 +1214,38 @@ function findEnemyAt(point) {
 
 canvas.addEventListener("mousedown", (event) => {
   if (event.button !== 0) return;
-  const point = canvasPoint(event);
-  selectionDrag = { start: point, current: point, moved: false, shift: event.shiftKey };
+  pointerScreen = canvasScreenPoint(event);
+  const point = screenToWorld(pointerScreen);
+  selectionDrag = {
+    start: point,
+    current: point,
+    startScreen: pointerScreen,
+    currentScreen: pointerScreen,
+    moved: false,
+    shift: event.shiftKey,
+  };
 });
 
 canvas.addEventListener("mousemove", (event) => {
-  placementCursor = canvasPoint(event);
-  if (placementStructureType) {
-    const placement = simulation.evaluatePlacement(
-      placementStructureType,
-      placementCursor.x,
-      placementCursor.y,
-    );
-    placementMessage = placement.valid ? null : placement.reason.toUpperCase();
-  }
-  if (!selectionDrag) return;
-  selectionDrag.current = placementCursor;
-  selectionDrag.moved = Math.hypot(
-    selectionDrag.current.x - selectionDrag.start.x,
-    selectionDrag.current.y - selectionDrag.start.y,
-  ) > 8;
+  pointerScreen = canvasScreenPoint(event);
+  syncPointerToCamera();
 });
+
+canvas.addEventListener("wheel", (event) => {
+  event.preventDefault();
+  pointerScreen = canvasScreenPoint(event);
+  const worldBeforeZoom = screenToWorld(pointerScreen);
+  const boundedDelta = clampValue(event.deltaY, -100, 100);
+  camera.zoom = clampValue(
+    camera.zoom * Math.exp(-boundedDelta * 0.002),
+    minCameraZoom,
+    maxCameraZoom,
+  );
+  camera.x = worldBeforeZoom.x - (pointerScreen.x - canvas.width / 2) / camera.zoom;
+  camera.y = worldBeforeZoom.y - (pointerScreen.y - canvas.height / 2) / camera.zoom;
+  clampCamera();
+  syncPointerToCamera();
+}, { passive: false });
 
 function placeConstruction(point) {
   if (!placementStructureType) return false;
@@ -1185,6 +1389,10 @@ function cancelSelectedConstruction() {
 
 overdriveButton.addEventListener("click", activateOverdrive);
 cancelConstructionButton.addEventListener("click", cancelSelectedConstruction);
+supplyUpgradeButton.addEventListener("click", () => {
+  if (selectedStructureId) simulation.queueSupplyUpgrade(selectedStructureId);
+  updateInterface();
+});
 stopButton.addEventListener("click", () => simulation.commandStop([...selectedUnitIds], false));
 holdButton.addEventListener("click", () => simulation.commandStop([...selectedUnitIds], true));
 pauseButton.addEventListener("click", () => {
@@ -1194,9 +1402,14 @@ pauseButton.addEventListener("click", () => {
 resetButton.addEventListener("click", resetGame);
 
 window.addEventListener("keydown", (event) => {
-  if (event.key.toLowerCase() === "q" && !event.repeat) activateOverdrive();
-  if (event.key.toLowerCase() === "c" && !event.repeat) cancelSelectedConstruction();
-  if (event.key.toLowerCase() === "g" && !event.repeat) {
+  const key = event.key.toLowerCase();
+  if (["w", "a", "s", "d"].includes(key)) {
+    event.preventDefault();
+    cameraKeys.add(key);
+  }
+  if (key === "q" && !event.repeat) activateOverdrive();
+  if (key === "c" && !event.repeat) cancelSelectedConstruction();
+  if (key === "g" && !event.repeat) {
     forceMoveArmed = true;
     placementStructureType = null;
     placementMessage = null;
@@ -1217,9 +1430,20 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
+window.addEventListener("keyup", (event) => {
+  cameraKeys.delete(event.key.toLowerCase());
+});
+
+window.addEventListener("blur", () => {
+  cameraKeys.clear();
+});
+
 window.crimsonDawn = {
   get simulation() {
     return simulation;
+  },
+  get camera() {
+    return { ...camera };
   },
   reset: resetGame,
 };

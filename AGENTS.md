@@ -26,8 +26,14 @@ implementation decision establishes or changes player-facing behavior.
   the unit's normal role and consume energy.
 - Preserve meaningful counterplay. Mobile energy suppliers, reclamation drones,
   reactors, power relays, and other economic infrastructure must be attackable.
+- Active units below the narrow emergency-energy threshold regenerate a slow
+  trickle capped at that threshold. Keep it inside the broader low-energy warning
+  band and high enough for every basic weapon, preventing sub-stasis units from
+  permanently stalling without replacing the role of chargers and carriers.
 - Player combat units automatically engage hostile units that enter weapon range
   unless a future stance rule explicitly prevents it.
+- Keep mobile units visually compact relative to buildings. Living units on either
+  team maintain physical separation and may not stack at the same position.
 - The enemy AI must use the same resource, power, construction, production,
   energy, combat, and salvage rules available to the player. Do not grant hidden
   free units or functional immunity to normal requirements.
@@ -36,7 +42,9 @@ implementation decision establishes or changes player-facing behavior.
 - Do not impose an arbitrary cap on the number of production buildings a player
   may construct.
 - Standard match starts give each side exactly three Tier 1 Worker Drones, one
-  Tier 1 Mech Factory, and one generator. Do not pre-place other units or buildings.
+  Tier 1 Mech Factory, one generator, and one completed Metal Mine on a nearby
+  deposit within the starting power network. Do not pre-place other units or
+  buildings.
 - Metal Mines may only be constructed on unused map-defined metal deposits and
   snap to the deposit location. Energy-production buildings remain freely
   placeable on ordinary valid terrain.
@@ -48,10 +56,22 @@ implementation decision establishes or changes player-facing behavior.
   structures, and increasingly large factory tiers.
 - Pulse Generators produce their stated energy-per-second rate continuously and
   never deplete or consume fuel. Battery capacity limits storage, not generation.
+- The main HUD energy value shows total live production per second only. Keep
+  stored energy and capacity in battery-specific details; do not restore a global
+  `stored / capacity` counter.
+- Keep the current expanded unit batteries at six times the original field-test
+  capacities across workers, combat units, carriers, and enemy units unless a later
+  balance instruction changes the multiplier.
 - Keep the Induction Charger's recharge-radius circle static. Do not add animated
-  electrical-field effects around its operating area.
+  electrical-field effects around its operating area. Its current large recharge
+  radius is 260 world units.
+- Induction Chargers charge every eligible unit in their field simultaneously.
+  Divide scarce grid power fairly across recipients; never let unit iteration order
+  cause one unit to monopolize the tick's available energy.
 - Static defenses use an internal grid-charged weapon capacitor. Never require a
   generator to provide an entire per-shot energy cost inside one simulation tick.
+- Full, idle Sentry Turrets consume no grid energy. They draw power only to refill
+  capacitor energy spent by firing.
 - Treat wreckage and disabled units as battlefield objectives, not merely visual
   remains.
 - Keep metal/energy conversion lossy so reciprocal conversion cannot generate
@@ -89,6 +109,9 @@ When implementation begins, prove the core loop before expanding the roster:
 
 ## Working Conventions
 
+- Follow `agent.ini` for the repository delivery workflow. After each completed
+  change request passes its required validation, commit the task-scoped files and
+  push the commit to the configured GitHub remote and branch.
 - Prefer data-driven definitions for units, buildings, weapons, abilities, costs,
   and upgrade effects.
 - Separate simulation rules from presentation so economy and combat behavior can

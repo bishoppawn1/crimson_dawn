@@ -16,7 +16,8 @@
         </div>
         <div class="resources" aria-label="Player resources">
           <span><i class="metal-dot"></i>Metal <strong id="metal-value">0</strong></span>
-          <span><i class="energy-dot"></i>Energy <strong id="energy-value">0</strong></span>
+          <span><i class="energy-dot"></i>Energy net <strong id="energy-value">0/s</strong></span>
+          <span><i class="supply-dot"></i>Supply <strong id="supply-value">0/0</strong></span>
         </div>
       </header>
 
@@ -66,6 +67,10 @@
                 <strong>C · Cancel Construction</strong>
                 <small><span id="cancel-refund-value">0</span> metal refunded</small>
               </button>
+              <button id="supply-upgrade-button" class="command-button" hidden>
+                <strong id="supply-upgrade-title">Upgrade Supply Complex</strong>
+                <small id="supply-upgrade-details"></small>
+              </button>
             </div>
 
             <button id="pause-button" class="secondary">Pause simulation</button>
@@ -74,17 +79,24 @@
 
           <section class="legend">
             <p class="panel-label">FIELD MANUAL</p>
+            <p><b>WASD</b> pans the camera. Use the <b>mouse wheel</b> to zoom around the cursor.</p>
             <p><b>Left-click</b> or drag a selection box. Hold Shift to add units.</p>
             <p><b>Right-click</b> terrain to move, an enemy to attack, or an unfinished friendly building to resume construction.</p>
             <p><b>G</b>, then right-click to force-move and ignore enemies until arrival.</p>
             <p><b>Q</b> activates Overdrive on selected assault mechs.</p>
             <p><b>C</b> cancels a selected unfinished building and refunds part of its unbuilt metal.</p>
             <p>Buildings block ground movement. Workers automatically slide around them.</p>
+            <p>Units are compact but physical: dense groups spread out instead of stacking in one spot.</p>
             <p>Workers construct buildings. Select a factory to queue units; right-click terrain to set their attack-move rally point.</p>
+            <p>Units consume supply when queued. Strategic Supply Complexes add massive capacity and can be upgraded twice.</p>
             <p>Ordinary buildings snap to the grid and cannot overlap units or structures. Metal mines snap to marked deposits.</p>
             <p>Build mode shows the friendly grid's coverage. Generators, batteries, and relay previews show their future coverage.</p>
             <p>Relay towers extend power. Red rings and crosses mark disconnected structures.</p>
-            <p>Generators provide constant power and never run out. Batteries store surplus; full batteries discard overflow.</p>
+            <p>Induction Chargers cover a large area, recharge every unit in their field at once, and fairly share limited grid power.</p>
+            <p>The energy HUD shows net building power plus stored capacity. Mines draw passive power, and factories draw more while producing.</p>
+            <p>Generators provide constant power. Batteries store the most surplus; generators and relay towers also hold smaller reserves.</p>
+            <p>Active units below 18 energy regenerate a slow emergency reserve so they can move or fire again.</p>
+            <p>All mobile units carry greatly expanded internal energy reserves.</p>
             <p>Disabled units slowly build an emergency charge, then reactivate.</p>
             <p>Salvage drones automatically recover metal from wrecks.</p>
           </section>
