@@ -421,8 +421,11 @@ Each yard controls three reclamation drones. Its default behavior is:
    than one drone may choose the same pile.
 2. Dispatch an available drone to the wreck.
 3. Mine or collect metal from that wreck.
-4. Return the recovered metal to the yard.
-5. Repeat while eligible wreckage remains.
+4. If the drone still has carrying capacity when the pile is exhausted, travel
+   directly to the nearest remaining eligible pile and continue collecting.
+5. Return the recovered metal to the yard only when the drone is full or no
+   eligible salvage remains.
+6. Repeat while eligible wreckage remains.
 
 Reclamation drones can be targeted and destroyed. A yard automatically rebuilds a
 destroyed drone at no metal or energy cost to the player. Replacement should take

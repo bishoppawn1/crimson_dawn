@@ -2029,10 +2029,12 @@ export class Simulation {
     let wreck = this.getWreck(drone.targetWreckId);
     if (wreck && wreck.metal <= EPSILON) wreck = null;
 
-    if ((drone.mode === "idle" || drone.mode === "to_wreck") && !wreck && drone.carry < EPSILON) {
-      wreck = this.findDroneTarget(drone);
+    if ((drone.mode === "idle" || drone.mode === "to_wreck") && !wreck) {
+      if (drone.carry + EPSILON < DRONE_DEFINITION.carryCapacity) {
+        wreck = this.findDroneTarget(drone);
+      }
       drone.targetWreckId = wreck?.id || null;
-      drone.mode = wreck ? "to_wreck" : "idle";
+      drone.mode = wreck ? "to_wreck" : drone.carry > EPSILON ? "returning" : "idle";
     }
 
     if (drone.mode === "to_wreck" && wreck) {
@@ -2042,18 +2044,19 @@ export class Simulation {
     }
 
     if (drone.mode === "collecting") {
-      if (!wreck) {
-        drone.mode = drone.carry > EPSILON ? "returning" : "idle";
-        drone.targetWreckId = null;
-        return;
+      if (wreck) {
+        const capacity = DRONE_DEFINITION.carryCapacity - drone.carry;
+        const collected = Math.min(capacity, wreck.metal, DRONE_DEFINITION.collectionRate * delta);
+        drone.carry += collected;
+        wreck.metal -= collected;
       }
-      const capacity = DRONE_DEFINITION.carryCapacity - drone.carry;
-      const collected = Math.min(capacity, wreck.metal, DRONE_DEFINITION.collectionRate * delta);
-      drone.carry += collected;
-      wreck.metal -= collected;
-      if (drone.carry + EPSILON >= DRONE_DEFINITION.carryCapacity || wreck.metal <= EPSILON) {
+      if (drone.carry + EPSILON >= DRONE_DEFINITION.carryCapacity) {
         drone.mode = "returning";
         drone.targetWreckId = null;
+      } else if (!wreck || wreck.metal <= EPSILON) {
+        const nextWreck = this.findDroneTarget(drone);
+        drone.targetWreckId = nextWreck?.id || null;
+        drone.mode = nextWreck ? "to_wreck" : drone.carry > EPSILON ? "returning" : "idle";
       }
       return;
     }

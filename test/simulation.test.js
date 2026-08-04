@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  DRONE_DEFINITION,
   SIMULATION_RULES,
   STRUCTURE_DEFINITIONS,
   UNIT_DEFINITIONS,
@@ -510,6 +511,27 @@ test("multiple reclamation drones can harvest the same scrap pile", () => {
 
   assert.ok(yard.drones.every((drone) => drone.carry > 0));
   assert.ok(wreck.metal >= 0);
+});
+
+test("partially loaded reclamation drones visit another scrap pile before returning", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 100, 100);
+  const yard = simulation.addStructure("salvage_yard", "player", 240, 100);
+  const firstPile = simulation.addWreck(330, 100, 4);
+  const secondPile = simulation.addWreck(520, 100, 100);
+
+  for (let tick = 0; tick < 180; tick += 1) {
+    simulation.tick(1 / 30);
+    if (yard.drones.every((drone) => drone.targetWreckId === secondPile.id)) break;
+  }
+
+  assert.ok(firstPile.metal <= 0.001);
+  assert.ok(yard.drones.some((drone) => drone.carry > 0));
+  assert.ok(
+    yard.drones.every((drone) => drone.carry < DRONE_DEFINITION.carryCapacity),
+  );
+  assert.ok(yard.drones.every((drone) => drone.targetWreckId === secondPile.id));
+  assert.ok(yard.drones.every((drone) => drone.mode === "to_wreck"));
 });
 
 test("a powered yard replaces a destroyed drone for free after a delay", () => {
