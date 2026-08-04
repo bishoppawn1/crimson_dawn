@@ -1,0 +1,11 @@
+{
+  "name": "crimson-dawn",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "test": "node --test",
+    "check": "node --check src/data.js && node --check src/simulation.js && node --check src/game.js"
+  }
+}

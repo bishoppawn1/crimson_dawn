@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#100d12" />
+    <title>Crimson Dawn — Energy Logistics Field Test</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">CRIMSON DAWN // FIELD TEST 01</p>
+          <h1>Energy Logistics Field Test</h1>
+        </div>
+        <div class="resources" aria-label="Player resources">
+          <span><i class="metal-dot"></i>Metal <strong id="metal-value">0</strong></span>
+          <span><i class="energy-dot"></i>Energy <strong id="energy-value">0</strong></span>
+        </div>
+      </header>
+
+      <section class="play-area">
+        <div class="canvas-frame">
+          <canvas id="battlefield" width="1600" height="900">
+            Crimson Dawn requires a browser with Canvas support.
+          </canvas>
+          <div id="status-banner" class="status-banner" hidden></div>
+        </div>
+
+        <aside class="command-panel">
+          <section>
+            <p class="panel-label">SELECTION</p>
+            <h2 id="selection-name">No units selected</h2>
+            <p id="selection-details" class="muted">Select a friendly unit on the battlefield.</p>
+          </section>
+
+          <section>
+            <p class="panel-label">COMMANDS</p>
+            <button id="overdrive-button" class="ability" disabled>
+              <span>Q</span>
+              <div>
+                <strong>Overdrive</strong>
+                <small>30 energy · faster movement and weapons</small>
+              </div>
+            </button>
+            <button id="pause-button" class="secondary">Pause simulation</button>
+            <button id="reset-button" class="secondary">Reset field test</button>
+          </section>
+
+          <section class="legend">
+            <p class="panel-label">FIELD MANUAL</p>
+            <p><b>Left-click</b> a unit to select it. Hold Shift to add units.</p>
+            <p><b>Right-click</b> terrain to move or an enemy to attack.</p>
+            <p><b>Q</b> activates Overdrive on selected assault mechs.</p>
+            <p>Blue rings recharge units. Energy carriers automatically share reserves.</p>
+            <p>Disabled units slowly build an emergency charge, then reactivate.</p>
+            <p>Salvage drones automatically recover metal from wrecks.</p>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <script type="module" src="./src/game.js"></script>
+  </body>
+</html>
