@@ -4,6 +4,8 @@ Crimson Dawn is a browser-based real-time strategy game about battlefield energy
 logistics. Metal constructs armies and bases; energy keeps structures operating and
 units moving, attacking, and using selected special abilities.
 
+[Play Crimson Dawn on GitHub Pages](https://bishoppawn1.github.io/crimson_dawn/)
+
 The current build is the first playable field test. It includes:
 
 - Selectable mechs with movement and weapon energy costs.
