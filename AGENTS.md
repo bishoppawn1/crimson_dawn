@@ -109,9 +109,11 @@ When implementation begins, prove the core loop before expanding the roster:
 
 ## Working Conventions
 
-- Follow `agent.ini` for the repository delivery workflow. After each completed
-  change request passes its required validation, commit the task-scoped files and
-  push the commit to the configured GitHub remote and branch.
+- After each completed change request, run `npm test`, `npm run check`, and
+  `git diff --check`. If validation passes, commit only the task-scoped files and
+  push the commit to `origin/main`.
+- Never force-push or destructively rewrite repository history. If validation or
+  the push fails, report the blocker instead of pushing a knowingly failing change.
 - Prefer data-driven definitions for units, buildings, weapons, abilities, costs,
   and upgrade effects.
 - Separate simulation rules from presentation so economy and combat behavior can
