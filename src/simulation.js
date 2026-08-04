@@ -1494,13 +1494,51 @@ export class Simulation {
       { type: "charger", x: baseX + 20, y: baseY + 180 },
       { type: "power_tower", x: baseX - 360, y: baseY + 40 },
       { type: "power_tower", x: baseX - 500, y: baseY - 200 },
-      { type: "metal_mine", x: baseX - 400, y: baseY - 680 },
       { type: "sentry_turret", x: baseX - 520, y: baseY + 160 },
       { type: "salvage_yard", x: baseX - 280, y: baseY + 360 },
       { type: "mech_factory_t1", x: baseX - 440, y: baseY + 360 },
-      { type: "supply_complex", x: baseX - 760, y: baseY + 600 },
     ];
+    const playerTargets = [
+      ...this.units.filter((entity) => entity.alive && entity.team === "player"),
+      ...this.structures.filter((entity) => entity.alive && entity.team === "player"),
+    ];
+    const desiredWaveSize = this.getEnemyAttackWaveSize();
+    const supplyState = this.getSupplyState("enemy");
+    const supplyIsLow =
+      supplyState.remaining <= supplyState.capacity * SIMULATION_RULES.enemySupplyLowRatio;
+    const supplyComplex = this.structures.find(
+      (structure) =>
+        structure.alive &&
+        structure.team === "enemy" &&
+        STRUCTURE_DEFINITIONS[structure.type].supplyLevels,
+    );
+    const needsSupplyUpgrade = Boolean(
+      supplyIsLow &&
+      supplyComplex?.complete &&
+      !supplyComplex.supplyUpgrade &&
+      supplyComplex.supplyLevel < STRUCTURE_DEFINITIONS[supplyComplex.type].supplyLevels.length
+    );
+    if (needsSupplyUpgrade) {
+      this.queueSupplyUpgrade(supplyComplex.id);
+    }
+
+    const supplyRequest = supplyIsLow && !supplyComplex
+      ? {
+        type: "supply_complex",
+        x: baseX - 360,
+        y: baseY + 480,
+        advancesPlan: false,
+      }
+      : null;
+    const expansionRequest = this.aiBuildIndex >= 4
+      ? this.getEnemyExpansionRequest(enemyAnchor)
+      : null;
     const plan = buildPlans[this.aiBuildIndex];
+    const strategicRequest = supplyRequest || (
+      needsSupplyUpgrade
+        ? null
+        : expansionRequest || (plan ? { ...plan, advancesPlan: true } : null)
+    );
     const availableWorker = enemyWorkers.find((worker) => !worker.buildTargetId && worker.state === "active");
     const pendingGenerator = this.structures.find(
       (structure) =>
@@ -1509,20 +1547,21 @@ export class Simulation {
         structure.team === "enemy" &&
         Boolean(STRUCTURE_DEFINITIONS[structure.type].generationRate),
     );
-    const needsGeneration = plan && this.needsAdditionalGeneration("enemy", plan.type);
+    const needsGeneration =
+      strategicRequest && this.needsAdditionalGeneration("enemy", strategicRequest.type);
     let constructionRequest = null;
-    if (plan && (!needsGeneration || !pendingGenerator)) {
+    if (strategicRequest && !strategicRequest.waiting && (!needsGeneration || !pendingGenerator)) {
       if (needsGeneration) {
-        const direction = plan.x >= this.width / 2 ? 1 : -1;
+        const direction = strategicRequest.x >= this.width / 2 ? 1 : -1;
         const offset = STRUCTURE_DEFINITIONS.generator.powerRadius * 0.65;
         constructionRequest = {
           type: "generator",
-          x: plan.x + direction * offset,
-          y: plan.y,
+          x: strategicRequest.x + direction * offset,
+          y: strategicRequest.y,
           advancesPlan: false,
         };
       } else {
-        constructionRequest = { ...plan, advancesPlan: true };
+        constructionRequest = strategicRequest;
       }
     }
     if (
@@ -1555,7 +1594,19 @@ export class Simulation {
       if (construction && constructionRequest.advancesPlan) this.aiBuildIndex += 1;
     }
 
-    const reservedPlan = buildPlans[this.aiBuildIndex];
+    const nextSupplyComplex = this.structures.find(
+      (structure) =>
+        structure.alive &&
+        structure.team === "enemy" &&
+        STRUCTURE_DEFINITIONS[structure.type].supplyLevels,
+    );
+    const nextSupplyRequest = supplyIsLow && !nextSupplyComplex
+      ? { type: "supply_complex", x: baseX - 360, y: baseY + 480 }
+      : null;
+    const nextExpansionRequest = this.aiBuildIndex >= 4
+      ? this.getEnemyExpansionRequest(enemyAnchor)
+      : null;
+    const reservedPlan = nextSupplyRequest || nextExpansionRequest || buildPlans[this.aiBuildIndex];
     const reservedPlanMetal = reservedPlan
       ? STRUCTURE_DEFINITIONS[reservedPlan.type].metalCost
       : 0;
@@ -1569,23 +1620,15 @@ export class Simulation {
           Boolean(STRUCTURE_DEFINITIONS[structure.type].generationRate),
       ) &&
       this.needsAdditionalGeneration("enemy", reservedPlan.type);
-    const reservedMetal = reservedPlanMetal + (
+    const supplyUpgradeDefinition =
+      supplyIsLow && nextSupplyComplex?.complete && !nextSupplyComplex.supplyUpgrade
+      ? STRUCTURE_DEFINITIONS[nextSupplyComplex.type].supplyLevels[
+        nextSupplyComplex.supplyLevel || 1
+      ]
+      : null;
+    const reservedMetal = Math.max(reservedPlanMetal, supplyUpgradeDefinition?.metalCost || 0) + (
       needsReservedGenerator ? STRUCTURE_DEFINITIONS.generator.metalCost : 0
     );
-    if (!reservedPlan) {
-      const supplyComplex = this.structures.find((structure) => {
-        const definition = STRUCTURE_DEFINITIONS[structure.type];
-        return (
-          structure.alive &&
-          structure.complete &&
-          structure.team === "enemy" &&
-          definition.supplyLevels &&
-          !structure.supplyUpgrade &&
-          structure.supplyLevel < definition.supplyLevels.length
-        );
-      });
-      if (supplyComplex) this.queueSupplyUpgrade(supplyComplex.id);
-    }
     const stagedCombatCount = this.units.filter((unit) => {
       const definition = UNIT_DEFINITIONS[unit.type];
       return (
@@ -1603,7 +1646,7 @@ export class Simulation {
       0,
     );
     const needsCombatForce =
-      stagedCombatCount + queuedCombatCount < SIMULATION_RULES.enemyAttackWaveSize;
+      stagedCombatCount + queuedCombatCount < desiredWaveSize;
     for (const factory of enemyFactories) {
       if (factory.productionQueue.length >= 2) continue;
       const factoryDefinition = STRUCTURE_DEFINITIONS[factory.type];
@@ -1622,10 +1665,7 @@ export class Simulation {
       this.queueProduction(factory.id, choice);
     }
 
-    const playerTargets = [
-      ...this.units.filter((entity) => entity.alive && entity.team === "player"),
-      ...this.structures.filter((entity) => entity.alive && entity.team === "player"),
-    ];
+    const retreated = this.retreatOutmatchedEnemyAttackers(enemyAnchor, playerTargets);
     const stagedUnits = this.units.filter((unit) => {
       const definition = UNIT_DEFINITIONS[unit.type];
       const target = this.getEntity(unit.attackTargetId);
@@ -1646,14 +1686,15 @@ export class Simulation {
           distance(structure, target) <= SIMULATION_RULES.enemyRushResponseRadius,
       ),
     );
-    const requiredAttackers = rushTargets.length > 0 ? 1 : SIMULATION_RULES.enemyAttackWaveSize;
+    const requiredAttackers = rushTargets.length > 0 ? 1 : desiredWaveSize;
     if (
+      !retreated &&
       stagedUnits.length >= requiredAttackers &&
       playerTargets.length > 0
     ) {
       const wave = stagedUnits.slice(
         0,
-        rushTargets.length > 0 ? stagedUnits.length : SIMULATION_RULES.enemyAttackWaveSize,
+        rushTargets.length > 0 ? stagedUnits.length : desiredWaveSize,
       );
       const waveCenter = {
         x: wave.reduce((total, unit) => total + unit.x, 0) / wave.length,
@@ -1668,6 +1709,194 @@ export class Simulation {
         });
       }
     }
+  }
+
+  getEnemyExpansionRequest(enemyAnchor) {
+    if (!enemyAnchor) return null;
+    const enemyMineCount = this.structures.filter(
+      (structure) =>
+        structure.alive &&
+        structure.team === "enemy" &&
+        STRUCTURE_DEFINITIONS[structure.type].metalRate,
+    ).length;
+    const metal = this.resources.enemy.metal;
+    const shouldExpand =
+      enemyMineCount < 2 ||
+      metal <= SIMULATION_RULES.enemyLowMetalThreshold ||
+      metal >= SIMULATION_RULES.enemyExpansionSurplusMetal;
+    if (!shouldExpand) return null;
+
+    const occupiedDepositIds = new Set(
+      this.structures
+        .filter(
+          (structure) =>
+            structure.alive &&
+            STRUCTURE_DEFINITIONS[structure.type].metalRate &&
+            structure.depositId,
+        )
+        .map((structure) => structure.depositId),
+    );
+    const targetDeposit = this.metalDeposits
+      .filter(
+        (deposit) =>
+          !occupiedDepositIds.has(deposit.id) &&
+          this.evaluatePlacement("metal_mine", deposit.x, deposit.y, "enemy").valid,
+      )
+      .sort(
+        (left, right) =>
+          Number(left.remote) - Number(right.remote) ||
+          distance(left, enemyAnchor) - distance(right, enemyAnchor),
+      )[0];
+    if (!targetDeposit) return null;
+
+    if (this.isBuildSiteConnectedToPower("metal_mine", "enemy", targetDeposit.x, targetDeposit.y)) {
+      return {
+        type: "metal_mine",
+        x: targetDeposit.x,
+        y: targetDeposit.y,
+        advancesPlan: false,
+      };
+    }
+
+    const generatorRadius = STRUCTURE_DEFINITIONS.generator.powerRadius;
+    const pendingOutpostGenerator = this.structures.some(
+      (structure) =>
+        structure.alive &&
+        !structure.complete &&
+        structure.team === "enemy" &&
+        STRUCTURE_DEFINITIONS[structure.type].generationRate &&
+        distance(structure, targetDeposit) <= generatorRadius,
+    );
+    if (pendingOutpostGenerator) {
+      return {
+        type: "metal_mine",
+        x: targetDeposit.x,
+        y: targetDeposit.y,
+        advancesPlan: false,
+        waiting: true,
+      };
+    }
+
+    const towardBaseX = Math.sign(enemyAnchor.x - targetDeposit.x);
+    const towardBaseY = Math.sign(enemyAnchor.y - targetDeposit.y);
+    const generatorOffset = generatorRadius * 0.55;
+    return {
+      type: "generator",
+      x: targetDeposit.x + towardBaseX * generatorOffset,
+      y: targetDeposit.y + towardBaseY * generatorOffset,
+      advancesPlan: false,
+    };
+  }
+
+  getEnemyAttackWaveSize() {
+    const defenses = this.structures.filter(
+      (structure) =>
+        structure.alive &&
+        structure.complete &&
+        structure.team === "player" &&
+        STRUCTURE_DEFINITIONS[structure.type].family === "sentry_turret",
+    );
+    const heaviestDefenseCluster = defenses.reduce(
+      (largest, defense) => Math.max(
+        largest,
+        defenses.filter(
+          (candidate) =>
+            distance(defense, candidate) <= SIMULATION_RULES.enemyHeavyDefenseRadius,
+        ).length,
+      ),
+      0,
+    );
+    return SIMULATION_RULES.enemyAttackWaveSize + (
+      heaviestDefenseCluster >= SIMULATION_RULES.enemyHeavyDefenseCount
+        ? SIMULATION_RULES.enemyHeavyDefenseWaveBonus
+        : 0
+    );
+  }
+
+  retreatOutmatchedEnemyAttackers(enemyAnchor, playerTargets) {
+    if (!enemyAnchor) return false;
+    const ungroupedAttackers = this.units.filter((unit) => {
+      const definition = UNIT_DEFINITIONS[unit.type];
+      return (
+        unit.alive &&
+        unit.state === "active" &&
+        unit.team === "enemy" &&
+        definition.attackRange > 0 &&
+        unit.attackTargetMode === "explicit" &&
+        distance(unit, enemyAnchor) > SIMULATION_RULES.enemyRushResponseRadius
+      );
+    });
+    let retreated = false;
+    while (ungroupedAttackers.length > 0) {
+      const attackGroup = [ungroupedAttackers.shift()];
+      for (let memberIndex = 0; memberIndex < attackGroup.length; memberIndex += 1) {
+        const member = attackGroup[memberIndex];
+        for (let candidateIndex = ungroupedAttackers.length - 1; candidateIndex >= 0; candidateIndex -= 1) {
+          if (
+            distance(member, ungroupedAttackers[candidateIndex]) >
+            SIMULATION_RULES.enemyRetreatEvaluationRadius
+          ) {
+            continue;
+          }
+          attackGroup.push(ungroupedAttackers[candidateIndex]);
+          ungroupedAttackers.splice(candidateIndex, 1);
+        }
+      }
+
+      const armyCenter = {
+        x: attackGroup.reduce((total, unit) => total + unit.x, 0) / attackGroup.length,
+        y: attackGroup.reduce((total, unit) => total + unit.y, 0) / attackGroup.length,
+      };
+      const nearbyAllies = this.units.filter(
+        (unit) =>
+          unit.alive &&
+          unit.state === "active" &&
+          unit.team === "enemy" &&
+          UNIT_DEFINITIONS[unit.type].attackRange > 0 &&
+          distance(unit, armyCenter) <= SIMULATION_RULES.enemyRetreatEvaluationRadius,
+      );
+      const nearbyHostiles = playerTargets.filter((entity) => {
+        const definition = entity.kind === "unit"
+          ? UNIT_DEFINITIONS[entity.type]
+          : STRUCTURE_DEFINITIONS[entity.type];
+        return (
+          (entity.kind !== "unit" || entity.state === "active") &&
+          (entity.kind !== "structure" || entity.complete) &&
+          definition?.attackRange > 0 &&
+          distance(entity, armyCenter) <= SIMULATION_RULES.enemyRetreatEvaluationRadius
+        );
+      });
+      const alliedStrength = nearbyAllies.reduce(
+        (total, entity) => total + combatStrength(entity),
+        0,
+      );
+      const hostileStrength = nearbyHostiles.reduce(
+        (total, entity) => total + combatStrength(entity),
+        0,
+      );
+      if (hostileStrength <= alliedStrength * SIMULATION_RULES.enemyRetreatStrengthRatio) {
+        continue;
+      }
+
+      const towardArmyX = armyCenter.x - enemyAnchor.x;
+      const towardArmyY = armyCenter.y - enemyAnchor.y;
+      const towardArmyLength = Math.hypot(towardArmyX, towardArmyY) || 1;
+      const retreatPoint = {
+        x: enemyAnchor.x + (towardArmyX / towardArmyLength) * 120,
+        y: enemyAnchor.y + (towardArmyY / towardArmyLength) * 120,
+      };
+      this.commandMove(
+        attackGroup.map((unit) => unit.id),
+        retreatPoint.x,
+        retreatPoint.y,
+        { force: true },
+      );
+      this.emit("enemy_retreat", armyCenter.x, armyCenter.y, {
+        unitIds: attackGroup.map((unit) => unit.id),
+      });
+      retreated = true;
+    }
+    return retreated;
   }
 
   reassignEnemyConstruction(enemyWorkers) {
@@ -2674,6 +2903,16 @@ function entityRadius(entity) {
   if (entity.kind === "structure") return STRUCTURE_DEFINITIONS[entity.type].radius;
   if (entity.kind === "drone") return DRONE_DEFINITION.radius;
   return 0;
+}
+
+function combatStrength(entity) {
+  const definition = entity.kind === "unit"
+    ? UNIT_DEFINITIONS[entity.type]
+    : STRUCTURE_DEFINITIONS[entity.type];
+  if (!definition?.attackRange || !definition.maxHp) return 0;
+  const healthRatio = clamp(entity.hp / definition.maxHp, 0, 1);
+  const damageRate = definition.attackDamage / Math.max(definition.attackCooldown, EPSILON);
+  return healthRatio * (definition.maxHp + damageRate * 20);
 }
 
 function powerReach(structure) {

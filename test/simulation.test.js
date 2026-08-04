@@ -1986,6 +1986,122 @@ test("enemy AI reserves metal for its next building after fielding a combat forc
   );
 });
 
+test("enemy AI only constructs a Supply Complex when its remaining supply is low", () => {
+  const simulation = new Simulation();
+  simulation.aiThinkRemaining = 0;
+  simulation.aiBuildIndex = 9;
+  simulation.resources.enemy.metal = 5000;
+  simulation.addStructure("generator", "enemy", 2880, 800);
+  simulation.addUnit("worker_drone_t1", "enemy", 2800, 800);
+
+  simulation.tick(1 / 30);
+
+  assert.equal(
+    simulation.structures.some((structure) => structure.type === "supply_complex"),
+    false,
+  );
+
+  for (let index = 0; index < 57; index += 1) {
+    simulation.addUnit(
+      "assault_mech_t3",
+      "enemy",
+      400 + (index % 10) * 40,
+      400 + Math.floor(index / 10) * 40,
+    );
+  }
+  assert.ok(
+    simulation.getSupplyState("enemy").remaining <=
+      simulation.getSupplyState("enemy").capacity * SIMULATION_RULES.enemySupplyLowRatio,
+  );
+  simulation.aiThinkRemaining = 0;
+  const startingMetal = simulation.resources.enemy.metal;
+
+  simulation.tick(1 / 30);
+
+  const supplyComplex = simulation.structures.find(
+    (structure) => structure.alive && structure.team === "enemy" && structure.type === "supply_complex",
+  );
+  assert.ok(supplyComplex);
+  assert.equal(supplyComplex.complete, false);
+  assert.equal(
+    simulation.resources.enemy.metal,
+    startingMetal - STRUCTURE_DEFINITIONS.supply_complex.metalCost,
+  );
+});
+
+test("enemy AI establishes a paid outpost and expands to another metal deposit", () => {
+  const simulation = Simulation.createFieldTest();
+  simulation.aiThinkRemaining = 0;
+  simulation.aiBuildIndex = 4;
+  simulation.resources.enemy.metal = 5000;
+
+  simulation.tick(1 / 30);
+
+  const expansionGenerator = simulation.structures.find(
+    (structure) =>
+      structure.alive &&
+      !structure.complete &&
+      structure.team === "enemy" &&
+      structure.type === "generator",
+  );
+  assert.ok(expansionGenerator);
+  assert.ok(
+    simulation.metalDeposits.some(
+      (deposit) =>
+        deposit.id !== simulation.structures.find(
+          (structure) => structure.team === "enemy" && structure.type === "metal_mine",
+        ).depositId &&
+        Math.hypot(deposit.x - expansionGenerator.x, deposit.y - expansionGenerator.y) <=
+          STRUCTURE_DEFINITIONS.generator.powerRadius,
+    ),
+  );
+
+  advance(simulation, 40);
+
+  const enemyMines = simulation.structures.filter(
+    (structure) =>
+      structure.alive &&
+      structure.complete &&
+      structure.team === "enemy" &&
+      STRUCTURE_DEFINITIONS[structure.type].metalRate,
+  );
+  assert.ok(enemyMines.length >= 2);
+});
+
+test("enemy AI expands beyond four mines when metal is low and skips player claims", () => {
+  const simulation = new Simulation();
+  simulation.aiThinkRemaining = 0;
+  simulation.aiBuildIndex = 9;
+  simulation.resources.enemy.metal = SIMULATION_RULES.enemyLowMetalThreshold;
+  simulation.addStructure("generator", "enemy", 1000, 1000);
+  simulation.addUnit("worker_drone_t1", "enemy", 920, 1000);
+
+  for (let index = 0; index < 5; index += 1) {
+    const deposit = simulation.addMetalDeposit(200 + index * 100, 200);
+    simulation.addStructure("metal_mine", "enemy", deposit.x, deposit.y, {
+      depositId: deposit.id,
+    });
+  }
+  const claimedDeposit = simulation.addMetalDeposit(1020, 1100);
+  simulation.addStructure("metal_mine", "player", claimedDeposit.x, claimedDeposit.y, {
+    depositId: claimedDeposit.id,
+  });
+  const availableDeposit = simulation.addMetalDeposit(1120, 1000);
+
+  simulation.tick(1 / 30);
+
+  const expansionMine = simulation.structures.find(
+    (structure) =>
+      structure.alive &&
+      !structure.complete &&
+      structure.team === "enemy" &&
+      structure.type === "metal_mine",
+  );
+  assert.ok(expansionMine);
+  assert.equal(expansionMine.depositId, availableDeposit.id);
+  assert.notEqual(expansionMine.depositId, claimedDeposit.id);
+});
+
 test("workers begin construction at the floating-point edge of build range", () => {
   const simulation = new Simulation();
   const project = simulation.addStructure("battery", "player", 200, 100, {
@@ -2025,6 +2141,58 @@ test("enemy combat units wait for a full wave before attacking", () => {
   assert.equal(SIMULATION_RULES.enemyAttackWaveSize, 3);
   assert.ok([...staged, third].every((unit) => unit.attackTargetId === target.id));
   assert.ok([...staged, third].every((unit) => unit.attackTargetMode === "explicit"));
+});
+
+test("enemy combat units form a larger wave against clustered static defenses", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "enemy", 1800, 800);
+  const staged = [
+    simulation.addUnit("scout_mech", "enemy", 1260, 720),
+    simulation.addUnit("scout_mech", "enemy", 1300, 760),
+    simulation.addUnit("scout_mech", "enemy", 1340, 800),
+    simulation.addUnit("scout_mech", "enemy", 1380, 840),
+  ];
+  simulation.addStructure("sentry_turret", "player", 560, 760);
+  simulation.addStructure("sentry_turret", "player", 600, 800);
+  simulation.addStructure("sentry_turret", "player", 640, 840);
+  simulation.aiThinkRemaining = 0;
+
+  simulation.tick(1 / 30);
+
+  assert.ok(staged.every((unit) => unit.attackTargetId === null));
+
+  const fifth = simulation.addUnit("scout_mech", "enemy", 1420, 880);
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+
+  assert.equal(
+    SIMULATION_RULES.enemyAttackWaveSize + SIMULATION_RULES.enemyHeavyDefenseWaveBonus,
+    5,
+  );
+  assert.ok([...staged, fifth].every((unit) => unit.attackTargetMode === "explicit"));
+});
+
+test("an enemy assault force retreats when nearby combat strength clearly outmatches it", () => {
+  const simulation = new Simulation();
+  const enemyGenerator = simulation.addStructure("generator", "enemy", 1800, 800);
+  const attackers = [
+    simulation.addUnit("scout_mech", "enemy", 860, 760),
+    simulation.addUnit("scout_mech", "enemy", 900, 800),
+    simulation.addUnit("scout_mech", "enemy", 940, 840),
+  ];
+  const target = simulation.addStructure("sentry_turret", "player", 500, 800);
+  simulation.addStructure("sentry_turret", "player", 500, 760);
+  simulation.addStructure("sentry_turret", "player", 500, 840);
+  simulation.commandAttack(attackers.map((unit) => unit.id), target.id);
+  simulation.aiThinkRemaining = 0;
+
+  simulation.tick(1 / 30);
+
+  assert.ok(attackers.every((unit) => unit.attackTargetId === null));
+  assert.ok(attackers.every((unit) => unit.moveMode === "force"));
+  assert.ok(attackers.every((unit) => unit.moveTarget.x < enemyGenerator.x));
+  assert.ok(attackers.every((unit) => unit.moveTarget.x > unit.x));
+  assert.equal(simulation.events.at(-1).type, "enemy_retreat");
 });
 
 test("enemy combat units immediately answer structures rushed near their base", () => {
