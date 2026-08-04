@@ -772,42 +772,7 @@ function drawUnit(unit) {
     context.stroke();
   }
 
-  context.rotate(Math.PI / 4);
-  context.fillStyle = unit.state === "stasis" ? "#403b32" : darkColor;
-  context.strokeStyle = unit.state === "stasis" ? colors.stasis : teamColor;
-  context.lineWidth = 3;
-  context.beginPath();
-  if (definition.transferRate) {
-    context.rect(-definition.radius, -definition.radius, definition.radius * 2, definition.radius * 2);
-  } else if (definition.workerTier) {
-    polygon(6, definition.radius);
-  } else {
-    polygon(4, definition.radius);
-  }
-  context.fill();
-  context.stroke();
-  context.rotate(-Math.PI / 4);
-
-  if (definition.transferRate) {
-    context.strokeStyle = colors.energy;
-    context.lineWidth = 3;
-    context.beginPath();
-    context.arc(0, 0, Math.max(5, definition.radius * 0.45), 0, Math.PI * 2);
-    context.stroke();
-  } else if (definition.workerTier) {
-    context.strokeStyle = unit.state === "stasis" ? colors.stasis : teamColor;
-    context.lineWidth = 2;
-    context.beginPath();
-    const detailSize = definition.radius * 0.55;
-    context.moveTo(-detailSize, detailSize);
-    context.lineTo(detailSize, -detailSize);
-    context.moveTo(-detailSize, -detailSize * 0.65);
-    context.lineTo(detailSize, detailSize * 1.2);
-    context.stroke();
-  } else {
-    context.fillStyle = unit.state === "stasis" ? colors.stasis : teamColor;
-    context.fillRect(definition.radius * 0.3, -2, definition.radius + 5, 4);
-  }
+  drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis");
   context.restore();
 
   const barWidth = Math.max(24, definition.radius * 2.3);
@@ -820,6 +785,146 @@ function drawUnit(unit) {
     lowEnergy ? colors.stasis : colors.energy,
   );
   if (unit.state === "stasis") drawLabel(unit.x, unit.y + definition.radius + 17, "STASIS", false, colors.stasis);
+}
+
+function drawUnitSprite(definition, teamColor, darkColor, stasis) {
+  if (definition.workerTier) {
+    drawWorkerDroneSprite(definition, teamColor, darkColor, stasis);
+    return;
+  }
+  drawMechSprite(definition, teamColor, darkColor, stasis);
+}
+
+function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis) {
+  const outline = stasis ? colors.stasis : teamColor;
+  const body = stasis ? "#403b32" : darkColor;
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.strokeStyle = outline;
+  context.fillStyle = body;
+  context.lineWidth = 0.18;
+
+  context.beginPath();
+  context.moveTo(-0.35, -0.12);
+  context.lineTo(-0.9, -0.62);
+  context.moveTo(0.35, -0.12);
+  context.lineTo(0.9, -0.62);
+  context.moveTo(-0.38, 0.18);
+  context.lineTo(-0.82, 0.72);
+  context.moveTo(0.38, 0.18);
+  context.lineTo(0.82, 0.72);
+  context.stroke();
+
+  context.beginPath();
+  polygon(6, 0.58, Math.PI / 6);
+  context.fill();
+  context.stroke();
+  context.fillStyle = stasis ? colors.stasis : teamColor;
+  context.fillRect(-0.18, -0.18, 0.36, 0.36);
+
+  context.lineWidth = 0.12;
+  context.beginPath();
+  context.moveTo(-0.9, -0.62);
+  context.lineTo(-1, -0.42);
+  context.moveTo(-0.9, -0.62);
+  context.lineTo(-0.7, -0.72);
+  context.moveTo(0.9, -0.62);
+  context.lineTo(1, -0.42);
+  context.moveTo(0.9, -0.62);
+  context.lineTo(0.7, -0.72);
+  context.stroke();
+  context.restore();
+}
+
+function drawMechSprite(definition, teamColor, darkColor, stasis) {
+  const outline = stasis ? colors.stasis : teamColor;
+  const armor = stasis ? "#403b32" : darkColor;
+  const accent = stasis ? colors.stasis : teamColor;
+  const role = definition.role || "vanguard";
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.strokeStyle = outline;
+  context.fillStyle = armor;
+  context.lineWidth = 0.15;
+
+  // Two separated legs and broad feet keep the silhouette unmistakably bipedal.
+  context.fillRect(-0.52, 0.2, 0.3, 0.62);
+  context.strokeRect(-0.52, 0.2, 0.3, 0.62);
+  context.fillRect(0.22, 0.2, 0.3, 0.62);
+  context.strokeRect(0.22, 0.2, 0.3, 0.62);
+  context.fillRect(-0.62, 0.72, 0.42, 0.2);
+  context.strokeRect(-0.62, 0.72, 0.42, 0.2);
+  context.fillRect(0.2, 0.72, 0.42, 0.2);
+  context.strokeRect(0.2, 0.72, 0.42, 0.2);
+
+  context.beginPath();
+  context.moveTo(-0.62, 0.28);
+  context.lineTo(-0.72, -0.35);
+  context.lineTo(-0.42, -0.7);
+  context.lineTo(0.42, -0.7);
+  context.lineTo(0.72, -0.35);
+  context.lineTo(0.62, 0.28);
+  context.lineTo(0, 0.48);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  // Head/cockpit and arms read independently from the torso at small sizes.
+  context.fillStyle = accent;
+  context.fillRect(-0.22, -0.82, 0.44, 0.28);
+  context.strokeRect(-0.22, -0.82, 0.44, 0.28);
+  context.fillStyle = armor;
+  context.fillRect(-0.94, -0.42, 0.3, 0.58);
+  context.strokeRect(-0.94, -0.42, 0.3, 0.58);
+  context.fillRect(0.64, -0.42, 0.3, 0.58);
+  context.strokeRect(0.64, -0.42, 0.3, 0.58);
+
+  if (role === "bulwark") {
+    context.fillRect(-0.92, -0.68, 0.42, 0.24);
+    context.strokeRect(-0.92, -0.68, 0.42, 0.24);
+    context.fillRect(0.5, -0.68, 0.42, 0.24);
+    context.strokeRect(0.5, -0.68, 0.42, 0.24);
+    context.lineWidth = 0.22;
+    context.beginPath();
+    context.moveTo(0.82, -0.25);
+    context.lineTo(1.12, -0.78);
+    context.stroke();
+  } else if (role === "carrier") {
+    context.strokeStyle = stasis ? colors.stasis : colors.energy;
+    context.lineWidth = 0.18;
+    context.beginPath();
+    context.arc(0, -0.08, 0.34, 0, Math.PI * 2);
+    context.stroke();
+    context.beginPath();
+    context.arc(0, -0.08, 0.16, 0, Math.PI * 2);
+    context.fillStyle = stasis ? colors.stasis : colors.energy;
+    context.fill();
+  } else {
+    context.lineWidth = role === "raider" ? 0.2 : 0.16;
+    context.beginPath();
+    context.moveTo(0.82, -0.18);
+    context.lineTo(1.18, -0.72);
+    context.stroke();
+    if (role === "raider") {
+      context.beginPath();
+      context.moveTo(-0.2, -0.82);
+      context.lineTo(-0.42, -1.02);
+      context.moveTo(0.2, -0.82);
+      context.lineTo(0.42, -1.02);
+      context.stroke();
+    }
+  }
+
+  context.fillStyle = accent;
+  const pipCount = Math.max(1, definition.tier || 1);
+  for (let pip = 0; pip < pipCount; pip += 1) {
+    context.fillRect(-0.2 + pip * 0.16, 0.02, 0.1, 0.1);
+  }
+  context.restore();
 }
 
 function drawDrone(drone) {

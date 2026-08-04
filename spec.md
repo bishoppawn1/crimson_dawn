@@ -234,6 +234,13 @@ than bases and defensive structures. All living units, friendly or hostile,
 maintain physical separation. Dense formations spread around one another instead
 of occupying an unlimited stack at one position.
 
+The Canvas battlefield uses simple role-readable unit sprites rather than generic
+diamonds with forward gun barrels. Vanguard, Bulwark, Carrier, and hostile combat
+sprites have visibly separated legs, torsos, heads, and arms so they read as mechs
+rather than tanks. Worker Drones use a compact multi-arm tool silhouette, while Arc
+Energy Carriers use a bipedal support frame with a visible energy core. Team color,
+stasis state, tier markings, health, and energy remain visible at gameplay scale.
+
 ## 5. Production Branches and Technology Tiers
 
 Production categories are parallel branches, not consecutive steps in a single
@@ -294,6 +301,12 @@ Completed units deploy to the nearest valid factory exit that does not overlap a
 living structure, another living unit, or the battlefield boundary. If all factory exits are blocked,
 the completed production order waits inside the factory until an exit becomes
 available rather than creating an immobilized unit inside a building.
+
+Each factory assigns successive completed units to distinct, deterministic
+formation slots around its rally point. This applies equally to player and enemy
+factories and prevents repeated output from continually converging on one coordinate.
+Changing the rally point resets the formation sequence. Physical separation remains
+active during movement as a fallback for dense groups and mixed orders.
 
 The player can select a production building and right-click terrain to set its
 rally point. The interface displays the rally point and its path from the selected

@@ -271,6 +271,8 @@ export const UNIT_DEFINITIONS = Object.freeze({
   },
   raider: {
     name: "Hostile Raider",
+    role: "raider",
+    tier: 1,
     radius: 9,
     maxHp: 135,
     maxEnergy: 1080,
@@ -463,6 +465,7 @@ export const SIMULATION_RULES = Object.freeze({
   lowEnergyRatio: 0.2,
   structureCollisionPadding: 3,
   unitCollisionPadding: 2,
+  rallyFormationSpacing: 32,
   buildingGridSize: 40,
   constructionCancelRefundRate: 0.75,
   enemyAttackWaveSize: 4,

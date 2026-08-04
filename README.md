@@ -7,6 +7,7 @@ units moving, attacking, and using selected special abilities.
 The current build is the first playable field test. It includes:
 
 - Selectable mechs with movement and weapon energy costs.
+- Simple role-specific Canvas sprites with clearly bipedal mech silhouettes.
 - Energy-dependent shutdown, stasis regeneration, and reactivation.
 - Greatly expanded internal batteries for every worker, combat unit, carrier, and
   enemy unit.
@@ -37,6 +38,7 @@ The current build is the first playable field test. It includes:
   reservations, and powered 8×6 Strategic Supply Complexes that upgrade from
   5,000 to 10,000 and 20,000 added capacity.
 - Worker-driven building placement and construction.
+- Collision-safe factory exits and spread rally formations for player and enemy units.
 - Resumable and cancellable construction with abandoned-project recovery for AI workers.
 - A visible 40-unit construction grid with valid/blocked footprint previews and
   shared no-overlap rules for player and AI building placement.

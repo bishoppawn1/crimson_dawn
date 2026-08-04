@@ -157,6 +157,7 @@ export class Simulation {
       complete: true,
       productionQueue: [],
       rallyPoint: null,
+      rallySequence: 0,
       supplyLevel: definition.supplyLevels ? 1 : null,
       supplyUpgrade: null,
       attackCooldownRemaining: 0,
@@ -486,6 +487,7 @@ export class Simulation {
       x: clamp(x, 0, this.width),
       y: clamp(y, 0, this.height),
     };
+    factory.rallySequence = 0;
     this.emit("rally_set", factory.rallyPoint.x, factory.rallyPoint.y, {
       factoryId: factory.id,
     });
@@ -1409,7 +1411,8 @@ export class Simulation {
         spawn.y,
       );
       if (factory.rallyPoint) {
-        this.commandMove([unit.id], factory.rallyPoint.x, factory.rallyPoint.y);
+        const rallyDestination = this.getFactoryRallyDestination(factory, order.unitType);
+        this.commandMove([unit.id], rallyDestination.x, rallyDestination.y);
       }
       this.emit("unit_complete", unit.x, unit.y, { unitId: unit.id, factoryId: factory.id });
     }
@@ -1463,6 +1466,46 @@ export class Simulation {
       if (this.isUnitPositionClear(candidate, unitType)) return candidate;
     }
     return null;
+  }
+
+  getFactoryRallyDestination(factory, unitType) {
+    const definition = UNIT_DEFINITIONS[unitType];
+    if (!factory.rallyPoint || !definition) return factory.rallyPoint;
+
+    let slot = factory.rallySequence || 0;
+    for (let attempts = 0; attempts < 4096; attempts += 1) {
+      const offset = squareSpiralOffset(slot);
+      slot += 1;
+      const candidate = {
+        x: factory.rallyPoint.x + offset.x * SIMULATION_RULES.rallyFormationSpacing,
+        y: factory.rallyPoint.y + offset.y * SIMULATION_RULES.rallyFormationSpacing,
+      };
+      if (
+        candidate.x - definition.radius < 0 ||
+        candidate.x + definition.radius > this.width ||
+        candidate.y - definition.radius < 0 ||
+        candidate.y + definition.radius > this.height
+      ) {
+        continue;
+      }
+      const blockedByStructure = this.structures.some((structure) => {
+        if (!structure.alive) return false;
+        const footprint = structureFootprint(structure.type);
+        const padding = definition.radius + SIMULATION_RULES.structureCollisionPadding;
+        return (
+          candidate.x > structure.x - footprint.halfWidth - padding &&
+          candidate.x < structure.x + footprint.halfWidth + padding &&
+          candidate.y > structure.y - footprint.halfHeight - padding &&
+          candidate.y < structure.y + footprint.halfHeight + padding
+        );
+      });
+      if (blockedByStructure) continue;
+      factory.rallySequence = slot;
+      return candidate;
+    }
+
+    factory.rallySequence = slot;
+    return { ...factory.rallyPoint };
   }
 
   isUnitPositionClear(point, unitType) {
@@ -1616,7 +1659,10 @@ export class Simulation {
     if (aliveUnits.length < 2) return;
 
     const cellSize = 40;
-    const solverPasses = 8;
+    const solverPasses = Math.min(
+      40,
+      8 + Math.ceil(Math.log2(aliveUnits.length)) * 4,
+    );
     for (let pass = 0; pass < solverPasses; pass += 1) {
       const cells = new Map();
       for (const unit of aliveUnits) {
@@ -2231,6 +2277,23 @@ function sweepExpandedFootprint(origin, movementX, movementY, structure, padding
     return { time: Math.max(0, entryTime), normalX: movementX > 0 ? -1 : 1, normalY: 0 };
   }
   return { time: Math.max(0, entryTime), normalX: 0, normalY: movementY > 0 ? -1 : 1 };
+}
+
+function squareSpiralOffset(slot) {
+  if (slot <= 0) return { x: 0, y: 0 };
+  let ring = 1;
+  let perimeterIndex = slot - 1;
+  while (perimeterIndex >= ring * 8) {
+    perimeterIndex -= ring * 8;
+    ring += 1;
+  }
+  const sideLength = ring * 2;
+  const side = Math.floor(perimeterIndex / sideLength);
+  const offset = perimeterIndex % sideLength;
+  if (side === 0) return { x: -ring + offset, y: -ring };
+  if (side === 1) return { x: ring, y: -ring + offset };
+  if (side === 2) return { x: ring - offset, y: ring };
+  return { x: -ring, y: ring - offset };
 }
 
 function deterministicSide(firstId, secondId) {

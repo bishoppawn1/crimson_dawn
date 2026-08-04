@@ -805,6 +805,70 @@ test("factories do not deploy a completed unit on top of another unit", () => {
   assert.ok(Math.hypot(spawn.x - blocker.x, spawn.y - blocker.y) >= minimumDistance);
 });
 
+test("player and enemy factories spread repeated output across rally formations", () => {
+  for (const team of ["player", "enemy"]) {
+    const simulation = new Simulation({ width: 1200, height: 900 });
+    const factoryX = team === "player" ? 300 : 900;
+    const factory = simulation.addStructure("mech_factory_t1", team, factoryX, 400);
+    simulation.commandRally(factory.id, 600, 400);
+    const assignedTargets = new Set();
+
+    while (simulation.units.length < 24) {
+      if (factory.productionQueue.length === 0) {
+        factory.productionQueue.push({
+          unitType: "scout_mech",
+          progress: UNIT_DEFINITIONS.scout_mech.productionTime,
+        });
+      }
+      factory.powered = true;
+      const previousCount = simulation.units.length;
+      simulation.updateProduction(0);
+      if (simulation.units.length > previousCount) {
+        const produced = simulation.units.at(-1);
+        assignedTargets.add(`${produced.moveTarget.x}:${produced.moveTarget.y}`);
+      }
+      for (let tick = 0; tick < 2; tick += 1) simulation.updateUnits(1 / 30);
+    }
+
+    assert.equal(assignedTargets.size, 24);
+    advance(simulation, 10);
+    for (let firstIndex = 0; firstIndex < simulation.units.length; firstIndex += 1) {
+      for (let secondIndex = firstIndex + 1; secondIndex < simulation.units.length; secondIndex += 1) {
+        const first = simulation.units[firstIndex];
+        const second = simulation.units[secondIndex];
+        const minimumDistance =
+          UNIT_DEFINITIONS[first.type].radius +
+          UNIT_DEFINITIONS[second.type].radius +
+          SIMULATION_RULES.unitCollisionPadding;
+        assert.ok(
+          Math.hypot(first.x - second.x, first.y - second.y) + 0.02 >= minimumDistance,
+          `${team} factory output ${first.id} and ${second.id} should not stack`,
+        );
+      }
+    }
+  }
+});
+
+test("setting a new factory rally point resets its formation slots", () => {
+  const simulation = new Simulation();
+  const factory = simulation.addStructure("mech_factory_t1", "player", 400, 400);
+  simulation.commandRally(factory.id, 700, 400);
+  assert.deepEqual(
+    simulation.getFactoryRallyDestination(factory, "scout_mech"),
+    { x: 700, y: 400 },
+  );
+  assert.notDeepEqual(
+    simulation.getFactoryRallyDestination(factory, "scout_mech"),
+    { x: 700, y: 400 },
+  );
+
+  simulation.commandRally(factory.id, 800, 500);
+  assert.deepEqual(
+    simulation.getFactoryRallyDestination(factory, "scout_mech"),
+    { x: 800, y: 500 },
+  );
+});
+
 test("a completed unit waits in a surrounded factory until an exit opens", () => {
   const simulation = new Simulation();
   const factory = simulation.addStructure("mech_factory_t1", "player", 400, 400);
