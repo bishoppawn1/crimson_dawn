@@ -238,6 +238,7 @@ test("every higher-tier infrastructure building improves its defining function",
     charger: ["chargeRadius", "chargeRate"],
     metal_mine: ["metalRate"],
     sentry_turret: ["attackRange", "attackDamage", "capacitorCapacity", "capacitorChargeRate"],
+    mortar_turret: ["attackRange", "attackDamage", "capacitorCapacity", "capacitorChargeRate"],
     salvage_yard: ["droneCount"],
   };
 
@@ -281,6 +282,59 @@ test("higher-tier sentries deal more damage and reach targets that Tier 1 cannot
   assert.equal(fireOnce("sentry_turret", 220).damage, 0);
   assert.ok(fireOnce("sentry_turret_t2", 220).damage > 0);
   assert.ok(fireOnce("sentry_turret_t3", 300).damage > 0);
+});
+
+test("sentry turrets use the strengthened weapon profiles", () => {
+  assert.deepEqual(
+    ["sentry_turret", "sentry_turret_t2", "sentry_turret_t3"].map((type) => {
+      const definition = STRUCTURE_DEFINITIONS[type];
+      return [definition.attackDamage, definition.attackRange, definition.attackCooldown];
+    }),
+    [
+      [18, 185, 0.75],
+      [34, 265, 0.68],
+      [60, 360, 0.55],
+    ],
+  );
+});
+
+test("mortar turrets enforce minimum and maximum range", () => {
+  const closeSimulation = new Simulation({ enemyAiEnabled: false });
+  const closeMortar = closeSimulation.addStructure("mortar_turret", "player", 300, 300, {
+    powered: true,
+  });
+  const closeTarget = closeSimulation.addUnit("raider", "enemy", 400, 300);
+  const closeStartingHp = closeTarget.hp;
+
+  closeSimulation.updateStaticDefenses(0.25);
+
+  assert.equal(closeTarget.hp, closeStartingHp);
+  assert.equal(closeMortar.defenseTargetId, null);
+  assert.equal(closeMortar.defenseStatus, "target too close");
+
+  const rangedSimulation = new Simulation({ enemyAiEnabled: false });
+  const rangedMortar = rangedSimulation.addStructure("mortar_turret", "player", 300, 300, {
+    powered: true,
+  });
+  const validTarget = rangedSimulation.addUnit("raider", "enemy", 650, 300);
+  const outsideTarget = rangedSimulation.addUnit("raider", "enemy", 760, 300);
+  const validStartingHp = validTarget.hp;
+  const outsideStartingHp = outsideTarget.hp;
+
+  rangedSimulation.updateStaticDefenses(0.25);
+
+  assert.equal(rangedMortar.defenseTargetId, validTarget.id);
+  assert.ok(validTarget.hp < validStartingHp);
+  assert.equal(outsideTarget.hp, outsideStartingHp);
+});
+
+test("workers can build and upgrade every mortar turret tier", () => {
+  assert.ok(BUILD_MENU_BY_TIER[1].includes("mortar_turret"));
+  assert.ok(BUILD_MENU_BY_TIER[2].includes("mortar_turret_t2"));
+  assert.ok(BUILD_MENU_BY_TIER[3].includes("mortar_turret_t3"));
+  assert.equal(getNextStructureTierType("mortar_turret"), "mortar_turret_t2");
+  assert.equal(getNextStructureTierType("mortar_turret_t2"), "mortar_turret_t3");
+  assert.equal(getNextStructureTierType("mortar_turret_t3"), null);
 });
 
 test("higher-tier factories have progressively faster production throughput", () => {

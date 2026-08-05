@@ -520,10 +520,10 @@ afford are displayed brightly, while structures blocked by worker tier or curren
 metal are dimmed but remain visible so the progression path stays clear.
 
 Pulse Generators, Grid Batteries, Power Relay Towers, Induction Chargers, Metal
-Mines, Sentry Turrets, and Salvage Reclamation Yards currently have separate Tier
-1, Tier 2, and Tier 3 construction definitions. Higher-tier versions have larger
-provisional costs, footprints, durability, demand, and role-specific output or
-capacity. The Strategic Supply Complex remains a Tier 1 construction option with
+Mines, Sentry Turrets, Mortar Turrets, and Salvage Reclamation Yards currently have
+separate Tier 1, Tier 2, and Tier 3 construction definitions. Higher-tier versions
+have larger provisional costs, footprints, durability, demand, and role-specific
+output or capacity. The Strategic Supply Complex remains a Tier 1 construction option with
 its own internal upgrade levels rather than separate tiered foundations. All new
 factory and building-variant balance values are provisional.
 
@@ -534,7 +534,11 @@ buffering; chargers improve field size and recharge throughput; mines improve
 metal income; reclamation yards field more drones with faster replacement; and
 factories gain provisional production-speed multipliers of 1.0×, 1.25×, and 1.5×.
 Sentry Turrets scale especially clearly: provisional Tier 1/Tier 2/Tier 3 weapon
-profiles are 12/24/42 damage, 185/250/340 range, and 0.85/0.75/0.60-second reloads.
+profiles are 18/34/60 damage, 185/265/360 range, and 0.75/0.68/0.55-second reloads.
+Mortar Turrets provide slower indirect fire at 140–420, 160–550, and 180–700
+minimum-to-maximum range across the three tiers. A Mortar Turret never acquires or
+fires on a target whose center is inside its minimum range, creating a deliberate
+close-range dead zone. Its selected range display shows both boundaries.
 Build controls, upgrade controls, and selected-structure details display the
 role-defining statistics so these advantages are apparent before metal is spent.
 
@@ -610,7 +614,7 @@ stops at the moving unit's own physical radius from the exact structure footprin
 there is no additional structure-clearance padding.
 
 Tier 1 infrastructure is deliberately compact. Pulse Generators, Grid Batteries,
-Induction Chargers, Metal Mines, Power Relay Towers, and Sentry Turrets use 1×1
+Induction Chargers, Metal Mines, Power Relay Towers, Sentry Turrets, and Mortar Turrets use 1×1
 footprints. Tier 1 factories use 2×2 footprints. Equivalent Tier 2 infrastructure
 uses 2×2 footprints except for the Tier 2 Power Relay Tower, which remains 1×1.
 Tier 2 factories use 3×3 footprints; Tier 3 infrastructure uses 3×3 footprints and
@@ -644,9 +648,10 @@ grid. A shot spends capacitor energy, allowing normal generator output to build 
 between shots without requiring a Grid Battery to satisfy the entire weapon cost
 in one simulation tick. The selected-defense interface displays weapon range,
 capacitor charge, and current behavior such as charging, ready, tracking, or firing.
-Sentry Turrets have no separate passive power demand: a full, idle turret consumes
-no grid energy, and it draws power only when its capacitor needs to replace energy
-spent firing.
+Sentry and Mortar Turrets have no separate passive power demand: a full, idle
+turret consumes no grid energy, and it draws power only when its capacitor needs to
+replace energy spent firing. Mortars launch a visibly arcing projectile and report
+`TARGET TOO CLOSE` when hostile targets exist only inside their dead zone.
 
 The Strategic Supply Complex is an exceptionally large 8-by-6-grid-cell economic
 building. It costs 1,200 metal, takes 40 seconds to construct, and passively draws

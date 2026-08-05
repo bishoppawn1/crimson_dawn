@@ -789,7 +789,10 @@ function sendMultiplayerSnapshot() {
 function describeStructureRole(definition) {
   if (definition.capacitorCapacity) {
     const damagePerSecond = definition.attackDamage / definition.attackCooldown;
-    return `${definition.attackDamage} damage · ${definition.attackRange} range · ${damagePerSecond.toFixed(1)} DPS`;
+    const range = definition.minimumAttackRange
+      ? `${definition.minimumAttackRange}–${definition.attackRange} range`
+      : `${definition.attackRange} range`;
+    return `${definition.attackDamage} damage · ${range} · ${damagePerSecond.toFixed(1)} DPS`;
   }
   if (definition.chargeRadius) {
     return `${definition.chargeRate}/s recharge · ${definition.chargeRadius} radius`;
@@ -1855,6 +1858,52 @@ function drawSentryBuilding(structure, definition, footprint, powered, teamColor
   context.fillRect(-base * 0.42, -3, base * 0.35, 6);
 }
 
+function drawMortarBuilding(structure, definition, footprint, powered, teamColor) {
+  const size = Math.min(footprint.width, footprint.height);
+  const base = size * 0.3;
+  context.fillStyle = structureMetalGradient();
+  context.strokeStyle = "#10171a";
+  context.lineWidth = 3;
+  polygon(8, base, Math.PI / 8);
+  context.fill();
+  context.stroke();
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.lineWidth = 3;
+  context.beginPath();
+  context.arc(0, 0, base * 0.72, 0, Math.PI * 2);
+  context.stroke();
+
+  const target = simulation.getEntity(structure.defenseTargetId);
+  if (target?.alive) context.rotate(Math.atan2(target.y - structure.y, target.x - structure.x));
+  const firingAge = recentAttackAge(structure.id);
+  const recoil = firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * size * 0.06;
+  context.fillStyle = "#202a2e";
+  context.strokeStyle = "#0c1113";
+  context.lineWidth = 3;
+  context.beginPath();
+  context.ellipse(-base * 0.08, 0, base * 0.56, base * 0.46, 0, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+
+  const tubeLength = size * 0.48 - recoil;
+  const tubeWidth = Math.max(8, size * 0.13);
+  context.fillStyle = "#39464a";
+  context.fillRect(-base * 0.05, -tubeWidth / 2, tubeLength, tubeWidth);
+  context.strokeRect(-base * 0.05, -tubeWidth / 2, tubeLength, tubeWidth);
+  context.fillStyle = "#070b0d";
+  context.beginPath();
+  context.ellipse(tubeLength - base * 0.05, 0, tubeWidth * 0.34, tubeWidth * 0.62, 0, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = powered ? colors.energy : "#645053";
+  context.lineWidth = 2;
+  for (const offset of [0.15, 0.3]) {
+    context.beginPath();
+    context.moveTo(tubeLength * offset, -tubeWidth / 2);
+    context.lineTo(tubeLength * offset, tubeWidth / 2);
+    context.stroke();
+  }
+}
+
 function drawSalvageYardBuilding(definition, footprint, powered, teamColor) {
   const width = footprint.width * 0.82;
   const height = footprint.height * 0.78;
@@ -1903,6 +1952,7 @@ function drawCompletedBuilding(structure, definition, footprint, family, powered
   else if (family === "factory") drawFactoryBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "supply_complex") drawSupplyComplexBuilding(structure, footprint, powered, teamColor);
   else if (family === "sentry_turret") drawSentryBuilding(structure, definition, footprint, powered, teamColor);
+  else if (family === "mortar_turret") drawMortarBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "salvage_yard") drawSalvageYardBuilding(definition, footprint, powered, teamColor);
 }
 
@@ -1934,13 +1984,21 @@ function drawStructure(structure) {
     context.stroke();
   }
 
-  if (family === "sentry_turret" && selectedStructureIds.has(structure.id)) {
+  if (definition.capacitorCapacity && selectedStructureIds.has(structure.id)) {
     context.strokeStyle = "#ef596455";
     context.lineWidth = 2;
     context.setLineDash([7, 9]);
     context.beginPath();
     context.arc(0, 0, definition.attackRange, 0, Math.PI * 2);
     context.stroke();
+    if (definition.minimumAttackRange) {
+      context.strokeStyle = "#ffc46b88";
+      context.fillStyle = "#ffc46b0b";
+      context.beginPath();
+      context.arc(0, 0, definition.minimumAttackRange, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+    }
     context.setLineDash([]);
   }
 
@@ -2019,7 +2077,7 @@ function drawStructure(structure) {
       structure.storedEnergy / definition.storageCapacity,
       structure.powerStatus === "discharging" ? "#bdaaff" : colors.energy,
     );
-  } else if (family === "sentry_turret") {
+  } else if (definition.capacitorCapacity) {
     drawBar(
       structure.x,
       structure.y - footprint.halfHeight - 5,
@@ -2037,7 +2095,11 @@ function drawStructure(structure) {
       !warning,
       warning ? colors.disconnected : structure.powerStatus === "discharging" ? "#bdaaff" : colors.energy,
     );
-  } else if (structure.complete && family === "sentry_turret" && selectedStructureIds.has(structure.id)) {
+  } else if (
+    structure.complete &&
+    definition.capacitorCapacity &&
+    selectedStructureIds.has(structure.id)
+  ) {
     drawLabel(
       structure.x,
       structure.y + footprint.halfHeight + 33,
@@ -3863,6 +3925,15 @@ function attackPresentation(source) {
       ? UNIT_DEFINITIONS[source.type]
       : null;
   const role = definition?.role;
+  if (role === "mortar") {
+    return {
+      speed: 340, minimumTravelTime: 0.28, trailFraction: 0.08, arcHeight: 105,
+      projectileSize: 5.2, trailWidth: 3.2, muzzleDuration: 0.14, muzzleSize: 15,
+      impactDuration: 0.52, impactSize: 34, sparkCount: 13, glow: 17, smoke: true,
+      projectileColor: "#fff0b8", trailColor: "#e89245", muzzleColor: "#ffe5a0",
+      glowColor: "#ff7138", impactColor: "#ff9848", sparkColor: "#ffd68a",
+    };
+  }
   if (role === "zenith_doughnut") {
     return {
       beam: true, beamDuration: 0.42, speed: 1, minimumTravelTime: 0,
@@ -4046,7 +4117,7 @@ function updateInterface() {
       ? ` · ${definition.relayRadius} relay range · ${definition.chargeRate}/s buffer charge · ${definition.dischargeRate}/s discharge`
       : "";
     const defenseText = definition.capacitorCapacity
-      ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${(definition.attackDamage / definition.attackCooldown).toFixed(1)} DPS · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
+      ? ` · ${definition.attackDamage} damage · ${definition.minimumAttackRange ? `${definition.minimumAttackRange}–` : ""}${definition.attackRange} range · ${(definition.attackDamage / definition.attackCooldown).toFixed(1)} DPS · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
       : "";
     const chargerText = definition.chargeRadius
       ? ` · ${definition.chargeRate}/s unit recharge · ${definition.chargeRadius} field radius`

@@ -48,8 +48,9 @@ The current build is the first playable field test. It includes:
   prioritize exposed economic and power infrastructure.
 - Compact unit silhouettes with physical unit-to-unit separation for dense groups.
 - Drag-box unit selection plus matching factory-group selection, stop, and hold-position commands.
-- Metal mines, relay-tower power networks, and static sentry defenses.
-- Grid-charged sentry capacitors with visible range, charge, and targeting status.
+- Metal mines, relay-tower power networks, and stronger static sentry defenses.
+- Grid-charged sentry and long-range mortar turrets with visible range, charge,
+  targeting status, and a counterable minimum-range dead zone for mortars.
 - Map-defined metal deposits that restrict mine construction locations.
 - Five selectable 5,200×3,200 duel battlefields plus three distinct layouts for
   every total player count from three through eight: 23 maps in total.

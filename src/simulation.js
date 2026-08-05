@@ -2993,13 +2993,23 @@ export class Simulation {
         defense.weaponEnergy += this.takeStructureEnergy(defense, chargeRequest);
       }
 
-      const targets = this.getNearbyHostileTargets(defense, definition.attackRange)
+      const nearbyTargets = this.getNearbyHostileTargets(defense, definition.attackRange)
         .filter(
           (target) => distance(defense, target) <= definition.attackRange + entityRadius(target),
         );
+      const targets = nearbyTargets.filter((target) =>
+        isStaticDefenseTargetInRange(definition, defense, target)
+      );
       const target = nearest(defense, targets);
       if (!target) {
-        defense.defenseStatus = defense.weaponEnergy + EPSILON >= definition.attackEnergy ? "ready" : "charging";
+        const targetInsideDeadZone = nearbyTargets.some((candidate) =>
+          distance(defense, candidate) + EPSILON < (definition.minimumAttackRange || 0)
+        );
+        defense.defenseStatus = targetInsideDeadZone
+          ? "target too close"
+          : defense.weaponEnergy + EPSILON >= definition.attackEnergy
+            ? "ready"
+            : "charging";
         continue;
       }
       defense.defenseTargetId = target.id;
@@ -3974,6 +3984,14 @@ function preferredTargets(definition, candidates) {
 
 function isCombatUnitDefinition(definition) {
   return Boolean(definition && definition.attackRange > 0 && !definition.workerTier);
+}
+
+function isStaticDefenseTargetInRange(definition, defense, target) {
+  const separation = distance(defense, target);
+  return (
+    separation + EPSILON >= (definition.minimumAttackRange || 0) &&
+    separation <= definition.attackRange + entityRadius(target)
+  );
 }
 
 function entityRadius(entity) {
