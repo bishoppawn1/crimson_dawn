@@ -24,6 +24,14 @@ const NAVIGATION_CORNER_MARGIN = 1;
 const NAVIGATION_REPLAN_INTERVAL = 0.75;
 const NAVIGATION_SEARCH_MARGIN = 400;
 const NAVIGATION_TARGET_TOLERANCE = 24;
+const COMBAT_SPATIAL_CELL_SIZE = 160;
+const NAVIGATION_SEARCHES_PER_TICK = 4;
+const UNIT_SEPARATION_MAX_PASSES = 4;
+const MAX_COMBAT_TARGET_RADIUS = Math.max(
+  DRONE_DEFINITION.radius,
+  ...Object.values(UNIT_DEFINITIONS).map((definition) => definition.radius || 0),
+  ...Object.values(STRUCTURE_DEFINITIONS).map((definition) => definition.radius || 0),
+);
 const STORAGE_PRIORITY = Object.freeze({ battery: 0, power_tower: 1, generator: 2 });
 
 export class Simulation {
@@ -44,6 +52,13 @@ export class Simulation {
     this.units = [];
     this.structures = [];
     this.wrecks = [];
+    this.entityById = new Map();
+    this.droneCache = [];
+    this.combatSpatialIndex = new Map();
+    this.groundNavigationObstacleCache = new Map();
+    this.lastUnitSeparationPasses = 0;
+    this.navigationSearchesRemaining = NAVIGATION_SEARCHES_PER_TICK;
+    this.lastNavigationSearchCount = 0;
     this.metalDeposits = [];
     this.terrain = terrain
       .filter((obstacle) => terrainIntersectsWorld(obstacle, width, height))
@@ -215,6 +230,7 @@ export class Simulation {
     simulation.units = snapshot.units || [];
     simulation.structures = snapshot.structures || [];
     simulation.wrecks = snapshot.wrecks || [];
+    simulation.rebuildEntityLookup();
     simulation.metalDeposits = snapshot.metalDeposits || [];
     simulation.events = snapshot.events || [];
     simulation.powerLinks = snapshot.powerLinks || [];
@@ -304,6 +320,7 @@ export class Simulation {
     unit.buildQueue = Array.isArray(unit.buildQueue) ? [...unit.buildQueue] : [];
     if (unit.energy <= EPSILON) unit.state = "stasis";
     this.units.push(unit);
+    this.entityById.set(unit.id, unit);
     return unit;
   }
 
@@ -363,13 +380,14 @@ export class Simulation {
     }
 
     this.structures.push(structure);
+    this.entityById.set(structure.id, structure);
     if (structure.complete) this.recordStructureTierUnlock(structure);
     return structure;
   }
 
   createDrone(yard, slot) {
     const angle = (slot / STRUCTURE_DEFINITIONS[yard.type].droneCount) * Math.PI * 2;
-    return {
+    const drone = {
       id: this.createId("drone"),
       kind: "drone",
       type: "reclamation_drone",
@@ -387,6 +405,9 @@ export class Simulation {
       navigationSide: null,
       replacementRemaining: 0,
     };
+    this.entityById.set(drone.id, drone);
+    this.droneCache.push(drone);
+    return drone;
   }
 
   addWreck(x, y, metal, team = "neutral") {
@@ -400,31 +421,38 @@ export class Simulation {
       initialMetal: Math.max(0, metal),
     };
     this.wrecks.push(wreck);
+    this.entityById.set(wreck.id, wreck);
     return wreck;
   }
 
   getUnit(id) {
-    return this.units.find((unit) => unit.id === id) || null;
+    const entity = this.entityById.get(id);
+    return entity?.kind === "unit" ? entity : null;
   }
 
   getStructure(id) {
-    return this.structures.find((structure) => structure.id === id) || null;
+    const entity = this.entityById.get(id);
+    return entity?.kind === "structure" ? entity : null;
   }
 
   getWreck(id) {
-    return this.wrecks.find((wreck) => wreck.id === id) || null;
+    const entity = this.entityById.get(id);
+    return entity?.kind === "wreck" ? entity : null;
   }
 
   getDrones() {
-    return this.structures.flatMap((structure) => structure.drones || []);
+    return this.droneCache;
   }
 
   getEntity(id) {
-    return (
-      this.getUnit(id) ||
-      this.getStructure(id) ||
-      this.getDrones().find((drone) => drone.id === id) ||
-      this.getWreck(id)
+    return this.entityById.get(id) || null;
+  }
+
+  rebuildEntityLookup() {
+    this.droneCache = this.structures.flatMap((structure) => structure.drones || []);
+    this.entityById = new Map(
+      [...this.units, ...this.structures, ...this.droneCache, ...this.wrecks]
+        .map((entity) => [entity.id, entity]),
     );
   }
 
@@ -1359,6 +1387,7 @@ export class Simulation {
     if (this.matchResult || !Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return;
     const delta = Math.min(deltaSeconds, 0.25);
     this.time += delta;
+    this.groundNavigationObstacleCache.clear();
 
     this.refreshPowerState(delta);
     if (this.enemyAiEnabled) this.updateEnemyAi(delta);
@@ -1374,6 +1403,9 @@ export class Simulation {
     this.finalizePowerStorage(delta);
     this.syncStoredEnergy();
     this.events = this.events.filter((event) => this.time - event.time < 1.2);
+    for (const wreck of this.wrecks) {
+      if (wreck.metal <= EPSILON) this.entityById.delete(wreck.id);
+    }
     this.wrecks = this.wrecks.filter((wreck) => wreck.metal > EPSILON);
     this.updateMatchResult();
   }
@@ -1726,7 +1758,40 @@ export class Simulation {
     return this.getGenerationRate(team) - this.getEnergyDemandRate(team);
   }
 
+  rebuildCombatSpatialIndex() {
+    this.combatSpatialIndex = new Map();
+    for (const entity of [...this.units, ...this.droneCache, ...this.structures]) {
+      if (!entity.alive) continue;
+      const cellX = Math.floor(entity.x / COMBAT_SPATIAL_CELL_SIZE);
+      const cellY = Math.floor(entity.y / COMBAT_SPATIAL_CELL_SIZE);
+      const key = `${cellX},${cellY}`;
+      const occupants = this.combatSpatialIndex.get(key);
+      if (occupants) occupants.push(entity);
+      else this.combatSpatialIndex.set(key, [entity]);
+    }
+  }
+
+  getNearbyHostileTargets(origin, range) {
+    const searchRadius = range + MAX_COMBAT_TARGET_RADIUS;
+    const minimumCellX = Math.floor((origin.x - searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
+    const maximumCellX = Math.floor((origin.x + searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
+    const minimumCellY = Math.floor((origin.y - searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
+    const maximumCellY = Math.floor((origin.y + searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
+    const candidates = [];
+    for (let cellY = minimumCellY; cellY <= maximumCellY; cellY += 1) {
+      for (let cellX = minimumCellX; cellX <= maximumCellX; cellX += 1) {
+        const occupants = this.combatSpatialIndex.get(`${cellX},${cellY}`);
+        if (!occupants) continue;
+        for (const target of occupants) {
+          if (target.team !== origin.team && target.alive) candidates.push(target);
+        }
+      }
+    }
+    return candidates;
+  }
+
   assignAutomaticTargets() {
+    this.rebuildCombatSpatialIndex();
     for (const unit of this.units) {
       const definition = UNIT_DEFINITIONS[unit.type];
       if (!unit.alive || unit.state !== "active" || definition.attackRange <= 0) continue;
@@ -1760,11 +1825,10 @@ export class Simulation {
       }
       unit.attackTargetId = null;
       unit.attackTargetMode = null;
-      const potentialTargets = [
-        ...this.units.filter((entity) => entity.alive && entity.team !== unit.team),
-        ...this.getDrones().filter((entity) => entity.alive && entity.team !== unit.team),
-        ...this.structures.filter((entity) => entity.alive && entity.team !== unit.team),
-      ].filter((target) => distance(unit, target) <= definition.attackRange + entityRadius(target));
+      const potentialTargets = this.getNearbyHostileTargets(unit, definition.attackRange)
+        .filter(
+          (target) => distance(unit, target) <= definition.attackRange + entityRadius(target),
+        );
       const target = nearest(unit, preferredTargets(definition, potentialTargets));
       unit.attackTargetId = target?.id || null;
       unit.attackTargetMode = target ? "automatic" : null;
@@ -2897,6 +2961,7 @@ export class Simulation {
   }
 
   updateStaticDefenses(delta) {
+    this.rebuildCombatSpatialIndex();
     for (const defense of this.structures) {
       const definition = STRUCTURE_DEFINITIONS[defense.type];
       if (!defense.alive || !defense.complete || !definition.capacitorCapacity) continue;
@@ -2915,11 +2980,10 @@ export class Simulation {
         defense.weaponEnergy += this.takeStructureEnergy(defense, chargeRequest);
       }
 
-      const targets = [
-        ...this.units.filter((entity) => entity.alive && entity.team !== defense.team),
-        ...this.getDrones().filter((entity) => entity.alive && entity.team !== defense.team),
-        ...this.structures.filter((entity) => entity.alive && entity.team !== defense.team),
-      ].filter((target) => distance(defense, target) <= definition.attackRange + entityRadius(target));
+      const targets = this.getNearbyHostileTargets(defense, definition.attackRange)
+        .filter(
+          (target) => distance(defense, target) <= definition.attackRange + entityRadius(target),
+        );
       const target = nearest(defense, targets);
       if (!target) {
         defense.defenseStatus = defense.weaponEnergy + EPSILON >= definition.attackEnergy ? "ready" : "charging";
@@ -2943,6 +3007,8 @@ export class Simulation {
   }
 
   updateUnits(delta) {
+    this.navigationSearchesRemaining = NAVIGATION_SEARCHES_PER_TICK;
+    this.lastNavigationSearchCount = 0;
     for (const unit of this.units) {
       if (!unit.alive) continue;
       const definition = UNIT_DEFINITIONS[unit.type];
@@ -3027,15 +3093,14 @@ export class Simulation {
 
   resolveUnitOverlaps() {
     const aliveUnits = this.units.filter((unit) => unit.alive);
+    this.lastUnitSeparationPasses = 0;
     if (aliveUnits.length < 2) return;
 
     const cellSize = 40;
-    const solverPasses = Math.min(
-      40,
-      8 + Math.ceil(Math.log2(aliveUnits.length)) * 4,
-    );
-    for (let pass = 0; pass < solverPasses; pass += 1) {
+    for (let pass = 0; pass < UNIT_SEPARATION_MAX_PASSES; pass += 1) {
+      this.lastUnitSeparationPasses += 1;
       const cells = new Map();
+      const movedUnits = new Set();
       for (const unit of aliveUnits) {
         const cellX = Math.floor(unit.x / cellSize);
         const cellY = Math.floor(unit.y / cellSize);
@@ -3043,7 +3108,11 @@ export class Simulation {
           for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
             const nearby = cells.get(`${cellX + offsetX},${cellY + offsetY}`);
             if (!nearby) continue;
-            for (const other of nearby) this.separateUnitPair(unit, other);
+            for (const other of nearby) {
+              if (!this.separateUnitPair(unit, other)) continue;
+              movedUnits.add(unit);
+              movedUnits.add(other);
+            }
           }
         }
 
@@ -3053,7 +3122,8 @@ export class Simulation {
         else cells.set(key, [unit]);
       }
 
-      for (const unit of aliveUnits) this.resolveUnitStructureOverlap(unit);
+      if (movedUnits.size === 0) break;
+      for (const unit of movedUnits) this.resolveUnitStructureOverlap(unit);
     }
   }
 
@@ -3065,7 +3135,7 @@ export class Simulation {
     const deltaX = second.x - first.x;
     const deltaY = second.y - first.y;
     const separation = Math.hypot(deltaX, deltaY);
-    if (separation + EPSILON >= minimumDistance) return;
+    if (separation + EPSILON >= minimumDistance) return false;
 
     let normalX;
     let normalY;
@@ -3089,6 +3159,7 @@ export class Simulation {
     first.y = clamp(first.y - normalY * overlap * firstShare, firstRadius, this.height - firstRadius);
     second.x = clamp(second.x + normalX * overlap * secondShare, secondRadius, this.width - secondRadius);
     second.y = clamp(second.y + normalY * overlap * secondShare, secondRadius, this.height - secondRadius);
+    return true;
   }
 
   tryAttack(unit, target, definition) {
@@ -3197,6 +3268,9 @@ export class Simulation {
       replanDue
     ) {
       if (!replanDue) return targetChanged || pathBlocked ? target : unit.navigationPath[0] || target;
+      if (this.navigationSearchesRemaining <= 0) return unit.navigationPath[0] || target;
+      this.navigationSearchesRemaining -= 1;
+      this.lastNavigationSearchCount += 1;
       const path = findNavigationPath(
         unit,
         target,
@@ -3220,8 +3294,11 @@ export class Simulation {
   }
 
   getGroundNavigationObstacles(radius, excludedObstacleId = null) {
+    const cacheKey = `${radius}:${excludedObstacleId || ""}`;
+    const cached = this.groundNavigationObstacleCache.get(cacheKey);
+    if (cached) return cached;
     const padding = radius + SIMULATION_RULES.structureCollisionPadding;
-    return [
+    const obstacles = [
       ...this.structures
         .filter((structure) => structure.alive && structure.id !== excludedObstacleId)
         .map((structure) => ({
@@ -3233,6 +3310,8 @@ export class Simulation {
         bounds: terrainBounds(obstacle, padding),
       })),
     ];
+    this.groundNavigationObstacleCache.set(cacheKey, obstacles);
+    return obstacles;
   }
 
   moveUnitWithStructureCollisions(unit, movementX, movementY) {
@@ -3943,7 +4022,14 @@ function navigationSegmentIsClear(start, end, obstacles) {
   const movementX = end.x - start.x;
   const movementY = end.y - start.y;
   if (Math.hypot(movementX, movementY) <= EPSILON) return true;
+  const segmentBounds = {
+    minX: Math.min(start.x, end.x),
+    maxX: Math.max(start.x, end.x),
+    minY: Math.min(start.y, end.y),
+    maxY: Math.max(start.y, end.y),
+  };
   return obstacles.every(({ bounds }) => {
+    if (!boundsOverlap(bounds, segmentBounds)) return true;
     const collision = sweepBounds(start, movementX, movementY, bounds);
     return !collision || collision.time >= 1 - EPSILON;
   });

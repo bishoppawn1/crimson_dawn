@@ -528,6 +528,20 @@ test("group movement staggers expensive path replans across simulation ticks", (
   assert.ok(units.every((unit) => unit.navigationTarget));
 });
 
+test("large formations cap visibility-path searches per simulation tick", () => {
+  const obstacle = { id: "wide-ridge", x: 400, y: 300, width: 100, height: 500 };
+  const simulation = new Simulation({ width: 900, height: 700, terrain: [obstacle] });
+  const units = Array.from({ length: 48 }, (_, index) =>
+    simulation.addUnit("scout_mech", "player", 100 + (index % 6) * 24, 80 + Math.floor(index / 6) * 24),
+  );
+
+  simulation.commandMove(units.map((unit) => unit.id), 800, 300);
+  simulation.updateUnits(1 / 30);
+
+  assert.ok(simulation.lastNavigationSearchCount > 0);
+  assert.ok(simulation.lastNavigationSearchCount <= 4);
+});
+
 test("ground units escape U-shaped terrain instead of dead-ending against the back wall", () => {
   const terrain = [
     { id: "u-back", x: 300, y: 200, width: 40, height: 240 },
@@ -661,6 +675,22 @@ test("overlapping friendly and enemy units physically separate", () => {
       );
     }
   }
+});
+
+test("unit separation exits after one pass when no units overlap", () => {
+  const simulation = new Simulation();
+  for (let index = 0; index < 120; index += 1) {
+    simulation.addUnit(
+      "scout_mech",
+      "player",
+      100 + (index % 20) * 40,
+      100 + Math.floor(index / 20) * 40,
+    );
+  }
+
+  simulation.resolveUnitOverlaps();
+
+  assert.equal(simulation.lastUnitSeparationPasses, 1);
 });
 
 test("movement consumes energy and an exhausted unit enters stasis", () => {
@@ -3331,6 +3361,8 @@ test("simulation snapshots restore a playable multiplayer client state", () => {
   const westernWorker = host.units.find((unit) => unit.team === "player");
   host.commandMove([westernWorker.id], westernWorker.x + 80, westernWorker.y);
   advance(host, 0.5);
+  const yard = host.addStructure("salvage_yard", "player", 700, 700);
+  const wreck = host.addWreck(760, 700, 25);
 
   const networkPayload = JSON.parse(JSON.stringify(host.createSnapshot()));
   const guest = Simulation.fromSnapshot(networkPayload);
@@ -3342,6 +3374,9 @@ test("simulation snapshots restore a playable multiplayer client state", () => {
   assert.deepEqual(guest.resources, host.resources);
   assert.deepEqual(guest.powerLinks, host.powerLinks);
   assert.equal(guest.getUnit(westernWorker.id).x, host.getUnit(westernWorker.id).x);
+  assert.equal(guest.getEntity(yard.id), guest.structures.find((structure) => structure.id === yard.id));
+  assert.equal(guest.getEntity(yard.drones[0].id), guest.getDrones()[0]);
+  assert.equal(guest.getEntity(wreck.id), guest.wrecks.find((candidate) => candidate.id === wreck.id));
   assert.doesNotThrow(() => guest.tick(1 / 30));
 });
 

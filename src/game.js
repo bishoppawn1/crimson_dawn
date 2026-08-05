@@ -114,6 +114,9 @@ let paused = false;
 let lastFrameTime = performance.now();
 let accumulator = 0;
 const fixedStep = 1 / 30;
+const maxSimulationStepsPerFrame = 2;
+const interfaceRefreshInterval = 0.1;
+let interfaceRefreshRemaining = 0;
 const camera = {
   x: canvas.width / 2,
   y: simulation.height / 2,
@@ -267,6 +270,7 @@ function resetPresentation() {
   paused = false;
   pauseButton.textContent = "Pause simulation";
   accumulator = 0;
+  interfaceRefreshRemaining = 0;
   updateInterface();
 }
 
@@ -815,9 +819,11 @@ function frame(now) {
   updateCamera(elapsed);
   if (matchMode !== "menu" && matchMode !== "multiplayer_guest" && !paused) {
     accumulator += elapsed;
-    while (accumulator >= fixedStep) {
+    let simulationSteps = 0;
+    while (accumulator >= fixedStep && simulationSteps < maxSimulationStepsPerFrame) {
       simulation.tick(fixedStep);
       accumulator -= fixedStep;
+      simulationSteps += 1;
     }
     if (matchMode === "multiplayer_host") {
       snapshotSendRemaining -= elapsed;
@@ -830,7 +836,11 @@ function frame(now) {
 
   pruneSelection();
   render();
-  updateInterface();
+  interfaceRefreshRemaining -= elapsed;
+  if (interfaceRefreshRemaining <= 0) {
+    updateInterface();
+    interfaceRefreshRemaining = interfaceRefreshInterval;
+  }
   requestAnimationFrame(frame);
 }
 

@@ -331,9 +331,11 @@ and exact structure footprints, with collision-time sliding retained as a safety
 fallback. Routes may use multiple corners to escape concave obstacle arrangements
 and are recomputed when a moving target shifts or a route becomes blocked. Group
 orders stagger those route computations across simulation ticks so large armies do
-not rebuild every visibility graph in the same frame. Route searches first use the
-obstacles near the movement corridor and deterministically fall back to the complete
-obstacle set when the local graph cannot find a valid path. Units
+not rebuild every visibility graph in the same frame. At most four full visibility
+searches run in one simulation tick; units waiting for a search continue using
+collision sliding until their deterministic turn. Route searches first use cached
+obstacle bounds near the movement corridor and deterministically fall back to the
+complete obstacle set when the local graph cannot find a valid path. Units
 cannot pass through buildings to reach a destination, and move orders placed inside
 a structure resolve to the nearest reachable edge of its visible footprint.
 
@@ -863,6 +865,13 @@ segments so match cost scales primarily with what the camera can actually show.
 The static-page bootstrap gives every local JavaScript module in a page load the
 same fresh version token. This prevents the hosting cache from mixing an older map
 or simulation module with a newly deployed menu after reload.
+Combat acquisition uses a spatial index rather than all-to-all scans. Physical unit
+separation stops as soon as a solver pass finds no overlap and is capped at four
+passes per tick, allowing unusually dense formations to finish spreading over
+successive ticks instead of monopolizing one frame. The HTML status interface
+refreshes at ten updates per second, while Canvas motion still renders every frame.
+After an interrupted frame, the main loop runs at most two fixed simulation steps
+before yielding to rendering, then catches up over following frames.
 
 Battlefields currently range from 5,200 by 3,200 world units for two commanders to
 8,560 by 6,280 for eight. The 1,600-by-900 Canvas is a movable viewport rather than
