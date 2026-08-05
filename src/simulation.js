@@ -417,8 +417,13 @@ export class Simulation {
     );
   }
 
-  commandMove(unitIds, x, y, { force = false } = {}) {
+  commandMove(unitIds, x, y, { force = false, mode = "normal" } = {}) {
     const orderedIds = [...unitIds];
+    const movementMode = force
+      ? "force"
+      : ["normal", "advance", "retreat"].includes(mode)
+        ? mode
+        : "normal";
     const requestedDestination = {
       x: clamp(x, 0, this.width),
       y: clamp(y, 0, this.height),
@@ -440,7 +445,7 @@ export class Simulation {
           definition.radius,
         );
       unit.moveTarget = { ...destination };
-      unit.moveMode = force ? "force" : "normal";
+      unit.moveMode = movementMode;
       unit.attackTargetId = null;
       unit.attackTargetMode = null;
       unit.buildTargetId = null;
@@ -1939,7 +1944,8 @@ export class Simulation {
         unit.alive &&
         unit.team === teamId &&
         definition.attackRange > 0 &&
-        unit.attackTargetMode !== "explicit"
+        unit.attackTargetMode !== "explicit" &&
+        !["advance", "retreat"].includes(unit.moveMode)
       );
     }).length;
     const queuedCombatCount = enemyFactories.reduce(
@@ -2057,7 +2063,12 @@ export class Simulation {
       };
       const closest = nearest(waveCenter, rushTargets.length > 0 ? rushTargets : playerTargets);
       if (closest) {
-        this.commandAttack(wave.map((unit) => unit.id), closest.id);
+        this.commandMove(
+          wave.map((unit) => unit.id),
+          closest.x,
+          closest.y,
+          { mode: "advance" },
+        );
         this.emit("enemy_wave", waveCenter.x, waveCenter.y, {
           team: teamId,
           unitIds: wave.map((unit) => unit.id),
@@ -2402,7 +2413,7 @@ export class Simulation {
         unit.state === "active" &&
         unit.team === teamId &&
         definition.attackRange > 0 &&
-        unit.attackTargetMode === "explicit" &&
+        (unit.attackTargetMode === "explicit" || unit.moveMode === "advance") &&
         distance(unit, enemyAnchor) > SIMULATION_RULES.enemyRushResponseRadius
       );
     });
@@ -2469,7 +2480,7 @@ export class Simulation {
         attackGroup.map((unit) => unit.id),
         retreatPoint.x,
         retreatPoint.y,
-        { force: true },
+        { mode: "retreat" },
       );
       this.emit("enemy_retreat", armyCenter.x, armyCenter.y, {
         team: teamId,
@@ -2808,7 +2819,7 @@ export class Simulation {
 
       if (unit.moveTarget) {
         if (
-          unit.moveMode === "normal" &&
+          unit.moveMode !== "force" &&
           attackTarget?.alive &&
           attackTarget.team !== unit.team &&
           distance(unit, attackTarget) <= definition.attackRange + entityRadius(attackTarget)
@@ -3516,7 +3527,7 @@ export class Simulation {
       !aggressor.id ||
       aggressor.team === target.team ||
       UNIT_DEFINITIONS[target.type].attackRange <= 0 ||
-      target.moveMode === "force"
+      ["force", "advance", "retreat"].includes(target.moveMode)
     ) {
       return false;
     }

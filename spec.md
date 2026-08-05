@@ -784,18 +784,22 @@ time, power demand, and destruction all use normal simulation rules. The metal
 decision thresholds are provisional.
 
 Enemy combat units stage until three active attackers are ready, then launch as a
-coordinated wave against one target. Newly produced attackers wait for a later wave
-instead of crossing the map individually. Automatic attacks within weapon range
-still allow staged units to defend themselves locally. If a player unit or structure
-appears within 800 world units of enemy infrastructure, available defenders respond
-immediately without waiting for a complete wave. If at least three completed player
-Sentry Turrets are clustered within 420 world units of one another, ordinary assault
-waves grow from three to five units. An assault force more than 800 world units from
-its generator fallback retreats toward that generator when hostile combat strength
+coordinated wave toward one target. Advancing formations retain that strategic
+destination while automatically firing at any hostile unit or structure that enters
+weapon range; nearby targets do not pull the formation into a chase. Newly produced
+attackers wait for a later wave instead of crossing the map individually. Automatic
+attacks within weapon range still allow staged units to defend themselves locally.
+If a player unit or structure appears within 800 world units of enemy infrastructure,
+available defenders respond immediately without waiting for a complete wave. If at
+least three completed player Sentry Turrets are clustered within 420 world units of
+one another, ordinary assault waves grow from three to five units. An assault force
+more than 800 world units from its generator fallback retreats toward that generator
+when hostile combat strength
 within 520 world units exceeds its nearby strength by a factor of 1.5. Retreat uses
-a normal force-move command, so the units disengage and regroup rather than continuing
-an obviously losing attack. The cadence, response radius, strength estimate, defense
-cluster, retreat, and wave-size values are provisional.
+a strategic fallback move: units continue toward their regroup point while firing at
+hostiles in range, without abandoning the retreat to pursue them. The cadence,
+response radius, strength estimate, defense cluster, retreat, and wave-size values
+are provisional.
 
 ## 9. Initial Playable Scope
 

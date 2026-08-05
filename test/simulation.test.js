@@ -2556,7 +2556,7 @@ test("the standard enemy opening establishes defenses and launches promptly", ()
   );
   assert.ok(enemyCombatUnits.length >= SIMULATION_RULES.enemyAttackWaveSize);
   assert.equal(
-    enemyCombatUnits.filter((unit) => unit.attackTargetMode === "explicit").length,
+    enemyCombatUnits.filter((unit) => unit.moveMode === "advance").length,
     SIMULATION_RULES.enemyAttackWaveSize,
   );
 });
@@ -2943,8 +2943,32 @@ test("enemy combat units wait for a full wave before attacking", () => {
   simulation.tick(1 / 30);
 
   assert.equal(SIMULATION_RULES.enemyAttackWaveSize, 3);
-  assert.ok([...staged, third].every((unit) => unit.attackTargetId === target.id));
-  assert.ok([...staged, third].every((unit) => unit.attackTargetMode === "explicit"));
+  assert.ok([...staged, third].every((unit) => unit.moveMode === "advance"));
+  assert.ok([...staged, third].every((unit) => unit.moveTarget));
+  assert.ok([...staged, third].every((unit) => unit.moveTarget.x < unit.x));
+});
+
+test("enemy combat units fire at nearby workers while advancing", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 100, 100);
+  const attackers = [
+    simulation.addUnit("scout_mech", "enemy", 1000, 440),
+    simulation.addUnit("scout_mech", "enemy", 1020, 480),
+    simulation.addUnit("scout_mech", "enemy", 1040, 520),
+  ];
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+
+  const destination = { ...attackers[0].moveTarget };
+  const worker = simulation.addUnit("worker_drone_t1", "player", 930, 440);
+  const startingHp = worker.hp;
+  simulation.tick(1 / 30);
+
+  assert.ok(worker.hp < startingHp);
+  assert.equal(attackers[0].attackTargetId, worker.id);
+  assert.equal(attackers[0].attackTargetMode, "automatic");
+  assert.equal(attackers[0].moveMode, "advance");
+  assert.deepEqual(attackers[0].moveTarget, destination);
 });
 
 test("enemy combat units form a larger wave against clustered static defenses", () => {
@@ -2973,7 +2997,7 @@ test("enemy combat units form a larger wave against clustered static defenses", 
     SIMULATION_RULES.enemyAttackWaveSize + SIMULATION_RULES.enemyHeavyDefenseWaveBonus,
     5,
   );
-  assert.ok([...staged, fifth].every((unit) => unit.attackTargetMode === "explicit"));
+  assert.ok([...staged, fifth].every((unit) => unit.moveMode === "advance"));
 });
 
 test("an enemy assault force retreats when nearby combat strength clearly outmatches it", () => {
@@ -2988,15 +3012,17 @@ test("an enemy assault force retreats when nearby combat strength clearly outmat
   simulation.addStructure("sentry_turret", "player", 500, 760);
   simulation.addStructure("sentry_turret", "player", 500, 840);
   simulation.commandAttack(attackers.map((unit) => unit.id), target.id);
+  const worker = simulation.addUnit("worker_drone_t1", "player", 860, 700);
+  const workerStartingHp = worker.hp;
   simulation.aiThinkRemaining = 0;
 
   simulation.tick(1 / 30);
 
-  assert.ok(attackers.every((unit) => unit.attackTargetId === null));
-  assert.ok(attackers.every((unit) => unit.moveMode === "force"));
+  assert.ok(worker.hp < workerStartingHp);
+  assert.ok(attackers.every((unit) => unit.moveMode === "retreat"));
   assert.ok(attackers.every((unit) => unit.moveTarget.x < enemyGenerator.x));
   assert.ok(attackers.every((unit) => unit.moveTarget.x > unit.x));
-  assert.equal(simulation.events.at(-1).type, "enemy_retreat");
+  assert.ok(simulation.events.some((event) => event.type === "enemy_retreat"));
 });
 
 test("enemy combat units immediately answer structures rushed near their base", () => {
@@ -3017,9 +3043,9 @@ test("enemy combat units immediately answer structures rushed near their base", 
     Math.hypot(forwardGenerator.x - enemyGenerator.x, forwardGenerator.y - enemyGenerator.y) <=
       SIMULATION_RULES.enemyRushResponseRadius,
   );
-  assert.ok(defender.attackTargetId);
-  assert.equal(defender.attackTargetMode, "explicit");
-  assert.equal(defender.moveTarget, null);
+  assert.equal(defender.attackTargetId, null);
+  assert.equal(defender.moveMode, "advance");
+  assert.ok(defender.moveTarget);
 
   advance(simulation, 1);
   assert.ok(
