@@ -29,7 +29,8 @@ The current build is the first playable field test. It includes:
 - A powered reclamation yard with three autonomous salvage drones.
 - Free, delayed replacement of destroyed reclamation drones in the simulation.
 - Multiple reclamation drones can harvest the same wreck or scrap pile concurrently,
-  then chain directly to nearby piles until their cargo is full.
+  then chain directly to nearby piles until their cargo is full. Their hovering
+  chassis passes over starting walls while rocky terrain still redirects them.
 - Automatic attacks against hostile units entering weapon range.
 - Player and enemy combat units retaliate against and pursue hostile aggressors.
 - Fast, long-endurance Raiders deal 1.75× damage to structures and automatically

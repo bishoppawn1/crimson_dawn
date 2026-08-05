@@ -35,8 +35,9 @@ use the same terrain validation.
 Each starting location also has four thin, grid-aligned wall segments arranged as
 a shallow defensive enclosure. Two broken forward segments leave a central gate,
 while short upper and lower segments leave the rear and corners open. These walls
-are symmetrical, impassable, and unavailable for construction overlap. They slow a
-direct opening rush without sealing either side into its base.
+are symmetrical, impassable to ground units, and unavailable for construction
+overlap. Aircraft and hovering reclamation drones pass directly over them. The
+walls slow a direct ground rush without sealing either side into its base.
 
 ## 2. Resources
 
@@ -600,6 +601,10 @@ Each yard controls three reclamation drones. Its default behavior is:
 5. Return the recovered metal to the yard only when the drone is full or no
    eligible salvage remains.
 6. Repeat while eligible wreckage remains.
+
+Reclamation drones hover over starting-wall segments instead of routing through
+their gates. Rocky ridges, shelves, and crags remain impassable to the drones, so
+those larger terrain features still shape salvage routes.
 
 Reclamation drones can be targeted and destroyed. A yard automatically rebuilds a
 destroyed drone at no metal or energy cost to the player. Replacement should take

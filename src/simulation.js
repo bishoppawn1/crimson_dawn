@@ -2825,6 +2825,7 @@ export class Simulation {
       if (Math.hypot(remainingX, remainingY) <= EPSILON) break;
       let first = null;
       for (const obstacle of this.terrain) {
+        if (DRONE_DEFINITION.terrainOverflightTypes?.includes(obstacle.terrainType)) continue;
         const collision = sweepBounds(
           drone,
           remainingX,

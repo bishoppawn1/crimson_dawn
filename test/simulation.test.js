@@ -421,10 +421,14 @@ test("ground units route around impassable terrain without entering it", () => {
   assert.equal(unit.moveTarget, null);
 });
 
-test("aircraft fly directly over terrain and structures", () => {
+test("aircraft fly directly over terrain, starting walls, and structures", () => {
   const obstacle = { id: "test-ridge", name: "Test Ridge", x: 200, y: 100, width: 80, height: 120 };
-  const simulation = new Simulation({ width: 500, height: 300, terrain: [obstacle] });
-  simulation.addStructure("generator", "player", 300, 100);
+  const wall = {
+    id: "test-wall", name: "Test Starting Wall", terrainType: "starting_wall",
+    x: 275, y: 100, width: 40, height: 160,
+  };
+  const simulation = new Simulation({ width: 500, height: 300, terrain: [obstacle, wall] });
+  simulation.addStructure("generator", "player", 330, 100);
   const aircraft = simulation.addUnit("interceptor_t2", "player", 100, 100);
 
   simulation.commandMove([aircraft.id], 400, 100);
@@ -453,6 +457,30 @@ test("reclamation drones also route around impassable terrain", () => {
   }
 
   assert.ok(drone.x > obstacle.x + obstacle.width / 2 + DRONE_DEFINITION.radius);
+});
+
+test("reclamation drones fly directly over starting walls", () => {
+  const wall = {
+    id: "test-wall",
+    name: "Test Starting Wall",
+    terrainType: "starting_wall",
+    x: 200,
+    y: 100,
+    width: 40,
+    height: 160,
+  };
+  const simulation = new Simulation({ width: 500, height: 300, terrain: [wall] });
+  const yard = simulation.addStructure("salvage_yard", "player", 72, 100);
+  const drone = yard.drones[0];
+  const target = { x: 350, y: 100 };
+
+  for (let tick = 0; tick < 180; tick += 1) {
+    simulation.moveDroneToward(drone, target, 1 / 30);
+  }
+
+  assert.ok(DRONE_DEFINITION.terrainOverflightTypes.includes("starting_wall"));
+  assert.ok(drone.x >= target.x - 0.001);
+  assert.ok(Math.abs(drone.y - target.y) < 0.001);
 });
 
 test("mobile units use compact battlefield footprints", () => {

@@ -890,6 +890,7 @@ export const DRONE_DEFINITION = Object.freeze({
   radius: 5,
   maxHp: 35,
   speed: 85,
+  terrainOverflightTypes: Object.freeze(["starting_wall"]),
   carryCapacity: 24,
   collectionRate: 8,
 });
