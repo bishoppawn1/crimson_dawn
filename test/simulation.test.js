@@ -742,12 +742,17 @@ test("every unit type has the enlarged provisional energy capacity", () => {
       mobile_artillery: 780,
       mobile_artillery_t2: 1080,
       mobile_artillery_t3: 1440,
+      grid_tanker: 3000,
+      grid_tanker_t2: 4200,
+      grid_tanker_t3: 6000,
       interceptor_t2: 900,
       interceptor_t3: 1260,
       gunship_t2: 1140,
       gunship_t3: 1560,
       bomber_t2: 1320,
       bomber_t3: 1800,
+      energy_tender_t2: 3900,
+      energy_tender_t3: 5700,
       raider: 1080,
     },
   );
@@ -934,11 +939,16 @@ test("an energy carrier spends exactly the energy shared fairly with nearby unit
   );
 });
 
-test("every Arc Energy Carrier tier transfers its matching output rate", () => {
+test("every mobile energy supplier transfers its matching output rate", () => {
   for (const [carrierType, allyType] of [
     ["energy_carrier", "scout_mech"],
     ["energy_carrier_t2", "scout_mech_t2"],
     ["energy_carrier_t3", "scout_mech_t3"],
+    ["grid_tanker", "scout_vehicle"],
+    ["grid_tanker_t2", "scout_vehicle_t2"],
+    ["grid_tanker_t3", "scout_vehicle_t3"],
+    ["energy_tender_t2", "interceptor_t2"],
+    ["energy_tender_t3", "interceptor_t3"],
   ]) {
     const simulation = new Simulation();
     const definition = UNIT_DEFINITIONS[carrierType];
@@ -1215,9 +1225,9 @@ test("each mech factory tier offers improved copies of the same four unit roles"
   }
 });
 
-test("vehicle factories produce matching-tier scouts, tanks, and artillery", () => {
+test("vehicle factories produce four matching-tier vehicle roles", () => {
   const factoryTypes = ["vehicle_factory_t1", "vehicle_factory_t2", "vehicle_factory_t3"];
-  const expectedRoles = ["vehicle_scout", "tank", "artillery"];
+  const expectedRoles = ["vehicle_scout", "tank", "artillery", "grid_tanker"];
   const definitionsByTier = factoryTypes.map((factoryType, index) => {
     const tier = index + 1;
     const definitions = STRUCTURE_DEFINITIONS[factoryType].production
@@ -1231,17 +1241,21 @@ test("vehicle factories produce matching-tier scouts, tanks, and artillery", () 
   for (let index = 1; index < definitionsByTier.length; index += 1) {
     for (const role of expectedRoles) {
       assert.ok(definitionsByTier[index][role].maxHp > definitionsByTier[index - 1][role].maxHp);
-      assert.ok(definitionsByTier[index][role].attackDamage > definitionsByTier[index - 1][role].attackDamage);
+      if (role === "grid_tanker") {
+        assert.ok(definitionsByTier[index][role].transferRate > definitionsByTier[index - 1][role].transferRate);
+      } else {
+        assert.ok(definitionsByTier[index][role].attackDamage > definitionsByTier[index - 1][role].attackDamage);
+      }
     }
   }
 });
 
-test("air factories begin at Tier 2 and produce matching-tier aircraft roles", () => {
+test("air factories begin at Tier 2 and produce four matching-tier aircraft roles", () => {
   assert.equal(STRUCTURE_DEFINITIONS.air_factory_t1, undefined);
   assert.ok(!BUILD_MENU.includes("air_factory_t1"));
 
   const factoryTypes = ["air_factory_t2", "air_factory_t3"];
-  const expectedRoles = ["interceptor", "gunship", "bomber"];
+  const expectedRoles = ["interceptor", "gunship", "bomber", "energy_tender"];
   const definitionsByTier = factoryTypes.map((factoryType, index) => {
     const tier = index + 2;
     const definitions = STRUCTURE_DEFINITIONS[factoryType].production
@@ -1254,7 +1268,11 @@ test("air factories begin at Tier 2 and produce matching-tier aircraft roles", (
 
   for (const role of expectedRoles) {
     assert.ok(definitionsByTier[1][role].maxHp > definitionsByTier[0][role].maxHp);
-    assert.ok(definitionsByTier[1][role].attackDamage > definitionsByTier[0][role].attackDamage);
+    if (role === "energy_tender") {
+      assert.ok(definitionsByTier[1][role].transferRate > definitionsByTier[0][role].transferRate);
+    } else {
+      assert.ok(definitionsByTier[1][role].attackDamage > definitionsByTier[0][role].attackDamage);
+    }
   }
 });
 
@@ -1360,12 +1378,17 @@ test("unit roles and tiers reserve different provisional supply amounts", () => 
       mobile_artillery: 7,
       mobile_artillery_t2: 11,
       mobile_artillery_t3: 15,
+      grid_tanker: 6,
+      grid_tanker_t2: 9,
+      grid_tanker_t3: 13,
       interceptor_t2: 5,
       interceptor_t3: 7,
       gunship_t2: 9,
       gunship_t3: 13,
       bomber_t2: 11,
       bomber_t3: 16,
+      energy_tender_t2: 8,
+      energy_tender_t3: 11,
       raider: 4,
     },
   );

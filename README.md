@@ -45,9 +45,9 @@ The current build is the first playable field test. It includes:
   ground movement and construction for both players and AI while leaving open gates.
 - Tier 1–3 mech factories, each offering matching-tier Worker, Vanguard, Bulwark,
   and Arc Energy Carrier production lines.
-- Tier 1–3 Vehicle Factories producing Scout Vehicles, Battle Tanks, and Mobile
-  Artillery, plus Tier 2–3 Air Factories producing Interceptors, Gunships, and
-  Bombers. Aircraft fly over terrain and structures.
+- Tier 1–3 Vehicle Factories producing Scout Vehicles, Battle Tanks, Mobile
+  Artillery, and Grid Tankers, plus Tier 2–3 Air Factories producing Interceptors,
+  Gunships, Bombers, and Energy Tenders. Aircraft fly over terrain and structures.
 - A constructible Tier 3 Experimental Factory whose unit roster remains open.
 - Tier 1–3 worker construction inheritance and a three-category build menu;
   Tier 1 and Tier 2 workers can construct the next Mech Factory to advance.

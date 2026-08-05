@@ -306,8 +306,8 @@ ladder.
 | Production building | Available tiers | Produces |
 | --- | --- | --- |
 | Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs and related ground units |
-| Vehicle Factory | Tier 1, Tier 2, Tier 3 | Scout Vehicles, Battle Tanks, and Mobile Artillery |
-| Air Factory | Tier 2, Tier 3 | Interceptors, Gunships, and Bombers |
+| Vehicle Factory | Tier 1, Tier 2, Tier 3 | Scout Vehicles, Battle Tanks, Mobile Artillery, and Grid Tankers |
+| Air Factory | Tier 2, Tier 3 | Interceptors, Gunships, Bombers, and Energy Tenders |
 | Experimental Facility | Tier 3 only | The most powerful experimental units |
 
 A player may pursue mech and vehicle technology at the same tier. Advancing one
@@ -345,7 +345,7 @@ stat increases are provisional balance values.
 
 ### 5.2 Vehicle and Air Factory Rosters
 
-Every Vehicle Factory produces three conventional ground-combat roles at the
+Every Vehicle Factory produces four conventional ground and logistics roles at the
 factory's matching tier:
 
 | Production line | Battlefield role |
@@ -353,17 +353,22 @@ factory's matching tier:
 | Scout Vehicle | Fast ground reconnaissance and light combat |
 | Battle Tank | Durable direct-fire frontline combat |
 | Mobile Artillery | Long-range fire support |
+| Grid Tanker | Armored mobile energy storage and transfer support |
 
 Air production begins at Tier 2; there is no Tier 1 Air Factory. Tier 2 and Tier 3
-Air Factories each produce matching-tier versions of three aircraft roles:
+Air Factories each produce matching-tier versions of four aircraft roles:
 
 | Production line | Battlefield role |
 | --- | --- |
 | Interceptor | Fast aerial combat |
 | Gunship | Durable aerial assault |
 | Bomber | Heavy aerial strikes |
+| Energy Tender | Airborne mobile energy storage and transfer support |
 
-Aircraft fly over terrain and buildings. Every higher-tier vehicle or aircraft
+The Grid Tanker and Energy Tender automatically and fairly distribute energy to
+nearby eligible allies without crossing their protected reserve, using the same
+resource-conserving transfer rules as the Arc Energy Carrier. Aircraft fly over
+terrain and buildings. Every higher-tier vehicle or aircraft
 improves the integrity, energy storage, and combat statistics relevant to its role.
 All current unit costs, production times, energy budgets, and tier-to-tier stat
 increases are provisional balance values.

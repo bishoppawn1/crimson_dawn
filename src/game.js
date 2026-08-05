@@ -1014,6 +1014,7 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
   const accent = stasis ? `${teamColor}88` : teamColor;
   const artillery = definition.role === "artillery";
   const scout = definition.role === "vehicle_scout";
+  const tanker = definition.role === "grid_tanker";
   context.save();
   context.scale(definition.radius, definition.radius);
   context.lineCap = "round";
@@ -1068,18 +1069,32 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
   context.fillStyle = accent;
   context.fillRect(-0.32, 0.5, 0.64, 0.11);
 
-  context.fillStyle = stasis ? "#403b32" : darkColor;
-  context.beginPath();
-  context.arc(0, artillery ? 0.08 : -0.08, scout ? 0.25 : 0.32, 0, Math.PI * 2);
-  context.fill();
-  context.stroke();
+  if (tanker) {
+    context.fillStyle = stasis ? "#403b32" : "#183642";
+    context.strokeStyle = accent;
+    context.lineWidth = 0.08;
+    for (const side of [-1, 1]) {
+      context.beginPath();
+      context.roundRect(side * 0.25 - 0.18, -0.42, 0.36, 0.76, 0.12);
+      context.fill();
+      context.stroke();
+    }
+    context.fillStyle = accent;
+    context.fillRect(-0.08, -0.52, 0.16, 0.98);
+  } else {
+    context.fillStyle = stasis ? "#403b32" : darkColor;
+    context.beginPath();
+    context.arc(0, artillery ? 0.08 : -0.08, scout ? 0.25 : 0.32, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
 
-  context.strokeStyle = accent;
-  context.lineWidth = artillery ? 0.16 : 0.13;
-  context.beginPath();
-  context.moveTo(0, artillery ? -0.02 : -0.18);
-  context.lineTo(0, artillery ? -1.25 : scout ? -0.82 : -1.05);
-  context.stroke();
+    context.strokeStyle = accent;
+    context.lineWidth = artillery ? 0.16 : 0.13;
+    context.beginPath();
+    context.moveTo(0, artillery ? -0.02 : -0.18);
+    context.lineTo(0, artillery ? -1.25 : scout ? -0.82 : -1.05);
+    context.stroke();
+  }
   if (artillery) {
     context.lineWidth = 0.08;
     context.beginPath();
@@ -1099,7 +1114,8 @@ function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
   const accent = stasis ? `${teamColor}88` : teamColor;
   const bomber = definition.role === "bomber";
   const gunship = definition.role === "gunship";
-  const wingSpan = bomber ? 1.08 : gunship ? 0.94 : 0.82;
+  const tender = definition.role === "energy_tender";
+  const wingSpan = bomber ? 1.08 : tender ? 1 : gunship ? 0.94 : 0.82;
   context.save();
   context.scale(definition.radius, definition.radius);
   context.lineJoin = "round";
@@ -1159,6 +1175,16 @@ function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
   } else if (bomber) {
     context.fillStyle = accent;
     context.fillRect(-0.32, 0.32, 0.64, 0.12);
+  } else if (tender) {
+    context.fillStyle = stasis ? "#403b32" : "#183642";
+    context.strokeStyle = accent;
+    context.lineWidth = 0.07;
+    for (const side of [-1, 1]) {
+      context.beginPath();
+      context.roundRect(side * 0.63 - 0.14, -0.02, 0.28, 0.58, 0.1);
+      context.fill();
+      context.stroke();
+    }
   }
   context.restore();
 }
