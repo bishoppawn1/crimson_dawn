@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { PeerMultiplayerSession } from "../src/multiplayer.js";
+import { MatchStartHandshake, PeerMultiplayerSession } from "../src/multiplayer.js";
 
 class FakeEmitter {
   constructor() {
@@ -123,6 +123,72 @@ test("host and guest connect through one short lobby code and exchange game mess
 
   host.session.close();
   guest.session.close();
+});
+
+test("the host enters only after the guest loads and acknowledges the match start", async () => {
+  FakePeer.peers.clear();
+  let hostEntered = false;
+  let guestEntered = false;
+  const hostHandshake = new MatchStartHandshake("host", {
+    idFactory: () => "test-match-start",
+  });
+  const guestHandshake = new MatchStartHandshake("guest");
+  let hostSession;
+  let guestSession;
+
+  const host = await PeerMultiplayerSession.createHost(
+    {
+      onMessage: (message) => {
+        const event = hostHandshake.inspect(message);
+        if (event?.kind === "acknowledged") hostEntered = true;
+      },
+    },
+    { PeerConstructor: FakePeer, codeFactory: () => "CD12EF34GH" },
+  );
+  hostSession = host.session;
+  const guest = await PeerMultiplayerSession.createGuest(
+    "CD12EF34GH",
+    {
+      onMessage: (message) => {
+        const event = guestHandshake.inspect(message);
+        if (event?.kind !== "offered") return;
+        assert.deepEqual(event.snapshot, { mapId: "test-map", tick: 0 });
+        guestEntered = true;
+        guestSession.send(guestHandshake.accept(event.startId));
+      },
+    },
+    { PeerConstructor: FakePeer },
+  );
+  guestSession = guest.session;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(hostSession.send(hostHandshake.begin({ mapId: "test-map", tick: 0 })), true);
+  assert.equal(hostEntered, false);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(guestEntered, true);
+  assert.equal(hostEntered, true);
+  assert.equal(hostHandshake.waiting, false);
+
+  hostSession.close();
+  guestSession.close();
+});
+
+test("match starts are retried and time out without admitting the host alone", () => {
+  let now = 1_000;
+  const handshake = new MatchStartHandshake("host", {
+    now: () => now,
+    idFactory: () => "retry-test",
+  });
+  const start = handshake.begin({ mapId: "test-map" });
+
+  now += 749;
+  assert.equal(handshake.poll(), null);
+  now += 1;
+  assert.deepEqual(handshake.poll(), { kind: "retry", message: start });
+  now = 13_000;
+  assert.deepEqual(handshake.poll(), { kind: "timeout" });
+  assert.equal(handshake.waiting, false);
 });
 
 test("host state backpressure keeps only the newest unsent snapshot", async () => {

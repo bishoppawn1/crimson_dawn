@@ -47,6 +47,11 @@ implementation decision establishes or changes player-facing behavior.
   unacknowledged commands for responsiveness, but it must not advance a separate
   canonical simulation between ordered host states. Coalesce delayed snapshots so
   network backpressure can never build an ever-older state queue.
+- When a connected guest is present, the host may enter a multiplayer match only
+  after the guest loads the initial authoritative snapshot and acknowledges its
+  unique start identifier. Retry the start for a bounded period; rejection,
+  timeout, or disconnect must leave the host in the lobby rather than starting
+  alone.
 - The enemy AI must establish and replenish a basic combat force before reserving
   metal for expensive infrastructure, and available defenders must respond
   immediately to player units or structures rushed near enemy infrastructure.

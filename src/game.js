@@ -28,6 +28,7 @@ const {
 } = await import(`./minimap.js${versionSuffix}`);
 const {
   isValidLobbyCode,
+  MatchStartHandshake,
   normalizeLobbyCode,
   PeerMultiplayerSession,
 } = await import(`./multiplayer.js${versionSuffix}`);
@@ -104,6 +105,7 @@ let peerSession = null;
 let multiplayerConnected = false;
 let lobbyRole = null;
 let multiplayerLobby = null;
+let matchStartHandshake = null;
 let snapshotSendRemaining = 0;
 let nextGuestCommandId = 1;
 let lastProcessedGuestCommandId = 0;
@@ -361,6 +363,7 @@ function renderMultiplayerLobby() {
   }));
 
   const playerCount = roster.length;
+  const matchStarting = Boolean(matchStartHandshake?.waiting);
   const eligibleMaps = getMapsForPlayerCount(Math.max(2, playerCount));
   const randomOption = document.createElement("option");
   randomOption.value = "random";
@@ -369,10 +372,12 @@ function renderMultiplayerLobby() {
   lobbyHostControls.hidden = lobbyRole !== "host";
   lobbyMap.value = "random";
   lobbyMap.disabled = true;
-  addAiButton.disabled = playerCount >= 8;
-  removeAiButton.disabled = multiplayerLobby.botCount === 0;
-  startLobbyMatchButton.disabled = playerCount < 2;
-  lobbyMapSummary.textContent = playerCount < 2
+  addAiButton.disabled = matchStarting || playerCount >= 8;
+  removeAiButton.disabled = matchStarting || multiplayerLobby.botCount === 0;
+  startLobbyMatchButton.disabled = matchStarting || playerCount < 2;
+  lobbyMapSummary.textContent = matchStarting
+    ? "Waiting for Player 2 to load and acknowledge the match…"
+    : playerCount < 2
     ? "Add an AI bot or wait for a guest before starting."
     : `One of ${eligibleMaps.length} ${playerCount}-player battlefields will be selected randomly when the match starts.`;
 }
@@ -399,6 +404,7 @@ function startSinglePlayer() {
   peerSession?.close();
   peerSession = null;
   multiplayerConnected = false;
+  matchStartHandshake = null;
   matchMode = "single_player";
   localTeam = "player";
   activePlayerCount = Number(singlePlayerCount.value);
@@ -450,9 +456,17 @@ function startHostedLobbyMatch() {
     playerCount,
   });
   if (hasGuest) configureGuestTeam(simulation);
-  const message = { type: "match_start", snapshot: simulation.createSnapshot() };
-  if (hasGuest && !peerSession?.send(message)) {
-    setConnectionStatus("Could not deliver the match start. Check the guest connection and try again.", true);
+  if (hasGuest) {
+    matchStartHandshake ||= new MatchStartHandshake("host");
+    const message = matchStartHandshake.begin(simulation.createSnapshot());
+    if (!peerSession?.send(message)) {
+      matchStartHandshake.reset();
+      setConnectionStatus("Could not deliver the match start. Check the guest connection and try again.", true);
+      renderMultiplayerLobby();
+      return;
+    }
+    setConnectionStatus("Match setup sent. Waiting for Player 2 to finish loading…");
+    renderMultiplayerLobby();
     return;
   }
   if (!hasGuest) {
@@ -466,6 +480,7 @@ function returnToMenu() {
   peerSession?.close();
   peerSession = null;
   multiplayerConnected = false;
+  matchStartHandshake = null;
   pendingGuestCommands.clear();
   multiplayerSyncMessage = null;
   lobbyRole = null;
@@ -508,7 +523,31 @@ function multiplayerHandlers(role) {
       }
     },
     onMessage(message) {
-      if (role === "host" && message.type === "command") {
+      const matchStartEvent = matchStartHandshake?.inspect(message);
+      if (role === "host" && matchStartEvent?.kind === "acknowledged" && matchMode === "menu") {
+        enterMultiplayerMatch("host");
+        sendMultiplayerSnapshot();
+      } else if (role === "host" && matchStartEvent?.kind === "rejected" && matchMode === "menu") {
+        setConnectionStatus(matchStartEvent.reason, true);
+        renderMultiplayerLobby();
+      } else if (role === "guest" && matchStartEvent?.kind === "repeat") {
+        peerSession?.send(matchStartEvent.acknowledgement);
+      } else if (role === "guest" && matchStartEvent?.kind === "offered" && matchMode === "menu") {
+        try {
+          simulation = Simulation.fromSnapshot(matchStartEvent.snapshot);
+          const acknowledgement = matchStartHandshake.accept(matchStartEvent.startId);
+          enterMultiplayerMatch("guest");
+          if (!peerSession?.send(acknowledgement)) {
+            multiplayerSyncMessage = "WAITING TO CONFIRM MATCH START WITH HOST";
+          }
+        } catch {
+          peerSession?.send(matchStartHandshake.reject(
+            matchStartEvent.startId,
+            "The guest could not load this match setup. Refresh both games and try again.",
+          ));
+          setConnectionStatus("The host sent an incompatible match setup.", true);
+        }
+      } else if (role === "host" && message.type === "command") {
         const commandId = Number.isSafeInteger(message.commandId) && message.commandId > 0
           ? message.commandId
           : lastProcessedGuestCommandId + 1;
@@ -527,13 +566,6 @@ function multiplayerHandlers(role) {
       } else if (role === "guest" && message.type === "lobby_state" && matchMode === "menu") {
         multiplayerLobby = { ...message.lobby };
         renderMultiplayerLobby();
-      } else if (role === "guest" && message.type === "match_start" && matchMode === "menu") {
-        try {
-          simulation = Simulation.fromSnapshot(message.snapshot);
-          enterMultiplayerMatch("guest");
-        } catch {
-          setConnectionStatus("The host sent an incompatible match setup.", true);
-        }
       } else if (role === "guest" && message.type === "state") {
         const sequence = Number.isSafeInteger(message.sequence)
           ? message.sequence
@@ -579,8 +611,9 @@ function multiplayerHandlers(role) {
       multiplayerConnected = false;
       if (matchMode === "menu") {
         if (role === "host") {
+          matchStartHandshake?.reset();
           updateHostedLobby({ guestConnected: false });
-          setConnectionStatus("The guest left. The lobby is still open.");
+          setConnectionStatus("The guest disconnected before the match started. The lobby is still open.", true);
         } else {
           setConnectionStatus("The host closed the lobby.", true);
         }
@@ -607,6 +640,7 @@ async function createHostMatch() {
     peerSession?.close();
     const created = await PeerMultiplayerSession.createHost(multiplayerHandlers("host"));
     peerSession = created.session;
+    matchStartHandshake = new MatchStartHandshake("host");
     lobbyRole = "host";
     multiplayerLobby = {
       code: created.lobbyCode,
@@ -641,6 +675,7 @@ async function joinMultiplayerLobby() {
       multiplayerHandlers("guest"),
     );
     peerSession = created.session;
+    matchStartHandshake = new MatchStartHandshake("guest");
     lobbyRole = "guest";
     multiplayerLobby = {
       code: created.lobbyCode,
@@ -846,6 +881,15 @@ function frame(now) {
   const elapsed = Math.min(0.1, (now - lastFrameTime) / 1000);
   lastFrameTime = now;
   updateCamera(elapsed);
+  if (matchMode === "menu" && lobbyRole === "host" && matchStartHandshake?.waiting) {
+    const startEvent = matchStartHandshake.poll();
+    if (startEvent?.kind === "retry") {
+      peerSession?.send(startEvent.message);
+    } else if (startEvent?.kind === "timeout") {
+      setConnectionStatus("Player 2 did not confirm the match start. Check their connection and try again.", true);
+      renderMultiplayerLobby();
+    }
+  }
   if (matchMode !== "menu" && matchMode !== "multiplayer_guest" && !paused) {
     accumulator += elapsed;
     let simulationSteps = 0;

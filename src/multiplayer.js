@@ -7,6 +7,10 @@ const STATE_FLUSH_RETRY_MS = 25;
 const PEER_OPEN_TIMEOUT_MS = 12_000;
 const GUEST_CONNECTION_TIMEOUT_MS = 15_000;
 const MAX_CODE_ATTEMPTS = 5;
+const MATCH_START_RETRY_MS = 750;
+const MATCH_START_TIMEOUT_MS = 12_000;
+
+let fallbackMatchStartId = 1;
 
 export function normalizeLobbyCode(value) {
   return String(value || "")
@@ -29,6 +33,110 @@ export function generateLobbyCode(randomValues = null) {
     code += LOBBY_CODE_ALPHABET[values[index] % LOBBY_CODE_ALPHABET.length];
   }
   return code;
+}
+
+export class MatchStartHandshake {
+  constructor(role, options = {}) {
+    if (role !== "host" && role !== "guest") {
+      throw new Error("A match-start handshake must belong to a host or guest.");
+    }
+    this.role = role;
+    this.now = options.now || (() => performance.now());
+    this.idFactory = options.idFactory || createMatchStartId;
+    this.pending = null;
+    this.acceptedStartId = null;
+  }
+
+  get waiting() {
+    return Boolean(this.pending);
+  }
+
+  begin(snapshot) {
+    if (this.role !== "host") {
+      throw new Error("Only the host can begin a match-start handshake.");
+    }
+    const now = this.now();
+    const message = {
+      type: "match_start",
+      startId: this.idFactory(),
+      snapshot,
+    };
+    this.pending = {
+      message,
+      retryAt: now + MATCH_START_RETRY_MS,
+      expiresAt: now + MATCH_START_TIMEOUT_MS,
+    };
+    return message;
+  }
+
+  inspect(message) {
+    if (!message || typeof message.type !== "string") return null;
+    if (this.role === "host") {
+      if (!this.pending || message.startId !== this.pending.message.startId) return null;
+      if (message.type === "match_start_ack") {
+        this.pending = null;
+        return { kind: "acknowledged", startId: message.startId };
+      }
+      if (message.type === "match_start_reject") {
+        this.pending = null;
+        return {
+          kind: "rejected",
+          reason: String(message.reason || "The guest could not load the match setup."),
+          startId: message.startId,
+        };
+      }
+      return null;
+    }
+
+    if (message.type !== "match_start" || !validMatchStartId(message.startId)) return null;
+    if (this.acceptedStartId === message.startId) {
+      return {
+        kind: "repeat",
+        acknowledgement: this.acknowledgement(message.startId),
+        startId: message.startId,
+      };
+    }
+    if (this.acceptedStartId) {
+      return { kind: "conflict", startId: message.startId };
+    }
+    return { kind: "offered", snapshot: message.snapshot, startId: message.startId };
+  }
+
+  accept(startId) {
+    if (this.role !== "guest" || !validMatchStartId(startId)) return null;
+    this.acceptedStartId = startId;
+    return this.acknowledgement(startId);
+  }
+
+  reject(startId, reason) {
+    if (this.role !== "guest" || !validMatchStartId(startId)) return null;
+    return {
+      type: "match_start_reject",
+      startId,
+      reason: String(reason || "The guest could not load the match setup."),
+    };
+  }
+
+  poll() {
+    if (this.role !== "host" || !this.pending) return null;
+    const now = this.now();
+    if (now >= this.pending.expiresAt) {
+      this.pending = null;
+      return { kind: "timeout" };
+    }
+    if (now < this.pending.retryAt) return null;
+    this.pending.retryAt = now + MATCH_START_RETRY_MS;
+    return { kind: "retry", message: this.pending.message };
+  }
+
+  reset() {
+    this.pending = null;
+    this.acceptedStartId = null;
+  }
+
+  acknowledgement(startId) {
+    return { type: "match_start_ack", startId };
+  }
 }
 
 export class PeerMultiplayerSession {
@@ -252,6 +360,20 @@ function peerOptions() {
 function secureRandomValues(length) {
   if (!globalThis.crypto?.getRandomValues) return null;
   return globalThis.crypto.getRandomValues(new Uint8Array(length));
+}
+
+function createMatchStartId() {
+  const values = secureRandomValues(8);
+  if (values) {
+    return [...values].map((value) => value.toString(16).padStart(2, "0")).join("");
+  }
+  const id = fallbackMatchStartId;
+  fallbackMatchStartId += 1;
+  return `${Date.now().toString(36)}-${id.toString(36)}`;
+}
+
+function validMatchStartId(value) {
+  return typeof value === "string" && value.length >= 1 && value.length <= 64;
 }
 
 function requirePeerConstructor(PeerConstructor) {
