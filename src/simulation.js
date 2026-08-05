@@ -66,7 +66,7 @@ export class Simulation {
         .filter((team) => team.kind === "ai")
         .map((team) => [team.id, {
           thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay,
-          buildIndex: 0,
+          decisionIndex: 0,
         }]),
     );
     Object.defineProperties(this, {
@@ -80,10 +80,10 @@ export class Simulation {
       },
       aiBuildIndex: {
         configurable: true,
-        get: () => this.aiStates.enemy?.buildIndex ?? 0,
+        get: () => this.aiStates.enemy?.decisionIndex ?? 0,
         set: (value) => {
           this.ensureTeam("enemy", "ai");
-          this.aiStates.enemy.buildIndex = value;
+          this.aiStates.enemy.decisionIndex = value;
         },
       },
     });
@@ -132,7 +132,7 @@ export class Simulation {
       for (const worker of start.workers) {
         simulation.addUnit("worker_drone_t1", team.id, worker.x, worker.y);
       }
-      if (team.kind === "ai") simulation.aiStates[team.id].buildIndex = 1;
+      if (team.kind === "ai") simulation.aiStates[team.id].decisionIndex = 1;
     }
 
     simulation.refreshPowerState(0);
@@ -152,7 +152,7 @@ export class Simulation {
     if (kind === "ai" && !this.aiStates[teamId]) {
       this.aiStates[teamId] = {
         thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay,
-        buildIndex: 0,
+        decisionIndex: 0,
       };
     }
   }
@@ -211,7 +211,12 @@ export class Simulation {
     simulation.events = snapshot.events || [];
     simulation.powerLinks = snapshot.powerLinks || [];
     simulation.teamStarts = snapshot.teamStarts || {};
-    simulation.aiStates = snapshot.aiStates || simulation.aiStates;
+    simulation.aiStates = snapshot.aiStates
+      ? Object.fromEntries(Object.entries(snapshot.aiStates).map(([teamId, state]) => [teamId, {
+        thinkRemaining: state.thinkRemaining,
+        decisionIndex: state.decisionIndex ?? state.buildIndex ?? 0,
+      }]))
+      : simulation.aiStates;
     if (!snapshot.aiStates) {
       simulation.aiThinkRemaining = snapshot.aiThinkRemaining;
       simulation.aiBuildIndex = snapshot.aiBuildIndex;
@@ -1719,17 +1724,6 @@ export class Simulation {
       x: baseX + inwardX * forward + tangentX * side,
       y: baseY + inwardY * forward + tangentY * side,
     });
-    const buildPlans = [
-      { type: "metal_mine", ...planPoint(160, 160) },
-      { type: "battery", ...planPoint(120) },
-      { type: "sentry_turret", ...planPoint(60, -180) },
-      { type: "charger", ...planPoint(-20, -180) },
-      { type: "power_tower", ...planPoint(360, -40) },
-      { type: "power_tower", ...planPoint(500, 200) },
-      { type: "sentry_turret", ...planPoint(520, -160) },
-      { type: "salvage_yard", ...planPoint(280, -360) },
-      { type: "mech_factory_t1", ...planPoint(440, -360) },
-    ];
     const playerTargets = [
       ...this.units.filter((entity) => entity.alive && entity.team !== teamId),
       ...this.structures.filter((entity) => entity.alive && entity.team !== teamId),
@@ -1761,14 +1755,16 @@ export class Simulation {
         advancesPlan: false,
       }
       : null;
-    const expansionRequest = aiState.buildIndex >= 4
-      ? this.getEnemyExpansionRequest(enemyAnchor, teamId)
-      : null;
-    const plan = buildPlans[aiState.buildIndex];
     const strategicRequest = supplyRequest || (
       needsSupplyUpgrade
         ? null
-        : expansionRequest || (plan ? { ...plan, advancesPlan: true } : null)
+        : this.getEnemyStrategicConstructionRequest(
+          teamId,
+          enemyAnchor,
+          playerTargets,
+          planPoint,
+          aiState.decisionIndex,
+        )
     );
     const availableWorker = enemyWorkers.find((worker) => !worker.buildTargetId && worker.state === "active");
     const pendingGenerator = this.structures.find(
@@ -1824,7 +1820,7 @@ export class Simulation {
           site.y,
         )
         : null;
-      if (construction && constructionRequest.advancesPlan) aiState.buildIndex += 1;
+      if (construction) aiState.decisionIndex += 1;
     }
 
     const nextSupplyComplex = this.structures.find(
@@ -1836,10 +1832,13 @@ export class Simulation {
     const nextSupplyRequest = supplyIsLow && !nextSupplyComplex
       ? { type: "supply_complex", ...planPoint(360, -480) }
       : null;
-    const nextExpansionRequest = aiState.buildIndex >= 4
-      ? this.getEnemyExpansionRequest(enemyAnchor, teamId)
-      : null;
-    const reservedPlan = nextSupplyRequest || nextExpansionRequest || buildPlans[aiState.buildIndex];
+    const reservedPlan = nextSupplyRequest || this.getEnemyStrategicConstructionRequest(
+      teamId,
+      enemyAnchor,
+      playerTargets,
+      planPoint,
+      aiState.decisionIndex,
+    );
     const reservedPlanMetal = reservedPlan
       ? STRUCTURE_DEFINITIONS[reservedPlan.type].metalCost
       : 0;
@@ -1886,11 +1885,47 @@ export class Simulation {
       const workerType = factoryDefinition.production.find(
         (unitType) => UNIT_DEFINITIONS[unitType].workerTier,
       );
-      const combatType = factoryDefinition.production.find(
+      const combatTypes = factoryDefinition.production.filter(
         (unitType) => UNIT_DEFINITIONS[unitType].attackRange > 0,
       );
+      const combatType = combatTypes
+        .map((unitType, order) => ({
+          unitType,
+          order,
+          count:
+            this.units.filter(
+              (unit) => unit.alive && unit.team === teamId && unit.type === unitType,
+            ).length +
+            enemyFactories.reduce(
+              (total, candidate) => total + candidate.productionQueue.filter(
+                (queued) => queued.unitType === unitType,
+              ).length,
+              0,
+            ),
+        }))
+        .sort((left, right) => left.count - right.count || left.order - right.order)[0]
+        ?.unitType;
+      const carrierType = factoryDefinition.production.find(
+        (unitType) => UNIT_DEFINITIONS[unitType].role === "carrier",
+      );
+      const carrierCount = this.units.filter(
+        (unit) =>
+          unit.alive &&
+          unit.team === teamId &&
+          UNIT_DEFINITIONS[unit.type].role === "carrier",
+      ).length + enemyFactories.reduce(
+        (total, candidate) => total + candidate.productionQueue.filter(
+          (queued) => UNIT_DEFINITIONS[queued.unitType]?.role === "carrier",
+        ).length,
+        0,
+      );
+      const combatPopulation = stagedCombatCount + queuedCombatCount;
+      const desiredCarrierCount = combatPopulation >= desiredWaveSize
+        ? Math.max(1, Math.floor(combatPopulation / 4))
+        : 0;
       const replacingWorker = enemyWorkers.length < 3;
-      const choice = replacingWorker ? workerType : combatType;
+      const needsCarrier = carrierType && carrierCount < desiredCarrierCount;
+      const choice = replacingWorker ? workerType : needsCarrier ? carrierType : combatType;
       if (!choice) continue;
       const productionCost = UNIT_DEFINITIONS[choice].metalCost;
       const requiredReserve = replacingWorker || needsCombatForce ? 0 : reservedMetal;
@@ -1943,6 +1978,141 @@ export class Simulation {
         });
       }
     }
+  }
+
+  getEnemyStrategicConstructionRequest(
+    teamId,
+    enemyAnchor,
+    playerTargets,
+    planPoint,
+    decisionIndex = 0,
+  ) {
+    const structures = this.structures.filter(
+      (structure) => structure.alive && structure.team === teamId,
+    );
+    const anchor = enemyAnchor || planPoint(0, 0);
+    const countFamily = (family) => structures.filter(
+      (structure) => STRUCTURE_DEFINITIONS[structure.type].family === family,
+    ).length;
+    const combatUnits = this.units.filter(
+      (unit) =>
+        unit.alive &&
+        unit.team === teamId &&
+        UNIT_DEFINITIONS[unit.type].attackRange > 0,
+    ).length;
+    const queuedCombatUnits = structures.reduce(
+      (total, structure) => total + (structure.productionQueue || []).filter(
+        (order) => UNIT_DEFINITIONS[order.unitType]?.attackRange > 0,
+      ).length,
+      0,
+    );
+    const combatStrength = combatUnits + queuedCombatUnits;
+    const mineCount = structures.filter(
+      (structure) => STRUCTURE_DEFINITIONS[structure.type].metalRate,
+    ).length;
+    const factoryCount = structures.filter(
+      (structure) => STRUCTURE_DEFINITIONS[structure.type].production,
+    ).length;
+    const batteryCount = countFamily("battery");
+    const sentryCount = countFamily("sentry_turret");
+    const chargerCount = countFamily("charger");
+    const relayCount = countFamily("power_tower");
+    const salvageYardCount = countFamily("salvage_yard");
+    const powerConsumerCount = structures.filter(
+      (structure) => !STRUCTURE_DEFINITIONS[structure.type].generationRate,
+    ).length;
+    const nearbyThreats = playerTargets.filter((target) =>
+      structures.some(
+        (structure) => distance(structure, target) <= SIMULATION_RULES.enemyRushResponseRadius,
+      ),
+    );
+    const sideSign = (decisionIndex + (this.teams.find((team) => team.id === teamId)?.slot || 0)) % 2
+      ? -1
+      : 1;
+    const laneOffset = 120 + (decisionIndex % 3) * 60;
+    const candidates = [];
+    const addCandidate = (score, type, point) => {
+      let variation = 0;
+      const variationKey = `${teamId}:${type}:${decisionIndex}`;
+      for (let index = 0; index < variationKey.length; index += 1) {
+        variation = (variation * 31 + variationKey.charCodeAt(index)) % 17;
+      }
+      candidates.push({ score: score + variation * 0.01, type, ...point });
+    };
+
+    if (factoryCount === 0) {
+      addCandidate(130, "mech_factory_t1", planPoint(160, sideSign * 220));
+    }
+
+    const desiredBatteryCount = Math.max(1, Math.ceil(powerConsumerCount / 6));
+    if (batteryCount < desiredBatteryCount) {
+      addCandidate(batteryCount === 0 ? 94 : 56, "battery", planPoint(-40, sideSign * laneOffset));
+    }
+
+    const desiredSentryCount = Math.min(
+      4,
+      1 + Math.floor(Math.max(0, mineCount - 1) / 2) + (nearbyThreats.length > 0 ? 1 : 0),
+    );
+    if (sentryCount < desiredSentryCount) {
+      const threat = nearest(anchor, nearbyThreats);
+      if (threat) {
+        const threatDistance = distance(anchor, threat) || 1;
+        addCandidate(120, "sentry_turret", {
+          x: anchor.x + ((threat.x - anchor.x) / threatDistance) * 150
+            - ((threat.y - anchor.y) / threatDistance) * sideSign * 50,
+          y: anchor.y + ((threat.y - anchor.y) / threatDistance) * 150
+            + ((threat.x - anchor.x) / threatDistance) * sideSign * 50,
+        });
+      } else {
+        addCandidate(88, "sentry_turret", planPoint(100, -sideSign * (160 + sentryCount * 80)));
+      }
+    }
+
+    const desiredChargerCount = combatStrength > 0 ? 1 + Math.floor(combatStrength / 9) : 0;
+    if (chargerCount < desiredChargerCount) {
+      addCandidate(84, "charger", planPoint(30, sideSign * (180 + chargerCount * 80)));
+    }
+
+    const expansionRequest = this.getEnemyExpansionRequest(enemyAnchor, teamId);
+    const basicForceReady = combatStrength >= this.getEnemyAttackWaveSize(teamId);
+    const coreBaseReady =
+      batteryCount > 0 && sentryCount > 0 && chargerCount > 0 && basicForceReady;
+    if (expansionRequest && !expansionRequest.waiting && (mineCount === 0 || coreBaseReady)) {
+      const metal = this.resources[teamId].metal;
+      const expansionScore = metal <= SIMULATION_RULES.enemyLowMetalThreshold
+        ? 108
+        : mineCount < 2
+          ? 78
+          : 52;
+      addCandidate(expansionScore, expansionRequest.type, expansionRequest);
+    }
+
+    const desiredRelayCount = Math.min(3, Math.max(0, mineCount - 1));
+    if (relayCount < desiredRelayCount) {
+      addCandidate(60, "power_tower", planPoint(300 + relayCount * 150, sideSign * laneOffset));
+    }
+
+    const reclaimableWrecks = this.wrecks.filter((wreck) => wreck.metal > EPSILON);
+    const reclaimableMetal = reclaimableWrecks.reduce((total, wreck) => total + wreck.metal, 0);
+    const desiredSalvageYards = reclaimableMetal >= 60 || combatStrength >= 6 ? 1 : 0;
+    if (salvageYardCount < desiredSalvageYards) {
+      const nearbyWreck = nearest(anchor, reclaimableWrecks);
+      const salvagePoint = nearbyWreck && distance(anchor, nearbyWreck) <= 700
+        ? nearbyWreck
+        : planPoint(180, -sideSign * 300);
+      addCandidate(reclaimableMetal >= 60 ? 74 : 42, "salvage_yard", salvagePoint);
+    }
+
+    const desiredFactoryCount = 1 + Math.floor(Math.max(0, mineCount - 1) / 2);
+    if (factoryCount < desiredFactoryCount && basicForceReady) {
+      addCandidate(64, "mech_factory_t1", planPoint(240 + factoryCount * 160, -sideSign * 320));
+    }
+
+    candidates.sort((left, right) => right.score - left.score || left.type.localeCompare(right.type));
+    const selected = candidates[0];
+    if (!selected) return null;
+    const { score, ...request } = selected;
+    return request;
   }
 
   getEnemyExpansionRequest(enemyAnchor, teamId = "enemy") {

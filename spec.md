@@ -688,7 +688,7 @@ the same costs; it does not receive hidden free units or buildings.
 
 In matches with multiple AI opponents, each AI is a separate free-for-all
 commander. It owns independent metal, power, supply, technology unlocks, workers,
-production queues, expansion choices, build-plan progress, and decision timing.
+production queues, expansion choices, strategic decision state, and decision timing.
 AI commanders may attack one another as well as the human, claim any currently
 unused deposit, and are subject to the same placement and occupancy checks. They do
 not share resources, vision-derived decisions, construction projects, or armies.
@@ -709,16 +709,28 @@ finishes another generator beside that expansion before resuming the original
 plan. It does not knowingly place disconnected consumers or expand demand beyond
 its steady generation capacity.
 
-The AI makes its first decision after one second and reevaluates every second. Its
-opening prioritizes a battery, local static defense, a charger, and a three-unit
-combat force before expensive infrastructure. The Strategic Supply Complex is not
-part of a fixed build sequence: the AI constructs one only when its remaining
-supply falls to 10 percent of current capacity or less, and it purchases each
-later capacity upgrade only when supply becomes that constrained again. Once the
-initial force is secured, the AI reserves enough metal for its next currently
-needed building before queueing ordinary combat units. Replacing a missing worker
-and rebuilding a deployed or destroyed combat reserve take priority over that
-building reserve.
+The AI makes its first decision after one second and reevaluates every second. It
+does not follow a fixed or map-specific building sequence. Instead, it scores its
+current strategic needs, including nearby threats, missing production, grid
+storage, static defense, army charging, metal income, relay coverage, reclaimable
+wreckage, supply pressure, and production capacity. A rush can therefore move a
+defensive turret ahead of an economic choice, low metal can promote expansion once
+the base can protect it, and larger economies naturally request additional
+batteries, relays, defenses, chargers, salvage capacity, and factories. The
+decision counter varies valid placement lanes but never dictates the next
+structure type. These relative priorities are provisional tuning values.
+
+The AI still maintains a battery, local static defense, charger support, and a
+three-unit combat reserve before committing to ordinary expansion. The Strategic
+Supply Complex is constructed only when remaining supply falls to 10 percent of
+current capacity or less, and each later capacity upgrade is purchased only when
+supply becomes that constrained again. Once the initial force is secured, the AI
+reserves enough metal for its highest-scoring current building need before queueing
+ordinary combat units. Replacing a missing worker and rebuilding a deployed or
+destroyed combat reserve take priority over that building reserve. Factories
+balance their available combat roles by current and queued roster counts, then add
+an energy carrier once a field army is large enough to need mobile support; they do
+not repeatedly produce only the first unit in the factory roster.
 
 After establishing its opening battery, defense, and charger, the AI begins paid
 economic expansion instead of relying indefinitely on its starting mine. It seeks

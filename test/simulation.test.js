@@ -2330,6 +2330,7 @@ test("enemy AI searches nearby grid cells when its preferred site is occupied", 
   simulation.aiThinkRemaining = 0;
   simulation.aiBuildIndex = 1;
   simulation.addStructure("generator", "enemy", 2880, 800);
+  simulation.addStructure("mech_factory_t1", "enemy", 2640, 960);
   const worker = simulation.addUnit("worker_drone_t1", "enemy", 2740, 800);
 
   simulation.tick(1 / 30);
@@ -2352,6 +2353,44 @@ test("enemy AI searches nearby grid cells when its preferred site is occupied", 
         UNIT_DEFINITIONS.worker_drone_t1.radius +
         SIMULATION_RULES.structureCollisionPadding,
   );
+});
+
+test("enemy AI chooses buildings from current strategic needs instead of a build index", () => {
+  const simulation = new Simulation();
+  const anchor = simulation.addStructure("generator", "enemy", 2600, 900);
+  simulation.addStructure("mech_factory_t1", "enemy", 2440, 1040);
+  const planPoint = (forward, side = 0) => ({ x: anchor.x - forward, y: anchor.y + side });
+
+  const earlyRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    1,
+  );
+  const laterCounterRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    19,
+  );
+
+  assert.equal(earlyRequest.type, "battery");
+  assert.equal(laterCounterRequest.type, "battery");
+
+  simulation.addStructure("battery", "enemy", 2520, 820);
+  const rushedTarget = simulation.addUnit("scout_mech", "player", 2300, 900);
+  const defensiveRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [rushedTarget],
+    planPoint,
+    2,
+  );
+
+  assert.equal(defensiveRequest.type, "sentry_turret");
+  assert.ok(defensiveRequest.x < anchor.x, "the defense should face the nearby threat");
 });
 
 test("the standard enemy opening establishes defenses and launches promptly", () => {
@@ -2397,7 +2436,7 @@ test("enemy AI builds generation before spending metal on an unpowered consumer"
     ),
     false,
   );
-  assert.equal(simulation.aiBuildIndex, 3);
+  assert.equal(simulation.aiBuildIndex, 4);
   assert.ok(
     simulation.structures.some(
       (structure) => structure.alive && structure.team === "enemy" && structure.type === "generator",
@@ -2409,12 +2448,21 @@ test("enemy AI builds generation before spending metal on an unpowered consumer"
   );
 });
 
-test("enemy AI moves a planned relay onto the connected edge of its grid", () => {
+test("enemy AI places a needed relay on its connected grid", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
   simulation.aiBuildIndex = 4;
   simulation.resources.enemy.metal = 1000;
-  const generator = simulation.addStructure("generator", "enemy", 2880, 800);
+  simulation.addStructure("generator", "enemy", 2880, 800);
+  simulation.addStructure("generator", "enemy", 2840, 720);
+  simulation.addStructure("generator", "enemy", 2840, 880);
+  simulation.addStructure("mech_factory_t1", "enemy", 2680, 960);
+  simulation.addStructure("battery", "enemy", 2760, 720);
+  simulation.addStructure("sentry_turret", "enemy", 2640, 760);
+  simulation.addStructure("charger", "enemy", 2720, 840);
+  simulation.addStructure("metal_mine", "enemy", 2920, 600);
+  simulation.addStructure("metal_mine", "enemy", 3000, 600);
+  simulation.addUnit("scout_mech", "enemy", 2760, 960);
   simulation.addUnit("worker_drone_t1", "enemy", 2800, 1000);
 
   simulation.tick(1 / 30);
@@ -2424,9 +2472,6 @@ test("enemy AI moves a planned relay onto the connected edge of its grid", () =>
   );
   assert.ok(relay);
   assert.notDeepEqual([relay.x, relay.y], [2500, 860]);
-  const coverage = powerCoverageBounds(generator.type, generator.x, generator.y);
-  assert.ok(relay.x >= coverage.left && relay.x <= coverage.right);
-  assert.ok(relay.y >= coverage.top && relay.y <= coverage.bottom);
   assert.equal(
     simulation.isBuildSiteConnectedToPower("power_tower", "enemy", relay.x, relay.y),
     true,
@@ -2439,6 +2484,10 @@ test("enemy AI places powered consumers inside its energized grid", () => {
   simulation.aiBuildIndex = 3;
   simulation.resources.enemy.metal = 1000;
   simulation.addStructure("generator", "enemy", 2880, 800);
+  simulation.addStructure("mech_factory_t1", "enemy", 2680, 920);
+  simulation.addStructure("battery", "enemy", 2760, 720);
+  simulation.addStructure("sentry_turret", "enemy", 2640, 760);
+  simulation.addUnit("scout_mech", "enemy", 2720, 980);
   simulation.addUnit("worker_drone_t1", "enemy", 2800, 1000);
 
   simulation.tick(1 / 30);
@@ -2467,6 +2516,9 @@ test("enemy AI completes extra generation before projected demand exceeds supply
   simulation.addStructure("mech_factory_t1", "enemy", 2680, 920);
   simulation.addStructure("metal_mine", "enemy", 2920, 600);
   simulation.addStructure("power_tower", "enemy", 2640, 800);
+  simulation.addStructure("battery", "enemy", 2760, 720);
+  simulation.addStructure("sentry_turret", "enemy", 2600, 760);
+  simulation.addUnit("scout_mech", "enemy", 2720, 980);
   simulation.addUnit("worker_drone_t1", "enemy", 2500, 1000);
 
   assert.equal(simulation.needsAdditionalGeneration("enemy", "charger"), true);
@@ -2483,7 +2535,7 @@ test("enemy AI completes extra generation before projected demand exceeds supply
     ),
     false,
   );
-  assert.equal(simulation.aiBuildIndex, 3);
+  assert.equal(simulation.aiBuildIndex, 4);
 
   advance(simulation, 30);
   const charger = simulation.structures.find(
@@ -2528,6 +2580,34 @@ test("enemy AI builds an initial combat force before reserving for expensive con
   assert.equal(simulation.resources.enemy.metal, 0);
 });
 
+test("enemy AI balances combat roles and adds energy support as its army grows", () => {
+  const simulation = new Simulation();
+  simulation.resources.enemy.metal = 5000;
+  simulation.addUnit("worker_drone_t1", "enemy", 1200, 600);
+  simulation.addUnit("worker_drone_t1", "enemy", 1240, 600);
+  simulation.addUnit("worker_drone_t1", "enemy", 1280, 600);
+  const factory = simulation.addStructure("mech_factory_t1", "enemy", 1400, 700);
+
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+
+  assert.deepEqual(
+    factory.productionQueue.map((order) => order.unitType),
+    ["scout_mech", "assault_mech"],
+  );
+
+  factory.productionQueue = [];
+  simulation.addUnit("scout_mech", "enemy", 1320, 600);
+  simulation.addUnit("scout_mech", "enemy", 1360, 600);
+  simulation.addUnit("assault_mech", "enemy", 1400, 600);
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+
+  assert.equal(factory.productionQueue[0]?.unitType, "energy_carrier");
+});
+
 test("enemy AI reserves metal for its next building after fielding a combat force", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
@@ -2556,7 +2636,6 @@ test("enemy AI only constructs a Supply Complex when its remaining supply is low
   simulation.aiBuildIndex = 9;
   simulation.resources.enemy.metal = 5000;
   simulation.addStructure("generator", "enemy", 2880, 800);
-  simulation.addUnit("worker_drone_t1", "enemy", 2800, 800);
 
   simulation.tick(1 / 30);
 
@@ -2577,6 +2656,7 @@ test("enemy AI only constructs a Supply Complex when its remaining supply is low
     simulation.getSupplyState("enemy").remaining <=
       simulation.getSupplyState("enemy").capacity * SIMULATION_RULES.enemySupplyLowRatio,
   );
+  simulation.addUnit("worker_drone_t1", "enemy", 2800, 800);
   simulation.aiThinkRemaining = 0;
   const startingMetal = simulation.resources.enemy.metal;
 
@@ -2598,6 +2678,13 @@ test("enemy AI establishes a paid outpost and expands to another metal deposit",
   simulation.aiThinkRemaining = 0;
   simulation.aiBuildIndex = 4;
   simulation.resources.enemy.metal = 5000;
+  const enemyStart = simulation.teamStarts.enemy;
+  simulation.addStructure("battery", "enemy", enemyStart.x, enemyStart.y + 160);
+  simulation.addStructure("sentry_turret", "enemy", enemyStart.x - 160, enemyStart.y);
+  simulation.addStructure("charger", "enemy", enemyStart.x, enemyStart.y - 160);
+  simulation.addUnit("scout_mech", "enemy", enemyStart.x - 80, enemyStart.y + 200);
+  simulation.addUnit("scout_mech", "enemy", enemyStart.x, enemyStart.y + 200);
+  simulation.addUnit("scout_mech", "enemy", enemyStart.x + 80, enemyStart.y + 200);
 
   simulation.tick(1 / 30);
 
@@ -2638,6 +2725,18 @@ test("enemy AI expands beyond four mines when metal is low and skips player clai
   simulation.aiBuildIndex = 9;
   simulation.resources.enemy.metal = SIMULATION_RULES.enemyLowMetalThreshold;
   simulation.addStructure("generator", "enemy", 1000, 1000);
+  simulation.addStructure("generator", "enemy", 1080, 920);
+  simulation.addStructure("generator", "enemy", 1080, 1000);
+  simulation.addStructure("mech_factory_t1", "enemy", 840, 1160);
+  simulation.addStructure("battery", "enemy", 920, 920);
+  simulation.addStructure("sentry_turret", "enemy", 840, 960);
+  simulation.addStructure("sentry_turret", "enemy", 800, 920);
+  simulation.addStructure("sentry_turret", "enemy", 800, 1000);
+  simulation.addStructure("sentry_turret", "enemy", 800, 1080);
+  simulation.addStructure("charger", "enemy", 920, 1080);
+  simulation.addUnit("scout_mech", "enemy", 840, 1080);
+  simulation.addUnit("scout_mech", "enemy", 880, 1080);
+  simulation.addUnit("scout_mech", "enemy", 920, 1080);
   simulation.addUnit("worker_drone_t1", "enemy", 920, 1000);
 
   for (let index = 0; index < 5; index += 1) {
@@ -2952,7 +3051,7 @@ test("every AI commander makes decisions with independent state and resources", 
   simulation.tick(1 / 30);
 
   for (const team of simulation.teams.filter((candidate) => candidate.kind === "ai")) {
-    assert.equal(simulation.aiStates[team.id].buildIndex, 2);
+    assert.equal(simulation.aiStates[team.id].decisionIndex, 2);
     assert.ok(simulation.structures.some(
       (structure) => structure.alive && structure.team === team.id && structure.type === "battery",
     ));
@@ -2981,7 +3080,7 @@ test("victory waits until every AI commander has been eliminated", () => {
 
 test("snapshots preserve multi-AI teams, starts, maps, and decision state", () => {
   const host = Simulation.createFieldTest({ playerCount: 5, enemyAiEnabled: false });
-  host.aiStates["enemy-3"].buildIndex = 6;
+  host.aiStates["enemy-3"].decisionIndex = 6;
   const restored = Simulation.fromSnapshot(JSON.parse(JSON.stringify(host.createSnapshot())));
 
   assert.deepEqual(restored.teams, host.teams);
