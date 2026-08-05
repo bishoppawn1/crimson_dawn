@@ -53,8 +53,9 @@ The current build is the first playable field test. It includes:
 - Map-defined metal deposits that restrict mine construction locations.
 - Five selectable 5,200×3,200 duel battlefields plus three distinct layouts for
   every total player count from three through eight: 23 maps in total.
-- Dense ancient-ruin, layered-crag, and fractured-spoke map families, including
-  the ruin-heavy three-player Ancient Triad battlefield.
+- Edge-to-edge ancient-ruin, layered-crag, and fractured-spoke map families, with
+  substantial outer landmarks in every sector and a ruin-heavy three-player
+  Ancient Triad stretching from its central sanctuary to outlying districts.
 - Neutral-colored ordinary deposits at every distance plus yellow Rich Metal
   Deposits that provide a provisional 1.5× Metal Mine output multiplier.
 - Visible impassable ridges, shelves, crags, and broken starting walls that block

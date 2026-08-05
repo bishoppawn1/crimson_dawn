@@ -27,9 +27,12 @@ arranged around the full battlefield rather than a two-sided lane.
 
 Each three- through eight-player catalog contains three materially different layout
 families: layered inner and outer crag rings, dense ancient ruin complexes, and long
-fault walls that divide the battlefield into spokes. The three-player **Ancient
-Triad** is especially ruin-heavy, with collapsed arches, pillar fields, courtyards,
-and a broken central sanctuary instead of a few isolated obstacles.
+fault walls that divide the battlefield into spokes. These maps place two substantial
+outer landmarks between each neighboring pair of starting sectors, so expansion
+routes, flanks, and perimeter travel have terrain decisions instead of leaving most
+structures clustered around the center. The three-player **Ancient Triad** is
+especially ruin-heavy, with collapsed arches, pillar fields, courtyards, a broken
+central sanctuary, and ancient districts extending into the outer battlefield.
 
 Multiplayer does not provide a map veto or manual picker. When the host starts the
 match, it randomly selects one of the maps valid for the current lobby size. The
@@ -41,10 +44,12 @@ snapshot sent to the guest.
 - **Ashen Divide** uses 19 deposits and a broken vertical spine that creates two
   major contested attack lanes.
 - **Iron Crossings** uses 21 deposits and four central iron masses that create
-  narrow horizontal and vertical crossroads.
+  narrow horizontal and vertical crossroads, with additional outcrops guarding the
+  outer approaches.
 - **Ruined Meridian** uses dense ancient walls and shattered arches around a rich
   central vault.
-- **Twin Calderas** encloses two large basins around a fractured central pass.
+- **Twin Calderas** encloses two large basins around a fractured central pass and
+  places fracture spires along its outer routes.
 
 Every map preserves the standard starting package at every commander position.
 Map identities, terrain, starts, and deposits are data-driven and all current

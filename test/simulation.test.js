@@ -3419,6 +3419,22 @@ test("every player count offers multiple dense and selectable battlefield layout
       assert.equal(map.playerCount, playerCount);
       assert.equal(map.starts.length, playerCount);
       assert.ok(map.terrain.length >= 10, `${map.name} should have a substantial terrain layout`);
+      const outerTerrain = map.terrain.filter((obstacle) => {
+        const normalizedX = (obstacle.x - map.width / 2) / (map.width / 2);
+        const normalizedY = (obstacle.y - map.height / 2) / (map.height / 2);
+        return Math.hypot(normalizedX, normalizedY) >= 0.65;
+      });
+      assert.ok(
+        outerTerrain.length >= 6,
+        `${map.name} should place substantial terrain outside the center of the battlefield`,
+      );
+      if (playerCount >= 3) {
+        assert.equal(
+          map.terrain.filter((obstacle) => obstacle.zone === "outer").length,
+          playerCount * 2,
+          `${map.name} should have two outer landmarks per player sector`,
+        );
+      }
       assert.ok(map.deposits.length >= playerCount * 2);
       assert.ok(map.deposits.some((deposit) => deposit.rich));
       assert.ok(map.starts.every((start) =>
@@ -3450,8 +3466,10 @@ test("the three-player ancient ruins map is a dense ruin complex", () => {
   const map = getMatchMap(3, "3-player-ancient-ruins");
 
   assert.equal(map.name, "Ancient Triad");
-  assert.ok(map.description.includes("ancient ruin"));
+  assert.match(map.description, /ruin/i);
+  assert.ok(map.description.includes("outer districts"));
   assert.ok(map.terrain.length >= 16);
+  assert.equal(map.terrain.filter((obstacle) => obstacle.zone === "outer").length, 6);
   assert.ok(map.terrain.every((obstacle) => obstacle.terrainType === "ruins"));
 });
 

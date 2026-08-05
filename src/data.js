@@ -169,6 +169,10 @@ const IRON_CROSSINGS_TERRAIN = frozenRecords([
   { id: "cross-east-rim", name: "Eastern Rim", terrainType: "fracture", x: 4160, y: 1600, width: 160, height: 480 },
   { id: "cross-north-rim", name: "Northern Rim", terrainType: "fracture", x: 2600, y: 240, width: 720, height: 120 },
   { id: "cross-south-rim", name: "Southern Rim", terrainType: "fracture", x: 2600, y: 2960, width: 720, height: 120 },
+  { id: "cross-northwest-outcrop", name: "Northwest Outcrop", x: 1000, y: 400, width: 320, height: 160 },
+  { id: "cross-southwest-outcrop", name: "Southwest Outcrop", x: 1000, y: 2800, width: 320, height: 160 },
+  { id: "cross-northeast-outcrop", name: "Northeast Outcrop", x: 4200, y: 400, width: 320, height: 160 },
+  { id: "cross-southeast-outcrop", name: "Southeast Outcrop", x: 4200, y: 2800, width: 320, height: 160 },
 ]);
 
 const IRON_CROSSINGS_DEPOSITS = frozenRecords([
@@ -217,6 +221,10 @@ const TWIN_CALDERAS_TERRAIN = frozenRecords([
   { id: "caldera-east-rim", name: "Eastern Caldera", terrainType: "fracture", x: 3720, y: 1600, width: 160, height: 720 },
   { id: "caldera-north-split", name: "Northern Fault", terrainType: "fracture", x: 2600, y: 440, width: 240, height: 560 },
   { id: "caldera-south-split", name: "Southern Fault", terrainType: "fracture", x: 2600, y: 2760, width: 240, height: 560 },
+  { id: "caldera-northwest-spire", name: "Northwest Caldera Spire", terrainType: "fracture", x: 1000, y: 520, width: 240, height: 240 },
+  { id: "caldera-southwest-spire", name: "Southwest Caldera Spire", terrainType: "fracture", x: 1000, y: 2680, width: 240, height: 240 },
+  { id: "caldera-northeast-spire", name: "Northeast Caldera Spire", terrainType: "fracture", x: 4200, y: 520, width: 240, height: 240 },
+  { id: "caldera-southeast-spire", name: "Southeast Caldera Spire", terrainType: "fracture", x: 4200, y: 2680, width: 240, height: 240 },
 ]);
 
 const TWIN_CALDERAS_DEPOSITS = frozenRecords([

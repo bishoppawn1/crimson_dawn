@@ -111,11 +111,21 @@ function createGeneratedTerrain(playerCount, variant, width, height) {
   const centerX = width / 2;
   const centerY = height / 2;
   const terrain = [];
-  const addObstacle = (id, name, x, y, obstacleWidth, obstacleHeight, terrainType) => {
+  const addObstacle = (
+    id,
+    name,
+    x,
+    y,
+    obstacleWidth,
+    obstacleHeight,
+    terrainType,
+    zone = "interior",
+  ) => {
     terrain.push({
       id,
       name,
       terrainType,
+      zone,
       showLabel: false,
       x: roundToGrid(x),
       y: roundToGrid(y),
@@ -214,6 +224,47 @@ function createGeneratedTerrain(playerCount, variant, width, height) {
       240 + ((index + 1) % 3) * 80,
       200 + (index % 3) * 80,
       "crags",
+    );
+  }
+
+  // Put substantial terrain between neighboring starting territories so the
+  // outer half of a large map has real lanes and landmarks instead of serving
+  // only as empty travel space around a decorated center.
+  for (let slot = 0; slot < playerCount; slot += 1) {
+    const angle = Math.PI + ((slot + 0.5) / playerCount) * Math.PI * 2;
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    const horizontal = Math.abs(cosine) < Math.abs(sine);
+    const mainWidth = variant.id === "ruins" ? 560 : variant.id === "fracture" ? 640 : 480;
+    const mainHeight = variant.id === "ruins" ? 160 : variant.id === "fracture" ? 160 : 320;
+    addObstacle(
+      `${variant.id}-outer-district-${playerCount}-${slot}`,
+      variant.id === "ruins"
+        ? "Outer Ruin District"
+        : variant.id === "fracture"
+          ? "Perimeter Fault"
+          : "Frontier Crags",
+      centerX + cosine * width * 0.4,
+      centerY + sine * height * 0.4,
+      horizontal ? mainWidth : mainHeight,
+      horizontal ? mainHeight : mainWidth,
+      variant.terrainType,
+      "outer",
+    );
+    const satelliteAngle = angle + 0.12;
+    addObstacle(
+      `${variant.id}-outer-satellite-${playerCount}-${slot}`,
+      variant.id === "ruins"
+        ? "Outer Ruin Pillars"
+        : variant.id === "fracture"
+          ? "Outer Fault Shard"
+          : "Frontier Outcrop",
+      centerX + Math.cos(satelliteAngle) * width * 0.345,
+      centerY + Math.sin(satelliteAngle) * height * 0.345,
+      horizontal ? 240 : 160,
+      horizontal ? 160 : 240,
+      variant.terrainType,
+      "outer",
     );
   }
 
@@ -341,21 +392,21 @@ function generatedMapIdentity(playerCount, variant) {
       id: `${playerCount}-player-ancient-ruins`,
       name: RUIN_MAP_NAMES[playerCount],
       description: playerCount === 3
-        ? "A dense three-way ancient ruin complex surrounds a broken central sanctuary and rich inner vaults."
-        : "Dense ancient courtyards, collapsed arches, and pillar fields create short, twisting battle lanes.",
+        ? "A dense three-way ruin complex stretches from a broken central sanctuary to ancient outer districts."
+        : "Ancient courtyards, collapsed arches, and outer ruin districts create twisting lanes across the whole map.",
     };
   }
   if (variant.id === "fracture") {
     return {
       id: `${playerCount}-player-fracture`,
       name: FRACTURE_MAP_NAMES[playerCount],
-      description: "Long fault walls split the battlefield into narrow spokes with risky cross-map shortcuts.",
+      description: "Long inner and perimeter fault walls split the whole battlefield into spokes and risky shortcuts.",
     };
   }
   return {
     id: `${playerCount}-player-${MAP_NAMES[playerCount].toLowerCase().replaceAll(" ", "-")}`,
     name: MAP_NAMES[playerCount],
-    description: "Layered inner and outer crag rings create open flanks around a contested resource core.",
+    description: "Central crowns, mid-field outcrops, and frontier crags create fighting lanes from edge to edge.",
   };
 }
 
