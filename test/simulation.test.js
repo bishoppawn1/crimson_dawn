@@ -3367,6 +3367,79 @@ test("enemy AI requests flak when aircraft threaten its base", () => {
   assert.ok(request.x < anchor.x, "the flak position should face the incoming aircraft");
 });
 
+function establishAiBranchTestEconomy(simulation, teamId, xOffset = 0) {
+  simulation.resources[teamId].metal = 5000;
+  const anchor = simulation.addStructure("generator", teamId, 1000 + xOffset, 1000);
+  simulation.addStructure("generator", teamId, 1160 + xOffset, 920);
+  simulation.addStructure("generator", teamId, 1160 + xOffset, 1080);
+  simulation.addStructure("mech_factory_t1", teamId, 880 + xOffset, 1160);
+  simulation.addStructure("mech_factory_t2", teamId, 1360 + xOffset, 1160);
+  simulation.addStructure("battery", teamId, 920 + xOffset, 920);
+  simulation.addStructure("sentry_turret", teamId, 920 + xOffset, 1080);
+  simulation.addStructure("charger", teamId, 1040 + xOffset, 1160);
+  simulation.addStructure("metal_mine", teamId, 760 + xOffset, 760);
+  simulation.addStructure("metal_mine", teamId, 840 + xOffset, 760);
+  for (let index = 0; index < 3; index += 1) {
+    simulation.addUnit("scout_mech", teamId, 880 + xOffset + index * 40, 1240);
+  }
+  simulation.addUnit("worker_drone_t1", teamId, 1000 + xOffset, 1080);
+  simulation.addUnit("worker_drone_t2", teamId, 1040 + xOffset, 1080);
+  return {
+    anchor,
+    planPoint: (forward, side = 0) => ({
+      x: anchor.x + forward,
+      y: anchor.y + side,
+    }),
+  };
+}
+
+test("a stable AI builds vehicle and air production through each available tier", () => {
+  const simulation = new Simulation();
+  const { anchor, planPoint } = establishAiBranchTestEconomy(simulation, "enemy");
+  const nextRequest = () => simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    simulation.aiStates.enemy.decisionIndex,
+  );
+
+  assert.equal(nextRequest().type, "vehicle_factory_t1");
+  simulation.addStructure("vehicle_factory_t1", "enemy", 1440, 920);
+  assert.equal(nextRequest().type, "vehicle_factory_t2");
+  simulation.addStructure("vehicle_factory_t2", "enemy", 1560, 920);
+  assert.equal(nextRequest().type, "air_factory_t2");
+  simulation.addStructure("air_factory_t2", "enemy", 1680, 920);
+
+  simulation.addStructure("metal_mine", "enemy", 920, 760);
+  simulation.addStructure("mech_factory_t3", "enemy", 1800, 1160);
+  simulation.addUnit("worker_drone_t3", "enemy", 1080, 1080);
+  assert.equal(nextRequest().type, "vehicle_factory_t3");
+  simulation.addStructure("vehicle_factory_t3", "enemy", 1920, 920);
+  assert.equal(nextRequest().type, "air_factory_t3");
+});
+
+test("every AI commander independently requests its missing vehicle branch", () => {
+  const simulation = new Simulation({ teams: createMatchTeams(4) });
+  const aiTeams = simulation.teams.filter((team) => team.kind === "ai");
+
+  for (const [index, team] of aiTeams.entries()) {
+    const { anchor, planPoint } = establishAiBranchTestEconomy(
+      simulation,
+      team.id,
+      index * 1200,
+    );
+    const request = simulation.getEnemyStrategicConstructionRequest(
+      team.id,
+      anchor,
+      [],
+      planPoint,
+      simulation.aiStates[team.id].decisionIndex,
+    );
+    assert.equal(request.type, "vehicle_factory_t1", `${team.id} should add vehicles`);
+  }
+});
+
 test("a mature enemy economy deliberately progresses through Tier 2 and Tier 3 factories", () => {
   const createMatureAi = ({ tierTwo = false } = {}) => {
     const simulation = new Simulation();

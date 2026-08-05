@@ -2497,6 +2497,12 @@ export class Simulation {
         return definition.factoryBranch === branch && structureTier(structure) >= tier;
       },
     );
+    const hasFactoryBranchAtExactTier = (branch, tier) => structures.some(
+      (structure) => {
+        const definition = STRUCTURE_DEFINITIONS[structure.type];
+        return definition.factoryBranch === branch && structureTier(structure) === tier;
+      },
+    );
     const tieredType = (baseType, tier) => tier > 1 ? `${baseType}_t${tier}` : baseType;
     const sideSign = (decisionIndex + (this.teams.find((team) => team.id === teamId)?.slot || 0)) % 2
       ? -1
@@ -2537,6 +2543,32 @@ export class Simulation {
       addCandidate(118, "mech_factory_t3", planPoint(420, -sideSign * 360));
     }
 
+    if (
+      coreBaseReady &&
+      canInvestInTechnology &&
+      completedMineCount >= SIMULATION_RULES.enemyTierTwoMineCount
+    ) {
+      const nextVehicleTier = [1, 2, 3].find(
+        (tier) => tier <= operationalTier && !hasFactoryBranchAtExactTier("vehicle", tier),
+      );
+      const nextAirTier = [2, 3].find(
+        (tier) => tier <= operationalTier && !hasFactoryBranchAtExactTier("air", tier),
+      );
+      if (nextVehicleTier) {
+        addCandidate(
+          106 - nextVehicleTier * 2,
+          `vehicle_factory_t${nextVehicleTier}`,
+          planPoint(320 + nextVehicleTier * 80, sideSign * 460),
+        );
+      } else if (nextAirTier) {
+        addCandidate(
+          104 - nextAirTier * 2,
+          `air_factory_t${nextAirTier}`,
+          planPoint(440 + nextAirTier * 80, -sideSign * 460),
+        );
+      }
+    }
+
     if (operationalTier >= 2) {
       const advancedGenerator = tieredType("generator", operationalTier);
       const advancedBattery = tieredType("battery", operationalTier);
@@ -2560,20 +2592,6 @@ export class Simulation {
       }
       if (!hasFamilyAtTier("charger", operationalTier)) {
         addCandidate(78, advancedCharger, planPoint(80, -sideSign * 340));
-      }
-      if (!hasFactoryBranchAtTier("vehicle", operationalTier)) {
-        addCandidate(
-          68,
-          tieredType("vehicle_factory", operationalTier),
-          planPoint(320, sideSign * 460),
-        );
-      }
-      if (!hasFactoryBranchAtTier("air", operationalTier)) {
-        addCandidate(
-          66,
-          tieredType("air_factory", operationalTier),
-          planPoint(440, -sideSign * 460),
-        );
       }
     }
 
