@@ -784,6 +784,34 @@ test("reclamation drones also route around impassable terrain", () => {
   assert.ok(drone.x > obstacle.x + obstacle.width / 2 + DRONE_DEFINITION.radius);
 });
 
+test("reclamation drones pathfind out of concave terrain instead of dead-ending", () => {
+  const terrain = [
+    { id: "u-back", name: "U Back", x: 300, y: 200, width: 40, height: 240 },
+    { id: "u-top", name: "U Top", x: 200, y: 80, width: 240, height: 40 },
+    { id: "u-bottom", name: "U Bottom", x: 200, y: 320, width: 240, height: 40 },
+  ];
+  const simulation = new Simulation({ width: 600, height: 400, terrain, enemyAiEnabled: false });
+  simulation.addStructure("generator", "player", 120, 200);
+  const yard = simulation.addStructure("salvage_yard", "player", 172, 200);
+  simulation.addWreck(450, 200, 24);
+  const startingMetal = simulation.resources.player.metal;
+  let furthestDroneX = Math.max(...yard.drones.map((drone) => drone.x));
+
+  simulation.tick(1 / 30);
+  assert.equal(simulation.lastDroneNavigationSearchCount, 2);
+  for (let tick = 0; tick < 900; tick += 1) {
+    simulation.tick(1 / 30);
+    furthestDroneX = Math.max(
+      furthestDroneX,
+      ...yard.drones.map((drone) => drone.x),
+    );
+  }
+
+  assert.ok(furthestDroneX > 430);
+  assert.equal(simulation.wrecks.length, 0);
+  assert.ok(simulation.resources.player.metal >= startingMetal + 23.99);
+});
+
 test("reclamation drones fly directly over starting walls", () => {
   const wall = {
     id: "test-wall",

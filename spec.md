@@ -759,7 +759,11 @@ Each yard controls three reclamation drones. Its default behavior is:
 
 Reclamation drones hover over starting-wall segments instead of routing through
 their gates. Rocky ridges, shelves, and crags remain impassable to the drones, so
-those larger terrain features still shape salvage routes.
+those larger terrain features still shape salvage routes. Drones use deterministic
+visibility-path routing around impassable terrain on trips to wrecks and back to
+their yard, and recalculate when their target changes or an existing route becomes
+blocked. Path searches are budgeted across simulation ticks so several active
+yards cannot cause a single large frame-time spike.
 
 Reclamation drones can be targeted and destroyed. A yard automatically rebuilds a
 destroyed drone at no metal or energy cost to the player. Replacement should take
@@ -771,10 +775,10 @@ If a reclamation drone is destroyed while carrying scrap, all carried metal drop
 at the destruction location as a reclaimable scrap pile. Its replacement begins
 empty.
 
-Drone pathing, carrying capacity, collection time, replacement time, and behavior
-when the yard loses power remain tuning decisions. Multiple drones may harvest the
-same wreck concurrently, but the implementation must preserve its finite metal and
-prevent them from collecting more than the pile contains.
+Carrying capacity, collection time, replacement time, and behavior when the yard
+loses power remain tuning decisions. Multiple drones may harvest the same wreck
+concurrently, but the implementation must preserve its finite metal and prevent
+them from collecting more than the pile contains.
 
 ## 8. Enemy AI
 

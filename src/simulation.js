@@ -26,6 +26,7 @@ const NAVIGATION_SEARCH_MARGIN = 400;
 const NAVIGATION_TARGET_TOLERANCE = 24;
 const COMBAT_SPATIAL_CELL_SIZE = 160;
 const NAVIGATION_SEARCHES_PER_TICK = 4;
+const DRONE_NAVIGATION_SEARCHES_PER_TICK = 2;
 const UNIT_SEPARATION_MAX_PASSES = 4;
 const MAX_COMBAT_TARGET_RADIUS = Math.max(
   DRONE_DEFINITION.radius,
@@ -59,6 +60,9 @@ export class Simulation {
     this.lastUnitSeparationPasses = 0;
     this.navigationSearchesRemaining = NAVIGATION_SEARCHES_PER_TICK;
     this.lastNavigationSearchCount = 0;
+    this.droneNavigationSearchesRemaining = DRONE_NAVIGATION_SEARCHES_PER_TICK;
+    this.lastDroneNavigationSearchCount = 0;
+    this.droneNavigationObstacles = null;
     this.metalDeposits = [];
     this.terrain = terrain
       .filter((obstacle) => terrainIntersectsWorld(obstacle, width, height))
@@ -388,8 +392,9 @@ export class Simulation {
 
   createDrone(yard, slot) {
     const angle = (slot / STRUCTURE_DEFINITIONS[yard.type].droneCount) * Math.PI * 2;
+    const droneId = this.createId("drone");
     const drone = {
-      id: this.createId("drone"),
+      id: droneId,
       kind: "drone",
       type: "reclamation_drone",
       team: yard.team,
@@ -404,6 +409,9 @@ export class Simulation {
       targetWreckId: null,
       navigationObstacleId: null,
       navigationSide: null,
+      navigationPath: [],
+      navigationTarget: null,
+      navigationReplanAt: this.time + navigationReplanPhase(droneId),
       replacementRemaining: 0,
     };
     this.entityById.set(drone.id, drone);
@@ -3754,6 +3762,8 @@ export class Simulation {
   }
 
   updateDrones(delta) {
+    this.droneNavigationSearchesRemaining = DRONE_NAVIGATION_SEARCHES_PER_TICK;
+    this.lastDroneNavigationSearchCount = 0;
     const yards = this.structures.filter(
       (structure) => STRUCTURE_DEFINITIONS[structure.type].droneCount,
     );
@@ -3770,6 +3780,7 @@ export class Simulation {
         if (!yard.alive) {
           drone.mode = "stranded";
           drone.targetWreckId = null;
+          this.resetDroneNavigation(drone);
           continue;
         }
 
@@ -3780,6 +3791,7 @@ export class Simulation {
             this.moveDroneToward(drone, yard, delta, 20);
           } else {
             drone.mode = "idle";
+            this.resetDroneNavigation(drone);
           }
           continue;
         }
@@ -3803,7 +3815,10 @@ export class Simulation {
 
     if (drone.mode === "to_wreck" && wreck) {
       const arrived = this.moveDroneToward(drone, wreck, delta, 12);
-      if (arrived) drone.mode = "collecting";
+      if (arrived) {
+        drone.mode = "collecting";
+        this.resetDroneNavigation(drone);
+      }
       return;
     }
 
@@ -3817,10 +3832,12 @@ export class Simulation {
       if (drone.carry + EPSILON >= DRONE_DEFINITION.carryCapacity) {
         drone.mode = "returning";
         drone.targetWreckId = null;
+        this.resetDroneNavigation(drone);
       } else if (!wreck || wreck.metal <= EPSILON) {
         const nextWreck = this.findDroneTarget(drone);
         drone.targetWreckId = nextWreck?.id || null;
         drone.mode = nextWreck ? "to_wreck" : drone.carry > EPSILON ? "returning" : "idle";
+        this.resetDroneNavigation(drone);
       }
       return;
     }
@@ -3837,6 +3854,7 @@ export class Simulation {
         if (drone.carry > EPSILON) this.emit("salvage", yard.x, yard.y, { amount: drone.carry });
         drone.carry = 0;
         drone.mode = "idle";
+        this.resetDroneNavigation(drone);
       }
     }
   }
@@ -3847,13 +3865,20 @@ export class Simulation {
   }
 
   moveDroneToward(drone, target, delta, stopDistance = 0) {
-    const dx = target.x - drone.x;
-    const dy = target.y - drone.y;
+    if (distance(drone, target) <= stopDistance + EPSILON) {
+      this.resetDroneNavigation(drone);
+      return true;
+    }
+
+    const waypoint = this.getDroneNavigationWaypoint(drone, target);
+    const dx = waypoint.x - drone.x;
+    const dy = waypoint.y - drone.y;
     const separation = Math.hypot(dx, dy);
-    if (separation <= stopDistance + EPSILON) return true;
+    const waypointStopDistance = waypoint === target ? stopDistance : 0;
+    if (separation <= waypointStopDistance + EPSILON) return false;
     const requestedDistance = Math.min(
       DRONE_DEFINITION.speed * delta,
-      separation - stopDistance,
+      separation - waypointStopDistance,
     );
     this.moveDroneWithTerrainCollisions(
       drone,
@@ -3861,6 +3886,85 @@ export class Simulation {
       (dy / separation) * requestedDistance,
     );
     return distance(drone, target) <= stopDistance + EPSILON;
+  }
+
+  getDroneNavigationWaypoint(drone, target) {
+    drone.navigationPath = Array.isArray(drone.navigationPath) ? drone.navigationPath : [];
+    if (!Number.isFinite(drone.navigationReplanAt)) drone.navigationReplanAt = this.time;
+    const obstacles = this.getDroneNavigationObstacles();
+    const targetId = target.id || null;
+    if (navigationSegmentIsClear(drone, target, obstacles)) {
+      drone.navigationPath = [];
+      drone.navigationTarget = { id: targetId, x: target.x, y: target.y };
+      return target;
+    }
+
+    const previousTarget = drone.navigationTarget;
+    const targetChanged =
+      !previousTarget ||
+      previousTarget.id !== targetId ||
+      Math.hypot(target.x - previousTarget.x, target.y - previousTarget.y) >
+        NAVIGATION_TARGET_TOLERANCE;
+    let pathBlocked = false;
+    while (drone.navigationPath.length) {
+      if (distance(drone, drone.navigationPath[0]) <= NAVIGATION_CORNER_MARGIN + EPSILON) {
+        drone.navigationPath.shift();
+        continue;
+      }
+      pathBlocked = !navigationSegmentIsClear(drone, drone.navigationPath[0], obstacles);
+      break;
+    }
+
+    if (targetChanged || pathBlocked) drone.navigationPath = [];
+    const retryDue = this.time + EPSILON >= drone.navigationReplanAt;
+    if (
+      (targetChanged || pathBlocked || (!drone.navigationPath.length && retryDue)) &&
+      this.droneNavigationSearchesRemaining > 0
+    ) {
+      this.droneNavigationSearchesRemaining -= 1;
+      this.lastDroneNavigationSearchCount += 1;
+      const path = findNavigationPath(
+        drone,
+        target,
+        obstacles,
+        DRONE_DEFINITION.radius,
+        this.width,
+        this.height,
+      );
+      drone.navigationPath = path ? path.slice(1) : [];
+      drone.navigationTarget = { id: targetId, x: target.x, y: target.y };
+      drone.navigationReplanAt = this.time + NAVIGATION_REPLAN_INTERVAL;
+    }
+
+    while (
+      drone.navigationPath.length > 1 &&
+      navigationSegmentIsClear(drone, drone.navigationPath[1], obstacles)
+    ) {
+      drone.navigationPath.shift();
+    }
+    return drone.navigationPath[0] || target;
+  }
+
+  getDroneNavigationObstacles() {
+    if (this.droneNavigationObstacles) return this.droneNavigationObstacles;
+    this.droneNavigationObstacles = this.terrain
+      .filter(
+        (obstacle) =>
+          !DRONE_DEFINITION.terrainOverflightTypes?.includes(obstacle.terrainType),
+      )
+      .map((obstacle) => ({
+        id: obstacle.id,
+        bounds: terrainBounds(obstacle, DRONE_DEFINITION.radius),
+      }));
+    return this.droneNavigationObstacles;
+  }
+
+  resetDroneNavigation(drone) {
+    drone.navigationObstacleId = null;
+    drone.navigationSide = null;
+    drone.navigationPath = [];
+    drone.navigationTarget = null;
+    drone.navigationReplanAt = this.time + navigationReplanPhase(drone.id);
   }
 
   moveDroneWithTerrainCollisions(drone, movementX, movementY) {
@@ -4012,8 +4116,7 @@ export class Simulation {
     drone.carry = 0;
     drone.mode = "rebuilding";
     drone.targetWreckId = null;
-    drone.navigationObstacleId = null;
-    drone.navigationSide = null;
+    this.resetDroneNavigation(drone);
     drone.replacementRemaining = yard
       ? STRUCTURE_DEFINITIONS[yard.type].droneReplacementTime
       : STRUCTURE_DEFINITIONS.salvage_yard.droneReplacementTime;
@@ -4034,8 +4137,7 @@ export class Simulation {
     drone.mode = "idle";
     drone.carry = 0;
     drone.targetWreckId = null;
-    drone.navigationObstacleId = null;
-    drone.navigationSide = null;
+    this.resetDroneNavigation(drone);
     drone.replacementRemaining = 0;
     this.emit("drone_replaced", drone.x, drone.y, { droneId: drone.id });
   }
