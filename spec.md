@@ -48,6 +48,16 @@ both surfaces. This brighter natural palette separates neutral gray unit armor f
 the ground while preserving the readability of team markings, range overlays, and
 placement indicators.
 
+Buildings use a detailed top-down industrial style rather than abstract geometric
+icons. Cast foundations, roof bevels, shadows, vents, fasteners, access panels,
+hazard markings, and team-colored powered components provide a shared visual
+language. Each family retains recognizable working machinery: generators expose
+turbine cores, batteries show cell banks and charge levels, relay towers use braced
+masts, chargers use copper induction coils, mines show excavation and conveyor
+equipment, and each factory branch has a distinct production-bay layout. Unfinished
+structures display foundation framing and construction rails instead of appearing
+as translucent copies of completed buildings.
+
 Grid-aligned ridges, shelves, and crags form impassable terrain. Their visible
 rectangular boundaries use the same 40-unit grid as construction. Buildings and
 upgrades cannot overlap them, and player units, enemy units, and reclamation drones
@@ -279,6 +289,12 @@ research building such as a Mech Lab.
 
 Combat-capable units automatically attack hostile units, reclamation drones, and
 structures—including unfinished foundations—that enter their weapon range.
+Firing is presented as a short physical sequence with a fixed muzzle origin,
+weapon recoil, a visible moving tracer or shell, and a brief impact flash. Heavy
+cannons and artillery use slower, weightier projectiles and larger impacts than
+rapid weapons. These effects use the authoritative attack event's firing-time
+positions; they do not stretch from a shooter or target that moves after the shot,
+and they do not change deterministic hit resolution or established damage timing.
 Surviving combat units on either team retaliate when damaged: unless they are
 force-moving or already following an explicit attack order, they abandon their
 current automatic target or ordinary movement and pursue the aggressor. Retaliation

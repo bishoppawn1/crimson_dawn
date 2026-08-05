@@ -1046,11 +1046,498 @@ function drawDestination(x, y, color) {
   context.stroke();
 }
 
+function traceChamferedRect(x, y, width, height, chamfer = 5) {
+  const cut = Math.min(chamfer, width / 4, height / 4);
+  context.beginPath();
+  context.moveTo(x + cut, y);
+  context.lineTo(x + width - cut, y);
+  context.lineTo(x + width, y + cut);
+  context.lineTo(x + width, y + height - cut);
+  context.lineTo(x + width - cut, y + height);
+  context.lineTo(x + cut, y + height);
+  context.lineTo(x, y + height - cut);
+  context.lineTo(x, y + cut);
+  context.closePath();
+}
+
+function structureMetalGradient(light = "#778184", middle = "#414c50", dark = "#222a2e") {
+  const gradient = context.createLinearGradient(-70, -70, 70, 70);
+  gradient.addColorStop(0, light);
+  gradient.addColorStop(0.42, middle);
+  gradient.addColorStop(1, dark);
+  return gradient;
+}
+
+function drawRoofPanel(x, y, width, height, chamfer = 4) {
+  context.save();
+  context.translate(3, 4);
+  context.fillStyle = "#080c0f75";
+  traceChamferedRect(x, y, width, height, chamfer);
+  context.fill();
+  context.restore();
+  context.fillStyle = structureMetalGradient();
+  context.strokeStyle = "#11181b";
+  context.lineWidth = 2;
+  traceChamferedRect(x, y, width, height, chamfer);
+  context.fill();
+  context.stroke();
+  context.strokeStyle = "#c4cdca45";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(x + chamfer + 2, y + 2);
+  context.lineTo(x + width - chamfer - 2, y + 2);
+  context.moveTo(x + 2, y + chamfer + 2);
+  context.lineTo(x + 2, y + height - chamfer - 2);
+  context.stroke();
+}
+
+function drawFasteners(x, y, width, height, color = "#b8c0bd") {
+  context.fillStyle = color;
+  for (const [boltX, boltY] of [
+    [x + 5, y + 5], [x + width - 5, y + 5],
+    [x + 5, y + height - 5], [x + width - 5, y + height - 5],
+  ]) {
+    context.beginPath();
+    context.arc(boltX, boltY, 1.4, 0, Math.PI * 2);
+    context.fill();
+  }
+}
+
+function drawHazardStripe(x, y, width, height) {
+  context.save();
+  context.beginPath();
+  context.rect(x, y, width, height);
+  context.clip();
+  context.fillStyle = "#d2a43a";
+  context.fillRect(x, y, width, height);
+  context.strokeStyle = "#25231f";
+  context.lineWidth = 4;
+  for (let offset = -height; offset < width + height; offset += 9) {
+    context.beginPath();
+    context.moveTo(x + offset, y + height);
+    context.lineTo(x + offset + height, y);
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawStructureFoundation(footprint, teamColor, powered) {
+  const x = -footprint.halfWidth + 4;
+  const y = -footprint.halfHeight + 4;
+  const width = footprint.width - 8;
+  const height = footprint.height - 8;
+  context.save();
+  context.translate(6, 8);
+  context.fillStyle = "#070b0d80";
+  traceChamferedRect(x, y, width, height, 6);
+  context.fill();
+  context.restore();
+  context.fillStyle = structureMetalGradient("#50595a", "#323b3d", "#1b2326");
+  context.strokeStyle = powered ? teamColor : "#704d50";
+  context.lineWidth = 3;
+  traceChamferedRect(x, y, width, height, 6);
+  context.fill();
+  context.stroke();
+  context.strokeStyle = "#101619";
+  context.lineWidth = 2;
+  traceChamferedRect(x + 5, y + 5, width - 10, height - 10, 4);
+  context.stroke();
+  drawFasteners(x, y, width, height, powered ? teamColor : "#74575a");
+}
+
+function drawConstructionFrame(footprint, teamColor) {
+  const x = -footprint.halfWidth + 10;
+  const y = -footprint.halfHeight + 10;
+  const width = footprint.width - 20;
+  const height = footprint.height - 20;
+  context.fillStyle = "#171d20";
+  context.fillRect(x, y, width, height);
+  context.strokeStyle = teamColor;
+  context.lineWidth = 2;
+  for (let railX = x; railX <= x + width; railX += 20) {
+    context.beginPath();
+    context.moveTo(railX, y);
+    context.lineTo(railX, y + height);
+    context.stroke();
+  }
+  context.strokeStyle = "#c0b58a";
+  context.strokeRect(x, y, width, height);
+  context.beginPath();
+  context.moveTo(x, y);
+  context.lineTo(x + width, y + height);
+  context.moveTo(x + width, y);
+  context.lineTo(x, y + height);
+  context.stroke();
+  drawHazardStripe(x, y + height - 6, width, 6);
+}
+
+function drawGeneratorBuilding(definition, footprint, powered, teamColor) {
+  const size = Math.min(footprint.width, footprint.height);
+  const housing = size * 0.68;
+  drawRoofPanel(-housing / 2, -housing / 2, housing, housing, size * 0.07);
+  context.fillStyle = "#20292d";
+  context.strokeStyle = "#101619";
+  for (const side of [-1, 1]) {
+    context.fillRect(side * housing * 0.31 - 4, -housing * 0.3, 8, housing * 0.6);
+    context.strokeRect(side * housing * 0.31 - 4, -housing * 0.3, 8, housing * 0.6);
+  }
+  const core = size * 0.19;
+  context.fillStyle = "#121b20";
+  context.strokeStyle = "#0c1215";
+  context.lineWidth = 4;
+  context.beginPath();
+  context.arc(0, 0, core, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.strokeStyle = powered ? colors.energy : "#745357";
+  context.lineWidth = Math.max(2, size * 0.03);
+  context.beginPath();
+  context.arc(0, 0, core * 0.7, 0, Math.PI * 2);
+  context.stroke();
+  for (let spoke = 0; spoke < 6; spoke += 1) {
+    const angle = spoke * Math.PI / 3;
+    context.beginPath();
+    context.moveTo(Math.cos(angle) * core * 0.32, Math.sin(angle) * core * 0.32);
+    context.lineTo(Math.cos(angle) * core * 0.95, Math.sin(angle) * core * 0.95);
+    context.stroke();
+  }
+  context.fillStyle = powered ? "#c8f5ff" : "#5e4f52";
+  context.beginPath();
+  context.arc(0, 0, core * 0.25, 0, Math.PI * 2);
+  context.fill();
+  drawFasteners(-housing / 2, -housing / 2, housing, housing);
+}
+
+function drawBatteryBuilding(structure, definition, footprint, powered, teamColor) {
+  const width = footprint.width * 0.7;
+  const height = footprint.height * 0.72;
+  drawRoofPanel(-width / 2, -height / 2, width, height, 4);
+  const cells = (definition.buildTier || 1) + 1;
+  const gap = Math.max(3, width * 0.035);
+  const cellWidth = (width - gap * (cells + 1)) / cells;
+  const ratio = Math.max(0, Math.min(1, structure.storedEnergy / definition.storageCapacity));
+  for (let cell = 0; cell < cells; cell += 1) {
+    const cellX = -width / 2 + gap + cell * (cellWidth + gap);
+    const cellY = -height * 0.31;
+    const cellHeight = height * 0.61;
+    context.fillStyle = "#11191e";
+    context.strokeStyle = "#090f12";
+    context.fillRect(cellX, cellY, cellWidth, cellHeight);
+    context.strokeRect(cellX, cellY, cellWidth, cellHeight);
+    context.fillStyle = ratio > 0 ? `${colors.energy}b8` : "#594b4e";
+    context.fillRect(cellX + 3, cellY + cellHeight - 3 - (cellHeight - 6) * ratio, cellWidth - 6, (cellHeight - 6) * ratio);
+  }
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.lineWidth = 3;
+  context.beginPath();
+  context.moveTo(-width * 0.36, -height * 0.38);
+  context.lineTo(width * 0.36, -height * 0.38);
+  context.stroke();
+  drawFasteners(-width / 2, -height / 2, width, height);
+}
+
+function drawRelayBuilding(definition, footprint, powered, teamColor) {
+  const size = Math.min(footprint.width, footprint.height);
+  const base = size * 0.5;
+  drawRoofPanel(-base / 2, -base / 2, base, base, base * 0.16);
+  context.strokeStyle = "#11181b";
+  context.lineWidth = 5;
+  context.beginPath();
+  context.moveTo(-base * 0.25, base * 0.3);
+  context.lineTo(0, -size * 0.38);
+  context.lineTo(base * 0.25, base * 0.3);
+  context.stroke();
+  context.strokeStyle = "#95a09d";
+  context.lineWidth = 1.5;
+  for (let brace = -0.22; brace <= 0.2; brace += 0.14) {
+    const halfWidth = base * (0.08 + (brace + 0.22) * 0.38);
+    context.beginPath();
+    context.moveTo(-halfWidth, size * brace);
+    context.lineTo(halfWidth, size * brace);
+    context.stroke();
+  }
+  context.fillStyle = powered ? colors.energy : "#645053";
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.beginPath();
+  context.ellipse(0, -size * 0.23, size * 0.17, size * 0.08, -0.25, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  for (let ring = 0; ring < (definition.buildTier || 1); ring += 1) {
+    context.beginPath();
+    context.arc(0, -size * 0.23, size * (0.1 + ring * 0.05), 0, Math.PI * 2);
+    context.stroke();
+  }
+}
+
+function drawChargerBuilding(footprint, powered, teamColor) {
+  const size = Math.min(footprint.width, footprint.height);
+  const platform = size * 0.72;
+  drawRoofPanel(-platform / 2, -platform / 2, platform, platform, platform * 0.13);
+  context.strokeStyle = "#b87940";
+  context.lineWidth = Math.max(2, size * 0.025);
+  for (let coil = 0; coil < 4; coil += 1) {
+    const angle = coil * Math.PI / 2;
+    const x = Math.cos(angle) * size * 0.26;
+    const y = Math.sin(angle) * size * 0.26;
+    context.beginPath();
+    context.arc(x, y, size * 0.08, 0, Math.PI * 2);
+    context.stroke();
+    context.beginPath();
+    context.moveTo(Math.cos(angle) * size * 0.1, Math.sin(angle) * size * 0.1);
+    context.lineTo(x, y);
+    context.stroke();
+  }
+  context.strokeStyle = powered ? colors.energy : "#735357";
+  context.lineWidth = Math.max(2, size * 0.035);
+  context.beginPath();
+  context.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+  context.stroke();
+  context.fillStyle = powered ? "#c4f3ff" : "#5d5052";
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.beginPath();
+  context.arc(0, 0, size * 0.08, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+}
+
+function drawMineBuilding(definition, footprint, powered, teamColor) {
+  const width = footprint.width * 0.74;
+  const height = footprint.height * 0.72;
+  drawRoofPanel(-width / 2, -height / 2, width, height, Math.min(width, height) * 0.13);
+  context.fillStyle = "#0c0f10";
+  context.strokeStyle = "#151918";
+  context.lineWidth = 4;
+  context.beginPath();
+  context.ellipse(-width * 0.13, 0, width * 0.23, height * 0.28, -0.2, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.lineWidth = 3;
+  for (let tooth = 0; tooth < 6; tooth += 1) {
+    const angle = tooth * Math.PI / 3;
+    context.beginPath();
+    context.moveTo(-width * 0.13 + Math.cos(angle) * width * 0.18, Math.sin(angle) * height * 0.21);
+    context.lineTo(-width * 0.13 + Math.cos(angle) * width * 0.25, Math.sin(angle) * height * 0.29);
+    context.stroke();
+  }
+  context.fillStyle = "#252c2e";
+  context.strokeStyle = "#101619";
+  context.fillRect(width * 0.02, -height * 0.11, width * 0.41, height * 0.22);
+  context.strokeRect(width * 0.02, -height * 0.11, width * 0.41, height * 0.22);
+  context.strokeStyle = "#929890";
+  for (let roller = width * 0.06; roller < width * 0.4; roller += 8) {
+    context.beginPath();
+    context.moveTo(roller, -height * 0.09);
+    context.lineTo(roller, height * 0.09);
+    context.stroke();
+  }
+  context.fillStyle = "#917456";
+  for (let ore = 0; ore < (definition.buildTier || 1) + 2; ore += 1) {
+    context.beginPath();
+    context.arc(width * 0.31 + (ore % 2) * 5, -height * 0.2 + Math.floor(ore / 2) * 5, 3, 0, Math.PI * 2);
+    context.fill();
+  }
+}
+
+function drawFactoryBuilding(structure, definition, footprint, powered, teamColor) {
+  const width = footprint.width * 0.82;
+  const height = footprint.height * 0.8;
+  drawRoofPanel(-width / 2, -height / 2, width, height, Math.min(width, height) * 0.07);
+  const branch = definition.factoryBranch || "mech";
+  const bayWidth = width * (branch === "air" ? 0.56 : 0.48);
+  const bayHeight = height * 0.62;
+  context.fillStyle = "#0b1215";
+  context.strokeStyle = "#10181b";
+  context.lineWidth = 3;
+  context.fillRect(-bayWidth / 2, -bayHeight * 0.34, bayWidth, bayHeight);
+  context.strokeRect(-bayWidth / 2, -bayHeight * 0.34, bayWidth, bayHeight);
+  context.fillStyle = "#303a3e";
+  for (let door = 0; door < 5; door += 1) {
+    context.fillRect(-bayWidth / 2 + 3, -bayHeight * 0.31 + door * bayHeight * 0.12, bayWidth - 6, 2);
+  }
+  drawHazardStripe(-bayWidth / 2, bayHeight * 0.61, bayWidth, Math.max(5, height * 0.045));
+
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.lineWidth = 3;
+  if (branch === "vehicle") {
+    for (const trackX of [-bayWidth * 0.24, bayWidth * 0.24]) {
+      context.beginPath();
+      context.moveTo(trackX, -bayHeight * 0.25);
+      context.lineTo(trackX, bayHeight * 0.55);
+      context.stroke();
+    }
+  } else if (branch === "air") {
+    context.setLineDash([7, 6]);
+    context.beginPath();
+    context.moveTo(0, -bayHeight * 0.26);
+    context.lineTo(0, bayHeight * 0.55);
+    context.stroke();
+    context.setLineDash([]);
+    context.beginPath();
+    context.moveTo(-bayWidth * 0.28, bayHeight * 0.15);
+    context.lineTo(0, -bayHeight * 0.05);
+    context.lineTo(bayWidth * 0.28, bayHeight * 0.15);
+    context.stroke();
+  } else if (branch === "experimental") {
+    context.fillStyle = powered ? `${colors.energy}70` : "#4e4145";
+    context.lineWidth = 4;
+    context.beginPath();
+    context.arc(0, bayHeight * 0.05, Math.min(bayWidth, bayHeight) * 0.24, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  } else {
+    for (const side of [-1, 1]) {
+      context.strokeRect(side * bayWidth * 0.23 - 6, -bayHeight * 0.12, 12, bayHeight * 0.38);
+      context.beginPath();
+      context.arc(side * bayWidth * 0.23, bayHeight * 0.08, 4, 0, Math.PI * 2);
+      context.stroke();
+    }
+  }
+
+  const vents = Math.max(2, (definition.tier || 1) + 1);
+  context.fillStyle = "#192226";
+  context.strokeStyle = "#0b1114";
+  for (let vent = 0; vent < vents; vent += 1) {
+    const ventX = (vent - (vents - 1) / 2) * Math.min(24, width / (vents + 1));
+    context.fillRect(ventX - 7, -height * 0.43, 14, 7);
+    context.strokeRect(ventX - 7, -height * 0.43, 14, 7);
+  }
+  drawFasteners(-width / 2, -height / 2, width, height);
+}
+
+function drawSupplyComplexBuilding(structure, footprint, powered, teamColor) {
+  const width = footprint.width * 0.9;
+  const height = footprint.height * 0.84;
+  drawRoofPanel(-width / 2, -height / 2, width, height, 9);
+  const warehouseWidth = width * 0.19;
+  for (let column = -1; column <= 1; column += 1) {
+    const x = column * width * 0.27 - warehouseWidth / 2;
+    drawRoofPanel(x, -height * 0.35, warehouseWidth, height * 0.52, 3);
+    context.strokeStyle = "#172025";
+    for (let seam = 1; seam < 4; seam += 1) {
+      const seamY = -height * 0.35 + seam * height * 0.13;
+      context.beginPath();
+      context.moveTo(x + 3, seamY);
+      context.lineTo(x + warehouseWidth - 3, seamY);
+      context.stroke();
+    }
+  }
+  context.fillStyle = "#151e22";
+  context.strokeStyle = "#0a1114";
+  for (const tankX of [-width * 0.34, width * 0.34]) {
+    context.beginPath();
+    context.ellipse(tankX, height * 0.29, width * 0.08, height * 0.13, 0, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.strokeStyle = "#8d9895";
+    context.beginPath();
+    context.arc(tankX, height * 0.29, width * 0.055, 0, Math.PI * 2);
+    context.stroke();
+    context.strokeStyle = "#0a1114";
+  }
+  const level = structure.supplyLevel || 1;
+  context.fillStyle = powered ? colors.energy : "#6e5559";
+  for (let marker = 0; marker < level; marker += 1) {
+    context.fillRect((marker - (level - 1) / 2) * 18 - 5, height * 0.26, 10, 10);
+  }
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.lineWidth = 3;
+  context.strokeRect(-width * 0.13, height * 0.18, width * 0.26, height * 0.24);
+  drawHazardStripe(-width * 0.13, height * 0.37, width * 0.26, 6);
+}
+
+function drawSentryBuilding(structure, definition, footprint, powered, teamColor) {
+  const size = Math.min(footprint.width, footprint.height);
+  const base = size * 0.31;
+  context.fillStyle = structureMetalGradient();
+  context.strokeStyle = "#10171a";
+  context.lineWidth = 3;
+  polygon(8, base, Math.PI / 8);
+  context.fill();
+  context.stroke();
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.arc(0, 0, base * 0.72, 0, Math.PI * 2);
+  context.stroke();
+  const target = simulation.getEntity(structure.defenseTargetId);
+  if (target?.alive) context.rotate(Math.atan2(target.y - structure.y, target.x - structure.x));
+  context.fillStyle = "#273236";
+  context.strokeStyle = "#10171a";
+  context.beginPath();
+  context.ellipse(0, 0, base * 0.64, base * 0.47, 0, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  const firingAge = recentAttackAge(structure.id);
+  const recoil = firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * size * 0.08;
+  const barrels = (definition.buildTier || 1) >= 2 ? [-4, 4] : [0];
+  for (const barrelY of barrels) {
+    const barrelLength = size * 0.42 - recoil;
+    context.fillStyle = "#303b3f";
+    context.fillRect(base * 0.2, barrelY - 2.5, barrelLength, 5);
+    context.strokeRect(base * 0.2, barrelY - 2.5, barrelLength, 5);
+    context.fillStyle = "#080c0e";
+    context.fillRect(base * 0.2 + barrelLength - 3, barrelY - 3.5, 5, 7);
+  }
+  context.fillStyle = powered ? colors.energy : "#645053";
+  context.fillRect(-base * 0.42, -3, base * 0.35, 6);
+}
+
+function drawSalvageYardBuilding(definition, footprint, powered, teamColor) {
+  const width = footprint.width * 0.82;
+  const height = footprint.height * 0.78;
+  drawRoofPanel(-width / 2, -height / 2, width, height, 6);
+  context.fillStyle = "#171c1b";
+  context.strokeStyle = "#0c1110";
+  for (const side of [-1, 1]) {
+    context.fillRect(side * width * 0.22 - width * 0.15, height * 0.08, width * 0.3, height * 0.24);
+    context.strokeRect(side * width * 0.22 - width * 0.15, height * 0.08, width * 0.3, height * 0.24);
+  }
+  for (let scrap = 0; scrap < 10 + (definition.buildTier || 1) * 3; scrap += 1) {
+    const side = scrap % 2 === 0 ? -1 : 1;
+    context.fillStyle = scrap % 3 === 0 ? "#896542" : "#626a68";
+    context.fillRect(side * width * (0.14 + (scrap % 3) * 0.035) - 3, height * (0.13 + (scrap % 4) * 0.045) - 2, 6, 4);
+  }
+  context.strokeStyle = "#171f20";
+  context.lineWidth = 6;
+  context.beginPath();
+  context.moveTo(-width * 0.37, height * 0.24);
+  context.lineTo(-width * 0.37, -height * 0.32);
+  context.lineTo(width * 0.23, -height * 0.32);
+  context.stroke();
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(-width * 0.37, -height * 0.26);
+  context.lineTo(width * 0.23, -height * 0.26);
+  context.stroke();
+  context.strokeStyle = "#997450";
+  context.beginPath();
+  context.moveTo(width * 0.18, -height * 0.27);
+  context.lineTo(width * 0.18, -height * 0.02);
+  context.stroke();
+  context.fillStyle = "#292f2e";
+  context.beginPath();
+  context.arc(width * 0.18, 0, 7, 0, Math.PI * 2);
+  context.fill();
+}
+
+function drawCompletedBuilding(structure, definition, footprint, family, powered, teamColor) {
+  if (family === "generator") drawGeneratorBuilding(definition, footprint, powered, teamColor);
+  else if (family === "battery") drawBatteryBuilding(structure, definition, footprint, powered, teamColor);
+  else if (family === "power_tower") drawRelayBuilding(definition, footprint, powered, teamColor);
+  else if (family === "charger") drawChargerBuilding(footprint, powered, teamColor);
+  else if (family === "metal_mine") drawMineBuilding(definition, footprint, powered, teamColor);
+  else if (family === "factory") drawFactoryBuilding(structure, definition, footprint, powered, teamColor);
+  else if (family === "supply_complex") drawSupplyComplexBuilding(structure, footprint, powered, teamColor);
+  else if (family === "sentry_turret") drawSentryBuilding(structure, definition, footprint, powered, teamColor);
+  else if (family === "salvage_yard") drawSalvageYardBuilding(definition, footprint, powered, teamColor);
+}
+
 function drawStructure(structure) {
   const definition = STRUCTURE_DEFINITIONS[structure.type];
   const family = definition.family;
   const footprint = structureFootprint(structure.type);
-  const footprintInset = 5;
   const teamColor = teamPalette(structure.team).bright;
   context.save();
   context.translate(structure.x, structure.y);
@@ -1085,106 +1572,18 @@ function drawStructure(structure) {
     context.setLineDash([]);
   }
 
-  context.fillStyle = "#171d24";
-  context.strokeStyle = structure.powered ? teamColor : "#6e4a4e";
-  context.lineWidth = 4;
-  context.beginPath();
-  if (family === "metal_mine") {
-    polygon(6, Math.min(footprint.halfWidth, footprint.halfHeight) - footprintInset, Math.PI / 6);
-  } else if (family === "power_tower" || family === "sentry_turret") {
-    context.arc(0, 0, Math.min(footprint.halfWidth, footprint.halfHeight) - footprintInset, 0, Math.PI * 2);
-  } else {
-    context.rect(
-      -footprint.halfWidth + footprintInset,
-      -footprint.halfHeight + footprintInset,
-      footprint.width - footprintInset * 2,
-      footprint.height - footprintInset * 2,
+  drawStructureFoundation(footprint, teamColor, structure.powered);
+  if (structure.complete) {
+    drawCompletedBuilding(
+      structure,
+      definition,
+      footprint,
+      family,
+      structure.powered,
+      teamColor,
     );
-  }
-  context.fill();
-  context.stroke();
-
-  context.strokeStyle = structure.powered ? colors.energy : "#7b5558";
-  context.lineWidth = 3;
-  if (family === "generator") {
-    context.beginPath();
-    context.arc(0, 0, 16, 0, Math.PI * 2);
-    context.stroke();
-    context.beginPath();
-    context.moveTo(-7, 0);
-    context.lineTo(0, -16);
-    context.lineTo(7, 0);
-    context.lineTo(0, 16);
-    context.stroke();
-  } else if (family === "charger") {
-    context.beginPath();
-    context.arc(0, 0, 18, 0, Math.PI * 2);
-    context.stroke();
-    context.fillStyle = structure.powered ? colors.energy : "#6b4d50";
-    context.fillRect(-3, -12, 6, 24);
-    context.fillRect(-12, -3, 24, 6);
-  } else if (family === "power_tower") {
-    context.beginPath();
-    context.moveTo(0, -15);
-    context.lineTo(-11, 14);
-    context.moveTo(0, -15);
-    context.lineTo(11, 14);
-    context.moveTo(-7, 4);
-    context.lineTo(7, 4);
-    context.stroke();
-  } else if (family === "battery") {
-    context.strokeRect(-14, -18, 28, 36);
-    context.fillStyle = structure.storedEnergy > 0 ? colors.energy : "#6b4d50";
-    const batteryRatio = structure.storedEnergy / definition.storageCapacity;
-    context.fillRect(-9, 13 - batteryRatio * 26, 18, batteryRatio * 26);
-  } else if (family === "metal_mine") {
-    context.beginPath();
-    context.moveTo(-15, 12);
-    context.lineTo(-8, -12);
-    context.lineTo(0, 2);
-    context.lineTo(9, -15);
-    context.lineTo(16, 12);
-    context.stroke();
-  } else if (family === "factory") {
-    const bayWidth = footprint.width * 0.58;
-    const bayHeight = footprint.height * 0.48;
-    context.strokeRect(-bayWidth / 2, -bayHeight / 2, bayWidth, bayHeight);
-    context.beginPath();
-    context.moveTo(-bayWidth * 0.36, bayHeight * 0.2);
-    context.lineTo(bayWidth * 0.36, bayHeight * 0.2);
-    context.moveTo(-bayWidth * 0.36, 0);
-    context.lineTo(bayWidth * 0.36, 0);
-    context.stroke();
-  } else if (family === "supply_complex") {
-    const level = structure.supplyLevel || 1;
-    const coreWidth = footprint.width * 0.5;
-    const coreHeight = footprint.height * 0.5;
-    context.strokeRect(-coreWidth / 2, -coreHeight / 2, coreWidth, coreHeight);
-    for (let column = -1; column <= 1; column += 1) {
-      context.strokeRect(column * 46 - 13, -coreHeight * 0.7, 26, coreHeight * 1.4);
-    }
-    context.fillStyle = structure.powered ? colors.energy : "#6b4d50";
-    for (let marker = 0; marker < level; marker += 1) {
-      context.fillRect((marker - (level - 1) / 2) * 22 - 6, -6, 12, 12);
-    }
-  } else if (family === "sentry_turret") {
-    const defenseTarget = simulation.getEntity(structure.defenseTargetId);
-    if (defenseTarget?.alive) {
-      context.rotate(Math.atan2(defenseTarget.y - structure.y, defenseTarget.x - structure.x));
-    }
-    context.beginPath();
-    context.arc(0, 0, 10, 0, Math.PI * 2);
-    context.moveTo(7, -4);
-    context.lineTo(28, -4);
-    context.lineTo(28, 4);
-    context.lineTo(7, 4);
-    context.stroke();
   } else {
-    context.beginPath();
-    context.moveTo(-19, 10);
-    context.lineTo(0, -15);
-    context.lineTo(19, 10);
-    context.stroke();
+    drawConstructionFrame(footprint, teamColor);
   }
   if (structure.complete && !definition.generationRate && !structure.connected) {
     context.strokeStyle = colors.disconnected;
@@ -1333,6 +1732,7 @@ function drawUnit(unit) {
   drawUnitGroundShadow(definition);
   const pose = getUnitRenderPose(unit, activeBuildTarget);
   context.rotate(pose.facing);
+  context.translate(0, pose.recoil * definition.radius);
   drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis", pose);
   context.restore();
 
@@ -1388,6 +1788,7 @@ function getUnitRenderPose(unit, activeBuildTarget = null) {
     : fallbackFacing;
   const moving = unit.state === "active" && Boolean(unit.moveTarget);
   const phase = [...unit.id].reduce((total, character) => total + character.charCodeAt(0), 0) * 0.31;
+  const firingAge = recentAttackAge(unit.id);
   return {
     facing,
     moving,
@@ -1395,6 +1796,7 @@ function getUnitRenderPose(unit, activeBuildTarget = null) {
     workCycle: Math.sin(simulation.time * 13 + phase),
     phase,
     stride: moving ? Math.sin(simulation.time * 9 + phase) : 0,
+    recoil: firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * 0.12,
   };
 }
 
@@ -2445,17 +2847,10 @@ function drawWreck(wreck) {
 function drawEvents() {
   for (const event of simulation.events) {
     const age = simulation.time - event.time;
-    const alpha = Math.max(0, 1 - age / 1.2);
     if (event.type === "attack") {
-      const source = simulation.getEntity(event.sourceId);
-      if (!source) continue;
-      context.strokeStyle = `rgba(255, 110, 115, ${alpha})`;
-      context.lineWidth = 3;
-      context.beginPath();
-      context.moveTo(source.x, source.y);
-      context.lineTo(event.x, event.y);
-      context.stroke();
+      drawAttackEvent(event, age);
     } else {
+      const alpha = Math.max(0, 1 - age / 1.2);
       const eventColor = event.type === "stasis" ? colors.stasis : colors.energy;
       context.globalAlpha = alpha;
       context.strokeStyle = eventColor;
@@ -2466,6 +2861,205 @@ function drawEvents() {
       context.globalAlpha = 1;
     }
   }
+}
+
+function drawAttackEvent(event, age) {
+  const source = simulation.getEntity(event.sourceId);
+  const profile = attackPresentation(source);
+  const sourceX = event.sourceX ?? source?.x;
+  const sourceY = event.sourceY ?? source?.y;
+  const targetX = event.targetX ?? event.x;
+  const targetY = event.targetY ?? event.y;
+  if (![sourceX, sourceY, targetX, targetY].every(Number.isFinite)) return;
+
+  const deltaX = targetX - sourceX;
+  const deltaY = targetY - sourceY;
+  const separation = Math.max(0.0001, Math.hypot(deltaX, deltaY));
+  const directionX = deltaX / separation;
+  const directionY = deltaY / separation;
+  const sourceRadius = event.sourceRadius || (source ? entityRenderRadius(source) : 8);
+  const muzzleDistance = Math.max(5, sourceRadius * 0.72);
+  const impactInset = Math.max(2, (event.targetRadius || 8) * 0.3);
+  const startX = sourceX + directionX * muzzleDistance;
+  const startY = sourceY + directionY * muzzleDistance;
+  const endX = targetX - directionX * impactInset;
+  const endY = targetY - directionY * impactInset;
+  const flightDistance = Math.hypot(endX - startX, endY - startY);
+  const travelTime = Math.max(profile.minimumTravelTime, flightDistance / profile.speed);
+
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.globalCompositeOperation = "lighter";
+  if (age <= profile.muzzleDuration) {
+    const muzzleAlpha = 1 - age / profile.muzzleDuration;
+    drawMuzzleFlash(startX, startY, directionX, directionY, profile, muzzleAlpha);
+  }
+
+  if (age < travelTime) {
+    const progress = Math.max(0, age / travelTime);
+    const trailProgress = Math.max(0, progress - profile.trailFraction);
+    const projectileHeight = Math.sin(progress * Math.PI) * profile.arcHeight;
+    const trailHeight = Math.sin(trailProgress * Math.PI) * profile.arcHeight;
+    const projectileX = lerp(startX, endX, progress);
+    const projectileY = lerp(startY, endY, progress) - projectileHeight * 0.28;
+    const trailX = lerp(startX, endX, trailProgress);
+    const trailY = lerp(startY, endY, trailProgress) - trailHeight * 0.28;
+
+    if (profile.arcHeight > 0) {
+      context.globalCompositeOperation = "source-over";
+      context.globalAlpha = 0.2;
+      context.fillStyle = "#050609";
+      context.beginPath();
+      context.ellipse(
+        projectileX + projectileHeight * 0.12,
+        lerp(startY, endY, progress) + projectileHeight * 0.12,
+        profile.projectileSize * 1.25,
+        profile.projectileSize * 0.65,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
+      context.globalCompositeOperation = "lighter";
+      context.globalAlpha = 1;
+    }
+
+    context.strokeStyle = profile.trailColor;
+    context.lineWidth = profile.trailWidth;
+    context.beginPath();
+    context.moveTo(trailX, trailY);
+    context.lineTo(projectileX, projectileY);
+    context.stroke();
+    context.fillStyle = profile.projectileColor;
+    context.shadowColor = profile.glowColor;
+    context.shadowBlur = profile.glow;
+    context.beginPath();
+    context.arc(projectileX, projectileY, profile.projectileSize, 0, Math.PI * 2);
+    context.fill();
+  } else {
+    drawWeaponImpact(event, endX, endY, age - travelTime, profile);
+  }
+  context.restore();
+}
+
+function drawMuzzleFlash(x, y, directionX, directionY, profile, alpha) {
+  const perpendicularX = -directionY;
+  const perpendicularY = directionX;
+  const length = profile.muzzleSize * (0.75 + alpha * 0.45);
+  const width = profile.muzzleSize * 0.36;
+  context.globalAlpha = alpha;
+  context.fillStyle = profile.muzzleColor;
+  context.shadowColor = profile.glowColor;
+  context.shadowBlur = profile.glow * 1.4;
+  context.beginPath();
+  context.moveTo(x + directionX * length, y + directionY * length);
+  context.lineTo(x - directionX * length * 0.2 + perpendicularX * width, y - directionY * length * 0.2 + perpendicularY * width);
+  context.lineTo(x - directionX * length * 0.2 - perpendicularX * width, y - directionY * length * 0.2 - perpendicularY * width);
+  context.closePath();
+  context.fill();
+  context.beginPath();
+  context.arc(x, y, width * 0.8, 0, Math.PI * 2);
+  context.fill();
+  context.globalAlpha = 1;
+}
+
+function drawWeaponImpact(event, x, y, impactAge, profile) {
+  if (impactAge > profile.impactDuration) return;
+  const progress = impactAge / profile.impactDuration;
+  const alpha = 1 - progress;
+  context.globalAlpha = alpha;
+  context.strokeStyle = profile.impactColor;
+  context.lineWidth = Math.max(1, profile.trailWidth * (1 - progress * 0.5));
+  context.beginPath();
+  context.arc(x, y, profile.impactSize * (0.3 + progress * 0.9), 0, Math.PI * 2);
+  context.stroke();
+
+  const seed = stableVisualSeed(`${event.sourceId}:${event.targetId}:${event.time}`);
+  context.strokeStyle = profile.sparkColor;
+  context.lineWidth = 1.4;
+  for (let spark = 0; spark < profile.sparkCount; spark += 1) {
+    const angle = (seed * 0.017 + spark * 2.39996) % (Math.PI * 2);
+    const inner = profile.impactSize * 0.18 * progress;
+    const outer = profile.impactSize * (0.35 + ((seed + spark * 17) % 31) / 50) * progress;
+    context.beginPath();
+    context.moveTo(x + Math.cos(angle) * inner, y + Math.sin(angle) * inner);
+    context.lineTo(x + Math.cos(angle) * outer, y + Math.sin(angle) * outer);
+    context.stroke();
+  }
+
+  if (profile.smoke) {
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = alpha * 0.2;
+    context.fillStyle = "#8c8984";
+    context.beginPath();
+    context.arc(x + progress * 4, y - progress * 7, profile.impactSize * (0.28 + progress * 0.5), 0, Math.PI * 2);
+    context.fill();
+  }
+  context.globalAlpha = 1;
+}
+
+function attackPresentation(source) {
+  const definition = source?.kind === "structure"
+    ? STRUCTURE_DEFINITIONS[source.type]
+    : source?.kind === "unit"
+      ? UNIT_DEFINITIONS[source.type]
+      : null;
+  const role = definition?.role;
+  if (role === "artillery" || role === "bomber") {
+    return {
+      speed: 420, minimumTravelTime: 0.16, trailFraction: 0.11, arcHeight: 42,
+      projectileSize: 3.8, trailWidth: 2.4, muzzleDuration: 0.1, muzzleSize: 12,
+      impactDuration: 0.42, impactSize: 24, sparkCount: 9, glow: 13, smoke: true,
+      projectileColor: "#fff3c4", trailColor: "#ffb65f", muzzleColor: "#fff1b0",
+      glowColor: "#ff8d3d", impactColor: "#ffb45b", sparkColor: "#ffe2a0",
+    };
+  }
+  if (role === "tank" || role === "bulwark") {
+    return {
+      speed: 680, minimumTravelTime: 0.09, trailFraction: 0.09, arcHeight: 5,
+      projectileSize: 3, trailWidth: 2.2, muzzleDuration: 0.085, muzzleSize: 10,
+      impactDuration: 0.3, impactSize: 16, sparkCount: 7, glow: 11, smoke: true,
+      projectileColor: "#fff5ce", trailColor: "#ffc36d", muzzleColor: "#fff0a6",
+      glowColor: "#ff963f", impactColor: "#ffb15b", sparkColor: "#ffe4a5",
+    };
+  }
+  return {
+    speed: 980, minimumTravelTime: 0.055, trailFraction: 0.13, arcHeight: 0,
+    projectileSize: 2.1, trailWidth: 1.6, muzzleDuration: 0.06, muzzleSize: 7,
+    impactDuration: 0.2, impactSize: 10, sparkCount: 5, glow: 9, smoke: false,
+    projectileColor: "#fffbe0", trailColor: "#ffcf79", muzzleColor: "#fff4b8",
+    glowColor: "#ff9e4d", impactColor: "#ffd17b", sparkColor: "#fff0b6",
+  };
+}
+
+function recentAttackAge(sourceId) {
+  for (let index = simulation.events.length - 1; index >= 0; index -= 1) {
+    const event = simulation.events[index];
+    if (event.type !== "attack" || event.sourceId !== sourceId) continue;
+    const age = simulation.time - event.time;
+    return age <= 0.18 ? age : null;
+  }
+  return null;
+}
+
+function entityRenderRadius(entity) {
+  if (entity.kind === "unit") return UNIT_DEFINITIONS[entity.type]?.radius || 8;
+  if (entity.kind === "structure") return STRUCTURE_DEFINITIONS[entity.type]?.radius || 12;
+  return 8;
+}
+
+function stableVisualSeed(value) {
+  let seed = 2166136261;
+  for (const character of value) {
+    seed ^= character.charCodeAt(0);
+    seed = Math.imul(seed, 16777619);
+  }
+  return seed >>> 0;
+}
+
+function lerp(start, end, amount) {
+  return start + (end - start) * amount;
 }
 
 function drawBar(x, y, width, ratio, fill) {
