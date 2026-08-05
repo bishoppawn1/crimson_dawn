@@ -50,6 +50,10 @@ implementation decision establishes or changes player-facing behavior.
 - The enemy AI must establish and replenish a basic combat force before reserving
   metal for expensive infrastructure, and available defenders must respond
   immediately to player units or structures rushed near enemy infrastructure.
+- After retreating from an outmatched engagement, an AI field force must complete a
+  timed regroup and receive reinforcements before another ordinary assault. Do not
+  let arrival at its fallback point immediately recycle the same units into a new
+  wave; urgent defense inside the base-response radius remains exempt.
 - A stable AI economy must deliberately progress through Tier 2 and Tier 3 Mech
   Factories, produce the matching advanced workers, and use those workers to add
   higher-tier economy, defense, support, and parallel-branch production buildings.

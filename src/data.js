@@ -1354,6 +1354,8 @@ export const SIMULATION_RULES = Object.freeze({
   enemyHeavyDefenseWaveBonus: 2,
   enemyRetreatEvaluationRadius: 520,
   enemyRetreatStrengthRatio: 1.5,
+  enemyRetreatRegroupDuration: 15,
+  enemyRetreatReinforcementCount: 2,
 });
 
 export function gridCoverageBounds(x, y, reach) {

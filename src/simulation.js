@@ -93,6 +93,8 @@ export class Simulation {
           thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay +
             (index / Math.max(1, aiTeams.length)) * SIMULATION_RULES.enemyThinkInterval,
           decisionIndex: 0,
+          regroupUntil: 0,
+          regroupRequiredFieldCount: 0,
         }]),
     );
     Object.defineProperties(this, {
@@ -180,6 +182,8 @@ export class Simulation {
         thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay +
           deterministicPhase(teamId, SIMULATION_RULES.enemyThinkInterval),
         decisionIndex: 0,
+        regroupUntil: 0,
+        regroupRequiredFieldCount: 0,
       };
     }
   }
@@ -246,6 +250,8 @@ export class Simulation {
       ? Object.fromEntries(Object.entries(snapshot.aiStates).map(([teamId, state]) => [teamId, {
         thinkRemaining: state.thinkRemaining,
         decisionIndex: state.decisionIndex ?? state.buildIndex ?? 0,
+        regroupUntil: state.regroupUntil || 0,
+        regroupRequiredFieldCount: state.regroupRequiredFieldCount || 0,
       }]))
       : simulation.aiStates;
     if (!snapshot.aiStates) {
@@ -1967,6 +1973,7 @@ export class Simulation {
     const expansionMines = this.getEnemyExpansionMines(teamId, enemyAnchor);
     const desiredGarrisonCount =
       expansionMines.length * SIMULATION_RULES.enemyOutpostGarrisonSize;
+    const fieldCombatCount = this.getEnemyFieldCombatUnits(teamId).length;
     const supplyState = this.getSupplyState(teamId);
     const supplyIsLow =
       supplyState.remaining <= supplyState.capacity * SIMULATION_RULES.enemySupplyLowRatio;
@@ -2125,8 +2132,24 @@ export class Simulation {
         ).length,
       0,
     );
+    const regroupRequiredFieldCount = aiState.regroupRequiredFieldCount || 0;
+    const rebuildingRetreatedForce =
+      regroupRequiredFieldCount > 0 &&
+      (
+        this.time + EPSILON < (aiState.regroupUntil || 0) ||
+        fieldCombatCount + queuedCombatCount < regroupRequiredFieldCount
+      );
+    const availableCombatCount = rebuildingRetreatedForce
+      ? fieldCombatCount + queuedCombatCount
+      : stagedCombatCount + queuedCombatCount;
+    const requiredCombatCount = rebuildingRetreatedForce
+      ? Math.max(
+        desiredWaveSize + desiredGarrisonCount,
+        regroupRequiredFieldCount,
+      )
+      : desiredWaveSize + desiredGarrisonCount;
     const needsCombatForce =
-      stagedCombatCount + queuedCombatCount < desiredWaveSize + desiredGarrisonCount;
+      availableCombatCount < requiredCombatCount;
     for (const factory of enemyFactories) {
       if (factory.productionQueue.length >= 2) continue;
       const factoryDefinition = STRUCTURE_DEFINITIONS[factory.type];
@@ -2197,7 +2220,20 @@ export class Simulation {
     }
 
     this.updateEnemyExpansionGarrisons(teamId, enemyAnchor, playerTargets);
+    const regroupedFieldCombatCount = this.getEnemyFieldCombatUnits(teamId).length;
+    let regrouping = Boolean(
+      aiState.regroupRequiredFieldCount > 0 &&
+      (
+        this.time + EPSILON < (aiState.regroupUntil || 0) ||
+        regroupedFieldCombatCount < aiState.regroupRequiredFieldCount
+      )
+    );
+    if (!regrouping && aiState.regroupRequiredFieldCount > 0) {
+      aiState.regroupUntil = 0;
+      aiState.regroupRequiredFieldCount = 0;
+    }
     const retreated = this.retreatOutmatchedEnemyAttackers(enemyAnchor, playerTargets, teamId);
+    if (retreated) regrouping = true;
     const stagedUnits = this.units.filter((unit) => {
       const definition = UNIT_DEFINITIONS[unit.type];
       const target = this.getEntity(unit.attackTargetId);
@@ -2222,6 +2258,7 @@ export class Simulation {
     const requiredAttackers = rushTargets.length > 0 ? 1 : desiredWaveSize;
     if (
       !retreated &&
+      (!regrouping || rushTargets.length > 0) &&
       stagedUnits.length >= requiredAttackers &&
       playerTargets.length > 0
     ) {
@@ -2753,6 +2790,16 @@ export class Simulation {
     );
   }
 
+  getEnemyFieldCombatUnits(teamId = "enemy") {
+    return this.units.filter(
+      (unit) =>
+        unit.alive &&
+        unit.team === teamId &&
+        !unit.garrisonStructureId &&
+        isCombatUnitDefinition(UNIT_DEFINITIONS[unit.type]),
+    );
+  }
+
   retreatOutmatchedEnemyAttackers(enemyAnchor, playerTargets, teamId = "enemy") {
     if (!enemyAnchor) return false;
     const ungroupedAttackers = this.units.filter((unit) => {
@@ -2840,6 +2887,18 @@ export class Simulation {
         team: teamId,
         unitIds: attackGroup.map((unit) => unit.id),
       });
+      const aiState = this.aiStates[teamId];
+      if (aiState) {
+        aiState.regroupUntil = Math.max(
+          aiState.regroupUntil || 0,
+          this.time + SIMULATION_RULES.enemyRetreatRegroupDuration,
+        );
+        aiState.regroupRequiredFieldCount = Math.max(
+          aiState.regroupRequiredFieldCount || 0,
+          this.getEnemyFieldCombatUnits(teamId).length +
+            SIMULATION_RULES.enemyRetreatReinforcementCount,
+        );
+      }
       retreated = true;
     }
     return retreated;

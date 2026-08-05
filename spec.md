@@ -928,9 +928,14 @@ more than 800 world units from its generator fallback retreats toward that gener
 when hostile combat strength
 within 520 world units exceeds its nearby strength by a factor of 1.5. Retreat uses
 a strategic fallback move: units stop to fire at hostiles in range, then continue
-toward their regroup point without abandoning the retreat to pursue them. The
-cadence, response radius, strength estimate, defense cluster, retreat, and wave-size
-values are provisional.
+toward their regroup point without abandoning the retreat to pursue them. A
+retreated field force then regroups for at least 15 seconds and waits for two
+additional non-garrison combat units before it may launch another ordinary wave.
+This recovery state prevents the same outmatched force from immediately repeating
+an energy-wasting advance after reaching home. A player rush inside the normal base
+response radius still overrides regrouping so available units defend immediately.
+The cadence, response radius, strength estimate, defense cluster, retreat, regroup,
+reinforcement, and wave-size values are provisional.
 
 Every completed AI mine at least 480 world units from its starting command point is
 treated as an outpost rather than an unprotected income structure. The building AI
