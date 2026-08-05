@@ -507,7 +507,7 @@ The Tier 3 Experimental Factory produces exactly three enormous strategic units:
 | Production line | Battlefield role |
 | --- | --- |
 | Arsenal Colossus | Huge assault mech carrying eight visible weapon systems and firing a converging multi-projectile salvo |
-| Hexapod Landship | Six-legged walking battleship with three siege cannons, extreme durability, and the ability to stride across living building footprints |
+| Hexapod Landship | Six-legged walking battleship with three independently targeting siege cannons, extreme durability, and the ability to stride across living building footprints |
 | Zenith Doughnut | Giant circular toroidal aircraft whose central aperture projects a sustained high-energy laser straight down; its player-facing description is “Mmm, tasty!” |
 
 The Arsenal Colossus follows the same overhead leg language as conventional mechs:
@@ -515,12 +515,15 @@ its hull hides the walking assembly while stationary, leaving only compact rear 
 machinery visible, and small alternating actuator and foot tips emerge while moving.
 The Hexapod Landship remains a ground unit: impassable terrain and living units
 still constrain it, but buildings are excluded from its destination validation,
-path planning, and movement collisions. Its three cannons fire a converging shell
-salvo. Shell damage resolves when the visible projectiles reach their target, not
-when the firing order begins. Its six legs use a deliberate pull-step gait: each
-pair reaches toward the travel direction, plants its feet against the ground, and
-pulls the hull forward before releasing and reaching again. The Zenith Doughnut
-ignores terrain, structures, and ground-unit separation. Its laser has no horizontal
+path planning, and movement collisions. Its three cannon mounts select targets,
+track, cool down, and consume energy independently. An explicit attack order directs
+the main siege cannon while the two side cannons opportunistically engage other
+hostiles in range; all three may converge on one target when no alternatives exist.
+Shell damage resolves when each visible projectile reaches its target, not when the
+firing order begins. Its six legs retain their deliberate pull-step gait, but the
+two sides use offset phases and shortened travel lanes so neighboring feet do not
+cross. Solid armored foot pads replace the former protruding toe rods. The Zenith
+Doughnut ignores terrain, structures, and ground-unit separation. Its laser has no horizontal
 firing range, remains centered beneath the aircraft, and automatically damages
 every hostile ground unit or structure inside its 48-unit-radius footprint without
 stopping movement. Players attack

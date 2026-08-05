@@ -336,11 +336,22 @@ export class Simulation {
       energyTransferredThisTick: 0,
       underbellyBeamActive: false,
       underbellyBeamTargetIds: [],
+      ...(definition.weaponSystems?.length
+        ? {
+          weaponSystems: definition.weaponSystems.map(() => ({
+            targetId: null,
+            cooldownRemaining: 0,
+          })),
+        }
+        : {}),
       ...overrides,
     };
     unit.hp = clamp(unit.hp, 0, definition.maxHp);
     unit.energy = clamp(unit.energy, 0, definition.maxEnergy);
     unit.buildQueue = Array.isArray(unit.buildQueue) ? [...unit.buildQueue] : [];
+    if (definition.weaponSystems?.length) {
+      unit.weaponSystems = normalizeWeaponSystemState(unit.weaponSystems, definition);
+    }
     if (unit.energy <= EPSILON) unit.state = "stasis";
     this.units.push(unit);
     this.entityById.set(unit.id, unit);
@@ -3353,6 +3364,11 @@ export class Simulation {
         this.resolveUnitStructureOverlap(unit);
       }
       unit.attackCooldownRemaining = Math.max(0, unit.attackCooldownRemaining - delta);
+      if (definition.weaponSystems?.length) {
+        for (const weaponSystem of ensureWeaponSystemState(unit, definition)) {
+          weaponSystem.cooldownRemaining = Math.max(0, weaponSystem.cooldownRemaining - delta);
+        }
+      }
 
       if (unit.state === "stasis") {
         unit.energy = Math.min(
@@ -3404,7 +3420,7 @@ export class Simulation {
         continue;
       }
 
-      const attackTarget = this.getEntity(unit.attackTargetId);
+      let attackTarget = this.getEntity(unit.attackTargetId);
       if (
         unit.attackTargetId &&
         (!attackTarget ||
@@ -3414,12 +3430,19 @@ export class Simulation {
       ) {
         unit.attackTargetId = null;
         unit.attackTargetMode = null;
+        attackTarget = null;
+      }
+
+      const hasIndependentWeapons = Boolean(definition.weaponSystems?.length);
+      if (hasIndependentWeapons) {
+        this.updateIndependentWeaponSystems(unit, definition, attackTarget);
+        if (unit.state !== "active") continue;
       }
 
       if (unit.moveTarget) {
         const stoppedToAttack = this.isUnitStoppedToAttack(unit, attackTarget, definition);
         if (stoppedToAttack) {
-          this.tryAttack(unit, attackTarget, definition);
+          if (!hasIndependentWeapons) this.tryAttack(unit, attackTarget, definition);
         } else if (
           attackTarget?.alive &&
           attackTarget.team !== unit.team &&
@@ -3439,7 +3462,7 @@ export class Simulation {
         const separation = distance(unit, attackTarget);
         const targetRadius = entityRadius(attackTarget);
         if (separation <= definition.attackRange + targetRadius) {
-          this.tryAttack(unit, attackTarget, definition);
+          if (!hasIndependentWeapons) this.tryAttack(unit, attackTarget, definition);
         } else if (
           unit.attackTargetMode === "explicit" ||
           unit.attackTargetMode === "retaliation"
@@ -3586,7 +3609,73 @@ export class Simulation {
     return true;
   }
 
-  fireWeapon(source, target, damage, definition) {
+  updateIndependentWeaponSystems(unit, definition, primaryTarget = null) {
+    const weaponDefinitions = definition.weaponSystems || [];
+    const weaponSystems = ensureWeaponSystemState(unit, definition);
+    if (weaponDefinitions.length === 0 || unit.moveMode === "force") {
+      for (const weaponSystem of weaponSystems) weaponSystem.targetId = null;
+      return false;
+    }
+
+    const maximumRange = Math.max(...weaponDefinitions.map((weapon) => weapon.attackRange));
+    const candidates = this.getNearbyHostileTargets(unit, maximumRange)
+      .filter((target) => canUnitAttackTarget(definition, target));
+    const assignedTargets = new Set();
+    let fired = false;
+
+    for (const [index, weaponDefinition] of weaponDefinitions.entries()) {
+      const state = weaponSystems[index];
+      const targetInRange = (target) => Boolean(
+        target?.alive &&
+        target.team !== unit.team &&
+        canUnitAttackTarget(definition, target) &&
+        distance(unit, target) <= weaponDefinition.attackRange + entityRadius(target)
+      );
+      const availableTargets = candidates.filter(
+        (target) => targetInRange(target) && !assignedTargets.has(target.id),
+      );
+      const existingTarget = this.getEntity(state.targetId);
+      let target = index === 0 && targetInRange(primaryTarget)
+        ? primaryTarget
+        : targetInRange(existingTarget) && !assignedTargets.has(existingTarget.id)
+          ? existingTarget
+          : nearest(unit, preferredTargets(definition, availableTargets));
+      if (!target && targetInRange(primaryTarget)) target = primaryTarget;
+      if (!target) {
+        target = nearest(
+          unit,
+          preferredTargets(definition, candidates.filter(targetInRange)),
+        );
+      }
+      state.targetId = target?.id || null;
+      if (!target) continue;
+      assignedTargets.add(target.id);
+      if (
+        state.cooldownRemaining > EPSILON ||
+        unit.energy + EPSILON < weaponDefinition.attackEnergy
+      ) {
+        continue;
+      }
+
+      unit.energy = Math.max(0, unit.energy - weaponDefinition.attackEnergy);
+      state.cooldownRemaining = weaponDefinition.attackCooldown;
+      const firingDefinition = {
+        ...definition,
+        ...weaponDefinition,
+        salvoCount: 1,
+      };
+      const damage = weaponDefinition.attackDamage * damageMultiplierAgainstTarget(definition, target);
+      this.fireWeapon(unit, target, damage, firingDefinition, { weaponSystemIndex: index });
+      fired = true;
+      if (unit.energy <= EPSILON) {
+        this.enterStasis(unit);
+        break;
+      }
+    }
+    return fired;
+  }
+
+  fireWeapon(source, target, damage, definition, eventDetail = {}) {
     const impactDelay = projectileImpactDelay(source, target, definition);
     if (impactDelay > EPSILON) {
       this.pendingImpacts.push({
@@ -3598,12 +3687,13 @@ export class Simulation {
     } else {
       this.applyDamage(target, damage, source);
     }
-    this.emitAttack(source, target, impactDelay);
+    this.emitAttack(source, target, impactDelay, eventDetail);
   }
 
   updateUnderbellyBeam(unit, definition, delta) {
     unit.attackTargetId = null;
     unit.attackTargetMode = null;
+    for (const weaponSystem of unit.weaponSystems || []) weaponSystem.targetId = null;
     unit.underbellyBeamActive = false;
     unit.underbellyBeamTargetIds = [];
     const targets = this.getNearbyHostileTargets(unit, definition.underbellyBeamRadius)
@@ -3968,6 +4058,7 @@ export class Simulation {
     unit.moveMode = null;
     unit.attackTargetId = null;
     unit.attackTargetMode = null;
+    for (const weaponSystem of unit.weaponSystems || []) weaponSystem.targetId = null;
     unit.underbellyBeamActive = false;
     unit.underbellyBeamTargetIds = [];
     unit.navigationObstacleId = null;
@@ -4364,6 +4455,7 @@ export class Simulation {
       target.moveMode = null;
       target.attackTargetId = null;
       target.attackTargetMode = null;
+      for (const weaponSystem of target.weaponSystems || []) weaponSystem.targetId = null;
       target.buildTargetId = null;
       target.repairTargetId = null;
       target.navigationObstacleId = null;
@@ -4465,7 +4557,7 @@ export class Simulation {
     this.events.push({ type, x, y, time: this.time, ...detail });
   }
 
-  emitAttack(source, target, impactDelay = 0) {
+  emitAttack(source, target, impactDelay = 0, detail = {}) {
     this.emit("attack", target.x, target.y, {
       sourceId: source.id,
       targetId: target.id,
@@ -4476,6 +4568,7 @@ export class Simulation {
       sourceRadius: entityRadius(source),
       targetRadius: entityRadius(target),
       impactDelay,
+      ...detail,
     });
   }
 }
@@ -4512,6 +4605,32 @@ function projectileImpactDelay(source, target, definition) {
     kinetics.minimumTravelTime,
     flightDistance / kinetics.speed,
   );
+}
+
+function normalizeWeaponSystemState(states, definition) {
+  const sourceStates = Array.isArray(states) ? states : [];
+  return (definition.weaponSystems || []).map((weaponDefinition, index) => ({
+    targetId: sourceStates[index]?.targetId || null,
+    cooldownRemaining: Math.max(
+      0,
+      Number.isFinite(sourceStates[index]?.cooldownRemaining)
+        ? sourceStates[index].cooldownRemaining
+        : 0,
+    ),
+    id: weaponDefinition.id,
+  }));
+}
+
+function ensureWeaponSystemState(unit, definition) {
+  const expectedCount = definition.weaponSystems?.length || 0;
+  if (
+    !Array.isArray(unit.weaponSystems) ||
+    unit.weaponSystems.length !== expectedCount ||
+    unit.weaponSystems.some((state) => !state || !Number.isFinite(state.cooldownRemaining))
+  ) {
+    unit.weaponSystems = normalizeWeaponSystemState(unit.weaponSystems, definition);
+  }
+  return unit.weaponSystems;
 }
 
 function nearest(origin, candidates) {

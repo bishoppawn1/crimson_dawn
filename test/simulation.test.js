@@ -189,8 +189,16 @@ test("experimental factory exposes three distinct strategic units", () => {
 
   const landship = UNIT_DEFINITIONS.hexapod_landship;
   assert.equal(landship.legCount, 6);
-  assert.ok(landship.weaponCount > 1);
-  assert.equal(landship.salvoCount, landship.weaponCount);
+  assert.equal(landship.weaponCount, 3);
+  assert.equal(landship.weaponSystems.length, landship.weaponCount);
+  assert.equal(
+    landship.weaponSystems.reduce((total, weapon) => total + weapon.attackDamage, 0),
+    landship.attackDamage,
+  );
+  assert.equal(
+    landship.weaponSystems.reduce((total, weapon) => total + weapon.attackEnergy, 0),
+    landship.attackEnergy,
+  );
   assert.equal(landship.stridesOverStructures, true);
   assert.equal(landship.movementLayer, "ground");
 
@@ -254,7 +262,14 @@ test("hexapod landship shells deal damage on impact instead of before firing", (
   assert.ok(attackEvent.impactDelay > 0);
   assert.equal(target.hp, startingHp);
   assert.equal(target.alive, true);
-  assert.equal(simulation.pendingImpacts.length, 1);
+  assert.equal(simulation.pendingImpacts.length, 3);
+  assert.deepEqual(
+    simulation.events
+      .filter((event) => event.type === "attack")
+      .map((event) => event.weaponSystemIndex)
+      .sort(),
+    [0, 1, 2],
+  );
 
   const restored = Simulation.fromSnapshot(JSON.parse(JSON.stringify(simulation.createSnapshot())));
   const restoredTarget = restored.getUnit(target.id);
@@ -266,6 +281,44 @@ test("hexapod landship shells deal damage on impact instead of before firing", (
   assert.equal(restoredTarget.hp, 0);
   assert.equal(restoredTarget.alive, false);
   assert.equal(restored.pendingImpacts.length, 0);
+});
+
+test("hexapod landship weapon systems independently engage different targets", () => {
+  const simulation = new Simulation({ width: 1000, height: 800, enemyAiEnabled: false });
+  const landship = simulation.addUnit("hexapod_landship", "player", 400, 400);
+  const targets = [
+    simulation.addStructure("generator", "enemy", 400, 100),
+    simulation.addStructure("generator", "enemy", 150, 400),
+    simulation.addStructure("generator", "enemy", 650, 400),
+  ];
+  const startingEnergy = landship.energy;
+
+  assert.equal(simulation.commandAttack([landship.id], targets[0].id), 1);
+  simulation.tick(1 / 30);
+
+  const attackEvents = simulation.events.filter(
+    (event) => event.type === "attack" && event.sourceId === landship.id,
+  );
+  assert.equal(attackEvents.length, 3);
+  assert.equal(new Set(attackEvents.map((event) => event.targetId)).size, 3);
+  assert.deepEqual(
+    landship.weaponSystems.map((weaponSystem) => weaponSystem.targetId).sort(),
+    targets.map((target) => target.id).sort(),
+  );
+  assert.deepEqual(
+    landship.weaponSystems.map((weaponSystem) => weaponSystem.cooldownRemaining),
+    UNIT_DEFINITIONS.hexapod_landship.weaponSystems.map((weapon) => weapon.attackCooldown),
+  );
+  assert.equal(startingEnergy - landship.energy, UNIT_DEFINITIONS.hexapod_landship.attackEnergy);
+
+  const restored = Simulation.fromSnapshot(JSON.parse(JSON.stringify(simulation.createSnapshot())));
+  assert.deepEqual(restored.getUnit(landship.id).weaponSystems, landship.weaponSystems);
+  advanceToScheduledImpacts(restored);
+  assert.ok(
+    targets.every(
+      (target) => restored.getStructure(target.id).hp < STRUCTURE_DEFINITIONS.generator.maxHp,
+    ),
+  );
 });
 
 test("Zenith Doughnut burns ground targets directly beneath it while moving", () => {

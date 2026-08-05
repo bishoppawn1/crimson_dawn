@@ -508,13 +508,18 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
   }),
   hexapod_landship: provisionalFactoryUnit({
     name: "Hexapod Landship", role: "hexapod_landship",
-    roleDescription: "Six-legged walking battleship that strides over structures",
+    roleDescription: "Six-legged walking battleship with three independently targeting cannons",
     unitDomain: "experimental", tier: 3, radius: 44, maxHp: 4200, maxEnergy: 7800,
     speed: 25, movementEnergyPerUnit: 0.16, attackRange: 370, attackDamage: 310,
     attackEnergy: 95, attackCooldown: 2.5, metalCost: 3000, productionTime: 72,
     supplyCost: 120, legCount: 6, stridesOverStructures: true, weaponCount: 3,
-    salvoCount: 3, projectileSpeed: 520, minimumProjectileTravelTime: 0.14,
+    salvoCount: 1, projectileSpeed: 520, minimumProjectileTravelTime: 0.14,
     structureDamageMultiplier: 1.6,
+    weaponSystems: Object.freeze([
+      Object.freeze({ id: "main", name: "Main Siege Cannon", attackRange: 370, attackDamage: 140, attackEnergy: 43, attackCooldown: 2.7 }),
+      Object.freeze({ id: "port", name: "Port Cannon", attackRange: 330, attackDamage: 85, attackEnergy: 26, attackCooldown: 2.2 }),
+      Object.freeze({ id: "starboard", name: "Starboard Cannon", attackRange: 330, attackDamage: 85, attackEnergy: 26, attackCooldown: 2.2 }),
+    ]),
   }),
   zenith_doughnut: provisionalFactoryUnit({
     name: "Zenith Doughnut", role: "zenith_doughnut",

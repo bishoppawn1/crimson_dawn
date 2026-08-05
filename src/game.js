@@ -1585,8 +1585,14 @@ function drawCommandIndicators() {
       context.stroke();
       drawDestination(unit.moveTarget.x, unit.moveTarget.y, colors.selection);
     }
-    const target = simulation.getEntity(unit.attackTargetId);
-    if (target?.alive) {
+    const indicatedTargets = new Map();
+    const primaryTarget = simulation.getEntity(unit.attackTargetId);
+    if (primaryTarget?.alive) indicatedTargets.set(primaryTarget.id, primaryTarget);
+    for (const weaponSystem of unit.weaponSystems || []) {
+      const target = simulation.getEntity(weaponSystem.targetId);
+      if (target?.alive) indicatedTargets.set(target.id, target);
+    }
+    for (const target of indicatedTargets.values()) {
       context.strokeStyle = "#ef596466";
       context.lineWidth = 1;
       context.beginPath();
@@ -2503,6 +2509,18 @@ function getUnitRenderPose(unit, activeBuildTarget = null, activeRepairTarget = 
     !simulation.isUnitStoppedToAttack(unit);
   const phase = [...unit.id].reduce((total, character) => total + character.charCodeAt(0), 0) * 0.31;
   const firingAge = recentAttackAge(unit.id);
+  const weaponSystemFacings = (unit.weaponSystems || []).map((weaponSystem) => {
+    const weaponTarget = simulation.getEntity(weaponSystem.targetId);
+    if (!weaponTarget?.alive) return 0;
+    const targetFacing = Math.atan2(weaponTarget.y - unit.y, weaponTarget.x - unit.x) + Math.PI / 2;
+    return Math.atan2(Math.sin(targetFacing - facing), Math.cos(targetFacing - facing));
+  });
+  const weaponSystemRecoils = (unit.weaponSystems || []).map((weaponSystem, index) => {
+    const weaponFiringAge = recentAttackAge(unit.id, index);
+    return weaponFiringAge === null
+      ? 0
+      : Math.sin((weaponFiringAge / 0.18) * Math.PI) * 0.12;
+  });
   return {
     facing,
     moving,
@@ -2511,7 +2529,11 @@ function getUnitRenderPose(unit, activeBuildTarget = null, activeRepairTarget = 
     phase,
     stride: moving ? Math.sin(simulation.time * 9 + phase) : 0,
     landshipStep: moving ? (simulation.time * 0.58 + phase * 0.013) % 1 : null,
-    recoil: firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * 0.12,
+    recoil: unit.weaponSystems?.length || firingAge === null
+      ? 0
+      : Math.sin((firingAge / 0.18) * Math.PI) * 0.12,
+    weaponSystemFacings,
+    weaponSystemRecoils,
   };
 }
 
@@ -2799,12 +2821,12 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
   context.lineCap = "round";
   context.lineJoin = "round";
 
-  const legStations = [-0.55, 0, 0.55];
+  const legStations = [-0.62, 0, 0.62];
   for (const side of [-1, 1]) {
     legStations.forEach((legY, index) => {
       const stepPhase = pose.landshipStep === null
         ? 0.37
-        : (pose.landshipStep + index / legStations.length) % 1;
+        : (pose.landshipStep + index / legStations.length + (side === 1 ? 0.5 : 0)) % 1;
       const planted = stepPhase < 0.74 || pose.landshipStep === null;
       const stanceProgress = Math.min(1, stepPhase / 0.74);
       const swingProgress = Math.max(0, (stepPhase - 0.74) / 0.26);
@@ -2812,8 +2834,8 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
       const footTravel = pose.landshipStep === null
         ? 0
         : planted
-          ? -0.34 + stanceProgress * 0.68
-          : 0.34 - easedSwing * 0.68;
+          ? -0.22 + stanceProgress * 0.44
+          : 0.22 - easedSwing * 0.44;
       const footLift = planted ? 0 : Math.sin(swingProgress * Math.PI) * 0.18;
       const kneeX = side * (0.88 - footLift * 0.18);
       const kneeY = legY + footTravel * 0.48 - footLift;
@@ -2842,14 +2864,10 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
       context.beginPath();
       context.ellipse(footX, footY, 0.18, 0.11, 0, 0, Math.PI * 2);
       context.fill();
-      context.strokeStyle = palette.armorLight;
-      context.lineWidth = 0.04;
+      context.fillStyle = palette.armorDark;
       context.beginPath();
-      for (const toeOffset of [-0.09, 0, 0.09]) {
-        context.moveTo(footX + toeOffset, footY - 0.04);
-        context.lineTo(footX + toeOffset, footY - 0.18);
-      }
-      context.stroke();
+      context.ellipse(footX, footY - 0.01, 0.1, 0.055, 0, 0, Math.PI * 2);
+      context.fill();
     });
   }
 
@@ -2877,30 +2895,34 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
     { x: -0.34, mountY: 0.1, muzzleY: -1.18, width: 0.17 },
     { x: 0.34, mountY: 0.1, muzzleY: -1.18, width: 0.17 },
   ];
-  for (const cannon of cannons) {
+  for (const [index, cannon] of cannons.entries()) {
+    context.save();
+    context.translate(cannon.x, cannon.mountY);
+    context.rotate(pose.weaponSystemFacings?.[index] || 0);
     context.fillStyle = palette.joint;
     context.strokeStyle = palette.outline;
     context.lineWidth = 0.07;
     context.beginPath();
-    context.arc(cannon.x, cannon.mountY, cannon.width * 0.95, 0, Math.PI * 2);
+    context.arc(0, 0, cannon.width * 0.95, 0, Math.PI * 2);
     context.fill();
     context.stroke();
     context.strokeStyle = palette.outline;
     context.lineWidth = cannon.width;
     context.beginPath();
-    context.moveTo(cannon.x, cannon.mountY - 0.05);
-    context.lineTo(cannon.x, cannon.muzzleY);
+    context.moveTo(0, -0.05);
+    context.lineTo(0, cannon.muzzleY - cannon.mountY + (pose.weaponSystemRecoils?.[index] || 0));
     context.stroke();
     context.strokeStyle = palette.armorLight;
     context.lineWidth = cannon.width * 0.48;
     context.stroke();
     context.fillStyle = palette.outline;
     context.fillRect(
-      cannon.x - cannon.width * 0.7,
-      cannon.muzzleY - 0.07,
+      -cannon.width * 0.7,
+      cannon.muzzleY - cannon.mountY - 0.07 + (pose.weaponSystemRecoils?.[index] || 0),
       cannon.width * 1.4,
       0.14,
     );
+    context.restore();
   }
 
   for (const side of [-1, 1]) {
@@ -4228,7 +4250,7 @@ function drawEvents() {
 
 function drawAttackEvent(event, age) {
   const source = simulation.getEntity(event.sourceId);
-  const profile = attackPresentation(source);
+  const profile = attackPresentation(source, event);
   const sourceX = event.sourceX ?? source?.x;
   const sourceY = event.sourceY ?? source?.y;
   const targetX = event.targetX ?? event.x;
@@ -4243,8 +4265,13 @@ function drawAttackEvent(event, age) {
   const sourceRadius = event.sourceRadius || (source ? entityRenderRadius(source) : 8);
   const muzzleDistance = Math.max(5, sourceRadius * 0.72);
   const impactInset = Math.max(2, (event.targetRadius || 8) * 0.3);
-  const startX = sourceX + directionX * muzzleDistance;
-  const startY = sourceY + directionY * muzzleDistance;
+  const lateralMuzzleOffset = event.weaponSystemIndex === 1
+    ? -sourceRadius * 0.34
+    : event.weaponSystemIndex === 2
+      ? sourceRadius * 0.34
+      : 0;
+  const startX = sourceX + directionX * muzzleDistance - directionY * lateralMuzzleOffset;
+  const startY = sourceY + directionY * muzzleDistance + directionX * lateralMuzzleOffset;
   const endX = targetX - directionX * impactInset;
   const endY = targetY - directionY * impactInset;
   const flightDistance = Math.hypot(endX - startX, endY - startY);
@@ -4415,7 +4442,7 @@ function drawWeaponImpact(event, x, y, impactAge, profile) {
   context.globalAlpha = 1;
 }
 
-function attackPresentation(source) {
+function attackPresentation(source, event = null) {
   const definition = source?.kind === "structure"
     ? STRUCTURE_DEFINITIONS[source.type]
     : source?.kind === "unit"
@@ -4449,7 +4476,8 @@ function attackPresentation(source) {
   }
   if (role === "hexapod_landship") {
     return {
-      salvoCount: definition.salvoCount || 3, salvoSpread: 11,
+      salvoCount: event?.weaponSystemIndex === undefined ? definition.salvoCount || 1 : 1,
+      salvoSpread: 0,
       speed: kinetics.speed,
       minimumTravelTime: kinetics.minimumTravelTime,
       trailFraction: 0.08, arcHeight: 18,
@@ -4489,10 +4517,11 @@ function attackPresentation(source) {
   };
 }
 
-function recentAttackAge(sourceId) {
+function recentAttackAge(sourceId, weaponSystemIndex = null) {
   for (let index = simulation.events.length - 1; index >= 0; index -= 1) {
     const event = simulation.events[index];
     if (event.type !== "attack" || event.sourceId !== sourceId) continue;
+    if (weaponSystemIndex !== null && event.weaponSystemIndex !== weaponSystemIndex) continue;
     const age = simulation.time - event.time;
     return age <= 0.18 ? age : null;
   }
@@ -4796,6 +4825,8 @@ function updateInterface() {
     const roleText = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
     const combatText = definition.underbellyBeamRadius
       ? ` · ${definition.underbellyBeamDamagePerSecond} damage/s underbelly beam · ${definition.underbellyBeamRadius} radius · ${definition.speed} speed`
+      : definition.weaponSystems?.length
+        ? ` · ${definition.weaponSystems.length} independent cannons · ${definition.attackDamage} combined damage · ${definition.attackRange} maximum range · ${definition.speed} speed`
       : definition.attackRange
         ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}`
         : "";
