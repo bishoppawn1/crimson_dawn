@@ -305,9 +305,14 @@ dorsal armor, rearward legs, and forward-pointing weapons are visible from above
 Vanguard, Bulwark, Carrier, and hostile combat silhouettes remain distinct at
 gameplay scale through their overhead equipment profiles. Layered armor plates,
 panel seams, joints, cooling vents, fasteners, and weapon or support housings add
-detail without enlarging unit footprints. Worker Drones use a compact multi-arm
-tool silhouette, while Arc Energy Carriers use a bipedal support frame with a
-visible dorsal energy core. Player blue and enemy red appear only on restrained
+detail without enlarging unit footprints. Directional lighting, offset ground
+shadows, sparse edge wear, articulated movement, and units turning toward movement,
+construction, transfer, or combat targets give the machinery a grounded physical
+presence. Vehicles expose wheels or track rollers, engine grilles, exhausts, and
+complete turret assemblies; aircraft expose engine nacelles, control surfaces,
+hardpoints, and navigation lights. Worker Drones use articulated multi-arm tool
+machinery, while Arc Energy Carriers use a bipedal support frame with a visible
+dorsal energy core. Player blue and enemy red appear only on restrained
 identification panels, cockpit trim, and tier markings. Stasis state, health, and
 energy remain separately visible.
 

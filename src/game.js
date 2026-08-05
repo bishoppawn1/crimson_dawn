@@ -961,7 +961,10 @@ function drawUnit(unit) {
     context.stroke();
   }
 
-  drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis");
+  drawUnitGroundShadow(definition);
+  const pose = getUnitRenderPose(unit);
+  context.rotate(pose.facing);
+  drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis", pose);
   context.restore();
 
   const barWidth = Math.max(24, definition.radius * 2.3);
@@ -976,9 +979,58 @@ function drawUnit(unit) {
   if (unit.state === "stasis") drawLabel(unit.x, unit.y + definition.radius + 17, "STASIS", false, colors.stasis);
 }
 
-function drawUnitSprite(definition, teamColor, darkColor, stasis) {
+function getUnitRenderPose(unit) {
+  const attackTarget = simulation.getEntity(unit.attackTargetId);
+  const buildTarget = simulation.getStructure(unit.buildTargetId);
+  const transferTarget = unit.energyTransferTargetIds?.length
+    ? simulation.getUnit(unit.energyTransferTargetIds[0])
+    : null;
+  const target = attackTarget?.alive
+    ? attackTarget
+    : unit.moveTarget || (buildTarget?.alive ? buildTarget : null) || (transferTarget?.alive ? transferTarget : null);
+  const fallbackFacing = unit.team === "player" ? Math.PI / 2 : -Math.PI / 2;
+  const facing = target
+    ? Math.atan2(target.y - unit.y, target.x - unit.x) + Math.PI / 2
+    : fallbackFacing;
+  const moving = unit.state === "active" && Boolean(unit.moveTarget);
+  const phase = [...unit.id].reduce((total, character) => total + character.charCodeAt(0), 0) * 0.31;
+  return {
+    facing,
+    moving,
+    stride: moving ? Math.sin(simulation.time * 9 + phase) : 0,
+  };
+}
+
+function drawUnitGroundShadow(definition) {
+  const airborne = definition.unitDomain === "air";
+  context.save();
+  context.translate(airborne ? 7 : 3, airborne ? 10 : 5);
+  context.fillStyle = airborne ? "#10151038" : "#10151070";
+  context.beginPath();
+  context.ellipse(
+    0,
+    0,
+    definition.radius * (airborne ? 1.05 : 0.86),
+    definition.radius * (airborne ? 0.58 : 0.62),
+    -0.18,
+    0,
+    Math.PI * 2,
+  );
+  context.fill();
+  context.restore();
+}
+
+function unitSurfaceGradient(light, base, dark) {
+  const gradient = context.createLinearGradient(-0.8, -0.9, 0.85, 0.95);
+  gradient.addColorStop(0, light);
+  gradient.addColorStop(0.42, base);
+  gradient.addColorStop(1, dark);
+  return gradient;
+}
+
+function drawUnitSprite(definition, teamColor, darkColor, stasis, pose) {
   if (definition.workerTier) {
-    drawWorkerDroneSprite(definition, teamColor, darkColor, stasis);
+    drawWorkerDroneSprite(definition, teamColor, darkColor, stasis, pose);
     return;
   }
   if (definition.unitDomain === "vehicle") {
@@ -989,63 +1041,106 @@ function drawUnitSprite(definition, teamColor, darkColor, stasis) {
     drawAircraftSprite(definition, teamColor, darkColor, stasis);
     return;
   }
-  drawMechSprite(definition, teamColor, darkColor, stasis);
+  drawMechSprite(definition, teamColor, darkColor, stasis, pose);
 }
 
-function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis) {
-  const outline = stasis ? colors.stasis : teamColor;
-  const body = stasis ? "#403b32" : darkColor;
-  const hardware = stasis ? "#827969" : "#d2d8d3";
+function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis, pose) {
+  const outline = stasis ? "#2b2924" : "#172027";
+  const armor = stasis ? "#5b554b" : "#899395";
+  const armorLight = stasis ? "#766e61" : "#cbd1cd";
+  const armorDark = stasis ? "#37332d" : "#424d50";
+  const joint = stasis ? "#2d2a25" : "#222b30";
+  const accent = stasis ? `${teamColor}88` : teamColor;
+  const toolSwing = pose.moving ? pose.stride * 0.1 : Math.sin(simulation.time * 2.2) * 0.025;
   context.save();
   context.scale(definition.radius, definition.radius);
   context.lineCap = "round";
   context.lineJoin = "round";
   context.strokeStyle = outline;
-  context.fillStyle = body;
-  context.lineWidth = 0.18;
+  context.lineWidth = 0.1;
 
-  context.beginPath();
-  context.moveTo(-0.35, -0.12);
-  context.lineTo(-0.9, -0.62);
-  context.moveTo(0.35, -0.12);
-  context.lineTo(0.9, -0.62);
-  context.moveTo(-0.38, 0.18);
-  context.lineTo(-0.82, 0.72);
-  context.moveTo(0.38, 0.18);
-  context.lineTo(0.82, 0.72);
-  context.stroke();
+  // Four independently articulated work arms make the drone read as practical
+  // construction machinery rather than a flat icon.
+  for (const side of [-1, 1]) {
+    for (const rear of [-1, 1]) {
+      const shoulderX = side * 0.37;
+      const shoulderY = rear < 0 ? -0.2 : 0.22;
+      const elbowX = side * (rear < 0 ? 0.72 : 0.67);
+      const elbowY = rear < 0 ? -0.55 + toolSwing * side : 0.57 - toolSwing * side;
+      const tipX = side * (rear < 0 ? 0.98 : 0.88);
+      const tipY = rear < 0 ? -0.72 + toolSwing * side : 0.82 - toolSwing * side;
+      context.strokeStyle = joint;
+      context.lineWidth = 0.2;
+      context.beginPath();
+      context.moveTo(shoulderX, shoulderY);
+      context.lineTo(elbowX, elbowY);
+      context.lineTo(tipX, tipY);
+      context.stroke();
+      context.strokeStyle = armorLight;
+      context.lineWidth = 0.065;
+      context.beginPath();
+      context.moveTo(shoulderX, shoulderY - 0.025);
+      context.lineTo(elbowX, elbowY - 0.025);
+      context.stroke();
+      context.fillStyle = joint;
+      for (const jointPoint of [[shoulderX, shoulderY], [elbowX, elbowY]]) {
+        context.beginPath();
+        context.arc(jointPoint[0], jointPoint[1], 0.11, 0, Math.PI * 2);
+        context.fill();
+        context.strokeStyle = outline;
+        context.lineWidth = 0.045;
+        context.stroke();
+      }
+      context.strokeStyle = rear < 0 ? accent : armorLight;
+      context.lineWidth = 0.08;
+      context.beginPath();
+      context.moveTo(tipX, tipY);
+      context.lineTo(tipX - side * 0.15, tipY - 0.12);
+      context.moveTo(tipX, tipY);
+      context.lineTo(tipX - side * 0.02, tipY + 0.15);
+      context.stroke();
+    }
+  }
 
+  context.fillStyle = unitSurfaceGradient(armorLight, armor, armorDark);
+  context.strokeStyle = outline;
+  context.lineWidth = 0.1;
   context.beginPath();
-  polygon(6, 0.58, Math.PI / 6);
+  context.moveTo(0, -0.64);
+  context.lineTo(0.46, -0.38);
+  context.lineTo(0.5, 0.35);
+  context.lineTo(0.26, 0.58);
+  context.lineTo(-0.26, 0.58);
+  context.lineTo(-0.5, 0.35);
+  context.lineTo(-0.46, -0.38);
+  context.closePath();
   context.fill();
   context.stroke();
-  context.fillStyle = stasis ? colors.stasis : teamColor;
-  context.fillRect(-0.18, -0.18, 0.36, 0.36);
-  context.strokeStyle = hardware;
-  context.lineWidth = 0.08;
-  context.beginPath();
-  context.arc(0, 0, 0.36, 0, Math.PI * 2);
-  context.stroke();
-  context.beginPath();
-  context.moveTo(-0.28, 0);
-  context.lineTo(0, -0.28);
-  context.lineTo(0.28, 0);
-  context.lineTo(0, 0.28);
-  context.closePath();
-  context.stroke();
 
-  context.lineWidth = 0.12;
-  context.strokeStyle = outline;
+  // A recessed sensor bar faces forward; the rear grille and access plate show
+  // which end houses the motor and battery.
+  context.fillStyle = stasis ? "#5d5540" : "#152f39";
+  context.fillRect(-0.25, -0.42, 0.5, 0.12);
+  context.fillStyle = accent;
+  context.fillRect(-0.19, -0.39, 0.38, 0.045);
+  context.fillStyle = armorDark;
+  context.fillRect(-0.3, 0.24, 0.6, 0.22);
+  context.strokeStyle = armorLight;
+  context.lineWidth = 0.04;
+  for (const ventX of [-0.18, -0.06, 0.06, 0.18]) {
+    context.beginPath();
+    context.moveTo(ventX, 0.28);
+    context.lineTo(ventX, 0.42);
+    context.stroke();
+  }
+  context.strokeStyle = armorDark;
+  context.strokeRect(-0.32, -0.14, 0.64, 0.3);
+  context.fillStyle = accent;
+  context.fillRect(-0.32, 0.05, 0.64, 0.07);
+  context.fillStyle = stasis ? colors.stasis : "#f0b957";
   context.beginPath();
-  context.moveTo(-0.9, -0.62);
-  context.lineTo(-1, -0.42);
-  context.moveTo(-0.9, -0.62);
-  context.lineTo(-0.7, -0.72);
-  context.moveTo(0.9, -0.62);
-  context.lineTo(1, -0.42);
-  context.moveTo(0.9, -0.62);
-  context.lineTo(0.7, -0.72);
-  context.stroke();
+  context.arc(0.34, -0.2, 0.055, 0, Math.PI * 2);
+  context.fill();
   context.restore();
 }
 
@@ -1065,30 +1160,48 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
   context.strokeStyle = outline;
   context.lineWidth = 0.1;
 
-  context.fillStyle = "#080d1260";
-  context.beginPath();
-  context.ellipse(0, 0.14, 0.92, 0.72, 0, 0, Math.PI * 2);
-  context.fill();
-
-  context.fillStyle = stasis ? "#33302b" : darkColor;
+  context.fillStyle = stasis ? "#33302b" : "#242d30";
   for (const side of [-1, 1]) {
+    if (scout) {
+      for (const wheelY of [-0.48, 0.45]) {
+        context.beginPath();
+        context.ellipse(side * 0.58, wheelY, 0.22, 0.3, 0, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+        context.fillStyle = armorDark;
+        context.beginPath();
+        context.arc(side * 0.58, wheelY, 0.09, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = stasis ? "#33302b" : "#242d30";
+      }
+      continue;
+    }
     context.beginPath();
-    context.roundRect(side * 0.55 - 0.18, -0.72, 0.36, 1.44, 0.14);
+    context.roundRect(side * 0.55 - 0.19, -0.74, 0.38, 1.48, 0.15);
     context.fill();
     context.stroke();
-    context.strokeStyle = armorLight;
-    context.lineWidth = 0.045;
-    for (let tread = -0.5; tread <= 0.5; tread += 0.25) {
+    context.fillStyle = armorDark;
+    for (const rollerY of [-0.48, -0.16, 0.16, 0.48]) {
       context.beginPath();
-      context.moveTo(side * 0.7, tread);
-      context.lineTo(side * 0.48, tread);
+      context.arc(side * 0.55, rollerY, 0.105, 0, Math.PI * 2);
+      context.fill();
+      context.strokeStyle = armorLight;
+      context.lineWidth = 0.035;
+      context.stroke();
+    }
+    context.strokeStyle = armorLight;
+    context.lineWidth = 0.04;
+    for (let tread = -0.62; tread <= 0.62; tread += 0.21) {
+      context.beginPath();
+      context.moveTo(side * 0.72, tread);
+      context.lineTo(side * 0.38, tread);
       context.stroke();
     }
     context.strokeStyle = outline;
     context.lineWidth = 0.1;
   }
 
-  context.fillStyle = armor;
+  context.fillStyle = unitSurfaceGradient(armorLight, armor, armorDark);
   context.beginPath();
   context.moveTo(0, -0.82);
   context.lineTo(0.48, -0.52);
@@ -1130,6 +1243,29 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
   context.fillStyle = accent;
   context.fillRect(-0.32, 0.5, 0.64, 0.11);
 
+  // The rear engine deck carries service grilles, exhausts, and paired marker
+  // lights instead of reading as an undifferentiated slab.
+  context.fillStyle = armorDark;
+  context.fillRect(-0.3, 0.31, 0.6, 0.18);
+  context.strokeStyle = armorLight;
+  context.lineWidth = 0.035;
+  for (const ventX of [-0.2, -0.07, 0.07, 0.2]) {
+    context.beginPath();
+    context.moveTo(ventX, 0.33);
+    context.lineTo(ventX, 0.46);
+    context.stroke();
+  }
+  context.fillStyle = outline;
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.arc(side * 0.34, 0.57, 0.055, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.fillStyle = stasis ? "#746c5d" : "#e7dda5";
+  for (const side of [-1, 1]) {
+    context.fillRect(side * 0.3 - 0.035, -0.56, 0.07, 0.08);
+  }
+
   if (tanker) {
     context.fillStyle = stasis ? "#403b32" : "#183642";
     context.strokeStyle = accent;
@@ -1143,18 +1279,38 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
     context.fillStyle = accent;
     context.fillRect(-0.08, -0.52, 0.16, 0.98);
   } else {
-    context.fillStyle = stasis ? "#403b32" : darkColor;
+    context.fillStyle = unitSurfaceGradient(armor, armorDark, outline);
     context.beginPath();
-    context.arc(0, artillery ? 0.08 : -0.08, scout ? 0.25 : 0.32, 0, Math.PI * 2);
+    const turretY = artillery ? 0.08 : -0.08;
+    const turretHalfWidth = scout ? 0.24 : 0.31;
+    context.moveTo(-turretHalfWidth, turretY - 0.25);
+    context.lineTo(turretHalfWidth, turretY - 0.25);
+    context.lineTo(turretHalfWidth + 0.07, turretY + 0.16);
+    context.lineTo(0.16, turretY + 0.29);
+    context.lineTo(-0.16, turretY + 0.29);
+    context.lineTo(-turretHalfWidth - 0.07, turretY + 0.16);
+    context.closePath();
     context.fill();
     context.stroke();
 
-    context.strokeStyle = accent;
-    context.lineWidth = artillery ? 0.16 : 0.13;
+    // A dark breech, armored barrel sleeve, and muzzle brake give the weapon a
+    // credible mechanical assembly while the narrow team stripe identifies it.
+    context.strokeStyle = outline;
+    context.lineWidth = artillery ? 0.19 : 0.16;
     context.beginPath();
     context.moveTo(0, artillery ? -0.02 : -0.18);
     context.lineTo(0, artillery ? -1.25 : scout ? -0.82 : -1.05);
     context.stroke();
+    context.strokeStyle = armorLight;
+    context.lineWidth = artillery ? 0.105 : 0.085;
+    context.beginPath();
+    context.moveTo(0, artillery ? -0.1 : -0.22);
+    context.lineTo(0, artillery ? -1.14 : scout ? -0.72 : -0.94);
+    context.stroke();
+    context.fillStyle = outline;
+    context.fillRect(artillery ? -0.14 : -0.11, artillery ? -1.28 : scout ? -0.87 : -1.09, artillery ? 0.28 : 0.22, 0.11);
+    context.fillStyle = accent;
+    context.fillRect(-turretHalfWidth, turretY + 0.12, turretHalfWidth * 2, 0.07);
   }
   if (artillery) {
     context.lineWidth = 0.08;
@@ -1184,12 +1340,7 @@ function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
   context.strokeStyle = outline;
   context.lineWidth = 0.09;
 
-  context.fillStyle = "#05090d55";
-  context.beginPath();
-  context.ellipse(0.12, 0.25, wingSpan, 0.66, 0, 0, Math.PI * 2);
-  context.fill();
-
-  context.fillStyle = armor;
+  context.fillStyle = unitSurfaceGradient(armorLight, armor, armorDark);
   context.beginPath();
   context.moveTo(0, -1.08);
   context.lineTo(0.2, -0.48);
@@ -1230,8 +1381,16 @@ function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
   context.fillStyle = armorDark;
   for (const side of [-1, 1]) {
     context.beginPath();
-    context.ellipse(side * wingSpan * 0.5, 0.2, 0.09, 0.15, 0, 0, Math.PI * 2);
+    context.ellipse(side * wingSpan * 0.5, 0.2, 0.12, 0.2, 0, 0, Math.PI * 2);
     context.fill();
+    context.strokeStyle = outline;
+    context.lineWidth = 0.045;
+    context.stroke();
+    context.fillStyle = outline;
+    context.beginPath();
+    context.ellipse(side * wingSpan * 0.5, 0.34, 0.075, 0.1, 0, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = armorDark;
   }
 
   context.fillStyle = stasis ? "#6d6249" : "#183642";
@@ -1239,6 +1398,10 @@ function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
   context.ellipse(0, -0.43, gunship ? 0.2 : 0.14, gunship ? 0.34 : 0.27, 0, 0, Math.PI * 2);
   context.fill();
   context.stroke();
+  context.fillStyle = armorLight;
+  context.beginPath();
+  context.ellipse(-0.055, -0.52, 0.04, gunship ? 0.2 : 0.15, -0.18, 0, Math.PI * 2);
+  context.fill();
 
   context.strokeStyle = accent;
   context.lineWidth = 0.1;
@@ -1249,13 +1412,50 @@ function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
   context.lineTo(wingSpan * 0.3, 0.18);
   context.stroke();
 
+  // Conventional navigation lights, trailing control-surface hinges, and
+  // under-wing hardpoints make the aircraft feel built rather than symbolic.
+  context.fillStyle = stasis ? "#746c5d" : "#d94f4f";
+  context.beginPath();
+  context.arc(-wingSpan * 0.93, 0.18, 0.055, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = stasis ? "#746c5d" : "#62d77c";
+  context.beginPath();
+  context.arc(wingSpan * 0.93, 0.18, 0.055, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = armorDark;
+  context.lineWidth = 0.035;
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.moveTo(side * 0.23, 0.34);
+    context.lineTo(side * (wingSpan * 0.72), 0.22);
+    context.stroke();
+    context.fillStyle = outline;
+    context.fillRect(side * wingSpan * 0.64 - 0.045, 0.2, 0.09, 0.17);
+  }
+
   if (gunship) {
-    context.fillStyle = darkColor;
-    context.fillRect(-0.72, 0.05, 0.25, 0.28);
-    context.fillRect(0.47, 0.05, 0.25, 0.28);
+    context.fillStyle = armorDark;
+    for (const side of [-1, 1]) {
+      context.beginPath();
+      context.roundRect(side * 0.6 - 0.14, -0.02, 0.28, 0.42, 0.08);
+      context.fill();
+      context.strokeStyle = outline;
+      context.stroke();
+      context.strokeStyle = armorLight;
+      context.lineWidth = 0.055;
+      context.beginPath();
+      context.moveTo(side * 0.6, 0.02);
+      context.lineTo(side * 0.6, -0.32);
+      context.stroke();
+    }
   } else if (bomber) {
+    context.fillStyle = armorDark;
+    context.fillRect(-0.32, 0.25, 0.64, 0.2);
+    context.strokeStyle = armorLight;
+    context.lineWidth = 0.035;
+    context.strokeRect(-0.28, 0.29, 0.56, 0.12);
     context.fillStyle = accent;
-    context.fillRect(-0.32, 0.32, 0.64, 0.12);
+    context.fillRect(-0.28, 0.37, 0.56, 0.05);
   } else if (tender) {
     context.fillStyle = stasis ? "#403b32" : "#183642";
     context.strokeStyle = accent;
@@ -1265,12 +1465,20 @@ function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
       context.roundRect(side * 0.63 - 0.14, -0.02, 0.28, 0.58, 0.1);
       context.fill();
       context.stroke();
+      context.strokeStyle = armorLight;
+      context.lineWidth = 0.035;
+      context.beginPath();
+      context.moveTo(side * 0.55, 0.06);
+      context.lineTo(side * 0.71, 0.06);
+      context.moveTo(side * 0.55, 0.28);
+      context.lineTo(side * 0.71, 0.28);
+      context.stroke();
     }
   }
   context.restore();
 }
 
-function drawMechSprite(definition, teamColor, darkColor, stasis) {
+function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
   const role = definition.role || "vanguard";
   const heavy = role === "bulwark";
   const carrier = role === "carrier";
@@ -1289,14 +1497,11 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
   context.strokeStyle = outline;
   context.lineWidth = 0.1;
 
-  // The soft ground shadow and rearward legs establish an overhead view. The
-  // mech faces toward negative Y, with its armored shoulders nearest the front.
-  context.fillStyle = "#080d1260";
-  context.beginPath();
-  context.ellipse(0, 0.18, 0.92, 0.72, 0, 0, Math.PI * 2);
-  context.fill();
-
   for (const side of [-1, 1]) {
+    context.save();
+    context.translate(side * 0.3, 0.28);
+    context.rotate(side * pose.stride * 0.09);
+    context.translate(-side * 0.3, -0.28);
     // Hip pivots remain partially visible beneath the torso.
     context.fillStyle = joint;
     context.beginPath();
@@ -1361,6 +1566,7 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
     context.fill();
     context.strokeStyle = outline;
     context.lineWidth = 0.1;
+    context.restore();
   }
 
   // The broad shoulder deck, inset cockpit roof, and rear engine plate are all
@@ -1371,7 +1577,7 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
   context.fill();
   context.stroke();
 
-  context.fillStyle = armor;
+  context.fillStyle = unitSurfaceGradient(armorLight, armor, armorDark);
   context.beginPath();
   context.moveTo(0, -0.78);
   context.lineTo(0.47, -0.61);
@@ -1428,6 +1634,27 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
     context.stroke();
   }
 
+  // Paired exhaust bells and a bolted dorsal access plate give the torso a
+  // credible powertrain and a clear rear side.
+  context.fillStyle = outline;
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.ellipse(side * 0.26, 0.48, 0.075, 0.11, 0, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = armorLight;
+    context.lineWidth = 0.035;
+    context.stroke();
+  }
+  context.strokeStyle = armorDark;
+  context.lineWidth = 0.04;
+  context.strokeRect(-0.2, 0.09, 0.4, 0.19);
+  context.fillStyle = armorLight;
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.arc(side * 0.16, 0.13, 0.025, 0, Math.PI * 2);
+    context.fill();
+  }
+
   // The cockpit canopy is a narrow roof window that points toward the nose.
   context.fillStyle = glass;
   context.beginPath();
@@ -1453,7 +1680,7 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
 
   const shoulderWidth = heavy ? 0.42 : carrier ? 0.34 : 0.3;
   for (const side of [-1, 1]) {
-    context.fillStyle = armorDark;
+    context.fillStyle = unitSurfaceGradient(armor, armorDark, outline);
     context.beginPath();
     context.moveTo(side * 0.44, -0.52);
     context.lineTo(side * (0.48 + shoulderWidth), -0.47);
@@ -1461,6 +1688,8 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
     context.lineTo(side * 0.55, 0.03);
     context.closePath();
     context.fill();
+    context.strokeStyle = outline;
+    context.lineWidth = 0.1;
     context.stroke();
 
     context.fillStyle = accent;
@@ -1475,6 +1704,12 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
     context.beginPath();
     context.arc(side * (0.54 + shoulderWidth * 0.55), -0.17, 0.045, 0, Math.PI * 2);
     context.fill();
+    context.strokeStyle = joint;
+    context.lineWidth = 0.045;
+    context.beginPath();
+    context.moveTo(side * 0.58, -0.08);
+    context.lineTo(side * (0.49 + shoulderWidth), -0.16);
+    context.stroke();
   }
 
   if (heavy) {
@@ -1508,6 +1743,12 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
       context.lineTo(0.79 + offset, -1.08);
       context.stroke();
     }
+    context.strokeStyle = armorLight;
+    context.lineWidth = 0.045;
+    context.beginPath();
+    context.moveTo(0.68, -0.2);
+    context.lineTo(0.9, -0.42);
+    context.stroke();
   } else if (carrier) {
     // Carriers replace weapons with paired dorsal capacitor drums and a visible
     // energy core centered on the upper deck.
@@ -1564,6 +1805,8 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
     context.closePath();
     context.fill();
     context.stroke();
+    context.fillStyle = armorDark;
+    context.fillRect(0.72, -0.52, 0.2, 0.32);
     context.fillStyle = joint;
     context.beginPath();
     context.arc(0.77, -0.02, 0.11, 0, Math.PI * 2);
@@ -1574,6 +1817,10 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
     context.moveTo(0.82, -0.55);
     context.lineTo(0.82, -1.08);
     context.stroke();
+    context.fillStyle = armorLight;
+    context.fillRect(0.775, -0.77, 0.09, 0.2);
+    context.fillStyle = outline;
+    context.fillRect(0.72, -1.13, 0.2, 0.09);
     context.strokeStyle = armorLight;
     context.lineWidth = 0.045;
     context.beginPath();
@@ -1606,14 +1853,26 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
   for (let pip = 0; pip < pipCount; pip += 1) {
     context.fillRect(-0.2 + pip * 0.16, 0.31, 0.1, 0.08);
   }
+
+  // Sparse edge wear catches the light without turning the sprite into noise.
+  context.strokeStyle = stasis ? "#857a68" : "#e1e4df";
+  context.lineWidth = 0.025;
+  context.beginPath();
+  context.moveTo(-0.43, -0.5);
+  context.lineTo(-0.23, -0.61);
+  context.moveTo(0.31, 0.28);
+  context.lineTo(0.41, 0.2);
+  context.stroke();
   context.restore();
 }
 
 function drawDrone(drone) {
   const yard = simulation.getStructure(drone.yardId);
+  let flightTarget = null;
   if (drone.targetWreckId) {
     const wreck = simulation.getWreck(drone.targetWreckId);
     if (wreck) {
+      flightTarget = wreck;
       context.strokeStyle = "#c5c0aa28";
       context.setLineDash([4, 7]);
       context.beginPath();
@@ -1623,6 +1882,7 @@ function drawDrone(drone) {
       context.setLineDash([]);
     }
   } else if (yard && drone.mode === "returning") {
+    flightTarget = yard;
     context.strokeStyle = "#c5c0aa20";
     context.beginPath();
     context.moveTo(drone.x, drone.y);
@@ -1632,14 +1892,56 @@ function drawDrone(drone) {
 
   context.save();
   context.translate(drone.x, drone.y);
-  context.rotate(simulation.time * 2 + drone.slot);
-  context.fillStyle = "#292b2b";
-  context.strokeStyle = colors.metal;
-  context.lineWidth = 2;
+  context.fillStyle = "#10151045";
   context.beginPath();
-  polygon(3, DRONE_DEFINITION.radius);
+  context.ellipse(4, 7, DRONE_DEFINITION.radius * 1.05, DRONE_DEFINITION.radius * 0.62, -0.18, 0, Math.PI * 2);
+  context.fill();
+  const facing = flightTarget
+    ? Math.atan2(flightTarget.y - drone.y, flightTarget.x - drone.x) + Math.PI / 2
+    : drone.slot * ((Math.PI * 2) / 3);
+  context.rotate(facing);
+  context.scale(DRONE_DEFINITION.radius, DRONE_DEFINITION.radius);
+  context.lineJoin = "round";
+  context.fillStyle = unitSurfaceGradient("#d0d3ce", "#858e8e", "#3e4749");
+  context.strokeStyle = "#172027";
+  context.lineWidth = 0.1;
+  context.beginPath();
+  context.moveTo(0, -0.82);
+  context.lineTo(0.42, -0.2);
+  context.lineTo(0.32, 0.58);
+  context.lineTo(0, 0.72);
+  context.lineTo(-0.32, 0.58);
+  context.lineTo(-0.42, -0.2);
+  context.closePath();
   context.fill();
   context.stroke();
+  context.fillStyle = "#252e31";
+  for (const side of [-1, 1]) {
+    context.fillRect(side * 0.52 - 0.26, -0.1, 0.52, 0.14);
+    context.beginPath();
+    context.arc(side * 0.75, -0.03, 0.25, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = "#aeb6b2";
+    context.lineWidth = 0.035;
+    context.beginPath();
+    context.moveTo(side * 0.96, -0.03);
+    context.lineTo(side * 0.54, -0.03);
+    context.moveTo(side * 0.75, -0.24);
+    context.lineTo(side * 0.75, 0.18);
+    context.stroke();
+  }
+  context.fillStyle = colors.metal;
+  context.fillRect(-0.2, 0.32, 0.4, 0.13);
+  context.strokeStyle = "#1b2428";
+  context.lineWidth = 0.08;
+  context.beginPath();
+  context.moveTo(-0.2, 0.52);
+  context.lineTo(-0.4, 0.78);
+  context.moveTo(0.2, 0.52);
+  context.lineTo(0.4, 0.78);
+  context.stroke();
+  context.fillStyle = colors.energy;
+  context.fillRect(-0.18, -0.54, 0.36, 0.07);
   context.restore();
   if (drone.carry > 0) {
     drawBar(
