@@ -2455,6 +2455,7 @@ function getUnitRenderPose(unit, activeBuildTarget = null, activeRepairTarget = 
     workCycle: Math.sin(simulation.time * 13 + phase),
     phase,
     stride: moving ? Math.sin(simulation.time * 9 + phase) : 0,
+    landshipStep: moving ? (simulation.time * 0.58 + phase * 0.013) % 1 : null,
     recoil: firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * 0.12,
   };
 }
@@ -2722,23 +2723,57 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
   context.lineCap = "round";
   context.lineJoin = "round";
 
+  const legStations = [-0.55, 0, 0.55];
   for (const side of [-1, 1]) {
-    [-0.55, 0, 0.55].forEach((legY, index) => {
-      const gait = pose.stride * (index % 2 === 0 ? side : -side) * 0.08;
+    legStations.forEach((legY, index) => {
+      const stepPhase = pose.landshipStep === null
+        ? 0.37
+        : (pose.landshipStep + index / legStations.length) % 1;
+      const planted = stepPhase < 0.74 || pose.landshipStep === null;
+      const stanceProgress = Math.min(1, stepPhase / 0.74);
+      const swingProgress = Math.max(0, (stepPhase - 0.74) / 0.26);
+      const easedSwing = swingProgress * swingProgress * (3 - 2 * swingProgress);
+      const footTravel = pose.landshipStep === null
+        ? 0
+        : planted
+          ? -0.34 + stanceProgress * 0.68
+          : 0.34 - easedSwing * 0.68;
+      const footLift = planted ? 0 : Math.sin(swingProgress * Math.PI) * 0.18;
+      const kneeX = side * (0.88 - footLift * 0.18);
+      const kneeY = legY + footTravel * 0.48 - footLift;
+      const footX = side * 1.08;
+      const footY = legY + footTravel - footLift * 0.35;
+
       context.strokeStyle = palette.outline;
-      context.lineWidth = 0.2;
+      context.lineWidth = 0.21;
       context.beginPath();
       context.moveTo(side * 0.48, legY);
-      context.lineTo(side * 0.88, legY + gait);
-      context.lineTo(side * 1.02, legY + 0.22 + gait);
+      context.lineTo(kneeX, kneeY);
+      context.lineTo(footX, footY);
       context.stroke();
       context.strokeStyle = palette.armorDark;
       context.lineWidth = 0.11;
       context.stroke();
+
+      if (planted && pose.landshipStep !== null) {
+        context.strokeStyle = `${palette.accent}80`;
+        context.lineWidth = 0.035;
+        context.beginPath();
+        context.arc(footX, footY, 0.23, 0.15 * Math.PI, 0.85 * Math.PI);
+        context.stroke();
+      }
       context.fillStyle = palette.outline;
       context.beginPath();
-      context.ellipse(side * 1.02, legY + 0.25 + gait, 0.16, 0.1, 0, 0, Math.PI * 2);
+      context.ellipse(footX, footY, 0.18, 0.11, 0, 0, Math.PI * 2);
       context.fill();
+      context.strokeStyle = palette.armorLight;
+      context.lineWidth = 0.04;
+      context.beginPath();
+      for (const toeOffset of [-0.09, 0, 0.09]) {
+        context.moveTo(footX + toeOffset, footY - 0.04);
+        context.lineTo(footX + toeOffset, footY - 0.18);
+      }
+      context.stroke();
     });
   }
 
@@ -2760,28 +2795,47 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
   context.fillRect(-0.51, 0.68, 1.02, 0.12);
 
   context.fillStyle = palette.armorDark;
-  context.fillRect(-0.38, -0.33, 0.76, 0.62);
-  context.strokeStyle = palette.outline;
-  context.lineWidth = 0.24;
-  context.beginPath();
-  context.moveTo(0, -0.42);
-  context.lineTo(0, -1.42);
-  context.stroke();
-  context.strokeStyle = palette.armorLight;
-  context.lineWidth = 0.12;
-  context.stroke();
-  context.fillStyle = palette.outline;
-  context.fillRect(-0.16, -1.48, 0.32, 0.13);
+  context.fillRect(-0.43, -0.3, 0.86, 0.7);
+  const cannons = [
+    { x: 0, mountY: -0.34, muzzleY: -1.5, width: 0.24 },
+    { x: -0.34, mountY: 0.1, muzzleY: -1.18, width: 0.17 },
+    { x: 0.34, mountY: 0.1, muzzleY: -1.18, width: 0.17 },
+  ];
+  for (const cannon of cannons) {
+    context.fillStyle = palette.joint;
+    context.strokeStyle = palette.outline;
+    context.lineWidth = 0.07;
+    context.beginPath();
+    context.arc(cannon.x, cannon.mountY, cannon.width * 0.95, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.strokeStyle = palette.outline;
+    context.lineWidth = cannon.width;
+    context.beginPath();
+    context.moveTo(cannon.x, cannon.mountY - 0.05);
+    context.lineTo(cannon.x, cannon.muzzleY);
+    context.stroke();
+    context.strokeStyle = palette.armorLight;
+    context.lineWidth = cannon.width * 0.48;
+    context.stroke();
+    context.fillStyle = palette.outline;
+    context.fillRect(
+      cannon.x - cannon.width * 0.7,
+      cannon.muzzleY - 0.07,
+      cannon.width * 1.4,
+      0.14,
+    );
+  }
 
   for (const side of [-1, 1]) {
     context.strokeStyle = palette.outline;
-    context.lineWidth = 0.12;
+    context.lineWidth = 0.08;
     context.beginPath();
-    context.moveTo(side * 0.32, 0.14);
-    context.lineTo(side * 0.79, -0.46);
+    context.moveTo(side * 0.5, -0.54);
+    context.lineTo(side * 0.5, 0.52);
     context.stroke();
     context.fillStyle = palette.accent;
-    context.fillRect(side * 0.36 - 0.1, 0.37, 0.2, 0.1);
+    context.fillRect(side * 0.49 - 0.09, 0.46, 0.18, 0.09);
   }
   context.restore();
 }
@@ -4118,7 +4172,9 @@ function drawAttackEvent(event, age) {
   const endX = targetX - directionX * impactInset;
   const endY = targetY - directionY * impactInset;
   const flightDistance = Math.hypot(endX - startX, endY - startY);
-  const travelTime = Math.max(profile.minimumTravelTime, flightDistance / profile.speed);
+  const travelTime = event.impactDelay > 0
+    ? event.impactDelay
+    : Math.max(profile.minimumTravelTime, flightDistance / profile.speed);
 
   context.save();
   context.lineCap = "round";
@@ -4311,7 +4367,10 @@ function attackPresentation(source) {
   }
   if (role === "hexapod_landship") {
     return {
-      speed: 520, minimumTravelTime: 0.14, trailFraction: 0.08, arcHeight: 18,
+      salvoCount: definition.salvoCount || 3, salvoSpread: 11,
+      speed: definition.projectileSpeed || 520,
+      minimumTravelTime: definition.minimumProjectileTravelTime || 0.14,
+      trailFraction: 0.08, arcHeight: 18,
       projectileSize: 5.2, trailWidth: 3.5, muzzleDuration: 0.14, muzzleSize: 17,
       impactDuration: 0.5, impactSize: 36, sparkCount: 15, glow: 18, smoke: true,
       projectileColor: "#fff4c0", trailColor: "#ffad50", muzzleColor: "#fff0a6",

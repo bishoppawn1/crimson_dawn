@@ -68,6 +68,7 @@ export class Simulation {
       .filter((obstacle) => terrainIntersectsWorld(obstacle, width, height))
       .map((obstacle) => ({ ...obstacle, kind: "terrain" }));
     this.events = [];
+    this.pendingImpacts = [];
     this.powerNetworks = [];
     this.powerLinks = [];
     this.lastPlacementError = null;
@@ -198,6 +199,7 @@ export class Simulation {
       metalDeposits: this.metalDeposits,
       terrain: this.terrain,
       events: this.events,
+      pendingImpacts: this.pendingImpacts,
       powerLinks: this.powerLinks,
       teams: this.teams,
       teamStarts: this.teamStarts,
@@ -237,6 +239,7 @@ export class Simulation {
     simulation.rebuildEntityLookup();
     simulation.metalDeposits = snapshot.metalDeposits || [];
     simulation.events = snapshot.events || [];
+    simulation.pendingImpacts = snapshot.pendingImpacts || [];
     simulation.powerLinks = snapshot.powerLinks || [];
     simulation.teamStarts = snapshot.teamStarts || {};
     simulation.aiStates = snapshot.aiStates
@@ -1455,6 +1458,7 @@ export class Simulation {
     this.time += delta;
     this.groundNavigationObstacleCache.clear();
 
+    this.updatePendingImpacts();
     this.refreshPowerState(delta);
     if (this.enemyAiEnabled) this.updateEnemyAi(delta);
     this.assignAutomaticTargets();
@@ -3356,12 +3360,19 @@ export class Simulation {
       ? definition.abilities.overdrive.cooldownMultiplier
       : 1;
     unit.attackCooldownRemaining = definition.attackCooldown * cooldownMultiplier;
-    this.applyDamage(
-      target,
-      definition.attackDamage * damageMultiplierAgainstTarget(definition, target),
-      unit,
-    );
-    this.emitAttack(unit, target);
+    const damage = definition.attackDamage * damageMultiplierAgainstTarget(definition, target);
+    const impactDelay = projectileImpactDelay(unit, target, definition);
+    if (impactDelay > EPSILON) {
+      this.pendingImpacts.push({
+        sourceId: unit.id,
+        targetId: target.id,
+        damage,
+        impactAt: this.time + impactDelay,
+      });
+    } else {
+      this.applyDamage(target, damage, unit);
+    }
+    this.emitAttack(unit, target, impactDelay);
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return true;
   }
@@ -3395,6 +3406,20 @@ export class Simulation {
     for (const target of targets) this.applyDamage(target, damage, unit);
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return true;
+  }
+
+  updatePendingImpacts() {
+    const unresolved = [];
+    for (const impact of this.pendingImpacts) {
+      if (impact.impactAt > this.time + EPSILON) {
+        unresolved.push(impact);
+        continue;
+      }
+      const target = this.getEntity(impact.targetId);
+      if (!target?.alive) continue;
+      this.applyDamage(target, impact.damage, this.getEntity(impact.sourceId));
+    }
+    this.pendingImpacts = unresolved;
   }
 
   isUnitStoppedToAttack(
@@ -4216,7 +4241,7 @@ export class Simulation {
     this.events.push({ type, x, y, time: this.time, ...detail });
   }
 
-  emitAttack(source, target) {
+  emitAttack(source, target, impactDelay = 0) {
     this.emit("attack", target.x, target.y, {
       sourceId: source.id,
       targetId: target.id,
@@ -4226,6 +4251,7 @@ export class Simulation {
       targetY: target.y,
       sourceRadius: entityRadius(source),
       targetRadius: entityRadius(target),
+      impactDelay,
     });
   }
 }
@@ -4249,6 +4275,17 @@ function isUnderbellyBeamTarget(target) {
   return (
     target.kind === "unit" &&
     UNIT_DEFINITIONS[target.type]?.movementLayer !== "air"
+  );
+}
+
+function projectileImpactDelay(source, target, definition) {
+  if (!definition?.projectileSpeed) return 0;
+  const muzzleDistance = Math.max(5, entityRadius(source) * 0.72);
+  const impactInset = Math.max(2, entityRadius(target) * 0.3);
+  const flightDistance = Math.max(0, distance(source, target) - muzzleDistance - impactInset);
+  return Math.max(
+    definition.minimumProjectileTravelTime || 0,
+    flightDistance / definition.projectileSpeed,
   );
 }
 

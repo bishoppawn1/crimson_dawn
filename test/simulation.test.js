@@ -181,6 +181,8 @@ test("experimental factory exposes three distinct strategic units", () => {
 
   const landship = UNIT_DEFINITIONS.hexapod_landship;
   assert.equal(landship.legCount, 6);
+  assert.ok(landship.weaponCount > 1);
+  assert.equal(landship.salvoCount, landship.weaponCount);
   assert.equal(landship.stridesOverStructures, true);
   assert.equal(landship.movementLayer, "ground");
 
@@ -228,6 +230,33 @@ test("hexapod landship strides through structures but still respects terrain", (
 
   simulation.commandMove([landship.id], 740, 300);
   assert.notDeepEqual(landship.moveTarget, { x: 740, y: 300 });
+});
+
+test("hexapod landship shells deal damage on impact instead of before firing", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  const landship = simulation.addUnit("hexapod_landship", "player", 100, 300);
+  const target = simulation.addUnit("scout_mech", "enemy", 400, 300);
+  const startingHp = target.hp;
+
+  assert.equal(simulation.commandAttack([landship.id], target.id), 1);
+  simulation.tick(1 / 30);
+
+  const attackEvent = simulation.events.find((event) => event.type === "attack");
+  assert.ok(attackEvent.impactDelay > 0);
+  assert.equal(target.hp, startingHp);
+  assert.equal(target.alive, true);
+  assert.equal(simulation.pendingImpacts.length, 1);
+
+  const restored = Simulation.fromSnapshot(JSON.parse(JSON.stringify(simulation.createSnapshot())));
+  const restoredTarget = restored.getUnit(target.id);
+  advance(restored, attackEvent.impactDelay - 0.02, 0.01);
+  assert.equal(restoredTarget.hp, startingHp);
+  assert.equal(restoredTarget.alive, true);
+
+  restored.tick(0.03);
+  assert.equal(restoredTarget.hp, 0);
+  assert.equal(restoredTarget.alive, false);
+  assert.equal(restored.pendingImpacts.length, 0);
 });
 
 test("Zenith Doughnut burns ground targets directly beneath it while moving", () => {

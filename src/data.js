@@ -486,7 +486,8 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
     unitDomain: "experimental", tier: 3, radius: 44, maxHp: 4200, maxEnergy: 7800,
     speed: 25, movementEnergyPerUnit: 0.16, attackRange: 370, attackDamage: 310,
     attackEnergy: 95, attackCooldown: 2.5, metalCost: 3000, productionTime: 72,
-    supplyCost: 120, legCount: 6, stridesOverStructures: true,
+    supplyCost: 120, legCount: 6, stridesOverStructures: true, weaponCount: 3,
+    salvoCount: 3, projectileSpeed: 520, minimumProjectileTravelTime: 0.14,
     structureDamageMultiplier: 1.6,
   }),
   zenith_doughnut: provisionalFactoryUnit({
