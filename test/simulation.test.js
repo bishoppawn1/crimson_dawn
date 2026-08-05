@@ -5,8 +5,11 @@ import {
   BUILD_MENU,
   BUILD_MENU_BY_TIER,
   canWorkerTierBuildStructure,
+  DEFAULT_MAP_ID,
   DRONE_DEFINITION,
   getNextStructureTierType,
+  MAP_DEFINITIONS,
+  resolveMatchMapId,
   SIMULATION_RULES,
   STRUCTURE_DEFINITIONS,
   TERRAIN_OBSTACLES,
@@ -17,6 +20,8 @@ import {
   structureFootprint,
 } from "../src/data.js";
 import { Simulation } from "../src/simulation.js";
+import { decodeSessionDescription, encodeSessionDescription } from "../src/multiplayer.js";
+import { createMatchTeams, getMatchMap } from "../src/maps.js";
 
 function advance(simulation, seconds, step = 1 / 30) {
   const ticks = Math.ceil(seconds / step);
@@ -344,6 +349,78 @@ test("the standard battlefield uses the much larger map and separated starting b
         deposit.y <= WORLD_HEIGHT,
     ),
   );
+});
+
+test("single-player map selection resolves every available battlefield", () => {
+  assert.equal(DEFAULT_MAP_ID, "broken_frontier");
+  assert.deepEqual(Object.keys(MAP_DEFINITIONS), [
+    "broken_frontier",
+    "ashen_divide",
+    "iron_crossings",
+  ]);
+
+  const terrainLayouts = new Set();
+  for (const map of Object.values(MAP_DEFINITIONS)) {
+    assert.equal(
+      resolveMatchMapId({ matchMode: "singleplayer", selectedMapId: map.id }),
+      map.id,
+    );
+    const simulation = Simulation.createFieldTest({ mapId: map.id });
+    assert.equal(simulation.mapId, map.id);
+    assert.equal(simulation.mapName, map.name);
+    assert.equal(simulation.width, map.width);
+    assert.equal(simulation.height, map.height);
+    assert.equal(simulation.units.filter((unit) => unit.team === "player").length, 3);
+    assert.equal(simulation.units.filter((unit) => unit.team === "enemy").length, 3);
+    assert.equal(
+      simulation.structures.filter((structure) => structure.team === "player").length,
+      3,
+    );
+    assert.equal(
+      simulation.structures.filter((structure) => structure.team === "enemy").length,
+      3,
+    );
+    assert.ok(simulation.metalDeposits.length >= 19);
+    terrainLayouts.add(map.terrain.map(({ x, y, width, height }) => `${x},${y},${width},${height}`).join("|"));
+  }
+  assert.equal(terrainLayouts.size, Object.keys(MAP_DEFINITIONS).length);
+});
+
+test("multiplayer ignores a manual map choice and resolves a random shared map", () => {
+  assert.equal(
+    resolveMatchMapId({
+      matchMode: "multiplayer",
+      selectedMapId: "iron_crossings",
+      randomValue: 0,
+    }),
+    "broken_frontier",
+  );
+  assert.equal(
+    resolveMatchMapId({
+      matchMode: "multiplayer",
+      selectedMapId: "broken_frontier",
+      randomValue: 0.5,
+    }),
+    "ashen_divide",
+  );
+  assert.equal(
+    resolveMatchMapId({
+      matchMode: "multiplayer",
+      selectedMapId: "broken_frontier",
+      randomValue: 0.999,
+    }),
+    "iron_crossings",
+  );
+});
+
+test("multiplayer snapshots preserve the host-selected map", () => {
+  const host = Simulation.createFieldTest({ enemyAiEnabled: false, mapId: "iron_crossings" });
+  const guest = Simulation.fromSnapshot(structuredClone(host.createSnapshot()));
+
+  assert.equal(guest.mapId, "iron_crossings");
+  assert.equal(guest.mapName, MAP_DEFINITIONS.iron_crossings.name);
+  assert.deepEqual(guest.terrain, host.terrain);
+  assert.deepEqual(guest.metalDeposits, host.metalDeposits);
 });
 
 test("both starting bases have sparse symmetrical walls with open central gates", () => {
@@ -2332,10 +2409,9 @@ test("enemy AI moves a planned relay onto the connected edge of its grid", () =>
   );
   assert.ok(relay);
   assert.notDeepEqual([relay.x, relay.y], [2500, 860]);
-  assert.ok(
-    Math.hypot(relay.x - generator.x, relay.y - generator.y) <=
-      STRUCTURE_DEFINITIONS.generator.powerRadius + 0.0001,
-  );
+  const coverage = powerCoverageBounds(generator.type, generator.x, generator.y);
+  assert.ok(relay.x >= coverage.left && relay.x <= coverage.right);
+  assert.ok(relay.y >= coverage.top && relay.y <= coverage.bottom);
   assert.equal(
     simulation.isBuildSiteConnectedToPower("power_tower", "enemy", relay.x, relay.y),
     true,
@@ -2773,4 +2849,130 @@ test("field tests enable elimination while isolated simulations remain opt-in", 
   const fieldTest = Simulation.createFieldTest();
   assert.equal(fieldTest.matchRulesEnabled, true);
   assert.equal(fieldTest.matchResult, null);
+});
+
+test("multiplayer field tests disable the enemy commander AI", () => {
+  const simulation = Simulation.createFieldTest({ enemyAiEnabled: false });
+  const enemyFactory = simulation.structures.find(
+    (structure) => structure.team === "enemy" && structure.type === "mech_factory_t1",
+  );
+
+  advance(simulation, SIMULATION_RULES.enemyInitialThinkDelay + SIMULATION_RULES.enemyThinkInterval * 2);
+
+  assert.equal(simulation.enemyAiEnabled, false);
+  assert.equal(enemyFactory.productionQueue.length, 0);
+  assert.equal(simulation.aiBuildIndex, 1);
+});
+
+test("simulation snapshots restore a playable multiplayer client state", () => {
+  const host = Simulation.createFieldTest({ enemyAiEnabled: false });
+  const westernWorker = host.units.find((unit) => unit.team === "player");
+  host.commandMove([westernWorker.id], westernWorker.x + 80, westernWorker.y);
+  advance(host, 0.5);
+
+  const networkPayload = JSON.parse(JSON.stringify(host.createSnapshot()));
+  const guest = Simulation.fromSnapshot(networkPayload);
+
+  assert.equal(guest.enemyAiEnabled, false);
+  assert.equal(guest.time, host.time);
+  assert.equal(guest.units.length, host.units.length);
+  assert.equal(guest.structures.length, host.structures.length);
+  assert.deepEqual(guest.resources, host.resources);
+  assert.deepEqual(guest.powerLinks, host.powerLinks);
+  assert.equal(guest.getUnit(westernWorker.id).x, host.getUnit(westernWorker.id).x);
+  assert.doesNotThrow(() => guest.tick(1 / 30));
+});
+
+test("manual multiplayer connection codes round-trip session descriptions", () => {
+  const description = { type: "offer", sdp: "v=0\r\na=ice-ufrag:test+/=\r\n" };
+  const code = encodeSessionDescription(description);
+
+  assert.match(code, /^[A-Za-z0-9_-]+$/);
+  assert.deepEqual(decodeSessionDescription(code, "offer"), { ...description, roomId: null });
+  assert.throws(() => decodeSessionDescription(code, "answer"), /Expected a valid answer/);
+  assert.throws(() => decodeSessionDescription("not a code", "offer"), /not valid/);
+});
+
+test("single-player counts from two through eight resolve dedicated battlefield layouts", () => {
+  const generatedMapIds = new Set();
+  for (let playerCount = 2; playerCount <= 8; playerCount += 1) {
+    const map = getMatchMap(playerCount);
+    assert.equal(map.playerCount, playerCount);
+    assert.equal(map.starts.length, playerCount);
+    assert.ok(map.deposits.length >= playerCount * 2);
+    assert.ok(map.starts.every((start) =>
+      start.x >= 0 && start.x <= map.width && start.y >= 0 && start.y <= map.height));
+    if (playerCount > 2) generatedMapIds.add(map.id);
+  }
+  assert.equal(generatedMapIds.size, 6);
+  assert.throws(() => getMatchMap(9), /between 2 and 8/);
+});
+
+test("an eight-player match gives every commander the standard starting package", () => {
+  const simulation = Simulation.createFieldTest({ playerCount: 8, enemyAiEnabled: false });
+
+  assert.equal(simulation.teams.length, 8);
+  assert.equal(Object.keys(simulation.resources).length, 8);
+  assert.equal(Object.keys(simulation.aiStates).length, 7);
+  for (const team of simulation.teams) {
+    const units = simulation.units.filter((unit) => unit.alive && unit.team === team.id);
+    const structures = simulation.structures.filter(
+      (structure) => structure.alive && structure.complete && structure.team === team.id,
+    );
+    assert.equal(units.filter((unit) => unit.type === "worker_drone_t1").length, 3);
+    assert.deepEqual(
+      structures.map((structure) => structure.type).sort(),
+      ["generator", "mech_factory_t1", "metal_mine"],
+    );
+    assert.equal(structures.find((structure) => structure.type === "metal_mine").powered, true);
+  }
+});
+
+test("every AI commander makes decisions with independent state and resources", () => {
+  const simulation = Simulation.createFieldTest({ playerCount: 4 });
+  for (const team of simulation.teams.filter((candidate) => candidate.kind === "ai")) {
+    simulation.aiStates[team.id].thinkRemaining = 0;
+  }
+
+  simulation.tick(1 / 30);
+
+  for (const team of simulation.teams.filter((candidate) => candidate.kind === "ai")) {
+    assert.equal(simulation.aiStates[team.id].buildIndex, 2);
+    assert.ok(simulation.structures.some(
+      (structure) => structure.alive && structure.team === team.id && structure.type === "battery",
+    ));
+    assert.ok(simulation.resources[team.id].metal < 520);
+  }
+});
+
+test("victory waits until every AI commander has been eliminated", () => {
+  const simulation = new Simulation({
+    teams: createMatchTeams(3),
+    matchRulesEnabled: true,
+    enemyAiEnabled: false,
+  });
+  simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const firstEnemy = simulation.addUnit("scout_mech", "enemy", 600, 100);
+  const secondEnemy = simulation.addUnit("scout_mech", "enemy-2", 900, 100);
+
+  simulation.applyDamage(firstEnemy, firstEnemy.hp);
+  simulation.tick(1 / 30);
+  assert.equal(simulation.matchResult, null);
+
+  simulation.applyDamage(secondEnemy, secondEnemy.hp);
+  simulation.tick(1 / 30);
+  assert.equal(simulation.matchResult, "victory");
+});
+
+test("snapshots preserve multi-AI teams, starts, maps, and decision state", () => {
+  const host = Simulation.createFieldTest({ playerCount: 5, enemyAiEnabled: false });
+  host.aiStates["enemy-3"].buildIndex = 6;
+  const restored = Simulation.fromSnapshot(JSON.parse(JSON.stringify(host.createSnapshot())));
+
+  assert.deepEqual(restored.teams, host.teams);
+  assert.deepEqual(restored.teamStarts, host.teamStarts);
+  assert.deepEqual(restored.aiStates, host.aiStates);
+  assert.equal(restored.mapId, host.mapId);
+  assert.equal(restored.mapName, host.mapName);
+  assert.equal(Object.keys(restored.resources).length, 5);
 });

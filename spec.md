@@ -1,8 +1,7 @@
 # Crimson Dawn — Game Specification
 
 Status: Early implementation. The target platform is the modern web browser using
-JavaScript and Canvas. Exact balance values, faction roster, and networking model
-remain undecided.
+JavaScript and Canvas. Exact balance values and faction roster remain undecided.
 
 ## 1. High Concept
 
@@ -18,12 +17,30 @@ having to babysit every ordinary unit.
 
 ### 1.1 Battlefield Layout
 
-The provisional field-test battlefield is 5,200 by 3,200 world units. It contains
-27 map-defined Metal Mine deposits: 17 deposits distributed through the ordinary
-expansion lanes and two distant frontier clusters containing five deposits each.
-The Northern Frontier and Southern Frontier clusters sit near the far map edges,
-well away from both starting bases, so controlling their concentrated metal
-requires a substantial logistics commitment.
+Two-player field tests provide three selectable 5,200-by-3,200 battlefields. A
+single-player match may contain from two through eight total commanders: one human
+and one through seven independent AI opponents. Three- through eight-player matches
+automatically use a dedicated map sized and arranged for that exact commander count.
+Those provisional layouts are Triad Reach (3), Fourfold Front (4), Pentagon Expanse
+(5), Hex Ring (6), Sevenfold Frontier (7), and Octagon Crown (8). Their dimensions
+scale from 5,960 by 4,480 to 8,560 by 6,280 world units, with evenly distributed
+starting positions, nearby expansion deposits, contested central deposits, and
+terrain arranged around the full battlefield rather than a two-sided lane.
+
+A two-player multiplayer host selects one of the three duel maps at random and
+includes that map identity and complete map state in the authoritative snapshot
+sent to the guest; neither player manually chooses or vetoes the multiplayer map.
+
+- **Broken Frontier** contains 27 Metal Mine deposits, fortified starting bases,
+  central divides, and two distant five-deposit frontier clusters.
+- **Ashen Divide** uses 19 deposits and a broken vertical spine that creates two
+  major contested attack lanes.
+- **Iron Crossings** uses 21 deposits and four central iron masses that create
+  narrow horizontal and vertical crossroads.
+
+Every map preserves the standard starting package at every commander position.
+Map identities, terrain, starts, and deposits are data-driven and all current
+layouts remain provisional for balance testing.
 
 The battlefield ground uses muted olive vegetation and broad earthen-brown patches
 with a subtle fixed mottled texture. Construction-grid lines remain visible across
@@ -552,7 +569,7 @@ constructed on any otherwise valid terrain.
 
 ### 5.4 Standard Match Start
 
-The player and enemy each begin with exactly:
+Every human or AI commander begins with exactly:
 
 - Three Tier 1 Worker Drones.
 - One Tier 1 Mech Factory.
@@ -561,18 +578,19 @@ The player and enemy each begin with exactly:
   starting generator's power network.
 
 The starting mine provides a guaranteed metal income so spending the initial metal
-cannot leave either side unable to construct anything. No battery, relay, charger,
+cannot leave a commander unable to construct anything. No battery, relay, charger,
 reclamation yard, static defense, energy carrier, or combat unit is pre-built. Both
-sides use their workers and starting metal income to expand their economy and
+commanders use their workers and starting metal income to expand their economy and
 military.
 
 ### 5.5 Match End and Restart
 
-A player wins when the opposing side has no living units and no living buildings.
+A player wins when every AI opponent has no living units and no living buildings.
 The same elimination rule causes defeat when the player has no living units and no
-living buildings. Active, stasis, and unfinished entities count while they remain
-alive; wrecks and reclamation drones do not postpone elimination. If both sides are
-eliminated by the same resolution, the player receives a defeat.
+living buildings, even if multiple AI commanders remain. Active, stasis, and
+unfinished entities count while they remain alive; wrecks and reclamation drones do
+not postpone elimination. If the human and final AI opponent are eliminated by the
+same resolution, the player receives a defeat.
 
 The simulation stops advancing once the result is decided. The battlefield displays
 `You win.` or `You lose.` with an explanation and a restart button. Restarting creates
@@ -640,11 +658,18 @@ prevent them from collecting more than the pile contains.
 
 ## 8. Enemy AI
 
-The enemy AI performs the same categories of action as the player: gathering
+Each enemy AI performs the same categories of action as the player: gathering
 metal, generating and relaying power, storing grid energy, constructing buildings
 with workers, producing units, maintaining defenses, supplying unit energy,
 fighting, and reclaiming wreckage. It uses the same simulation commands and pays
 the same costs; it does not receive hidden free units or buildings.
+
+In matches with multiple AI opponents, each AI is a separate free-for-all
+commander. It owns independent metal, power, supply, technology unlocks, workers,
+production queues, expansion choices, build-plan progress, and decision timing.
+AI commanders may attack one another as well as the human, claim any currently
+unused deposit, and are subject to the same placement and occupancy checks. They do
+not share resources, vision-derived decisions, construction projects, or armies.
 
 The AI reassigns an available worker to an unfinished enemy foundation when its
 original builder is destroyed or otherwise lost. If a preferred ordinary build
@@ -730,12 +755,42 @@ synchronization, and rendering optimizations within the web platform.
 The battlefield uses Canvas rendering. Menus, command panels, accessibility
 features, and other interface elements may use HTML and CSS where appropriate.
 
-The standard battlefield is currently 3200 by 1800 world units, four times the
-area of the original 1600-by-900 field test. The 1600-by-900 Canvas is a movable
-viewport rather than the full map. `WASD` pans the camera, and the mouse wheel
-zooms from 50% to 200% around the world position beneath the pointer. Camera
-movement remains available while the simulation is paused, and the camera is
-clamped so it cannot expose space beyond the battlefield boundary.
+Battlefields currently range from 5,200 by 3,200 world units for two commanders to
+8,560 by 6,280 for eight. The 1,600-by-900 Canvas is a movable viewport rather than
+the full map. `WASD` pans the camera, and the mouse wheel zooms from 50% to 200%
+around the world position beneath the pointer. Camera movement remains available
+while the simulation is paused, and the camera is clamped to the active map's
+dimensions so it cannot expose space beyond the battlefield boundary.
+
+### 9.2 Match Menu and Multiplayer
+
+The game opens on a mode menu. Single Player lets the human choose two through eight
+total players. Two-player matches retain manual selection among the duel maps;
+larger matches show and automatically use the dedicated map for the chosen player
+count. All AI opponents run their full commander logic. The local human is blue,
+and up to seven opponents receive distinct red, orange, yellow, purple, green,
+magenta, and pale-gray accents so ownership remains readable.
+
+Multiplayer currently creates a direct two-player match: the host controls the
+western team and the guest controls the eastern team. The enemy AI is disabled so
+both sides use only human commands.
+
+Multiplayer uses a host-authoritative WebRTC data channel suitable for the static
+browser build. The host generates an offer code, the guest pastes it and generates
+an answer code, and the host pastes that answer to finish the direct connection.
+No game account or dedicated Crimson Dawn server is required. A public STUN service
+assists peer discovery, so both players still need internet access and some highly
+restricted networks may prevent a direct connection.
+
+The host owns the canonical simulation, validates incoming commands against the
+guest's team, chooses the multiplayer map at random, and sends versioned simulation
+snapshots to the guest ten times per second. The guest simulates between snapshots
+for smoother presentation and is corrected by each authoritative host state.
+Movement, attack, construction, production, rally, stop, ability, cancellation,
+and upgrade commands all use the same simulation APIs as single player. Pausing and
+match resets are disabled during multiplayer; either player may leave the match and
+return to the mode menu. Automatic reconnection and spectators are not yet
+implemented.
 
 ## 10. Open Design Questions
 

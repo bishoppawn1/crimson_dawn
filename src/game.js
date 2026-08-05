@@ -1,19 +1,44 @@
 import {
   BUILD_MENU_BY_TIER,
   canWorkerTierBuildStructure,
+  DEFAULT_MAP_ID,
   DRONE_DEFINITION,
+  MAP_DEFINITIONS,
+  resolveMatchMapId,
   SIMULATION_RULES,
   STRUCTURE_DEFINITIONS,
   UNIT_DEFINITIONS,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
   powerCoverageBounds,
   structureFootprint,
 } from "./data.js";
+import { getMatchMap } from "./maps.js";
 import { energyRatio, Simulation } from "./simulation.js";
+import { PeerMultiplayerSession } from "./multiplayer.js";
 
 const canvas = document.querySelector("#battlefield");
 const context = canvas.getContext("2d");
+const startMenu = document.querySelector("#start-menu");
+const gameShell = document.querySelector("#game-shell");
+const modeChoices = document.querySelector("#mode-choices");
+const singlePlayerButton = document.querySelector("#single-player-button");
+const singlePlayerSetup = document.querySelector("#single-player-setup");
+const singlePlayerCount = document.querySelector("#single-player-count");
+const singlePlayerMap = document.querySelector("#single-player-map");
+const singlePlayerMapDescription = document.querySelector("#single-player-map-description");
+const startSinglePlayerButton = document.querySelector("#start-single-player-button");
+const backFromSinglePlayerButton = document.querySelector("#back-from-single-player-button");
+const multiplayerButton = document.querySelector("#multiplayer-button");
+const multiplayerSetup = document.querySelector("#multiplayer-setup");
+const createHostButton = document.querySelector("#create-host-button");
+const createGuestButton = document.querySelector("#create-guest-button");
+const acceptAnswerButton = document.querySelector("#accept-answer-button");
+const backToModesButton = document.querySelector("#back-to-modes-button");
+const hostOfferCode = document.querySelector("#host-offer-code");
+const guestAnswerCode = document.querySelector("#guest-answer-code");
+const joinOfferCode = document.querySelector("#join-offer-code");
+const guestResponseCode = document.querySelector("#guest-response-code");
+const connectionStatus = document.querySelector("#connection-status");
+const matchModeLabel = document.querySelector("#match-mode");
 const metalValue = document.querySelector("#metal-value");
 const energyValue = document.querySelector("#energy-value");
 const supplyValue = document.querySelector("#supply-value");
@@ -44,7 +69,14 @@ const matchResultTitle = document.querySelector("#match-result-title");
 const matchResultDetails = document.querySelector("#match-result-details");
 const restartMatchButton = document.querySelector("#restart-match-button");
 
-let simulation = Simulation.createFieldTest();
+let simulation = Simulation.createFieldTest({ enemyAiEnabled: false });
+let matchMode = "menu";
+let localTeam = "player";
+let activeMapId = DEFAULT_MAP_ID;
+let activePlayerCount = 2;
+let peerSession = null;
+let multiplayerConnected = false;
+let snapshotSendRemaining = 0;
 let selectedUnitIds = new Set();
 let selectedStructureId = null;
 let selectionDrag = null;
@@ -59,7 +91,7 @@ let accumulator = 0;
 const fixedStep = 1 / 30;
 const camera = {
   x: canvas.width / 2,
-  y: WORLD_HEIGHT / 2,
+  y: simulation.height / 2,
   zoom: 1,
 };
 const cameraKeys = new Set();
@@ -82,6 +114,34 @@ const colors = {
   selection: "#f6ee8d",
   disconnected: "#ff6675",
 };
+
+const teamPalettes = Object.freeze([
+  Object.freeze({ bright: "#7fd4ef", dark: "#24627c" }),
+  Object.freeze({ bright: "#e65a64", dark: "#772e38" }),
+  Object.freeze({ bright: "#f39a52", dark: "#87461f" }),
+  Object.freeze({ bright: "#e5cf58", dark: "#756522" }),
+  Object.freeze({ bright: "#b995ef", dark: "#56387e" }),
+  Object.freeze({ bright: "#72d49a", dark: "#286843" }),
+  Object.freeze({ bright: "#ef7dc4", dark: "#7c3766" }),
+  Object.freeze({ bright: "#d8e2e9", dark: "#63717b" }),
+]);
+
+function teamPalette(teamId) {
+  if (teamId === localTeam) return teamPalettes[0];
+  const opponentIndex = simulation.teams
+    .filter((team) => team.id !== localTeam)
+    .findIndex((team) => team.id === teamId);
+  return teamPalettes[Math.max(1, opponentIndex + 1) % teamPalettes.length];
+}
+
+for (const map of Object.values(MAP_DEFINITIONS)) {
+  const option = document.createElement("option");
+  option.value = map.id;
+  option.textContent = map.name;
+  singlePlayerMap.append(option);
+}
+singlePlayerMap.value = DEFAULT_MAP_ID;
+updateSinglePlayerMapDescription();
 
 const buildButtons = new Map();
 for (const tier of [1, 2, 3]) {
@@ -144,15 +204,20 @@ for (const unitType of producibleUnitTypes) {
     : "";
   button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · ${definition.supplyCost} supply${roleSummary}${combatSummary}</small>`;
   button.addEventListener("click", () => {
-    if (selectedStructureId) simulation.queueProduction(selectedStructureId, unitType);
+    if (selectedStructureId) {
+      issueGameCommand({
+        type: "production",
+        structureId: selectedStructureId,
+        unitType,
+      });
+    }
     updateInterface();
   });
   productionCommandGrid.append(button);
   productionButtons.set(unitType, button);
 }
 
-function resetGame() {
-  simulation = Simulation.createFieldTest();
+function resetPresentation() {
   selectedUnitIds = new Set();
   selectedStructureId = null;
   selectionDrag = null;
@@ -167,6 +232,296 @@ function resetGame() {
   pauseButton.textContent = "Pause simulation";
   accumulator = 0;
   updateInterface();
+}
+
+function resetGame() {
+  simulation = Simulation.createFieldTest({
+    enemyAiEnabled: matchMode === "single_player",
+    mapId: activeMapId,
+    playerCount: matchMode === "single_player" ? activePlayerCount : 2,
+  });
+  resetPresentation();
+}
+
+function updateSinglePlayerMapDescription() {
+  const playerCount = Number(singlePlayerCount.value);
+  const map = getMatchMap(playerCount, singlePlayerMap.value);
+  singlePlayerMap.disabled = playerCount > 2;
+  singlePlayerMapDescription.textContent = playerCount === 2
+    ? (MAP_DEFINITIONS[map.id]?.description || map.name)
+    : `${map.name} is the dedicated ${playerCount}-player battlefield. All ${playerCount - 1} AI commanders use independent bases, economies, and armies.`;
+}
+
+function showSinglePlayerSetup() {
+  modeChoices.hidden = true;
+  multiplayerSetup.hidden = true;
+  singlePlayerSetup.hidden = false;
+  singlePlayerCount.value = String(activePlayerCount);
+  singlePlayerMap.value = activeMapId;
+  updateSinglePlayerMapDescription();
+}
+
+function isMultiplayer() {
+  return matchMode === "multiplayer_host" || matchMode === "multiplayer_guest";
+}
+
+function setConnectionStatus(message, error = false) {
+  connectionStatus.textContent = message;
+  connectionStatus.classList.toggle("error", error);
+}
+
+function showGame() {
+  startMenu.hidden = true;
+  gameShell.setAttribute("aria-hidden", "false");
+  gameShell.removeAttribute("inert");
+}
+
+function startSinglePlayer() {
+  peerSession?.close();
+  peerSession = null;
+  multiplayerConnected = false;
+  matchMode = "single_player";
+  localTeam = "player";
+  activeMapId = resolveMatchMapId({
+    matchMode: "singleplayer",
+    selectedMapId: singlePlayerMap.value,
+  });
+  activePlayerCount = Number(singlePlayerCount.value);
+  resetGame();
+  matchModeLabel.textContent = `SINGLE PLAYER · ${activePlayerCount} PLAYERS · ${simulation.mapName.toUpperCase()}`;
+  showGame();
+}
+
+function startMultiplayerMatch(role) {
+  matchMode = role === "host" ? "multiplayer_host" : "multiplayer_guest";
+  localTeam = role === "host" ? "player" : "enemy";
+  multiplayerConnected = true;
+  if (role === "host") {
+    activeMapId = resolveMatchMapId({
+      matchMode: "multiplayer",
+      randomValue: Math.random(),
+    });
+  }
+  simulation = Simulation.createFieldTest({ enemyAiEnabled: false, mapId: activeMapId });
+  matchModeLabel.textContent = role === "host"
+    ? `MULTIPLAYER HOST · ${simulation.mapName.toUpperCase()} · WESTERN COMMAND`
+    : "MULTIPLAYER GUEST · RECEIVING RANDOM MAP · EASTERN COMMAND";
+  resetPresentation();
+  pauseButton.disabled = true;
+  resetButton.textContent = "Leave multiplayer";
+  restartMatchButton.textContent = "Return to menu";
+  showGame();
+  if (role === "host") sendMultiplayerSnapshot();
+}
+
+function returnToMenu() {
+  peerSession?.close();
+  peerSession = null;
+  multiplayerConnected = false;
+  matchMode = "menu";
+  localTeam = "player";
+  activePlayerCount = 2;
+  simulation = Simulation.createFieldTest({ enemyAiEnabled: false });
+  resetPresentation();
+  resetButton.textContent = "Reset field test";
+  restartMatchButton.textContent = "Restart match";
+  multiplayerSetup.hidden = true;
+  singlePlayerSetup.hidden = true;
+  modeChoices.hidden = false;
+  startMenu.hidden = false;
+  gameShell.setAttribute("aria-hidden", "true");
+  gameShell.setAttribute("inert", "");
+  hostOfferCode.value = "";
+  guestAnswerCode.value = "";
+  joinOfferCode.value = "";
+  guestResponseCode.value = "";
+  acceptAnswerButton.disabled = true;
+  matchModeLabel.textContent = "MATCH SETUP";
+  setConnectionStatus("Choose Host or Join to begin.");
+}
+
+function multiplayerHandlers(role) {
+  return {
+    onOpen() {
+      if (matchMode === "menu") startMultiplayerMatch(role);
+    },
+    onMessage(message) {
+      if (role === "host" && message.type === "command") {
+        applyAuthorizedCommand(message.command, "enemy");
+      } else if (role === "guest" && message.type === "state") {
+        try {
+          simulation = Simulation.fromSnapshot(message.snapshot);
+          activeMapId = simulation.mapId;
+          matchModeLabel.textContent = `MULTIPLAYER GUEST · ${simulation.mapName.toUpperCase()} · EASTERN COMMAND`;
+          pruneSelection();
+        } catch {
+          setConnectionStatus("The host sent an incompatible match state.", true);
+        }
+      }
+    },
+    onClose() {
+      if (!multiplayerConnected) return;
+      multiplayerConnected = false;
+      paused = true;
+      statusBanner.hidden = false;
+      statusBanner.textContent = "MULTIPLAYER CONNECTION LOST · LEAVE MATCH TO RECONNECT";
+    },
+  };
+}
+
+async function createHostMatch() {
+  createHostButton.disabled = true;
+  setConnectionStatus("Generating a direct host offer…");
+  try {
+    peerSession?.close();
+    const created = await PeerMultiplayerSession.createHost(multiplayerHandlers("host"));
+    peerSession = created.session;
+    hostOfferCode.value = created.offerCode;
+    acceptAnswerButton.disabled = !guestAnswerCode.value.trim();
+    setConnectionStatus("Send the host offer to the guest, then paste their answer.");
+  } catch (error) {
+    setConnectionStatus(error.message || "Could not create the host connection.", true);
+  } finally {
+    createHostButton.disabled = false;
+  }
+}
+
+async function createGuestMatch() {
+  createGuestButton.disabled = true;
+  setConnectionStatus("Creating a guest answer…");
+  try {
+    peerSession?.close();
+    const created = await PeerMultiplayerSession.createGuest(
+      joinOfferCode.value,
+      multiplayerHandlers("guest"),
+    );
+    peerSession = created.session;
+    guestResponseCode.value = created.answerCode;
+    setConnectionStatus("Send this answer to the host. The match starts when the host connects.");
+  } catch (error) {
+    setConnectionStatus(error.message || "Could not join that match.", true);
+  } finally {
+    createGuestButton.disabled = false;
+  }
+}
+
+async function acceptGuestAnswer() {
+  if (!peerSession) return;
+  acceptAnswerButton.disabled = true;
+  setConnectionStatus("Connecting to the guest…");
+  try {
+    await peerSession.acceptAnswer(guestAnswerCode.value);
+    setConnectionStatus("Answer accepted. Establishing the direct connection…");
+  } catch (error) {
+    setConnectionStatus(error.message || "Could not accept that guest answer.", true);
+    acceptAnswerButton.disabled = false;
+  }
+}
+
+function ownedUnitIds(ids, team) {
+  if (!Array.isArray(ids)) return [];
+  return ids.slice(0, 200).filter((id) => {
+    const unit = simulation.getUnit(id);
+    return unit?.alive && unit.team === team;
+  });
+}
+
+function ownedStructure(id, team) {
+  const structure = simulation.getStructure(id);
+  return structure?.alive && structure.team === team ? structure : null;
+}
+
+function applyAuthorizedCommand(command, team) {
+  if (!command || typeof command.type !== "string") return false;
+  switch (command.type) {
+    case "move": {
+      if (!Array.isArray(command.orders)) return false;
+      let moved = false;
+      for (const order of command.orders.slice(0, 200)) {
+        if (!Number.isFinite(order?.x) || !Number.isFinite(order?.y)) continue;
+        const unitIds = ownedUnitIds([order.unitId], team);
+        if (unitIds.length === 0) continue;
+        moved = simulation.commandMove(unitIds, order.x, order.y, { force: Boolean(command.force) }) || moved;
+      }
+      return moved;
+    }
+    case "attack": {
+      const target = simulation.getEntity(command.targetId);
+      if (!target?.alive || target.team === team) return false;
+      return simulation.commandAttack(ownedUnitIds(command.unitIds, team), target.id) > 0;
+    }
+    case "stop":
+      return simulation.commandStop(
+        ownedUnitIds(command.unitIds, team),
+        Boolean(command.holdPosition),
+      ) > 0;
+    case "build": {
+      const structure = ownedStructure(command.structureId, team);
+      if (!structure || structure.complete) return false;
+      return simulation.commandBuild(
+        ownedUnitIds(command.unitIds, team),
+        structure.id,
+        { queue: Boolean(command.queue) },
+      ) > 0;
+    }
+    case "construct": {
+      if (!STRUCTURE_DEFINITIONS[command.structureType]) return false;
+      if (!Number.isFinite(command.x) || !Number.isFinite(command.y)) return false;
+      return simulation.startConstruction(
+        ownedUnitIds(command.workerIds, team),
+        command.structureType,
+        command.x,
+        command.y,
+        { queue: Boolean(command.queue) },
+      );
+    }
+    case "production": {
+      const structure = ownedStructure(command.structureId, team);
+      if (!structure || !UNIT_DEFINITIONS[command.unitType]) return false;
+      return simulation.queueProduction(structure.id, command.unitType);
+    }
+    case "rally": {
+      const structure = ownedStructure(command.structureId, team);
+      if (!structure || !Number.isFinite(command.x) || !Number.isFinite(command.y)) return false;
+      return simulation.commandRally(structure.id, command.x, command.y);
+    }
+    case "ability": {
+      if (command.abilityId !== "overdrive") return false;
+      return simulation.activateAbility(
+        ownedUnitIds(command.unitIds, team),
+        command.abilityId,
+      ) > 0;
+    }
+    case "cancel_construction": {
+      const structure = ownedStructure(command.structureId, team);
+      return structure ? simulation.cancelConstruction(structure.id, team) : false;
+    }
+    case "supply_upgrade": {
+      const structure = ownedStructure(command.structureId, team);
+      return structure ? simulation.queueSupplyUpgrade(structure.id) : false;
+    }
+    case "structure_upgrade": {
+      const structure = ownedStructure(command.structureId, team);
+      return structure ? simulation.upgradeStructure(structure.id, team) : false;
+    }
+    default:
+      return false;
+  }
+}
+
+function issueGameCommand(command) {
+  if (matchMode === "multiplayer_guest") {
+    return peerSession?.send({ type: "command", command }) || false;
+  }
+  return applyAuthorizedCommand(command, localTeam);
+}
+
+function sendMultiplayerSnapshot() {
+  if (matchMode !== "multiplayer_host" || !multiplayerConnected) return false;
+  return peerSession?.send({
+    type: "state",
+    snapshot: simulation.createSnapshot(),
+  }) || false;
 }
 
 function describeStructureRole(definition) {
@@ -200,11 +555,18 @@ function frame(now) {
   const elapsed = Math.min(0.1, (now - lastFrameTime) / 1000);
   lastFrameTime = now;
   updateCamera(elapsed);
-  if (!paused) {
+  if (matchMode !== "menu" && !paused) {
     accumulator += elapsed;
     while (accumulator >= fixedStep) {
       simulation.tick(fixedStep);
       accumulator -= fixedStep;
+    }
+    if (matchMode === "multiplayer_host") {
+      snapshotSendRemaining -= elapsed;
+      if (snapshotSendRemaining <= 0) {
+        sendMultiplayerSnapshot();
+        snapshotSendRemaining = 0.1;
+      }
     }
   }
 
@@ -243,8 +605,9 @@ function render() {
 }
 
 function resetCamera() {
-  camera.x = canvas.width / 2;
-  camera.y = WORLD_HEIGHT / 2;
+  const start = simulation.teamStarts[localTeam];
+  camera.x = start?.x ?? (localTeam === "player" ? canvas.width / 2 : simulation.width - canvas.width / 2);
+  camera.y = start?.y ?? simulation.height / 2;
   camera.zoom = 1;
   clampCamera();
 }
@@ -265,12 +628,12 @@ function updateCamera(elapsed) {
 function clampCamera() {
   const halfViewWidth = canvas.width / (2 * camera.zoom);
   const halfViewHeight = canvas.height / (2 * camera.zoom);
-  camera.x = halfViewWidth >= WORLD_WIDTH / 2
-    ? WORLD_WIDTH / 2
-    : clampValue(camera.x, halfViewWidth, WORLD_WIDTH - halfViewWidth);
-  camera.y = halfViewHeight >= WORLD_HEIGHT / 2
-    ? WORLD_HEIGHT / 2
-    : clampValue(camera.y, halfViewHeight, WORLD_HEIGHT - halfViewHeight);
+  camera.x = halfViewWidth >= simulation.width / 2
+    ? simulation.width / 2
+    : clampValue(camera.x, halfViewWidth, simulation.width - halfViewWidth);
+  camera.y = halfViewHeight >= simulation.height / 2
+    ? simulation.height / 2
+    : clampValue(camera.y, halfViewHeight, simulation.height - halfViewHeight);
 }
 
 function drawCameraHud() {
@@ -284,24 +647,24 @@ function drawCameraHud() {
 
 function drawTerrain() {
   context.fillStyle = colors.background;
-  context.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+  context.fillRect(0, 0, simulation.width, simulation.height);
 
   const groundPatches = [
-    { x: 620, y: 1600, radiusX: 560, radiusY: 820, rotation: 0.1, color: "#66583e" },
-    { x: 1500, y: 700, radiusX: 760, radiusY: 390, rotation: -0.18, color: "#596343" },
-    { x: 2100, y: 2380, radiusX: 920, radiusY: 420, rotation: 0.14, color: "#6d5c3d" },
-    { x: 2900, y: 1050, radiusX: 840, radiusY: 440, rotation: -0.08, color: "#566443" },
-    { x: 3750, y: 2450, radiusX: 780, radiusY: 430, rotation: 0.2, color: "#705f40" },
-    { x: 4580, y: 1600, radiusX: 560, radiusY: 820, rotation: -0.1, color: "#65543b" },
+    { x: 0.12, y: 0.5, radiusX: 0.11, radiusY: 0.26, rotation: 0.1, color: "#66583e" },
+    { x: 0.29, y: 0.22, radiusX: 0.15, radiusY: 0.12, rotation: -0.18, color: "#596343" },
+    { x: 0.4, y: 0.74, radiusX: 0.18, radiusY: 0.13, rotation: 0.14, color: "#6d5c3d" },
+    { x: 0.56, y: 0.33, radiusX: 0.16, radiusY: 0.14, rotation: -0.08, color: "#566443" },
+    { x: 0.72, y: 0.77, radiusX: 0.15, radiusY: 0.13, rotation: 0.2, color: "#705f40" },
+    { x: 0.88, y: 0.5, radiusX: 0.11, radiusY: 0.26, rotation: -0.1, color: "#65543b" },
   ];
   for (const patch of groundPatches) {
     context.fillStyle = patch.color;
     context.beginPath();
     context.ellipse(
-      patch.x,
-      patch.y,
-      patch.radiusX,
-      patch.radiusY,
+      patch.x * simulation.width,
+      patch.y * simulation.height,
+      patch.radiusX * simulation.width,
+      patch.radiusY * simulation.height,
       patch.rotation,
       0,
       Math.PI * 2,
@@ -312,8 +675,8 @@ function drawTerrain() {
   // Small deterministic mottles keep the field organic without shimmering as
   // the camera moves or introducing simulation-side randomness.
   context.fillStyle = "#8a76512b";
-  for (let y = 80; y < WORLD_HEIGHT; y += 160) {
-    for (let x = 80; x < WORLD_WIDTH; x += 160) {
+  for (let y = 80; y < simulation.height; y += 160) {
+    for (let x = 80; x < simulation.width; x += 160) {
       if ((x / 160 + y / 160) % 3 === 0) continue;
       const offsetX = ((x * 7 + y * 3) % 41) - 20;
       const offsetY = ((x * 5 + y * 11) % 37) - 18;
@@ -325,7 +688,7 @@ function drawTerrain() {
 
   const gridSize = SIMULATION_RULES.buildingGridSize;
   context.lineWidth = placementStructureType ? 1.5 : 1;
-  for (let x = 0; x <= WORLD_WIDTH; x += gridSize) {
+  for (let x = 0; x <= simulation.width; x += gridSize) {
     context.strokeStyle = placementStructureType
       ? x % (gridSize * 5) === 0
         ? "#b6c69a"
@@ -335,10 +698,10 @@ function drawTerrain() {
         : colors.gridFine;
     context.beginPath();
     context.moveTo(x, 0);
-    context.lineTo(x, WORLD_HEIGHT);
+    context.lineTo(x, simulation.height);
     context.stroke();
   }
-  for (let y = 0; y <= WORLD_HEIGHT; y += gridSize) {
+  for (let y = 0; y <= simulation.height; y += gridSize) {
     context.strokeStyle = placementStructureType
       ? y % (gridSize * 5) === 0
         ? "#b6c69a"
@@ -348,17 +711,21 @@ function drawTerrain() {
         : colors.gridFine;
     context.beginPath();
     context.moveTo(0, y);
-    context.lineTo(WORLD_WIDTH, y);
+    context.lineTo(simulation.width, y);
     context.stroke();
   }
 
   drawImpassableTerrain();
 
-  context.fillStyle = "#c0d8d1";
   context.font = "700 12px ui-monospace, monospace";
-  context.fillText("FRIENDLY GRID", 55, 500);
-  context.fillStyle = "#e0aaa3";
-  context.fillText("HOSTILE APPROACH", WORLD_WIDTH - 235, 500);
+  for (const team of simulation.teams) {
+    const start = simulation.teamStarts[team.id];
+    if (!start) continue;
+    context.fillStyle = teamPalette(team.id).bright;
+    context.textAlign = "center";
+    context.fillText(team.id === localTeam ? "YOUR COMMAND" : team.name.toUpperCase(), start.x, start.y - 300);
+  }
+  context.textAlign = "start";
 }
 
 function drawImpassableTerrain() {
@@ -402,7 +769,7 @@ function drawPlacementPreview() {
     placementStructureType,
     placementCursor.x,
     placementCursor.y,
-    "player",
+    localTeam,
   );
   const previewColor = placement.valid ? colors.health : colors.disconnected;
   const powerCoverageRadius = definition.powerRadius || definition.relayRadius || 0;
@@ -453,7 +820,7 @@ function drawPlacementPreview() {
   const createsGrid = Boolean(definition.generationRate);
   const gridConnected = simulation.isBuildSiteConnectedToPower(
     placementStructureType,
-    "player",
+    localTeam,
     placement.x,
     placement.y,
   );
@@ -550,7 +917,7 @@ function drawPowerNetwork() {
   );
   if (placementStructureType) {
     for (const node of nodes) {
-      if (node.team !== "player" || !node.connected) continue;
+      if (node.team !== localTeam || !node.connected) continue;
       const definition = STRUCTURE_DEFINITIONS[node.type];
       const reach = definition.powerRadius || definition.relayRadius;
       if (reach) drawPowerCoverage(node.type, node.x, node.y, colors.energy);
@@ -684,7 +1051,7 @@ function drawStructure(structure) {
   const family = definition.family;
   const footprint = structureFootprint(structure.type);
   const footprintInset = 5;
-  const teamColor = structure.team === "player" ? colors.player : colors.enemy;
+  const teamColor = teamPalette(structure.team).bright;
   context.save();
   context.translate(structure.x, structure.y);
   context.globalAlpha = structure.complete ? 1 : 0.58;
@@ -912,8 +1279,9 @@ function drawStructure(structure) {
 
 function drawUnit(unit) {
   const definition = UNIT_DEFINITIONS[unit.type];
-  const teamColor = unit.team === "player" ? colors.player : colors.enemy;
-  const darkColor = unit.team === "player" ? colors.playerDark : colors.enemyDark;
+  const palette = teamPalette(unit.team);
+  const teamColor = palette.bright;
+  const darkColor = palette.dark;
   const selected = selectedUnitIds.has(unit.id);
   const lowEnergy = energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio;
   const overdrive = unit.abilityActiveUntil.overdrive > simulation.time;
@@ -988,7 +1356,10 @@ function getUnitRenderPose(unit) {
   const target = attackTarget?.alive
     ? attackTarget
     : unit.moveTarget || (buildTarget?.alive ? buildTarget : null) || (transferTarget?.alive ? transferTarget : null);
-  const fallbackFacing = unit.team === "player" ? Math.PI / 2 : -Math.PI / 2;
+  const start = simulation.teamStarts[unit.team];
+  const fallbackFacing = start
+    ? Math.atan2(start.inwardY, start.inwardX) + Math.PI / 2
+    : unit.team === "player" ? Math.PI / 2 : -Math.PI / 2;
   const facing = target
     ? Math.atan2(target.y - unit.y, target.x - unit.x) + Math.PI / 2
     : fallbackFacing;
@@ -2037,19 +2408,21 @@ function updateInterface() {
   const matchEnded = Boolean(simulation.matchResult);
   matchResultPanel.hidden = !matchEnded;
   if (matchEnded) {
-    const victory = simulation.matchResult === "victory";
+    const westernVictory = simulation.matchResult === "victory";
+    const victory = localTeam === "player" ? westernVictory : !westernVictory;
     matchResultTitle.textContent = victory ? "You win." : "You lose.";
     matchResultDetails.textContent = victory
-      ? "All enemy buildings and units have been destroyed."
+      ? "All opposing buildings and units have been destroyed."
       : "All of your buildings and units have been destroyed.";
   }
-  pauseButton.disabled = matchEnded;
+  pauseButton.disabled = matchEnded || isMultiplayer();
 
-  metalValue.textContent = Math.floor(simulation.resources.player.metal).toLocaleString();
-  const netEnergyRate = simulation.getNetEnergyRate("player");
+  const localResources = simulation.resources[localTeam];
+  metalValue.textContent = Math.floor(localResources.metal).toLocaleString();
+  const netEnergyRate = simulation.getNetEnergyRate(localTeam);
   const netEnergyText = netEnergyRate.toLocaleString(undefined, { maximumFractionDigits: 1 });
-  energyValue.textContent = `${netEnergyRate >= 0 ? "+" : ""}${netEnergyText}/s · ${Math.floor(simulation.resources.player.energy)}/${simulation.resources.player.energyCapacity}`;
-  const playerSupply = simulation.getSupplyState("player");
+  energyValue.textContent = `${netEnergyRate >= 0 ? "+" : ""}${netEnergyText}/s · ${Math.floor(localResources.energy)}/${localResources.energyCapacity}`;
+  const playerSupply = simulation.getSupplyState(localTeam);
   supplyValue.textContent = `${playerSupply.used.toLocaleString()}/${playerSupply.capacity.toLocaleString()}`;
   supplyValue.title = `${playerSupply.unitSupply.toLocaleString()} active · ${playerSupply.reservedSupply.toLocaleString()} queued`;
 
@@ -2158,7 +2531,7 @@ function updateInterface() {
   for (const [structureType, button] of buildButtons) {
     const definition = STRUCTURE_DEFINITIONS[structureType];
     const workerCanBuild = canWorkerTierBuildStructure(selectedWorkerTier, structureType);
-    const canAfford = simulation.resources.player.metal >= definition.metalCost;
+    const canAfford = localResources.metal >= definition.metalCost;
     const canBuild = workerCanBuild && canAfford;
     button.disabled = !canBuild;
     button.classList.toggle("available", canBuild);
@@ -2189,7 +2562,7 @@ function updateInterface() {
     button.hidden = !available;
     button.disabled =
       !selectedStructure?.powered ||
-      simulation.resources.player.metal < unitDefinition.metalCost ||
+      localResources.metal < unitDefinition.metalCost ||
       playerSupply.remaining < unitDefinition.supplyCost;
   }
 
@@ -2222,7 +2595,7 @@ function updateInterface() {
     } else {
       supplyUpgradeTitle.textContent = `Upgrade to Supply Level ${targetLevel}`;
       supplyUpgradeDetails.textContent = `${upgrade.metalCost.toLocaleString()} metal · ${upgrade.upgradeTime}s · ${upgrade.capacity.toLocaleString()} capacity`;
-      supplyUpgradeButton.disabled = simulation.resources.player.metal < upgrade.metalCost;
+      supplyUpgradeButton.disabled = localResources.metal < upgrade.metalCost;
     }
   }
   const buildingUpgrade = selectedStructure?.complete
@@ -2243,14 +2616,14 @@ function updateInterface() {
     matchEnded || (!canCancelConstruction && !canShowSupplyUpgrade && !canShowBuildingUpgrade);
 
   const lowEnergyUnits = simulation.units.filter(
-    (unit) => unit.alive && unit.team === "player" && energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio,
+    (unit) => unit.alive && unit.team === localTeam && energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio,
   );
   const stasisUnits = lowEnergyUnits.filter((unit) => unit.state === "stasis");
   const disconnectedStructures = simulation.structures.filter(
     (structure) =>
       structure.alive &&
       structure.complete &&
-      structure.team === "player" &&
+      structure.team === localTeam &&
       !STRUCTURE_DEFINITIONS[structure.type].generationRate &&
       !structure.connected,
   );
@@ -2281,11 +2654,11 @@ function pruneSelection() {
   selectedUnitIds = new Set(
     [...selectedUnitIds].filter((id) => {
       const unit = simulation.getUnit(id);
-      return unit?.alive && unit.team === "player";
+      return unit?.alive && unit.team === localTeam;
     }),
   );
   const structure = simulation.getStructure(selectedStructureId);
-  if (!structure?.alive || structure.team !== "player") selectedStructureId = null;
+  if (!structure?.alive || structure.team !== localTeam) selectedStructureId = null;
 }
 
 function canvasScreenPoint(event) {
@@ -2315,7 +2688,7 @@ function syncPointerToCamera() {
       placementStructureType,
       placementCursor.x,
       placementCursor.y,
-      "player",
+      localTeam,
     );
     placementMessage = placement.valid ? null : placement.reason.toUpperCase();
   }
@@ -2354,9 +2727,9 @@ function findStructureAt(point, team = null) {
 
 function findEnemyAt(point) {
   const candidates = [
-    ...simulation.units.filter((entity) => entity.alive && entity.team === "enemy"),
-    ...simulation.structures.filter((entity) => entity.alive && entity.team === "enemy"),
-    ...simulation.getDrones().filter((entity) => entity.alive && entity.team === "enemy"),
+    ...simulation.units.filter((entity) => entity.alive && entity.team !== localTeam),
+    ...simulation.structures.filter((entity) => entity.alive && entity.team !== localTeam),
+    ...simulation.getDrones().filter((entity) => entity.alive && entity.team !== localTeam),
   ];
   return (
     candidates.find((entity) => {
@@ -2412,14 +2785,26 @@ function placeConstruction(point, queue = false) {
     const unit = simulation.getUnit(id);
     return unit && UNIT_DEFINITIONS[unit.type].workerTier;
   });
-  const structure = simulation.startConstruction(
-    workers,
+  const placement = simulation.evaluatePlacement(
     placementStructureType,
     point.x,
     point.y,
-    { queue },
+    localTeam,
   );
-  if (structure) {
+  if (!placement.valid) {
+    placementMessage = placement.reason.toUpperCase();
+    updateInterface();
+    return false;
+  }
+  const accepted = issueGameCommand({
+    type: "construct",
+    workerIds: workers,
+    structureType: placementStructureType,
+    x: placement.x,
+    y: placement.y,
+    queue,
+  });
+  if (accepted) {
     placementMessage = null;
     if (!queue) {
       placementStructureType = null;
@@ -2429,7 +2814,7 @@ function placeConstruction(point, queue = false) {
     placementMessage = (simulation.lastPlacementError || "Invalid construction location.").toUpperCase();
   }
   updateInterface();
-  return Boolean(structure);
+  return Boolean(accepted);
 }
 
 canvas.addEventListener("mouseup", (event) => {
@@ -2451,7 +2836,7 @@ canvas.addEventListener("mouseup", (event) => {
     for (const unit of simulation.units) {
       if (
         unit.alive &&
-        unit.team === "player" &&
+        unit.team === localTeam &&
         unit.x >= left &&
         unit.x <= right &&
         unit.y >= top &&
@@ -2462,8 +2847,8 @@ canvas.addEventListener("mouseup", (event) => {
     }
     selectedStructureId = null;
   } else {
-    const unit = findUnitAt(drag.current, "player");
-    const structure = unit ? null : findStructureAt(drag.current, "player");
+    const unit = findUnitAt(drag.current, localTeam);
+    const structure = unit ? null : findStructureAt(drag.current, localTeam);
     if (!drag.shift) {
       selectedUnitIds.clear();
       selectedStructureId = null;
@@ -2493,9 +2878,14 @@ canvas.addEventListener("contextmenu", (event) => {
   const point = canvasPoint(event);
   const selectedStructure = simulation.getStructure(selectedStructureId);
   if (
-    selectedStructure?.team === "player" &&
+    selectedStructure?.team === localTeam &&
     STRUCTURE_DEFINITIONS[selectedStructure.type].production &&
-    simulation.commandRally(selectedStructure.id, point.x, point.y)
+    issueGameCommand({
+      type: "rally",
+      structureId: selectedStructure.id,
+      x: point.x,
+      y: point.y,
+    })
   ) {
     updateInterface();
     return;
@@ -2503,43 +2893,60 @@ canvas.addEventListener("contextmenu", (event) => {
   if (selectedUnitIds.size === 0) return;
   const forceMove = forceMoveArmed;
   if (!forceMove) {
-    const friendlyStructure = findStructureAt(point, "player");
+    const friendlyStructure = findStructureAt(point, localTeam);
     if (
       friendlyStructure &&
       !friendlyStructure.complete &&
-      simulation.commandBuild([...selectedUnitIds], friendlyStructure.id) > 0
+      issueGameCommand({
+        type: "build",
+        unitIds: [...selectedUnitIds],
+        structureId: friendlyStructure.id,
+        queue: false,
+      })
     ) {
       updateInterface();
       return;
     }
     const enemy = findEnemyAt(point);
     if (enemy) {
-      simulation.commandAttack([...selectedUnitIds], enemy.id);
+      issueGameCommand({
+        type: "attack",
+        unitIds: [...selectedUnitIds],
+        targetId: enemy.id,
+      });
       return;
     }
   }
 
   const selected = [...selectedUnitIds];
   const columns = Math.ceil(Math.sqrt(selected.length));
-  selected.forEach((id, index) => {
+  const orders = selected.map((id, index) => {
     const row = Math.floor(index / columns);
     const column = index % columns;
     const offsetX = (column - (columns - 1) / 2) * 44;
     const offsetY = (row - (Math.ceil(selected.length / columns) - 1) / 2) * 44;
-    simulation.commandMove([id], point.x + offsetX, point.y + offsetY, { force: forceMove });
+    return { unitId: id, x: point.x + offsetX, y: point.y + offsetY };
   });
+  issueGameCommand({ type: "move", orders, force: forceMove });
   forceMoveArmed = false;
   updateInterface();
 });
 
 function activateOverdrive() {
-  simulation.activateAbility([...selectedUnitIds], "overdrive");
+  issueGameCommand({
+    type: "ability",
+    unitIds: [...selectedUnitIds],
+    abilityId: "overdrive",
+  });
   updateInterface();
 }
 
 function cancelSelectedConstruction() {
   if (!selectedStructureId) return false;
-  const result = simulation.cancelConstruction(selectedStructureId, "player");
+  const result = issueGameCommand({
+    type: "cancel_construction",
+    structureId: selectedStructureId,
+  });
   if (!result) return false;
   selectedStructureId = null;
   updateInterface();
@@ -2549,23 +2956,65 @@ function cancelSelectedConstruction() {
 overdriveButton.addEventListener("click", activateOverdrive);
 cancelConstructionButton.addEventListener("click", cancelSelectedConstruction);
 supplyUpgradeButton.addEventListener("click", () => {
-  if (selectedStructureId) simulation.queueSupplyUpgrade(selectedStructureId);
+  if (selectedStructureId) {
+    issueGameCommand({ type: "supply_upgrade", structureId: selectedStructureId });
+  }
   updateInterface();
 });
 buildingUpgradeButton.addEventListener("click", () => {
-  if (selectedStructureId) simulation.upgradeStructure(selectedStructureId, "player");
+  if (selectedStructureId) {
+    issueGameCommand({ type: "structure_upgrade", structureId: selectedStructureId });
+  }
   updateInterface();
 });
-stopButton.addEventListener("click", () => simulation.commandStop([...selectedUnitIds], false));
-holdButton.addEventListener("click", () => simulation.commandStop([...selectedUnitIds], true));
+stopButton.addEventListener("click", () => issueGameCommand({
+  type: "stop",
+  unitIds: [...selectedUnitIds],
+  holdPosition: false,
+}));
+holdButton.addEventListener("click", () => issueGameCommand({
+  type: "stop",
+  unitIds: [...selectedUnitIds],
+  holdPosition: true,
+}));
 pauseButton.addEventListener("click", () => {
+  if (isMultiplayer()) return;
   paused = !paused;
   pauseButton.textContent = paused ? "Resume simulation" : "Pause simulation";
 });
-resetButton.addEventListener("click", resetGame);
-restartMatchButton.addEventListener("click", resetGame);
+resetButton.addEventListener("click", () => {
+  if (isMultiplayer()) returnToMenu();
+  else resetGame();
+});
+restartMatchButton.addEventListener("click", () => {
+  if (isMultiplayer()) returnToMenu();
+  else resetGame();
+});
+
+singlePlayerButton.addEventListener("click", showSinglePlayerSetup);
+singlePlayerCount.addEventListener("change", updateSinglePlayerMapDescription);
+singlePlayerMap.addEventListener("change", updateSinglePlayerMapDescription);
+startSinglePlayerButton.addEventListener("click", startSinglePlayer);
+backFromSinglePlayerButton.addEventListener("click", () => {
+  singlePlayerSetup.hidden = true;
+  modeChoices.hidden = false;
+});
+multiplayerButton.addEventListener("click", () => {
+  modeChoices.hidden = true;
+  singlePlayerSetup.hidden = true;
+  multiplayerSetup.hidden = false;
+  setConnectionStatus("Choose Host or Join to begin.");
+});
+backToModesButton.addEventListener("click", returnToMenu);
+createHostButton.addEventListener("click", createHostMatch);
+createGuestButton.addEventListener("click", createGuestMatch);
+acceptAnswerButton.addEventListener("click", acceptGuestAnswer);
+guestAnswerCode.addEventListener("input", () => {
+  acceptAnswerButton.disabled = !peerSession || !guestAnswerCode.value.trim();
+});
 
 window.addEventListener("keydown", (event) => {
+  if (matchMode === "menu") return;
   const key = event.key.toLowerCase();
   if (simulation.matchResult) return;
   if (["w", "a", "s", "d"].includes(key)) {
@@ -2610,8 +3059,15 @@ window.crimsonDawn = {
   get camera() {
     return { ...camera };
   },
+  get mode() {
+    return matchMode;
+  },
+  get localTeam() {
+    return localTeam;
+  },
   reset: resetGame,
 };
 
+gameShell.setAttribute("inert", "");
 updateInterface();
 requestAnimationFrame(frame);

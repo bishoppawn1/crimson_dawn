@@ -1,10 +1,11 @@
 import {
   canWorkerTierBuildStructure,
+  DEFAULT_MAP_ID,
   DRONE_DEFINITION,
   getNextStructureTierType,
+  MAP_DEFINITIONS,
   SIMULATION_RULES,
   STRUCTURE_DEFINITIONS,
-  TERRAIN_OBSTACLES,
   UNIT_DEFINITIONS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -13,6 +14,7 @@ import {
   powerCoverageBounds,
   structureFootprint,
 } from "./data.js";
+import { createMatchTeams, getMatchMap } from "./maps.js";
 
 const EPSILON = 0.0001;
 const NAVIGATION_CORNER_MARGIN = 1;
@@ -26,6 +28,10 @@ export class Simulation {
     height = WORLD_HEIGHT,
     terrain = [],
     matchRulesEnabled = false,
+    enemyAiEnabled = true,
+    teams = createMatchTeams(2),
+    mapId = null,
+    mapName = null,
   } = {}) {
     this.width = width;
     this.height = height;
@@ -41,73 +47,178 @@ export class Simulation {
     this.events = [];
     this.powerNetworks = [];
     this.powerLinks = [];
-    this.aiThinkRemaining = SIMULATION_RULES.enemyInitialThinkDelay;
-    this.aiBuildIndex = 0;
     this.lastPlacementError = null;
     this.lastProductionError = null;
     this.lastUpgradeError = null;
     this.matchRulesEnabled = matchRulesEnabled;
+    this.enemyAiEnabled = enemyAiEnabled;
     this.matchResult = null;
-    this.structureTechTier = { player: 1, enemy: 1 };
-    this.resources = {
-      player: { metal: 520, energy: 0, energyCapacity: 0 },
-      enemy: { metal: 520, energy: 0, energyCapacity: 0 },
-    };
+    this.mapId = mapId;
+    this.mapName = mapName;
+    this.teams = teams.map((team) => ({ ...team }));
+    this.teamStarts = {};
+    this.structureTechTier = Object.fromEntries(this.teams.map((team) => [team.id, 1]));
+    this.resources = Object.fromEntries(
+      this.teams.map((team) => [team.id, { metal: 520, energy: 0, energyCapacity: 0 }]),
+    );
+    this.aiStates = Object.fromEntries(
+      this.teams
+        .filter((team) => team.kind === "ai")
+        .map((team) => [team.id, {
+          thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay,
+          buildIndex: 0,
+        }]),
+    );
+    Object.defineProperties(this, {
+      aiThinkRemaining: {
+        configurable: true,
+        get: () => this.aiStates.enemy?.thinkRemaining ?? 0,
+        set: (value) => {
+          this.ensureTeam("enemy", "ai");
+          this.aiStates.enemy.thinkRemaining = value;
+        },
+      },
+      aiBuildIndex: {
+        configurable: true,
+        get: () => this.aiStates.enemy?.buildIndex ?? 0,
+        set: (value) => {
+          this.ensureTeam("enemy", "ai");
+          this.aiStates.enemy.buildIndex = value;
+        },
+      },
+    });
   }
 
-  static createFieldTest() {
-    const simulation = new Simulation({ terrain: TERRAIN_OBSTACLES });
+  static createFieldTest(options = {}) {
+    const normalizedOptions = typeof options === "number" ? { playerCount: options } : options;
+    const {
+      enemyAiEnabled = true,
+      mapId = DEFAULT_MAP_ID,
+      playerCount = 2,
+    } = normalizedOptions;
+    const map = getMatchMap(playerCount, mapId);
+    const teams = createMatchTeams(playerCount);
+    const simulation = new Simulation({
+      width: map.width,
+      height: map.height,
+      terrain: map.terrain,
+      enemyAiEnabled,
+      teams,
+      mapId: map.id,
+      mapName: map.name,
+    });
 
-    const playerStartingDeposit = simulation.addMetalDeposit(760, 1440);
-    const enemyStartingDeposit = simulation.addMetalDeposit(4440, 1440);
-    const standardDeposits = [
-      [900, 920], [920, 2280], [1320, 1440], [1360, 2600],
-      [1800, 720], [1800, 1600], [1880, 2520], [2200, 1480],
-      [3000, 1720], [3320, 680], [3400, 1600], [3320, 2520],
-      [3880, 1440], [4200, 920], [4200, 2280],
-    ];
-    for (const [x, y] of standardDeposits) simulation.addMetalDeposit(x, y);
-    for (const x of [2200, 2400, 2600, 2800, 3000]) {
-      simulation.addMetalDeposit(x, 240, {
-        remote: true,
-        cluster: "Northern Frontier",
-      });
-      simulation.addMetalDeposit(x, 2960, {
-        remote: true,
-        cluster: "Southern Frontier",
-      });
+    const startingDeposits = {};
+    for (const team of teams) {
+      const start = map.starts[team.slot];
+      simulation.teamStarts[team.id] = { ...start };
+      startingDeposits[team.id] = simulation.addMetalDeposit(start.mine.x, start.mine.y);
+    }
+    for (const deposit of map.deposits) {
+      simulation.addMetalDeposit(deposit.x, deposit.y, deposit);
     }
 
-    simulation.addStructure("generator", "player", 600, 1600);
-    simulation.addStructure("mech_factory_t1", "player", 760, 1680);
-    simulation.addStructure(
-      "metal_mine",
-      "player",
-      playerStartingDeposit.x,
-      playerStartingDeposit.y,
-      { depositId: playerStartingDeposit.id },
-    );
-    simulation.addUnit("worker_drone_t1", "player", 680, 1640);
-    simulation.addUnit("worker_drone_t1", "player", 680, 1720);
-    simulation.addUnit("worker_drone_t1", "player", 760, 1800);
+    for (const team of teams) {
+      const start = map.starts[team.slot];
+      simulation.addStructure("generator", team.id, start.x, start.y);
+      simulation.addStructure("mech_factory_t1", team.id, start.factory.x, start.factory.y);
+      simulation.addStructure(
+        "metal_mine",
+        team.id,
+        start.mine.x,
+        start.mine.y,
+        { depositId: startingDeposits[team.id].id },
+      );
+      for (const worker of start.workers) {
+        simulation.addUnit("worker_drone_t1", team.id, worker.x, worker.y);
+      }
+      if (team.kind === "ai") simulation.aiStates[team.id].buildIndex = 1;
+    }
 
-    simulation.addStructure("generator", "enemy", 4600, 1600);
-    simulation.addStructure("mech_factory_t1", "enemy", 4440, 1680);
-    simulation.addStructure(
-      "metal_mine",
-      "enemy",
-      enemyStartingDeposit.x,
-      enemyStartingDeposit.y,
-      { depositId: enemyStartingDeposit.id },
-    );
-    simulation.addUnit("worker_drone_t1", "enemy", 4520, 1640);
-    simulation.addUnit("worker_drone_t1", "enemy", 4520, 1720);
-    simulation.addUnit("worker_drone_t1", "enemy", 4440, 1800);
-
-    simulation.aiBuildIndex = 1;
     simulation.refreshPowerState(0);
     simulation.matchRulesEnabled = true;
     simulation.updateMatchResult();
+    return simulation;
+  }
+
+  ensureTeam(teamId, kind = teamId === "player" ? "human" : "ai") {
+    if (!this.teams.some((team) => team.id === teamId)) {
+      this.teams.push({ id: teamId, name: teamId, kind, slot: this.teams.length });
+    }
+    if (!this.resources[teamId]) {
+      this.resources[teamId] = { metal: 520, energy: 0, energyCapacity: 0 };
+    }
+    if (!this.structureTechTier[teamId]) this.structureTechTier[teamId] = 1;
+    if (kind === "ai" && !this.aiStates[teamId]) {
+      this.aiStates[teamId] = {
+        thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay,
+        buildIndex: 0,
+      };
+    }
+  }
+
+  createSnapshot() {
+    return {
+      version: 1,
+      mapId: this.mapId || DEFAULT_MAP_ID,
+      mapName: this.mapName || MAP_DEFINITIONS[DEFAULT_MAP_ID].name,
+      width: this.width,
+      height: this.height,
+      time: this.time,
+      nextEntityNumber: this.nextEntityNumber,
+      units: this.units,
+      structures: this.structures,
+      wrecks: this.wrecks,
+      metalDeposits: this.metalDeposits,
+      terrain: this.terrain,
+      events: this.events,
+      powerLinks: this.powerLinks,
+      teams: this.teams,
+      teamStarts: this.teamStarts,
+      aiStates: this.aiStates,
+      aiThinkRemaining: this.aiThinkRemaining,
+      aiBuildIndex: this.aiBuildIndex,
+      enemyAiEnabled: this.enemyAiEnabled,
+      matchRulesEnabled: this.matchRulesEnabled,
+      matchResult: this.matchResult,
+      structureTechTier: this.structureTechTier,
+      resources: this.resources,
+    };
+  }
+
+  static fromSnapshot(snapshot) {
+    if (!snapshot || snapshot.version !== 1) {
+      throw new Error("Unsupported multiplayer simulation snapshot.");
+    }
+    const simulation = new Simulation({
+      width: snapshot.width,
+      height: snapshot.height,
+      terrain: snapshot.terrain,
+      matchRulesEnabled: snapshot.matchRulesEnabled,
+      enemyAiEnabled: false,
+      teams: snapshot.teams || createMatchTeams(2),
+      mapId: snapshot.mapId || DEFAULT_MAP_ID,
+      mapName: snapshot.mapName || MAP_DEFINITIONS[snapshot.mapId || DEFAULT_MAP_ID]?.name,
+    });
+    simulation.mapId = snapshot.mapId || DEFAULT_MAP_ID;
+    simulation.mapName = snapshot.mapName || MAP_DEFINITIONS[simulation.mapId]?.name || "Unknown Map";
+    simulation.time = snapshot.time;
+    simulation.nextEntityNumber = snapshot.nextEntityNumber;
+    simulation.units = snapshot.units || [];
+    simulation.structures = snapshot.structures || [];
+    simulation.wrecks = snapshot.wrecks || [];
+    simulation.metalDeposits = snapshot.metalDeposits || [];
+    simulation.events = snapshot.events || [];
+    simulation.powerLinks = snapshot.powerLinks || [];
+    simulation.teamStarts = snapshot.teamStarts || {};
+    simulation.aiStates = snapshot.aiStates || simulation.aiStates;
+    if (!snapshot.aiStates) {
+      simulation.aiThinkRemaining = snapshot.aiThinkRemaining;
+      simulation.aiBuildIndex = snapshot.aiBuildIndex;
+    }
+    simulation.matchResult = snapshot.matchResult;
+    simulation.structureTechTier = snapshot.structureTechTier || { player: 1, enemy: 1 };
+    simulation.resources = snapshot.resources;
     return simulation;
   }
 
@@ -133,6 +244,7 @@ export class Simulation {
   addUnit(type, team, x, y, overrides = {}) {
     const definition = UNIT_DEFINITIONS[type];
     if (!definition) throw new Error(`Unknown unit type: ${type}`);
+    this.ensureTeam(team);
 
     const unit = {
       id: this.createId("unit"),
@@ -174,6 +286,7 @@ export class Simulation {
   addStructure(type, team, x, y, overrides = {}) {
     const definition = STRUCTURE_DEFINITIONS[type];
     if (!definition) throw new Error(`Unknown structure type: ${type}`);
+    this.ensureTeam(team);
 
     const structure = {
       id: this.createId("structure"),
@@ -1166,7 +1279,7 @@ export class Simulation {
     this.time += delta;
 
     this.refreshPowerState(delta);
-    this.updateEnemyAi(delta);
+    if (this.enemyAiEnabled) this.updateEnemyAi(delta);
     this.assignAutomaticTargets();
     this.updateUnits(delta);
     this.updateConstruction(delta);
@@ -1190,13 +1303,14 @@ export class Simulation {
       this.units.some((unit) => unit.alive && unit.team === team) ||
       this.structures.some((structure) => structure.alive && structure.team === team);
     const playerAlive = hasLivingAssets("player");
-    const enemyAlive = hasLivingAssets("enemy");
-    if (playerAlive && enemyAlive) return null;
+    const livingAiTeams = this.teams
+      .filter((team) => team.kind === "ai" && hasLivingAssets(team.id));
+    if (playerAlive && livingAiTeams.length > 0) return null;
 
-    this.matchResult = playerAlive ? "victory" : "defeat";
+    this.matchResult = playerAlive && livingAiTeams.length === 0 ? "victory" : "defeat";
     this.emit("match_complete", this.width / 2, this.height / 2, {
       result: this.matchResult,
-      winner: this.matchResult === "victory" ? "player" : "enemy",
+      winner: this.matchResult === "victory" ? "player" : livingAiTeams[0]?.id || null,
     });
     return this.matchResult;
   }
@@ -1564,50 +1678,70 @@ export class Simulation {
   }
 
   updateEnemyAi(delta) {
-    this.aiThinkRemaining -= delta;
-    if (this.aiThinkRemaining > 0) return;
-    this.aiThinkRemaining = SIMULATION_RULES.enemyThinkInterval;
+    for (const team of this.teams.filter((candidate) => candidate.kind === "ai")) {
+      this.updateAiTeam(team.id, delta);
+    }
+  }
+
+  updateAiTeam(teamId, delta) {
+    const aiState = this.aiStates[teamId];
+    if (!aiState) return;
+    aiState.thinkRemaining -= delta;
+    if (aiState.thinkRemaining > 0) return;
+    aiState.thinkRemaining = SIMULATION_RULES.enemyThinkInterval;
 
     const enemyFactories = this.structures.filter(
-      (structure) => structure.alive && structure.complete && structure.team === "enemy" && structure.type.startsWith("mech_factory"),
+      (structure) => structure.alive && structure.complete && structure.team === teamId && structure.type.startsWith("mech_factory"),
     );
     const enemyWorkers = this.units.filter(
-      (unit) => unit.alive && unit.team === "enemy" && UNIT_DEFINITIONS[unit.type].workerTier,
+      (unit) => unit.alive && unit.team === teamId && UNIT_DEFINITIONS[unit.type].workerTier,
     );
-    this.reassignEnemyConstruction(enemyWorkers);
+    this.reassignEnemyConstruction(enemyWorkers, teamId);
 
     const enemyAnchor = this.structures.find(
       (structure) =>
         structure.alive &&
         structure.complete &&
-        structure.team === "enemy" &&
+        structure.team === teamId &&
         STRUCTURE_DEFINITIONS[structure.type].generationRate,
     );
-    const baseX = enemyAnchor?.x ?? this.width - 600;
-    const baseY = enemyAnchor?.y ?? this.height / 2;
+    const fallbackStart = this.teamStarts[teamId];
+    const baseX = enemyAnchor?.x ?? fallbackStart?.x ?? this.width - 600;
+    const baseY = enemyAnchor?.y ?? fallbackStart?.y ?? this.height / 2;
+    const towardCenterX = this.width / 2 - baseX;
+    const towardCenterY = this.height / 2 - baseY;
+    const inwardLength = Math.hypot(towardCenterX, towardCenterY) || 1;
+    const inwardX = fallbackStart?.inwardX ?? (teamId === "enemy" ? -1 : towardCenterX / inwardLength);
+    const inwardY = fallbackStart?.inwardY ?? (teamId === "enemy" ? 0 : towardCenterY / inwardLength);
+    const tangentX = fallbackStart?.tangentX ?? -inwardY;
+    const tangentY = fallbackStart?.tangentY ?? inwardX;
+    const planPoint = (forward, side = 0) => ({
+      x: baseX + inwardX * forward + tangentX * side,
+      y: baseY + inwardY * forward + tangentY * side,
+    });
     const buildPlans = [
-      { type: "metal_mine", x: baseX - 160, y: baseY - 160 },
-      { type: "battery", x: baseX - 120, y: baseY },
-      { type: "sentry_turret", x: baseX - 60, y: baseY + 180 },
-      { type: "charger", x: baseX + 20, y: baseY + 180 },
-      { type: "power_tower", x: baseX - 360, y: baseY + 40 },
-      { type: "power_tower", x: baseX - 500, y: baseY - 200 },
-      { type: "sentry_turret", x: baseX - 520, y: baseY + 160 },
-      { type: "salvage_yard", x: baseX - 280, y: baseY + 360 },
-      { type: "mech_factory_t1", x: baseX - 440, y: baseY + 360 },
+      { type: "metal_mine", ...planPoint(160, 160) },
+      { type: "battery", ...planPoint(120) },
+      { type: "sentry_turret", ...planPoint(60, -180) },
+      { type: "charger", ...planPoint(-20, -180) },
+      { type: "power_tower", ...planPoint(360, -40) },
+      { type: "power_tower", ...planPoint(500, 200) },
+      { type: "sentry_turret", ...planPoint(520, -160) },
+      { type: "salvage_yard", ...planPoint(280, -360) },
+      { type: "mech_factory_t1", ...planPoint(440, -360) },
     ];
     const playerTargets = [
-      ...this.units.filter((entity) => entity.alive && entity.team === "player"),
-      ...this.structures.filter((entity) => entity.alive && entity.team === "player"),
+      ...this.units.filter((entity) => entity.alive && entity.team !== teamId),
+      ...this.structures.filter((entity) => entity.alive && entity.team !== teamId),
     ];
-    const desiredWaveSize = this.getEnemyAttackWaveSize();
-    const supplyState = this.getSupplyState("enemy");
+    const desiredWaveSize = this.getEnemyAttackWaveSize(teamId);
+    const supplyState = this.getSupplyState(teamId);
     const supplyIsLow =
       supplyState.remaining <= supplyState.capacity * SIMULATION_RULES.enemySupplyLowRatio;
     const supplyComplex = this.structures.find(
       (structure) =>
         structure.alive &&
-        structure.team === "enemy" &&
+        structure.team === teamId &&
         STRUCTURE_DEFINITIONS[structure.type].supplyLevels,
     );
     const needsSupplyUpgrade = Boolean(
@@ -1623,15 +1757,14 @@ export class Simulation {
     const supplyRequest = supplyIsLow && !supplyComplex
       ? {
         type: "supply_complex",
-        x: baseX - 360,
-        y: baseY + 480,
+        ...planPoint(360, -480),
         advancesPlan: false,
       }
       : null;
-    const expansionRequest = this.aiBuildIndex >= 4
-      ? this.getEnemyExpansionRequest(enemyAnchor)
+    const expansionRequest = aiState.buildIndex >= 4
+      ? this.getEnemyExpansionRequest(enemyAnchor, teamId)
       : null;
-    const plan = buildPlans[this.aiBuildIndex];
+    const plan = buildPlans[aiState.buildIndex];
     const strategicRequest = supplyRequest || (
       needsSupplyUpgrade
         ? null
@@ -1642,20 +1775,22 @@ export class Simulation {
       (structure) =>
         structure.alive &&
         !structure.complete &&
-        structure.team === "enemy" &&
+        structure.team === teamId &&
         Boolean(STRUCTURE_DEFINITIONS[structure.type].generationRate),
     );
     const needsGeneration =
-      strategicRequest && this.needsAdditionalGeneration("enemy", strategicRequest.type);
+      strategicRequest && this.needsAdditionalGeneration(teamId, strategicRequest.type);
     let constructionRequest = null;
     if (strategicRequest && !strategicRequest.waiting && (!needsGeneration || !pendingGenerator)) {
       if (needsGeneration) {
-        const direction = strategicRequest.x >= this.width / 2 ? 1 : -1;
+        const towardBaseX = baseX - strategicRequest.x;
+        const towardBaseY = baseY - strategicRequest.y;
+        const towardBaseLength = Math.hypot(towardBaseX, towardBaseY) || 1;
         const offset = STRUCTURE_DEFINITIONS.generator.powerRadius * 0.65;
         constructionRequest = {
           type: "generator",
-          x: strategicRequest.x + direction * offset,
-          y: strategicRequest.y,
+          x: strategicRequest.x + (towardBaseX / towardBaseLength) * offset,
+          y: strategicRequest.y + (towardBaseY / towardBaseLength) * offset,
           advancesPlan: false,
         };
       } else {
@@ -1665,7 +1800,7 @@ export class Simulation {
     if (
       constructionRequest &&
       availableWorker &&
-      this.resources.enemy.metal >= STRUCTURE_DEFINITIONS[constructionRequest.type].metalCost
+      this.resources[teamId].metal >= STRUCTURE_DEFINITIONS[constructionRequest.type].metalCost
     ) {
       const site = STRUCTURE_DEFINITIONS[constructionRequest.type].generationRate
         ? this.findNearestValidBuildSite(
@@ -1673,11 +1808,11 @@ export class Simulation {
           constructionRequest.x,
           constructionRequest.y,
           8,
-          "enemy",
+          teamId,
         )
         : this.findNearestValidPoweredBuildSite(
           constructionRequest.type,
-          "enemy",
+          teamId,
           constructionRequest.x,
           constructionRequest.y,
         );
@@ -1689,22 +1824,22 @@ export class Simulation {
           site.y,
         )
         : null;
-      if (construction && constructionRequest.advancesPlan) this.aiBuildIndex += 1;
+      if (construction && constructionRequest.advancesPlan) aiState.buildIndex += 1;
     }
 
     const nextSupplyComplex = this.structures.find(
       (structure) =>
         structure.alive &&
-        structure.team === "enemy" &&
+        structure.team === teamId &&
         STRUCTURE_DEFINITIONS[structure.type].supplyLevels,
     );
     const nextSupplyRequest = supplyIsLow && !nextSupplyComplex
-      ? { type: "supply_complex", x: baseX - 360, y: baseY + 480 }
+      ? { type: "supply_complex", ...planPoint(360, -480) }
       : null;
-    const nextExpansionRequest = this.aiBuildIndex >= 4
-      ? this.getEnemyExpansionRequest(enemyAnchor)
+    const nextExpansionRequest = aiState.buildIndex >= 4
+      ? this.getEnemyExpansionRequest(enemyAnchor, teamId)
       : null;
-    const reservedPlan = nextSupplyRequest || nextExpansionRequest || buildPlans[this.aiBuildIndex];
+    const reservedPlan = nextSupplyRequest || nextExpansionRequest || buildPlans[aiState.buildIndex];
     const reservedPlanMetal = reservedPlan
       ? STRUCTURE_DEFINITIONS[reservedPlan.type].metalCost
       : 0;
@@ -1714,10 +1849,10 @@ export class Simulation {
         (structure) =>
           structure.alive &&
           !structure.complete &&
-          structure.team === "enemy" &&
+          structure.team === teamId &&
           Boolean(STRUCTURE_DEFINITIONS[structure.type].generationRate),
       ) &&
-      this.needsAdditionalGeneration("enemy", reservedPlan.type);
+      this.needsAdditionalGeneration(teamId, reservedPlan.type);
     const supplyUpgradeDefinition =
       supplyIsLow && nextSupplyComplex?.complete && !nextSupplyComplex.supplyUpgrade
       ? STRUCTURE_DEFINITIONS[nextSupplyComplex.type].supplyLevels[
@@ -1731,7 +1866,7 @@ export class Simulation {
       const definition = UNIT_DEFINITIONS[unit.type];
       return (
         unit.alive &&
-        unit.team === "enemy" &&
+        unit.team === teamId &&
         definition.attackRange > 0 &&
         unit.attackTargetMode !== "explicit"
       );
@@ -1759,18 +1894,18 @@ export class Simulation {
       if (!choice) continue;
       const productionCost = UNIT_DEFINITIONS[choice].metalCost;
       const requiredReserve = replacingWorker || needsCombatForce ? 0 : reservedMetal;
-      if (this.resources.enemy.metal + EPSILON < productionCost + requiredReserve) continue;
+      if (this.resources[teamId].metal + EPSILON < productionCost + requiredReserve) continue;
       this.queueProduction(factory.id, choice);
     }
 
-    const retreated = this.retreatOutmatchedEnemyAttackers(enemyAnchor, playerTargets);
+    const retreated = this.retreatOutmatchedEnemyAttackers(enemyAnchor, playerTargets, teamId);
     const stagedUnits = this.units.filter((unit) => {
       const definition = UNIT_DEFINITIONS[unit.type];
       const target = this.getEntity(unit.attackTargetId);
       return (
         unit.alive &&
         unit.state === "active" &&
-        unit.team === "enemy" &&
+        unit.team === teamId &&
         definition.attackRange > 0 &&
         !target?.alive &&
         !unit.moveTarget
@@ -1780,7 +1915,7 @@ export class Simulation {
       this.structures.some(
         (structure) =>
           structure.alive &&
-          structure.team === "enemy" &&
+          structure.team === teamId &&
           distance(structure, target) <= SIMULATION_RULES.enemyRushResponseRadius,
       ),
     );
@@ -1802,6 +1937,7 @@ export class Simulation {
       if (closest) {
         this.commandAttack(wave.map((unit) => unit.id), closest.id);
         this.emit("enemy_wave", waveCenter.x, waveCenter.y, {
+          team: teamId,
           unitIds: wave.map((unit) => unit.id),
           targetId: closest.id,
         });
@@ -1809,15 +1945,15 @@ export class Simulation {
     }
   }
 
-  getEnemyExpansionRequest(enemyAnchor) {
+  getEnemyExpansionRequest(enemyAnchor, teamId = "enemy") {
     if (!enemyAnchor) return null;
     const enemyMineCount = this.structures.filter(
       (structure) =>
         structure.alive &&
-        structure.team === "enemy" &&
+        structure.team === teamId &&
         STRUCTURE_DEFINITIONS[structure.type].metalRate,
     ).length;
-    const metal = this.resources.enemy.metal;
+    const metal = this.resources[teamId].metal;
     const shouldExpand =
       enemyMineCount < 2 ||
       metal <= SIMULATION_RULES.enemyLowMetalThreshold ||
@@ -1838,7 +1974,7 @@ export class Simulation {
       .filter(
         (deposit) =>
           !occupiedDepositIds.has(deposit.id) &&
-          this.evaluatePlacement("metal_mine", deposit.x, deposit.y, "enemy").valid,
+          this.evaluatePlacement("metal_mine", deposit.x, deposit.y, teamId).valid,
       )
       .sort(
         (left, right) =>
@@ -1847,7 +1983,7 @@ export class Simulation {
       )[0];
     if (!targetDeposit) return null;
 
-    if (this.isBuildSiteConnectedToPower("metal_mine", "enemy", targetDeposit.x, targetDeposit.y)) {
+    if (this.isBuildSiteConnectedToPower("metal_mine", teamId, targetDeposit.x, targetDeposit.y)) {
       return {
         type: "metal_mine",
         x: targetDeposit.x,
@@ -1861,7 +1997,7 @@ export class Simulation {
       (structure) =>
         structure.alive &&
         !structure.complete &&
-        structure.team === "enemy" &&
+        structure.team === teamId &&
         STRUCTURE_DEFINITIONS[structure.type].generationRate &&
         distance(structure, targetDeposit) <= generatorRadius,
     );
@@ -1886,12 +2022,12 @@ export class Simulation {
     };
   }
 
-  getEnemyAttackWaveSize() {
+  getEnemyAttackWaveSize(teamId = "enemy") {
     const defenses = this.structures.filter(
       (structure) =>
         structure.alive &&
         structure.complete &&
-        structure.team === "player" &&
+        structure.team !== teamId &&
         STRUCTURE_DEFINITIONS[structure.type].family === "sentry_turret",
     );
     const heaviestDefenseCluster = defenses.reduce(
@@ -1911,14 +2047,14 @@ export class Simulation {
     );
   }
 
-  retreatOutmatchedEnemyAttackers(enemyAnchor, playerTargets) {
+  retreatOutmatchedEnemyAttackers(enemyAnchor, playerTargets, teamId = "enemy") {
     if (!enemyAnchor) return false;
     const ungroupedAttackers = this.units.filter((unit) => {
       const definition = UNIT_DEFINITIONS[unit.type];
       return (
         unit.alive &&
         unit.state === "active" &&
-        unit.team === "enemy" &&
+        unit.team === teamId &&
         definition.attackRange > 0 &&
         unit.attackTargetMode === "explicit" &&
         distance(unit, enemyAnchor) > SIMULATION_RULES.enemyRushResponseRadius
@@ -1949,7 +2085,7 @@ export class Simulation {
         (unit) =>
           unit.alive &&
           unit.state === "active" &&
-          unit.team === "enemy" &&
+          unit.team === teamId &&
           UNIT_DEFINITIONS[unit.type].attackRange > 0 &&
           distance(unit, armyCenter) <= SIMULATION_RULES.enemyRetreatEvaluationRadius,
       );
@@ -1990,6 +2126,7 @@ export class Simulation {
         { force: true },
       );
       this.emit("enemy_retreat", armyCenter.x, armyCenter.y, {
+        team: teamId,
         unitIds: attackGroup.map((unit) => unit.id),
       });
       retreated = true;
@@ -1997,9 +2134,9 @@ export class Simulation {
     return retreated;
   }
 
-  reassignEnemyConstruction(enemyWorkers) {
+  reassignEnemyConstruction(enemyWorkers, teamId = "enemy") {
     const projects = this.structures.filter(
-      (structure) => structure.alive && !structure.complete && structure.team === "enemy",
+      (structure) => structure.alive && !structure.complete && structure.team === teamId,
     );
     const assignedProjectIds = new Set();
     for (const worker of enemyWorkers) {

@@ -8,11 +8,83 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="shell">
+    <section id="start-menu" class="start-menu" role="dialog" aria-labelledby="start-menu-title">
+      <div class="start-menu-card">
+        <p class="eyebrow">CRIMSON DAWN // COMMAND LINK</p>
+        <h1 id="start-menu-title">Choose a battle mode</h1>
+        <p class="start-menu-intro">Fight the enemy commander AI or connect directly to another player.</p>
+
+        <div id="mode-choices" class="mode-choices">
+          <button id="single-player-button" class="mode-card" type="button">
+            <strong>Single Player</strong>
+            <span>Command the western base against the full enemy AI.</span>
+          </button>
+          <button id="multiplayer-button" class="mode-card" type="button">
+            <strong>Multiplayer</strong>
+            <span>Host or join a direct two-player match with no account required.</span>
+          </button>
+        </div>
+
+        <section id="single-player-setup" class="single-player-setup" hidden>
+          <p class="panel-label">SINGLE PLAYER · MATCH SETUP</p>
+          <h2>Choose your opponents</h2>
+          <label for="single-player-count">Total players (you + AI)</label>
+          <select id="single-player-count">
+            <option value="2">2 players · 1 AI</option>
+            <option value="3">3 players · 2 AI</option>
+            <option value="4">4 players · 3 AI</option>
+            <option value="5">5 players · 4 AI</option>
+            <option value="6">6 players · 5 AI</option>
+            <option value="7">7 players · 6 AI</option>
+            <option value="8">8 players · 7 AI</option>
+          </select>
+          <label for="single-player-map">Map</label>
+          <select id="single-player-map"></select>
+          <p id="single-player-map-description" class="map-description"></p>
+          <div class="menu-action-row">
+            <button id="start-single-player-button" class="menu-action" type="button">Start single-player match</button>
+            <button id="back-from-single-player-button" class="menu-back" type="button">Back</button>
+          </div>
+        </section>
+
+        <section id="multiplayer-setup" class="multiplayer-setup" hidden>
+          <div class="connection-columns">
+            <section class="connection-card">
+              <p class="panel-label">HOST · WESTERN BASE</p>
+              <h2>Create a match</h2>
+              <p>Generate an offer and send it to the other player. Paste their answer below to connect.</p>
+              <button id="create-host-button" class="menu-action" type="button">Generate host offer</button>
+              <label for="host-offer-code">Host offer</label>
+              <textarea id="host-offer-code" rows="4" readonly placeholder="Your offer code appears here"></textarea>
+              <label for="guest-answer-code">Guest answer</label>
+              <textarea id="guest-answer-code" rows="4" placeholder="Paste the guest answer here"></textarea>
+              <button id="accept-answer-button" class="menu-action" type="button" disabled>Connect guest</button>
+            </section>
+
+            <section class="connection-card">
+              <p class="panel-label">JOIN · EASTERN BASE</p>
+              <h2>Join a match</h2>
+              <p>Paste the host offer, generate an answer, then send that answer back to the host.</p>
+              <label for="join-offer-code">Host offer</label>
+              <textarea id="join-offer-code" rows="4" placeholder="Paste the host offer here"></textarea>
+              <button id="create-guest-button" class="menu-action" type="button">Generate guest answer</button>
+              <label for="guest-response-code">Guest answer</label>
+              <textarea id="guest-response-code" rows="4" readonly placeholder="Your answer code appears here"></textarea>
+            </section>
+          </div>
+          <p class="map-description">The host randomly selects the battlefield when the connection opens. The chosen map is synchronized to the guest.</p>
+          <p id="connection-status" class="connection-status" aria-live="polite">Choose Host or Join to begin.</p>
+          <button id="back-to-modes-button" class="menu-back" type="button">Back to mode selection</button>
+        </section>
+      </div>
+    </section>
+
+    <main id="game-shell" class="shell" aria-hidden="true">
       <header class="topbar">
         <div>
           <p class="eyebrow">CRIMSON DAWN // FIELD TEST 01</p>
           <h1>Energy Logistics Field Test</h1>
+          <p id="match-mode" class="match-mode">MATCH SETUP</p>
         </div>
         <div class="resources" aria-label="Player resources">
           <span><i class="metal-dot"></i>Metal <strong id="metal-value">0</strong></span>
@@ -124,6 +196,7 @@
             <p>Disabled units slowly build an emergency charge, then reactivate.</p>
             <p>Salvage drones can share a wreck and visit nearby piles until their cargo is full.</p>
             <p>Aircraft and hovering reclamation drones pass over starting walls; rocky terrain still redirects reclamation drones.</p>
+            <p>Multiplayer uses a direct host-authoritative peer connection. The host commands the western base; the guest commands the eastern base.</p>
           </section>
         </aside>
       </section>

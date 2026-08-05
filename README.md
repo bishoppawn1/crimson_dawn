@@ -8,6 +8,10 @@ units moving, attacking, and using selected special abilities.
 
 The current build is the first playable field test. It includes:
 
+- A start menu for two- through eight-player single-player matches (one human and
+  up to seven independent AI commanders) or direct two-player multiplayer.
+- Host-authoritative WebRTC multiplayer with manual offer/answer codes, synchronized
+  random maps, team-validated commands, and no dedicated game server or account.
 - Selectable mechs with movement and weapon energy costs.
 - Realistic role-specific top-down Canvas sprites with directional lighting,
   articulated machinery, functional equipment, and target-aware facing.
@@ -43,8 +47,8 @@ The current build is the first playable field test. It includes:
 - Metal mines, relay-tower power networks, and static sentry defenses.
 - Grid-charged sentry capacitors with visible range, charge, and targeting status.
 - Map-defined metal deposits that restrict mine construction locations.
-- A 5,200×3,200 battlefield with 27 deposits, including two remote five-deposit
-  frontier clusters.
+- Three selectable 5,200×3,200 duel battlefields plus dedicated, progressively
+  larger layouts for every total player count from three through eight.
 - Visible impassable ridges, shelves, crags, and broken starting walls that block
   ground movement and construction for both players and AI while leaving open gates.
 - Tier 1–3 mech factories, each offering matching-tier Worker, Vanguard, Bulwark,
@@ -80,8 +84,8 @@ The current build is the first playable field test. It includes:
 - Pulse Generators with visible, constant per-second output that never depletes.
 - A concise HUD energy readout showing net building power per second and combined
   stored grid energy against capacity.
-- An enemy economy that mines, builds, produces units, defends, and attacks in grouped waves using
-  the same simulation rules as the player.
+- Independent AI economies that mine, expand, build, produce units, defend, and
+  attack any opposing commander in grouped waves using the same rules as the player.
 - Scrap piles dropped when a loaded reclamation drone is destroyed.
 - Symmetrical starts containing three workers, one Tier 1 Mech Factory, one
   generator, and one powered Metal Mine on a nearby deposit per side.
@@ -104,6 +108,17 @@ npm run check
 ```
 
 No package installation or external runtime is required.
+
+## Multiplayer
+
+1. Both players choose **Multiplayer** from the start menu.
+2. The host generates an offer code and sends it to the guest.
+3. The guest pastes that offer, generates an answer code, and sends the answer back.
+4. The host pastes the answer and connects the match.
+
+The host commands the western base and the guest commands the eastern base. The
+connection is direct and requires internet access; no account or dedicated game
+server is required.
 
 ## Controls
 

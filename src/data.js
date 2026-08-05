@@ -90,6 +90,139 @@ export const TERRAIN_OBSTACLES = Object.freeze([
   }),
 ]);
 
+const SHARED_STARTS = Object.freeze({
+  player: Object.freeze({
+    generator: Object.freeze([600, 1600]),
+    factory: Object.freeze([760, 1680]),
+    mine: Object.freeze([760, 1440]),
+    workers: Object.freeze([
+      Object.freeze([680, 1640]),
+      Object.freeze([680, 1720]),
+      Object.freeze([760, 1800]),
+    ]),
+  }),
+  enemy: Object.freeze({
+    generator: Object.freeze([4600, 1600]),
+    factory: Object.freeze([4440, 1680]),
+    mine: Object.freeze([4440, 1440]),
+    workers: Object.freeze([
+      Object.freeze([4520, 1640]),
+      Object.freeze([4520, 1720]),
+      Object.freeze([4440, 1800]),
+    ]),
+  }),
+});
+
+function frozenRecords(records) {
+  return Object.freeze(records.map((record) => Object.freeze(record)));
+}
+
+const BROKEN_FRONTIER_DEPOSITS = frozenRecords([
+  { x: 900, y: 920 }, { x: 920, y: 2280 }, { x: 1320, y: 1440 },
+  { x: 1360, y: 2600 }, { x: 1800, y: 720 }, { x: 1800, y: 1600 },
+  { x: 1880, y: 2520 }, { x: 2200, y: 1480 }, { x: 3000, y: 1720 },
+  { x: 3320, y: 680 }, { x: 3400, y: 1600 }, { x: 3320, y: 2520 },
+  { x: 3880, y: 1440 }, { x: 4200, y: 920 }, { x: 4200, y: 2280 },
+  { x: 2200, y: 240, remote: true, cluster: "Northern Frontier" },
+  { x: 2400, y: 240, remote: true, cluster: "Northern Frontier" },
+  { x: 2600, y: 240, remote: true, cluster: "Northern Frontier" },
+  { x: 2800, y: 240, remote: true, cluster: "Northern Frontier" },
+  { x: 3000, y: 240, remote: true, cluster: "Northern Frontier" },
+  { x: 2200, y: 2960, remote: true, cluster: "Southern Frontier" },
+  { x: 2400, y: 2960, remote: true, cluster: "Southern Frontier" },
+  { x: 2600, y: 2960, remote: true, cluster: "Southern Frontier" },
+  { x: 2800, y: 2960, remote: true, cluster: "Southern Frontier" },
+  { x: 3000, y: 2960, remote: true, cluster: "Southern Frontier" },
+]);
+
+const ASHEN_DIVIDE_TERRAIN = frozenRecords([
+  { id: "ashen-north-spine", name: "Ashen Spine", x: 2600, y: 480, width: 400, height: 560 },
+  { id: "ashen-center-spine", name: "Ashen Spine", x: 2600, y: 1600, width: 400, height: 480 },
+  { id: "ashen-south-spine", name: "Ashen Spine", x: 2600, y: 2720, width: 400, height: 560 },
+  { id: "ashen-west-shelf", name: "Western Ash Shelf", x: 1580, y: 1040, width: 640, height: 200 },
+  { id: "ashen-east-shelf", name: "Eastern Ash Shelf", x: 3620, y: 2160, width: 640, height: 200 },
+  { id: "ashen-west-crags", name: "Western Ash Crags", x: 1540, y: 2460, width: 360, height: 360 },
+  { id: "ashen-east-crags", name: "Eastern Ash Crags", x: 3660, y: 740, width: 360, height: 360 },
+]);
+
+const ASHEN_DIVIDE_DEPOSITS = frozenRecords([
+  { x: 900, y: 800 }, { x: 900, y: 2400 }, { x: 1400, y: 1600 },
+  { x: 1600, y: 600 }, { x: 1600, y: 2800 }, { x: 2050, y: 920 },
+  { x: 2050, y: 2280 }, { x: 3150, y: 920 }, { x: 3150, y: 2280 },
+  { x: 3600, y: 400 }, { x: 3600, y: 2600 }, { x: 3800, y: 1600 },
+  { x: 4300, y: 800 }, { x: 4300, y: 2400 }, { x: 2600, y: 920 },
+  { x: 2600, y: 2240 }, { x: 2600, y: 3120, remote: true, cluster: "Southern Ash Field" },
+]);
+
+const IRON_CROSSINGS_TERRAIN = frozenRecords([
+  { id: "cross-northwest", name: "Northwest Iron Mass", x: 2180, y: 1040, width: 400, height: 560 },
+  { id: "cross-northeast", name: "Northeast Iron Mass", x: 3020, y: 1040, width: 400, height: 560 },
+  { id: "cross-southwest", name: "Southwest Iron Mass", x: 2180, y: 2160, width: 400, height: 560 },
+  { id: "cross-southeast", name: "Southeast Iron Mass", x: 3020, y: 2160, width: 400, height: 560 },
+  { id: "cross-west-gate", name: "Western Gate Ridge", x: 1420, y: 1600, width: 240, height: 720 },
+  { id: "cross-east-gate", name: "Eastern Gate Ridge", x: 3780, y: 1600, width: 240, height: 720 },
+]);
+
+const IRON_CROSSINGS_DEPOSITS = frozenRecords([
+  { x: 920, y: 760 }, { x: 920, y: 2440 }, { x: 1320, y: 960 },
+  { x: 1320, y: 2240 }, { x: 1780, y: 480 }, { x: 1780, y: 2720 },
+  { x: 1980, y: 1600 }, { x: 2380, y: 1600 }, { x: 2600, y: 480 },
+  { x: 2600, y: 1600, remote: true, cluster: "Central Crossing" }, { x: 2600, y: 2720 },
+  { x: 2820, y: 1600 }, { x: 3220, y: 1600 }, { x: 3420, y: 480 },
+  { x: 3420, y: 2720 }, { x: 3880, y: 960 }, { x: 3880, y: 2240 },
+  { x: 4280, y: 760 }, { x: 4280, y: 2440 },
+]);
+
+export const DEFAULT_MAP_ID = "broken_frontier";
+
+export const MAP_DEFINITIONS = Object.freeze({
+  broken_frontier: Object.freeze({
+    id: "broken_frontier",
+    name: "Broken Frontier",
+    description: "Fortified starting positions, central divides, and rich remote frontier clusters.",
+    width: WORLD_WIDTH,
+    height: WORLD_HEIGHT,
+    terrain: TERRAIN_OBSTACLES,
+    starts: SHARED_STARTS,
+    deposits: BROKEN_FRONTIER_DEPOSITS,
+  }),
+  ashen_divide: Object.freeze({
+    id: "ashen_divide",
+    name: "Ashen Divide",
+    description: "A broken central spine creates two major attack lanes and contested crossing fields.",
+    width: WORLD_WIDTH,
+    height: WORLD_HEIGHT,
+    terrain: ASHEN_DIVIDE_TERRAIN,
+    starts: SHARED_STARTS,
+    deposits: ASHEN_DIVIDE_DEPOSITS,
+  }),
+  iron_crossings: Object.freeze({
+    id: "iron_crossings",
+    name: "Iron Crossings",
+    description: "Four central iron masses form narrow horizontal and vertical crossroads.",
+    width: WORLD_WIDTH,
+    height: WORLD_HEIGHT,
+    terrain: IRON_CROSSINGS_TERRAIN,
+    starts: SHARED_STARTS,
+    deposits: IRON_CROSSINGS_DEPOSITS,
+  }),
+});
+
+export function resolveMatchMapId({
+  matchMode = "singleplayer",
+  selectedMapId = DEFAULT_MAP_ID,
+  randomValue = 0,
+} = {}) {
+  const mapIds = Object.keys(MAP_DEFINITIONS);
+  if (matchMode === "multiplayer") {
+    const boundedRandom = Number.isFinite(randomValue)
+      ? Math.min(Math.max(randomValue, 0), 1 - Number.EPSILON)
+      : 0;
+    return mapIds[Math.floor(boundedRandom * mapIds.length)];
+  }
+  return MAP_DEFINITIONS[selectedMapId] ? selectedMapId : DEFAULT_MAP_ID;
+}
+
 function provisionalFactoryUnit({ name, role, roleDescription, unitDomain, tier, ...stats }) {
   return {
     name,
