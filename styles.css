@@ -169,15 +169,30 @@ button {
   text-transform: uppercase;
 }
 
-.connection-card textarea {
+.connection-card input {
   width: 100%;
-  min-height: 74px;
-  resize: vertical;
+  min-height: 48px;
+  padding: 10px 12px;
   border: 1px solid #493b43;
   border-radius: 5px;
   background: #09080a;
   color: #ddd5dc;
-  font: 10px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace;
+  font: 700 17px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.connection-card .lobby-code {
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.lobby-code-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.lobby-code-row .menu-back {
+  flex: 0 0 auto;
 }
 
 .menu-action,

@@ -13,7 +13,11 @@ import {
 } from "./data.js";
 import { getMatchMap } from "./maps.js";
 import { energyRatio, Simulation } from "./simulation.js";
-import { PeerMultiplayerSession } from "./multiplayer.js";
+import {
+  isValidLobbyCode,
+  normalizeLobbyCode,
+  PeerMultiplayerSession,
+} from "./multiplayer.js";
 
 const canvas = document.querySelector("#battlefield");
 const context = canvas.getContext("2d");
@@ -30,13 +34,11 @@ const backFromSinglePlayerButton = document.querySelector("#back-from-single-pla
 const multiplayerButton = document.querySelector("#multiplayer-button");
 const multiplayerSetup = document.querySelector("#multiplayer-setup");
 const createHostButton = document.querySelector("#create-host-button");
-const createGuestButton = document.querySelector("#create-guest-button");
-const acceptAnswerButton = document.querySelector("#accept-answer-button");
+const joinLobbyButton = document.querySelector("#join-lobby-button");
+const copyLobbyCodeButton = document.querySelector("#copy-lobby-code-button");
 const backToModesButton = document.querySelector("#back-to-modes-button");
-const hostOfferCode = document.querySelector("#host-offer-code");
-const guestAnswerCode = document.querySelector("#guest-answer-code");
-const joinOfferCode = document.querySelector("#join-offer-code");
-const guestResponseCode = document.querySelector("#guest-response-code");
+const hostLobbyCode = document.querySelector("#host-lobby-code");
+const joinLobbyCode = document.querySelector("#join-lobby-code");
 const connectionStatus = document.querySelector("#connection-status");
 const matchModeLabel = document.querySelector("#match-mode");
 const metalValue = document.querySelector("#metal-value");
@@ -331,18 +333,18 @@ function returnToMenu() {
   startMenu.hidden = false;
   gameShell.setAttribute("aria-hidden", "true");
   gameShell.setAttribute("inert", "");
-  hostOfferCode.value = "";
-  guestAnswerCode.value = "";
-  joinOfferCode.value = "";
-  guestResponseCode.value = "";
-  acceptAnswerButton.disabled = true;
+  hostLobbyCode.value = "";
+  joinLobbyCode.value = "";
+  copyLobbyCodeButton.disabled = true;
+  joinLobbyButton.disabled = true;
   matchModeLabel.textContent = "MATCH SETUP";
-  setConnectionStatus("Choose Host or Join to begin.");
+  setConnectionStatus("Create a lobby or enter a lobby code to begin.");
 }
 
 function multiplayerHandlers(role) {
   return {
     onOpen() {
+      setConnectionStatus(role === "host" ? "Player joined. Starting match…" : "Lobby joined. Starting match…");
       if (matchMode === "menu") startMultiplayerMatch(role);
     },
     onMessage(message) {
@@ -366,55 +368,64 @@ function multiplayerHandlers(role) {
       statusBanner.hidden = false;
       statusBanner.textContent = "MULTIPLAYER CONNECTION LOST · LEAVE MATCH TO RECONNECT";
     },
+    onError(message) {
+      setConnectionStatus(message, true);
+    },
   };
 }
 
 async function createHostMatch() {
   createHostButton.disabled = true;
-  setConnectionStatus("Generating a direct host offer…");
+  copyLobbyCodeButton.disabled = true;
+  hostLobbyCode.value = "";
+  setConnectionStatus("Creating lobby…");
   try {
     peerSession?.close();
     const created = await PeerMultiplayerSession.createHost(multiplayerHandlers("host"));
     peerSession = created.session;
-    hostOfferCode.value = created.offerCode;
-    acceptAnswerButton.disabled = !guestAnswerCode.value.trim();
-    setConnectionStatus("Send the host offer to the guest, then paste their answer.");
+    hostLobbyCode.value = created.lobbyCode;
+    copyLobbyCodeButton.disabled = false;
+    setConnectionStatus(`Lobby ${created.lobbyCode} is open. Waiting for another player…`);
   } catch (error) {
-    setConnectionStatus(error.message || "Could not create the host connection.", true);
+    setConnectionStatus(error.message || "Could not create the lobby.", true);
   } finally {
     createHostButton.disabled = false;
   }
 }
 
-async function createGuestMatch() {
-  createGuestButton.disabled = true;
-  setConnectionStatus("Creating a guest answer…");
+async function joinMultiplayerLobby() {
+  const lobbyCode = normalizeLobbyCode(joinLobbyCode.value);
+  joinLobbyCode.value = lobbyCode;
+  if (!isValidLobbyCode(lobbyCode)) {
+    setConnectionStatus("Enter the host's 10-character lobby code.", true);
+    return;
+  }
+  joinLobbyButton.disabled = true;
+  setConnectionStatus(`Joining lobby ${lobbyCode}…`);
   try {
     peerSession?.close();
     const created = await PeerMultiplayerSession.createGuest(
-      joinOfferCode.value,
+      lobbyCode,
       multiplayerHandlers("guest"),
     );
     peerSession = created.session;
-    guestResponseCode.value = created.answerCode;
-    setConnectionStatus("Send this answer to the host. The match starts when the host connects.");
+    setConnectionStatus(`Connecting to lobby ${created.lobbyCode}…`);
   } catch (error) {
-    setConnectionStatus(error.message || "Could not join that match.", true);
+    setConnectionStatus(error.message || "Could not join that lobby.", true);
   } finally {
-    createGuestButton.disabled = false;
+    joinLobbyButton.disabled = !isValidLobbyCode(joinLobbyCode.value);
   }
 }
 
-async function acceptGuestAnswer() {
-  if (!peerSession) return;
-  acceptAnswerButton.disabled = true;
-  setConnectionStatus("Connecting to the guest…");
+async function copyLobbyCode() {
+  if (!isValidLobbyCode(hostLobbyCode.value)) return;
   try {
-    await peerSession.acceptAnswer(guestAnswerCode.value);
-    setConnectionStatus("Answer accepted. Establishing the direct connection…");
-  } catch (error) {
-    setConnectionStatus(error.message || "Could not accept that guest answer.", true);
-    acceptAnswerButton.disabled = false;
+    await navigator.clipboard.writeText(hostLobbyCode.value);
+    setConnectionStatus(`Lobby code ${hostLobbyCode.value} copied. Waiting for another player…`);
+  } catch {
+    hostLobbyCode.focus();
+    hostLobbyCode.select();
+    setConnectionStatus("Lobby code selected. Copy it with Ctrl+C or Command+C.");
   }
 }
 
@@ -3688,14 +3699,20 @@ multiplayerButton.addEventListener("click", () => {
   modeChoices.hidden = true;
   singlePlayerSetup.hidden = true;
   multiplayerSetup.hidden = false;
-  setConnectionStatus("Choose Host or Join to begin.");
+  setConnectionStatus("Create a lobby or enter a lobby code to begin.");
 });
 backToModesButton.addEventListener("click", returnToMenu);
 createHostButton.addEventListener("click", createHostMatch);
-createGuestButton.addEventListener("click", createGuestMatch);
-acceptAnswerButton.addEventListener("click", acceptGuestAnswer);
-guestAnswerCode.addEventListener("input", () => {
-  acceptAnswerButton.disabled = !peerSession || !guestAnswerCode.value.trim();
+copyLobbyCodeButton.addEventListener("click", copyLobbyCode);
+joinLobbyButton.addEventListener("click", joinMultiplayerLobby);
+joinLobbyCode.addEventListener("input", () => {
+  joinLobbyCode.value = normalizeLobbyCode(joinLobbyCode.value);
+  joinLobbyButton.disabled = !isValidLobbyCode(joinLobbyCode.value);
+});
+joinLobbyCode.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || !isValidLobbyCode(joinLobbyCode.value)) return;
+  event.preventDefault();
+  joinMultiplayerLobby();
 });
 
 window.addEventListener("keydown", (event) => {
