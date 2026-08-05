@@ -421,6 +421,42 @@ test("ground units route around impassable terrain without entering it", () => {
   assert.equal(unit.moveTarget, null);
 });
 
+test("ground units escape U-shaped terrain instead of dead-ending against the back wall", () => {
+  const terrain = [
+    { id: "u-back", x: 300, y: 200, width: 40, height: 240 },
+    { id: "u-top", x: 200, y: 80, width: 240, height: 40 },
+    { id: "u-bottom", x: 200, y: 320, width: 240, height: 40 },
+  ];
+  const simulation = new Simulation({ width: 600, height: 400, terrain });
+  const unit = simulation.addUnit("scout_mech", "player", 200, 200);
+
+  simulation.commandMove([unit.id], 450, 200);
+  advance(simulation, 12);
+
+  assert.ok(unit.x > 440, "the unit should route out of the cavity and around the barrier");
+  assert.ok(Math.abs(unit.y - 200) < 5);
+  assert.equal(unit.moveTarget, null);
+});
+
+test("move orders placed on structures resolve to a reachable footprint edge", () => {
+  const simulation = new Simulation({ width: 600, height: 400 });
+  const structure = simulation.addStructure("generator", "player", 300, 200);
+  const unit = simulation.addUnit("scout_mech", "player", 100, 200);
+  const footprint = structureFootprint(structure.type);
+  const clearance = UNIT_DEFINITIONS[unit.type].radius + SIMULATION_RULES.structureCollisionPadding;
+
+  simulation.commandMove([unit.id], structure.x, structure.y);
+  advance(simulation, 6);
+
+  assert.equal(unit.moveTarget, null);
+  assert.ok(
+    unit.x <= structure.x - footprint.halfWidth - clearance + 0.1 ||
+      unit.x >= structure.x + footprint.halfWidth + clearance - 0.1 ||
+      unit.y <= structure.y - footprint.halfHeight - clearance + 0.1 ||
+      unit.y >= structure.y + footprint.halfHeight + clearance - 0.1,
+  );
+});
+
 test("aircraft fly directly over terrain, starting walls, and structures", () => {
   const obstacle = { id: "test-ridge", name: "Test Ridge", x: 200, y: 100, width: 80, height: 120 };
   const wall = {

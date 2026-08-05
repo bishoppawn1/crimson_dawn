@@ -15,6 +15,9 @@ import {
 } from "./data.js";
 
 const EPSILON = 0.0001;
+const NAVIGATION_CORNER_MARGIN = 1;
+const NAVIGATION_REPLAN_INTERVAL = 0.75;
+const NAVIGATION_TARGET_TOLERANCE = 24;
 const STORAGE_PRIORITY = Object.freeze({ battery: 0, power_tower: 1, generator: 2 });
 
 export class Simulation {
@@ -153,6 +156,9 @@ export class Simulation {
       holdPosition: false,
       navigationObstacleId: null,
       navigationSide: null,
+      navigationPath: [],
+      navigationTarget: null,
+      navigationReplanAt: 0,
       energyTransferTargetIds: [],
       energyTransferredThisTick: 0,
       ...overrides,
@@ -324,22 +330,35 @@ export class Simulation {
       x: clamp(x, radius, this.width - radius),
       y: clamp(y, radius, this.height - radius),
     };
-    for (const obstacle of this.terrain) {
-      const bounds = terrainBounds(obstacle, radius);
-      if (!pointInsideBounds(point, bounds)) continue;
+    const obstacles = [
+      ...this.terrain.map((obstacle) => terrainBounds(obstacle, radius)),
+      ...this.structures
+        .filter((structure) => structure.alive)
+        .map((structure) => expandedStructureBounds(
+          structure,
+          radius + SIMULATION_RULES.structureCollisionPadding,
+        )),
+    ];
+    for (let pass = 0; pass < obstacles.length; pass += 1) {
+      const containingBounds = obstacles.find((bounds) => pointInsideBounds(point, bounds));
+      if (!containingBounds) break;
       const exits = [
-        { x: bounds.minX, y: point.y },
-        { x: bounds.maxX, y: point.y },
-        { x: point.x, y: bounds.minY },
-        { x: point.x, y: bounds.maxY },
-      ].sort((left, right) => distance(point, left) - distance(point, right));
+        { x: containingBounds.minX, y: point.y },
+        { x: containingBounds.maxX, y: point.y },
+        { x: point.x, y: containingBounds.minY },
+        { x: point.x, y: containingBounds.maxY },
+      ]
+        .filter(
+          (candidate) =>
+            candidate.x >= radius &&
+            candidate.x <= this.width - radius &&
+            candidate.y >= radius &&
+            candidate.y <= this.height - radius,
+        )
+        .sort((left, right) => distance(point, left) - distance(point, right));
       point = exits.find(
-        (candidate) =>
-          candidate.x >= radius &&
-          candidate.x <= this.width - radius &&
-          candidate.y >= radius &&
-          candidate.y <= this.height - radius,
-      ) || point;
+        (candidate) => obstacles.every((bounds) => !pointInsideBounds(candidate, bounds)),
+      ) || exits[0] || point;
     }
     return point;
   }
@@ -2412,22 +2431,35 @@ export class Simulation {
 
   moveUnitToward(unit, target, delta, stopDistance = 0) {
     const definition = UNIT_DEFINITIONS[unit.type];
-    const dx = target.x - unit.x;
-    const dy = target.y - unit.y;
-    const separation = Math.hypot(dx, dy);
-    if (separation <= stopDistance + EPSILON) {
+    const targetSeparation = distance(unit, target);
+    if (targetSeparation <= stopDistance + EPSILON) {
       if (unit.moveTarget) {
         unit.moveTarget = null;
         unit.moveMode = null;
       }
+      unit.navigationPath = [];
+      unit.navigationTarget = null;
       return 0;
     }
+
+    const waypoint = definition.movementLayer === "air"
+      ? target
+      : this.getGroundNavigationWaypoint(unit, target);
+    const dx = waypoint.x - unit.x;
+    const dy = waypoint.y - unit.y;
+    const separation = Math.hypot(dx, dy);
+    const waypointIsTarget = waypoint === target;
+    const waypointStopDistance = waypointIsTarget ? stopDistance : 0;
+    if (separation <= waypointStopDistance + EPSILON) return 0;
 
     const overdrive = unit.abilityActiveUntil.overdrive > this.time;
     const speedMultiplier = overdrive
       ? definition.abilities.overdrive.speedMultiplier
       : 1;
-    const desiredDistance = Math.min(definition.speed * speedMultiplier * delta, separation - stopDistance);
+    const desiredDistance = Math.min(
+      definition.speed * speedMultiplier * delta,
+      separation - waypointStopDistance,
+    );
     const energyCostPerUnit = definition.movementEnergyPerUnit;
     const affordableDistance = energyCostPerUnit > 0 ? unit.energy / energyCostPerUnit : desiredDistance;
     const requestedDistance = Math.max(0, Math.min(desiredDistance, affordableDistance));
@@ -2448,6 +2480,76 @@ export class Simulation {
     }
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return traveled;
+  }
+
+  getGroundNavigationWaypoint(unit, target) {
+    const definition = UNIT_DEFINITIONS[unit.type];
+    const excludedObstacleId = target.kind === "structure" ? target.id : null;
+    const obstacles = this.getGroundNavigationObstacles(definition.radius, excludedObstacleId);
+    if (navigationSegmentIsClear(unit, target, obstacles)) {
+      unit.navigationPath = [];
+      unit.navigationTarget = { x: target.x, y: target.y, excludedObstacleId };
+      return target;
+    }
+
+    const previousTarget = unit.navigationTarget;
+    const targetChanged =
+      !previousTarget ||
+      previousTarget.excludedObstacleId !== excludedObstacleId ||
+      Math.hypot(target.x - previousTarget.x, target.y - previousTarget.y) >
+        NAVIGATION_TARGET_TOLERANCE;
+    let pathBlocked = false;
+    while (unit.navigationPath?.length) {
+      if (distance(unit, unit.navigationPath[0]) <= NAVIGATION_CORNER_MARGIN + EPSILON) {
+        unit.navigationPath.shift();
+        continue;
+      }
+      pathBlocked = !navigationSegmentIsClear(unit, unit.navigationPath[0], obstacles);
+      break;
+    }
+
+    if (
+      targetChanged ||
+      pathBlocked ||
+      !unit.navigationPath?.length ||
+      this.time + EPSILON >= unit.navigationReplanAt
+    ) {
+      const path = findNavigationPath(
+        unit,
+        target,
+        obstacles,
+        definition.radius,
+        this.width,
+        this.height,
+      );
+      unit.navigationPath = path ? path.slice(1) : [];
+      unit.navigationTarget = { x: target.x, y: target.y, excludedObstacleId };
+      unit.navigationReplanAt = this.time + NAVIGATION_REPLAN_INTERVAL;
+    }
+
+    while (
+      unit.navigationPath.length > 1 &&
+      navigationSegmentIsClear(unit, unit.navigationPath[1], obstacles)
+    ) {
+      unit.navigationPath.shift();
+    }
+    return unit.navigationPath[0] || target;
+  }
+
+  getGroundNavigationObstacles(radius, excludedObstacleId = null) {
+    const padding = radius + SIMULATION_RULES.structureCollisionPadding;
+    return [
+      ...this.structures
+        .filter((structure) => structure.alive && structure.id !== excludedObstacleId)
+        .map((structure) => ({
+          id: structure.id,
+          bounds: expandedStructureBounds(structure, padding),
+        })),
+      ...this.terrain.map((obstacle) => ({
+        id: obstacle.id,
+        bounds: terrainBounds(obstacle, padding),
+      })),
+    ];
   }
 
   moveUnitWithStructureCollisions(unit, movementX, movementY) {
@@ -3113,6 +3215,87 @@ function pointInsideBounds(point, bounds) {
     point.y > bounds.minY + EPSILON &&
     point.y < bounds.maxY - EPSILON
   );
+}
+
+function navigationSegmentIsClear(start, end, obstacles) {
+  const movementX = end.x - start.x;
+  const movementY = end.y - start.y;
+  if (Math.hypot(movementX, movementY) <= EPSILON) return true;
+  return obstacles.every(({ bounds }) => {
+    const collision = sweepBounds(start, movementX, movementY, bounds);
+    return !collision || collision.time >= 1 - EPSILON;
+  });
+}
+
+function findNavigationPath(start, goal, obstacles, radius, worldWidth, worldHeight) {
+  const nodes = [{ x: start.x, y: start.y }, { x: goal.x, y: goal.y }];
+  for (const { bounds } of obstacles) {
+    const corners = [
+      { x: bounds.minX - NAVIGATION_CORNER_MARGIN, y: bounds.minY - NAVIGATION_CORNER_MARGIN },
+      { x: bounds.maxX + NAVIGATION_CORNER_MARGIN, y: bounds.minY - NAVIGATION_CORNER_MARGIN },
+      { x: bounds.maxX + NAVIGATION_CORNER_MARGIN, y: bounds.maxY + NAVIGATION_CORNER_MARGIN },
+      { x: bounds.minX - NAVIGATION_CORNER_MARGIN, y: bounds.maxY + NAVIGATION_CORNER_MARGIN },
+    ];
+    for (const corner of corners) {
+      if (
+        corner.x < radius ||
+        corner.x > worldWidth - radius ||
+        corner.y < radius ||
+        corner.y > worldHeight - radius ||
+        obstacles.some(({ bounds: otherBounds }) => pointInsideBounds(corner, otherBounds))
+      ) {
+        continue;
+      }
+      nodes.push(corner);
+    }
+  }
+
+  const costs = Array(nodes.length).fill(Infinity);
+  const estimates = Array(nodes.length).fill(Infinity);
+  const previous = Array(nodes.length).fill(-1);
+  const visited = Array(nodes.length).fill(false);
+  const edgeVisibility = new Map();
+  costs[0] = 0;
+  estimates[0] = distance(nodes[0], nodes[1]);
+
+  for (let iteration = 0; iteration < nodes.length; iteration += 1) {
+    let current = -1;
+    for (let index = 0; index < nodes.length; index += 1) {
+      if (visited[index]) continue;
+      if (
+        current === -1 ||
+        estimates[index] + EPSILON < estimates[current] ||
+        (Math.abs(estimates[index] - estimates[current]) <= EPSILON && index < current)
+      ) {
+        current = index;
+      }
+    }
+    if (current === -1 || !Number.isFinite(costs[current])) break;
+    if (current === 1) break;
+    visited[current] = true;
+
+    for (let neighbor = 1; neighbor < nodes.length; neighbor += 1) {
+      if (neighbor === current || visited[neighbor]) continue;
+      const edgeKey = current < neighbor ? `${current}:${neighbor}` : `${neighbor}:${current}`;
+      let visible = edgeVisibility.get(edgeKey);
+      if (visible === undefined) {
+        visible = navigationSegmentIsClear(nodes[current], nodes[neighbor], obstacles);
+        edgeVisibility.set(edgeKey, visible);
+      }
+      if (!visible) continue;
+      const candidateCost = costs[current] + distance(nodes[current], nodes[neighbor]);
+      if (candidateCost + EPSILON >= costs[neighbor]) continue;
+      costs[neighbor] = candidateCost;
+      estimates[neighbor] = candidateCost + distance(nodes[neighbor], nodes[1]);
+      previous[neighbor] = current;
+    }
+  }
+
+  if (!Number.isFinite(costs[1])) return null;
+  const path = [];
+  for (let index = 1; index !== -1; index = previous[index]) path.push(nodes[index]);
+  path.reverse();
+  return path;
 }
 
 function sweepBounds(origin, movementX, movementY, bounds) {

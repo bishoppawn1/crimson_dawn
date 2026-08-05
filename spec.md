@@ -282,8 +282,12 @@ area. Explicit attack orders and retaliation remain higher priority. Their ordin
 anti-unit damage remains deliberately weaker than a Tier 1 Vanguard's.
 
 Ground units treat completed buildings and unfinished foundations as solid
-obstacles. Movement resolves against structure footprints and slides around them;
-units cannot pass through buildings to reach a destination.
+obstacles. Movement uses deterministic shortest-path routing around compound terrain
+and exact structure footprints, with collision-time sliding retained as a safety
+fallback. Routes may use multiple corners to escape concave obstacle arrangements
+and are recomputed when a moving target shifts or a route becomes blocked. Units
+cannot pass through buildings to reach a destination, and move orders placed inside
+a structure resolve to the nearest reachable edge of its visible footprint.
 
 Aircraft use a separate air movement layer. They fly directly over impassable
 terrain, completed structures, and foundations, but remain constrained by the map
