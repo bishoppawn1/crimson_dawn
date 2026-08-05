@@ -566,6 +566,9 @@ foundations in placement order. Ordinary non-Shift placement replaces the curren
 construction order and clears its queue, as do explicit move, attack, stop, and
 hold-position commands. A cancelled queued foundation is skipped. Metal is spent
 when each placement is confirmed. Incomplete buildings remain visible and vulnerable.
+When one or more workers with construction orders are selected, the interface shows
+each worker's active foundation and its shared live construction percentage, followed
+by the remaining foundations in placement order.
 Factories have an idle passive demand and add production
 demand while the first queued unit is actively building. Provisional production
 demands are 6 energy per second for Tier 1, 10 for Tier 2, and 16 for Tier 3, in
@@ -609,6 +612,10 @@ combined production does not assign duplicate rally destinations. The interface
 displays the rally point and a path from every selected factory. Newly completed
 units automatically move toward that point, stopping to engage hostile units they
 encounter along the way before continuing toward the rally destination.
+For a selected factory, the interface identifies the unit currently in production,
+shows its live completion percentage and power or deployment wait state, and lists
+every later order in queue order. When a matching factory group is selected, each
+factory's independent queue appears as a separate status card.
 
 A new ordinary foundation snaps to footprint-aware centers on the visible 40-unit
 construction grid, with every footprint edge aligned to a grid line, and must fit

@@ -16,6 +16,9 @@ const { getMapsForPlayerCount, getMatchMap, getRandomMatchMap } = await import(
   `./maps.js${versionSuffix}`
 );
 const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix}`);
+const { describeConstructionQueue, describeProductionQueue } = await import(
+  `./queue-status.js${versionSuffix}`
+);
 const {
   calculateMinimapLayout,
   minimapContains,
@@ -66,6 +69,7 @@ const energyValue = document.querySelector("#energy-value");
 const supplyValue = document.querySelector("#supply-value");
 const selectionName = document.querySelector("#selection-name");
 const selectionDetails = document.querySelector("#selection-details");
+const selectionQueue = document.querySelector("#selection-queue");
 const overdriveButton = document.querySelector("#overdrive-button");
 const stopButton = document.querySelector("#stop-button");
 const holdButton = document.querySelector("#hold-button");
@@ -111,6 +115,7 @@ let multiplayerSyncMessage = null;
 let selectedUnitIds = new Set();
 let selectedStructureId = null;
 let selectedStructureIds = new Set();
+let selectionQueueSignature = null;
 let selectionDrag = null;
 let placementStructureType = null;
 let placementMessage = null;
@@ -266,6 +271,7 @@ function resetPresentation() {
   selectedUnitIds = new Set();
   selectedStructureId = null;
   selectedStructureIds = new Set();
+  selectionQueueSignature = null;
   selectionDrag = null;
   placementStructureType = null;
   placementMessage = null;
@@ -4255,6 +4261,117 @@ function polygon(sides, radius, rotation = 0) {
   context.closePath();
 }
 
+function createQueueCard(label, queue) {
+  const card = document.createElement("div");
+  card.className = "queue-card";
+
+  const title = document.createElement("div");
+  title.className = "queue-title";
+  title.textContent = label;
+  card.append(title);
+
+  if (queue?.current) {
+    const heading = document.createElement("div");
+    heading.className = "queue-current-heading";
+    const name = document.createElement("strong");
+    name.textContent = queue.current.name;
+    const percentage = document.createElement("span");
+    percentage.textContent = `${queue.current.progress}%`;
+    heading.append(name, percentage);
+
+    const progress = document.createElement("progress");
+    progress.className = "queue-progress";
+    progress.max = 100;
+    progress.value = queue.current.progress;
+    progress.setAttribute(
+      "aria-label",
+      `${queue.current.name} ${queue.current.progress}% complete`,
+    );
+
+    const status = document.createElement("div");
+    status.className = "queue-status";
+    status.textContent = queue.current.status;
+    card.append(heading, progress, status);
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "queue-empty";
+    empty.textContent = "No active job";
+    card.append(empty);
+  }
+
+  const nextLabel = document.createElement("div");
+  nextLabel.className = "queue-next-label";
+  nextLabel.textContent = "Next";
+  card.append(nextLabel);
+
+  if (queue?.upcoming.length) {
+    const list = document.createElement("ol");
+    list.className = "queue-next-list";
+    for (const upcoming of queue.upcoming) {
+      const item = document.createElement("li");
+      item.textContent = upcoming.name;
+      list.append(item);
+    }
+    card.append(list);
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "queue-empty";
+    empty.textContent = "No additional items queued";
+    card.append(empty);
+  }
+
+  return card;
+}
+
+function renderSelectionQueues(selectedStructures, selectedUnits) {
+  const factoryEntries = selectedStructures
+    .filter((structure) => STRUCTURE_DEFINITIONS[structure.type].production)
+    .map((structure) => ({
+      structure,
+      queue: describeProductionQueue(structure, UNIT_DEFINITIONS),
+    }));
+  const workerEntries = selectedUnits
+    .filter((unit) => UNIT_DEFINITIONS[unit.type].workerTier)
+    .map((unit) => ({
+      unit,
+      queue: describeConstructionQueue(
+        unit,
+        simulation,
+        STRUCTURE_DEFINITIONS,
+      ),
+    }))
+    .filter((entry) => entry.queue);
+  const hasVisibleQueue =
+    factoryEntries.some((entry) => entry.queue) || workerEntries.length > 0;
+  const displayEntries = [
+    ...factoryEntries.map((entry, index) => ({
+      label: factoryEntries.length > 1
+        ? `${STRUCTURE_DEFINITIONS[entry.structure.type].name} ${index + 1}`
+        : "Production queue",
+      queue: entry.queue,
+    })),
+    ...workerEntries.map((entry, index) => ({
+      label: workerEntries.length > 1
+        ? `Worker queue ${index + 1}`
+        : "Construction queue",
+      queue: entry.queue,
+    })),
+  ];
+  const nextSignature = hasVisibleQueue ? JSON.stringify(displayEntries) : "";
+  if (selectionQueueSignature === nextSignature) return;
+  selectionQueueSignature = nextSignature;
+
+  if (!hasVisibleQueue) {
+    selectionQueue.replaceChildren();
+    selectionQueue.hidden = true;
+    return;
+  }
+
+  const cards = displayEntries.map((entry) => createQueueCard(entry.label, entry.queue));
+  selectionQueue.replaceChildren(...cards);
+  selectionQueue.hidden = false;
+}
+
 function updateInterface() {
   const matchEnded = Boolean(simulation.matchResult);
   matchResultPanel.hidden = !matchEnded;
@@ -4403,6 +4520,7 @@ function updateInterface() {
     selectionName.textContent = `${selectedUnits.length} units selected`;
     selectionDetails.textContent = `${activeCount} active · ${selectedUnits.length - activeCount} in stasis`;
   }
+  renderSelectionQueues(selectedStructures, selectedUnits);
 
   const canOverdrive = selectedUnits.some((unit) => {
     const ability = UNIT_DEFINITIONS[unit.type].abilities?.overdrive;
