@@ -15,6 +15,7 @@ const {
   gridCoverageBounds,
   pointInGridCoverage,
   powerCoverageBounds,
+  projectileKinetics,
   structureFootprint,
 } = await import(`./data.js${versionSuffix}`);
 const { createMatchTeams, getMatchMap } = await import(`./maps.js${versionSuffix}`);
@@ -1478,7 +1479,12 @@ export class Simulation {
     this.updateDrones(delta);
     this.finalizePowerStorage(delta);
     this.syncStoredEnergy();
-    this.events = this.events.filter((event) => this.time - event.time < 1.2);
+    this.events = this.events.filter((event) => {
+      const retention = event.type === "attack"
+        ? Math.max(1.2, (event.impactDelay || 0) + 1.2)
+        : 1.2;
+      return this.time - event.time < retention;
+    });
     for (const wreck of this.wrecks) {
       if (wreck.metal <= EPSILON) this.entityById.delete(wreck.id);
     }
@@ -3198,12 +3204,12 @@ export class Simulation {
       defense.weaponEnergy = Math.max(0, defense.weaponEnergy - definition.attackEnergy);
       defense.attackCooldownRemaining = definition.attackCooldown;
       defense.defenseStatus = "firing";
-      this.applyDamage(
+      this.fireWeapon(
+        defense,
         target,
         definition.attackDamage * damageMultiplierAgainstTarget(definition, target),
-        defense,
+        definition,
       );
-      this.emitAttack(defense, target);
     }
   }
 
@@ -3442,20 +3448,24 @@ export class Simulation {
       : 1;
     unit.attackCooldownRemaining = definition.attackCooldown * cooldownMultiplier;
     const damage = definition.attackDamage * damageMultiplierAgainstTarget(definition, target);
-    const impactDelay = projectileImpactDelay(unit, target, definition);
+    this.fireWeapon(unit, target, damage, definition);
+    if (unit.energy <= EPSILON) this.enterStasis(unit);
+    return true;
+  }
+
+  fireWeapon(source, target, damage, definition) {
+    const impactDelay = projectileImpactDelay(source, target, definition);
     if (impactDelay > EPSILON) {
       this.pendingImpacts.push({
-        sourceId: unit.id,
+        sourceId: source.id,
         targetId: target.id,
         damage,
         impactAt: this.time + impactDelay,
       });
     } else {
-      this.applyDamage(target, damage, unit);
+      this.applyDamage(target, damage, source);
     }
-    this.emitAttack(unit, target, impactDelay);
-    if (unit.energy <= EPSILON) this.enterStasis(unit);
-    return true;
+    this.emitAttack(source, target, impactDelay);
   }
 
   updateUnderbellyBeam(unit, definition, delta) {
@@ -4360,13 +4370,14 @@ function isUnderbellyBeamTarget(target) {
 }
 
 function projectileImpactDelay(source, target, definition) {
-  if (!definition?.projectileSpeed) return 0;
+  const kinetics = projectileKinetics(definition);
+  if (!kinetics) return 0;
   const muzzleDistance = Math.max(5, entityRadius(source) * 0.72);
   const impactInset = Math.max(2, entityRadius(target) * 0.3);
   const flightDistance = Math.max(0, distance(source, target) - muzzleDistance - impactInset);
   return Math.max(
-    definition.minimumProjectileTravelTime || 0,
-    flightDistance / definition.projectileSpeed,
+    kinetics.minimumTravelTime,
+    flightDistance / kinetics.speed,
   );
 }
 

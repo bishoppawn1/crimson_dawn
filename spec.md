@@ -319,7 +319,13 @@ weapon recoil, a visible moving tracer or shell, and a brief impact flash. Heavy
 cannons and artillery use slower, weightier projectiles and larger impacts than
 rapid weapons. These effects use the authoritative attack event's firing-time
 positions; they do not stretch from a shooter or target that moves after the shot,
-and they do not change deterministic hit resolution or established damage timing.
+and they do not change deterministic hit resolution. Every weapon represented by a
+moving tracer, missile, or shell applies its damage only when that projectile
+reaches the event's fixed impact position. Projectile speed and minimum travel time
+are shared by the simulation and renderer so damage cannot precede the visible hit.
+Attack events remain available through their entire flight and impact effect, even
+for long-range artillery whose travel time exceeds the ordinary event lifetime.
+Instant and sustained beam weapons apply damage while their beam is active.
 Surviving combat units on either team retaliate when damaged: unless they are
 force-moving or already following an explicit attack order, they abandon their
 current automatic target and pursue the aggressor. Retaliation may carry them beyond

@@ -10,6 +10,7 @@ const {
   STRUCTURE_DEFINITIONS,
   UNIT_DEFINITIONS,
   powerCoverageBounds,
+  projectileKinetics,
   structureFootprint,
 } = await import(`./data.js${versionSuffix}`);
 const { getMapsForPlayerCount, getMatchMap, getRandomMatchMap } = await import(
@@ -4389,10 +4390,15 @@ function attackPresentation(source) {
     : source?.kind === "unit"
       ? UNIT_DEFINITIONS[source.type]
       : null;
+  const kinetics = projectileKinetics(definition) || {
+    speed: 980,
+    minimumTravelTime: 0.055,
+  };
   const role = definition?.role;
   if (role === "mortar") {
     return {
-      speed: 340, minimumTravelTime: 0.28, trailFraction: 0.08, arcHeight: 105,
+      speed: kinetics.speed, minimumTravelTime: kinetics.minimumTravelTime,
+      trailFraction: 0.08, arcHeight: 105,
       projectileSize: 5.2, trailWidth: 3.2, muzzleDuration: 0.14, muzzleSize: 15,
       impactDuration: 0.52, impactSize: 34, sparkCount: 13, glow: 17, smoke: true,
       projectileColor: "#fff0b8", trailColor: "#e89245", muzzleColor: "#ffe5a0",
@@ -4402,7 +4408,8 @@ function attackPresentation(source) {
   if (role === "arsenal_colossus") {
     return {
       salvoCount: definition.salvoCount || 5, salvoSpread: 8,
-      speed: 760, minimumTravelTime: 0.1, trailFraction: 0.1, arcHeight: 8,
+      speed: kinetics.speed, minimumTravelTime: kinetics.minimumTravelTime,
+      trailFraction: 0.1, arcHeight: 8,
       projectileSize: 2.8, trailWidth: 1.8, muzzleDuration: 0.11, muzzleSize: 10,
       impactDuration: 0.36, impactSize: 22, sparkCount: 11, glow: 13, smoke: true,
       projectileColor: "#fff8d1", trailColor: "#ffc96d", muzzleColor: "#fff0a6",
@@ -4412,8 +4419,8 @@ function attackPresentation(source) {
   if (role === "hexapod_landship") {
     return {
       salvoCount: definition.salvoCount || 3, salvoSpread: 11,
-      speed: definition.projectileSpeed || 520,
-      minimumTravelTime: definition.minimumProjectileTravelTime || 0.14,
+      speed: kinetics.speed,
+      minimumTravelTime: kinetics.minimumTravelTime,
       trailFraction: 0.08, arcHeight: 18,
       projectileSize: 5.2, trailWidth: 3.5, muzzleDuration: 0.14, muzzleSize: 17,
       impactDuration: 0.5, impactSize: 36, sparkCount: 15, glow: 18, smoke: true,
@@ -4423,7 +4430,8 @@ function attackPresentation(source) {
   }
   if (role === "artillery" || role === "bomber") {
     return {
-      speed: 420, minimumTravelTime: 0.16, trailFraction: 0.11, arcHeight: 42,
+      speed: kinetics.speed, minimumTravelTime: kinetics.minimumTravelTime,
+      trailFraction: 0.11, arcHeight: 42,
       projectileSize: 3.8, trailWidth: 2.4, muzzleDuration: 0.1, muzzleSize: 12,
       impactDuration: 0.42, impactSize: 24, sparkCount: 9, glow: 13, smoke: true,
       projectileColor: "#fff3c4", trailColor: "#ffb65f", muzzleColor: "#fff1b0",
@@ -4432,7 +4440,8 @@ function attackPresentation(source) {
   }
   if (role === "tank" || role === "bulwark") {
     return {
-      speed: 680, minimumTravelTime: 0.09, trailFraction: 0.09, arcHeight: 5,
+      speed: kinetics.speed, minimumTravelTime: kinetics.minimumTravelTime,
+      trailFraction: 0.09, arcHeight: 5,
       projectileSize: 3, trailWidth: 2.2, muzzleDuration: 0.085, muzzleSize: 10,
       impactDuration: 0.3, impactSize: 16, sparkCount: 7, glow: 11, smoke: true,
       projectileColor: "#fff5ce", trailColor: "#ffc36d", muzzleColor: "#fff0a6",
@@ -4440,7 +4449,8 @@ function attackPresentation(source) {
     };
   }
   return {
-    speed: 980, minimumTravelTime: 0.055, trailFraction: 0.13, arcHeight: 0,
+    speed: kinetics.speed, minimumTravelTime: kinetics.minimumTravelTime,
+    trailFraction: 0.13, arcHeight: 0,
     projectileSize: 2.1, trailWidth: 1.6, muzzleDuration: 0.06, muzzleSize: 7,
     impactDuration: 0.2, impactSize: 10, sparkCount: 5, glow: 9, smoke: false,
     projectileColor: "#fffbe0", trailColor: "#ffcf79", muzzleColor: "#fff4b8",

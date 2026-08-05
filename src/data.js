@@ -322,6 +322,32 @@ function provisionalFactoryUnit({ name, role, roleDescription, unitDomain, tier,
   };
 }
 
+const DEFAULT_PROJECTILE_KINETICS = Object.freeze({
+  speed: 980,
+  minimumTravelTime: 0.055,
+});
+
+const PROJECTILE_KINETICS_BY_ROLE = Object.freeze({
+  mortar: Object.freeze({ speed: 340, minimumTravelTime: 0.28 }),
+  arsenal_colossus: Object.freeze({ speed: 760, minimumTravelTime: 0.1 }),
+  hexapod_landship: Object.freeze({ speed: 520, minimumTravelTime: 0.14 }),
+  artillery: Object.freeze({ speed: 420, minimumTravelTime: 0.16 }),
+  bomber: Object.freeze({ speed: 420, minimumTravelTime: 0.16 }),
+  tank: Object.freeze({ speed: 680, minimumTravelTime: 0.09 }),
+  bulwark: Object.freeze({ speed: 680, minimumTravelTime: 0.09 }),
+});
+
+export function projectileKinetics(definition) {
+  if (!definition || definition.attackDamage <= 0 || definition.instantHit) return null;
+  const roleKinetics = PROJECTILE_KINETICS_BY_ROLE[definition.role] ||
+    DEFAULT_PROJECTILE_KINETICS;
+  return {
+    speed: definition.projectileSpeed || roleKinetics.speed,
+    minimumTravelTime:
+      definition.minimumProjectileTravelTime ?? roleKinetics.minimumTravelTime,
+  };
+}
+
 const FACTORY_UNIT_DEFINITIONS = Object.freeze({
   scout_vehicle: provisionalFactoryUnit({
     name: "Tier 1 Scout Vehicle", role: "vehicle_scout", roleDescription: "Fast ground reconnaissance",

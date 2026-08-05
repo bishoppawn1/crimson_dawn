@@ -44,6 +44,14 @@ function advance(simulation, seconds, step = 1 / 30) {
   for (let tick = 0; tick < ticks; tick += 1) simulation.tick(step);
 }
 
+function advanceToScheduledImpacts(simulation, step = 1 / 120) {
+  if (simulation.pendingImpacts.length === 0) return;
+  const latestImpactAt = Math.max(
+    ...simulation.pendingImpacts.map((impact) => impact.impactAt),
+  );
+  advance(simulation, Math.max(step, latestImpactAt - simulation.time + step), step);
+}
+
 test("the tactical minimap fits the whole battlefield and maps its viewport", () => {
   const layout = calculateMinimapLayout(1600, 900, 8560, 6280);
   const origin = minimapPoint(layout, 0, 0);
@@ -386,6 +394,7 @@ test("higher-tier sentries deal more damage and reach targets that Tier 1 cannot
     const target = simulation.addStructure("generator", "enemy", 300 + separation, 300);
     const startingHp = target.hp;
     simulation.updateStaticDefenses(0.25);
+    advanceToScheduledImpacts(simulation);
     return { damage: startingHp - target.hp, turret };
   }
 
@@ -439,6 +448,8 @@ test("mortar turrets enforce minimum and maximum range", () => {
   rangedSimulation.updateStaticDefenses(0.25);
 
   assert.equal(rangedMortar.defenseTargetId, validTarget.id);
+  assert.equal(validTarget.hp, validStartingHp);
+  advanceToScheduledImpacts(rangedSimulation);
   assert.ok(validTarget.hp < validStartingHp);
   assert.equal(outsideTarget.hp, outsideStartingHp);
 });
@@ -1046,9 +1057,13 @@ test("attacking damages the target and spends the attacker's energy", () => {
   assert.equal(simulation.commandAttack([attacker.id], target.id), 1);
   simulation.tick(1 / 30);
 
-  assert.equal(target.hp, startingHp - UNIT_DEFINITIONS.scout_mech.attackDamage);
+  assert.equal(target.hp, startingHp);
   assert.equal(attacker.energy, 20 - UNIT_DEFINITIONS.scout_mech.attackEnergy);
   const firingEvent = simulation.events.find((event) => event.type === "attack");
+  assert.ok(firingEvent.impactDelay > 0);
+  assert.ok(simulation.pendingImpacts.some(
+    (impact) => impact.sourceId === attacker.id && impact.targetId === target.id,
+  ));
   assert.deepEqual(
     {
       sourceX: firingEvent.sourceX,
@@ -1063,6 +1078,59 @@ test("attacking damages the target and spends the attacker's energy", () => {
   target.x = 220;
   assert.equal(firingEvent.sourceX, 100, "the muzzle origin should remain fixed after firing");
   assert.equal(firingEvent.targetX, 150, "the impact position should remain fixed after firing");
+
+  advanceToScheduledImpacts(simulation);
+  assert.equal(target.hp, startingHp - UNIT_DEFINITIONS.scout_mech.attackDamage);
+});
+
+test("heavy unit projectiles deal no damage before their visible impact", () => {
+  const cases = [
+    { type: "battle_tank", separation: 130 },
+    { type: "mobile_artillery", separation: 230 },
+    { type: "arsenal_colossus", separation: 250 },
+  ];
+
+  for (const { type, separation } of cases) {
+    const simulation = new Simulation({ enemyAiEnabled: false });
+    const attacker = simulation.addUnit(type, "player", 100, 300);
+    const target = simulation.addStructure("generator", "enemy", 100 + separation, 300);
+    const startingHp = target.hp;
+
+    assert.equal(simulation.commandAttack([attacker.id], target.id), 1);
+    simulation.tick(1 / 30);
+
+    const attackEvent = simulation.events.find(
+      (event) => event.type === "attack" && event.sourceId === attacker.id,
+    );
+    assert.ok(attackEvent?.impactDelay > 0, `${type} should schedule projectile travel`);
+    assert.equal(target.hp, startingHp, `${type} should not damage at muzzle fire`);
+
+    advanceToScheduledImpacts(simulation);
+    assert.ok(target.hp < startingHp, `${type} should damage on impact`);
+  }
+});
+
+test("long-range projectile events remain visible until their delayed impact", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  const mortar = simulation.addStructure("mortar_turret_t3", "player", 300, 300, {
+    powered: true,
+  });
+  const target = simulation.addStructure("generator", "enemy", 950, 300);
+  const startingHp = target.hp;
+
+  simulation.updateStaticDefenses(1 / 30);
+  const attackEvent = simulation.events.find(
+    (event) => event.type === "attack" && event.sourceId === mortar.id,
+  );
+  assert.ok(attackEvent.impactDelay > 1.2);
+
+  advance(simulation, 1.25, 0.05);
+  assert.equal(target.hp, startingHp);
+  assert.ok(simulation.events.includes(attackEvent));
+
+  advanceToScheduledImpacts(simulation);
+  assert.ok(target.hp < startingHp);
+  assert.ok(simulation.events.includes(attackEvent));
 });
 
 test("ordinary weapons deal reduced damage to aircraft", () => {
@@ -1073,6 +1141,8 @@ test("ordinary weapons deal reduced damage to aircraft", () => {
 
   simulation.commandAttack([attacker.id], aircraft.id);
   simulation.tick(1 / 30);
+  assert.equal(aircraft.hp, startingHp);
+  advanceToScheduledImpacts(simulation);
 
   assert.equal(
     aircraft.hp,
@@ -1089,6 +1159,7 @@ test("dedicated anti-air units deal bonus damage to aircraft", () => {
     const startingHp = target.hp;
     simulation.commandAttack([attacker.id], target.id);
     simulation.tick(1 / 30);
+    advanceToScheduledImpacts(simulation);
     return startingHp - target.hp;
   }
 
@@ -1112,6 +1183,8 @@ test("flak turrets prioritize aircraft and apply their air damage bonus", () => 
 
   assert.equal(flak.defenseTargetId, aircraft.id);
   assert.equal(groundTarget.hp, groundStartingHp);
+  assert.equal(aircraft.hp, aircraftStartingHp);
+  advanceToScheduledImpacts(simulation);
   assert.equal(
     aircraft.hp,
     aircraftStartingHp -
@@ -1138,6 +1211,7 @@ test("Raiders are fast harassment units that deal bonus damage to structures", (
   const unitTarget = unitSimulation.addUnit("scout_mech", "player", 150, 100);
   unitSimulation.commandAttack([unitRaider.id], unitTarget.id);
   unitSimulation.tick(1 / 30);
+  advanceToScheduledImpacts(unitSimulation);
   assert.equal(unitTarget.hp, vanguard.maxHp - definition.attackDamage);
 
   const structureSimulation = new Simulation();
@@ -1145,6 +1219,7 @@ test("Raiders are fast harassment units that deal bonus damage to structures", (
   const structureTarget = structureSimulation.addStructure("generator", "player", 150, 100);
   structureSimulation.commandAttack([structureRaider.id], structureTarget.id);
   structureSimulation.tick(1 / 30);
+  advanceToScheduledImpacts(structureSimulation);
   assert.equal(
     structureTarget.hp,
     STRUCTURE_DEFINITIONS.generator.maxHp -
@@ -1619,6 +1694,8 @@ test("combat units automatically attack hostile units that enter weapon range", 
   simulation.tick(1 / 30);
 
   assert.equal(playerUnit.attackTargetId, enemyUnit.id);
+  assert.equal(enemyUnit.hp, enemyStartingHp);
+  advanceToScheduledImpacts(simulation);
   assert.ok(enemyUnit.hp < enemyStartingHp);
 });
 
@@ -1647,6 +1724,8 @@ test("worker drones have weak, short-range defensive weapons", () => {
 
   simulation.tick(1 / 30);
 
+  assert.equal(nearbyEnemy.hp, startingHp);
+  advanceToScheduledImpacts(simulation);
   assert.equal(nearbyEnemy.hp, startingHp - UNIT_DEFINITIONS.worker_drone_t1.attackDamage);
   assert.equal(worker.energy, startingEnergy - UNIT_DEFINITIONS.worker_drone_t1.attackEnergy);
 });
@@ -1747,6 +1826,8 @@ test("combat units automatically attack hostile structures in weapon range", () 
 
   assert.equal(playerUnit.attackTargetId, enemyStructure.id);
   assert.equal(playerUnit.attackTargetMode, "automatic");
+  assert.equal(enemyStructure.hp, startingHp);
+  advanceToScheduledImpacts(simulation);
   assert.ok(enemyStructure.hp < startingHp);
 });
 
@@ -1799,8 +1880,14 @@ test("a moving unit stops to attack and resumes its route after the target is de
   simulation.tick(1 / 30);
 
   assert.equal(unit.x, commandStartX, "the unit should stop before firing");
-  assert.ok(enemy.hp < hpBeforeMove, "the stopped unit should engage enemies in range");
+  assert.ok(
+    simulation.pendingImpacts.some((impact) => impact.targetId === enemy.id),
+    "the stopped unit should fire at enemies in range",
+  );
   assert.deepEqual(unit.moveTarget, { x: 300, y: 100 });
+
+  advanceToScheduledImpacts(simulation);
+  assert.ok(enemy.hp < hpBeforeMove, "the projectile should damage the enemy on impact");
 
   simulation.tick(1 / 30);
   assert.equal(unit.x, commandStartX, "the unit should remain stopped during its weapon cooldown");
@@ -2546,6 +2633,8 @@ test("powered sentry turrets automatically defend against nearby enemies", () =>
   simulation.tick(0.25);
 
   assert.equal(turret.powered, true);
+  assert.equal(enemy.hp, startingHp);
+  advanceToScheduledImpacts(simulation);
   assert.ok(enemy.hp < startingHp);
 });
 
@@ -2560,6 +2649,8 @@ test("powered sentry turrets automatically attack hostile structures", () => {
 
   assert.equal(turret.powered, true);
   assert.equal(turret.defenseTargetId, enemyStructure.id);
+  assert.equal(enemyStructure.hp, startingHp);
+  advanceToScheduledImpacts(simulation);
   assert.ok(enemyStructure.hp < startingHp);
 });
 
@@ -3703,7 +3794,6 @@ test("enemy combat units fire at nearby workers while advancing", () => {
   const startingHp = worker.hp;
   simulation.tick(1 / 30);
 
-  assert.ok(worker.hp < startingHp);
   assert.deepEqual(
     { x: attackers[0].x, y: attackers[0].y },
     firingPosition,
@@ -3713,6 +3803,9 @@ test("enemy combat units fire at nearby workers while advancing", () => {
   assert.equal(attackers[0].attackTargetMode, "automatic");
   assert.equal(attackers[0].moveMode, "advance");
   assert.deepEqual(attackers[0].moveTarget, destination);
+  assert.equal(worker.hp, startingHp);
+  advanceToScheduledImpacts(simulation);
+  assert.ok(worker.hp < startingHp);
 
   simulation.applyDamage(worker, worker.hp, attackers[0]);
   simulation.tick(1 / 30);
@@ -3771,11 +3864,14 @@ test("an enemy assault force retreats when nearby combat strength clearly outmat
 
   simulation.tick(1 / 30);
 
-  assert.ok(worker.hp < workerStartingHp);
+  assert.equal(worker.hp, workerStartingHp);
+  assert.ok(simulation.pendingImpacts.some((impact) => impact.targetId === worker.id));
   assert.ok(attackers.every((unit) => unit.moveMode === "retreat"));
   assert.ok(attackers.every((unit) => unit.moveTarget.x < enemyGenerator.x));
   assert.ok(attackers.every((unit) => unit.moveTarget.x > unit.x));
   assert.ok(simulation.events.some((event) => event.type === "enemy_retreat"));
+  advanceToScheduledImpacts(simulation);
+  assert.ok(worker.hp < workerStartingHp);
 });
 
 test("a retreated AI force regroups and reinforces before attacking again", () => {

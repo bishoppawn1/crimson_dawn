@@ -32,6 +32,9 @@ implementation decision establishes or changes player-facing behavior.
   permanently stalling without replacing the role of chargers and carriers.
 - Player combat units automatically engage hostile units that enter weapon range
   unless a future stance rule explicitly prevents it.
+- Moving tracers, missiles, and shells apply damage on visible impact, using shared
+  simulation and rendering flight-speed data. Keep instant and sustained beam
+  weapons immediate rather than scheduling them as projectiles.
 - Surviving combat units on both teams retaliate against their aggressor and pursue
   it beyond automatic-acquisition range. Preserve force-move and existing explicit
   attack orders as higher-priority commands.
