@@ -512,7 +512,8 @@ by routing the aircraft over enemy assets; attack commands on ground targets are
 interpreted as movement to the target position. The laser cannot damage aircraft
 and consumes energy continuously while it is damaging at least one target. All
 three use ordinary paid production, supply, movement-energy, weapon-energy, damage,
-destruction, and salvage rules. Their balance values are provisional.
+destruction, and salvage rules. The Zenith's current provisional movement speed is
+58 world units per second. All experimental balance values remain provisional.
 
 ### 5.3 Worker Drones and Construction
 

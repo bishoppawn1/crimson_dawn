@@ -191,6 +191,7 @@ test("experimental factory exposes three distinct strategic units", () => {
   assert.equal(doughnut.groundAttackOnly, true);
   assert.equal(doughnut.attackRange, 0);
   assert.ok(doughnut.underbellyBeamRadius > 0);
+  assert.equal(doughnut.speed, 58);
   assert.equal(doughnut.roleDescription, "Mmm, tasty!");
 
   for (const unitType of roster) {
