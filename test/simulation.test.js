@@ -2651,6 +2651,19 @@ test("building classes use distinct grid footprints", () => {
   assert.equal(SIMULATION_RULES.structureCollisionPadding, 0);
 });
 
+test("Metal Mine footprints never exceed two grid cells per side", () => {
+  const mines = Object.values(STRUCTURE_DEFINITIONS).filter(
+    (definition) => definition.family === "metal_mine",
+  );
+
+  assert.deepEqual(STRUCTURE_DEFINITIONS.metal_mine.footprint, [1, 1]);
+  assert.deepEqual(STRUCTURE_DEFINITIONS.metal_mine_t2.footprint, [2, 2]);
+  assert.deepEqual(STRUCTURE_DEFINITIONS.metal_mine_t3.footprint, [2, 2]);
+  assert.ok(
+    mines.every((definition) => definition.footprint.every((cells) => cells <= 2)),
+  );
+});
+
 test("the Tier 2 Power Relay Tower stays compact and improves every relay function", () => {
   const tierOne = STRUCTURE_DEFINITIONS.power_tower;
   const tierTwo = STRUCTURE_DEFINITIONS.power_tower_t2;

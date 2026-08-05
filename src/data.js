@@ -1083,7 +1083,7 @@ Object.assign(structureDefinitions, {
   },
   metal_mine_t3: {
     ...structureDefinitions.metal_mine, name: "Tier 3 Metal Mine", buildTier: 3,
-    minimumWorkerTier: 3, radius: 52, footprint: [3, 3], maxHp: 900, powerDemand: 5,
+    minimumWorkerTier: 3, radius: 34, footprint: [2, 2], maxHp: 900, powerDemand: 5,
     metalRate: 12, metalCost: 390, buildTime: 20, provisionalBalance: true,
   },
   mech_factory_t3: structureDefinitions.mech_factory_t3,

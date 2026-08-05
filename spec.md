@@ -614,12 +614,15 @@ stops at the moving unit's own physical radius from the exact structure footprin
 there is no additional structure-clearance padding.
 
 Tier 1 infrastructure is deliberately compact. Pulse Generators, Grid Batteries,
-Induction Chargers, Metal Mines, Power Relay Towers, Sentry Turrets, and Mortar Turrets use 1×1
-footprints. Tier 1 factories use 2×2 footprints. Equivalent Tier 2 infrastructure
-uses 2×2 footprints except for the Tier 2 Power Relay Tower, which remains 1×1.
-Tier 2 factories use 3×3 footprints; Tier 3 infrastructure uses 3×3 footprints and
-Tier 3 factories use 4×4 footprints. Exceptional strategic or experimental
-structures may use larger bespoke footprints.
+Induction Chargers, Metal Mines, Power Relay Towers, Sentry Turrets, and Mortar
+Turrets use 1×1 footprints. Tier 1 factories use 2×2 footprints. Equivalent Tier 2
+infrastructure uses 2×2 footprints except for the Tier 2 Power Relay Tower, which
+remains 1×1. Metal Mines are permanently capped at 2×2: both their Tier 2 and Tier 3
+versions use that footprint, with higher mining output represented through their
+machinery and stats rather than a larger occupied area. Tier 2 factories use 3×3
+footprints; other Tier 3 infrastructure uses 3×3 footprints and Tier 3 factories use
+4×4 footprints. Exceptional strategic or experimental structures may use larger
+bespoke footprints.
 
 An incomplete friendly building is a contextual construction target. Right-clicking
 it with one or more selected workers assigns those workers to continue construction,
