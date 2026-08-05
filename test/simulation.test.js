@@ -2860,6 +2860,99 @@ test("enemy AI establishes a paid outpost and expands to another metal deposit",
   assert.ok(enemyMines.length >= 2);
 });
 
+test("fortified opposition accelerates AI expansion beyond two mines", () => {
+  const simulation = new Simulation({ width: 2200, height: 1400 });
+  simulation.teamStarts.enemy = { x: 1800, y: 700 };
+  const anchor = simulation.addStructure("generator", "enemy", 1800, 700);
+  for (const [index, x] of [1660, 1500].entries()) {
+    const deposit = simulation.addMetalDeposit(x, 700);
+    simulation.addStructure("metal_mine", "enemy", x, 700, { depositId: deposit.id });
+  }
+  const openDeposit = simulation.addMetalDeposit(900, 700);
+  simulation.resources.enemy.metal = 600;
+  simulation.addStructure("sentry_turret", "player", 300, 620);
+  simulation.addStructure("sentry_turret", "player", 340, 700);
+  simulation.addStructure("sentry_turret", "player", 300, 780);
+
+  const request = simulation.getEnemyExpansionRequest(anchor, "enemy");
+
+  assert.ok(request, "the AI should expand instead of waiting for extreme metal reserves");
+  assert.equal(request.urgent, true);
+  assert.ok(Math.hypot(request.x - openDeposit.x, request.y - openDeposit.y) <= 220);
+});
+
+test("AI strategy requests a sentry at every undefended remote mine", () => {
+  const simulation = new Simulation({ width: 2200, height: 1400 });
+  simulation.teamStarts.enemy = { x: 1800, y: 700 };
+  const anchor = simulation.addStructure("generator", "enemy", 1800, 700);
+  simulation.addStructure("generator", "enemy", 760, 700);
+  const deposit = simulation.addMetalDeposit(620, 700);
+  const mine = simulation.addStructure("metal_mine", "enemy", 620, 700, {
+    depositId: deposit.id,
+  });
+  simulation.addStructure("mech_factory_t1", "enemy", 1700, 820);
+  simulation.addStructure("battery", "enemy", 1740, 620);
+  simulation.addStructure("charger", "enemy", 1660, 620);
+  simulation.addStructure("sentry_turret", "enemy", 1700, 700);
+  simulation.addUnit("scout_mech", "enemy", 1660, 780);
+  simulation.addUnit("scout_mech", "enemy", 1700, 780);
+  simulation.addUnit("scout_mech", "enemy", 1740, 780);
+
+  const request = simulation.getEnemyOutpostDefenseRequest("enemy", anchor);
+
+  assert.equal(request.type, "sentry_turret");
+  assert.equal(request.outpostMineId, mine.id);
+  assert.ok(
+    Math.hypot(request.x - mine.x, request.y - mine.y) <=
+      SIMULATION_RULES.enemyOutpostDefenseRadius,
+  );
+  const strategicRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    (forward, side = 0) => ({ x: anchor.x - forward, y: anchor.y + side }),
+    7,
+  );
+  assert.equal(strategicRequest.type, "sentry_turret");
+  assert.equal(strategicRequest.outpostMineId, mine.id);
+
+  simulation.addStructure("sentry_turret", "enemy", request.x, request.y);
+  assert.equal(simulation.getEnemyOutpostDefenseRequest("enemy", anchor), null);
+});
+
+test("AI outpost garrisons stay out of attack waves and answer local threats", () => {
+  const simulation = new Simulation({ width: 2400, height: 1500 });
+  simulation.teamStarts.enemy = { x: 2000, y: 750 };
+  const anchor = simulation.addStructure("generator", "enemy", 2000, 750);
+  simulation.addStructure("generator", "enemy", 880, 750);
+  const deposit = simulation.addMetalDeposit(720, 750);
+  const mine = simulation.addStructure("metal_mine", "enemy", 720, 750, {
+    depositId: deposit.id,
+  });
+  const combatUnits = Array.from({ length: 5 }, (_, index) =>
+    simulation.addUnit("scout_mech", "enemy", 1800 + index * 35, 700),
+  );
+  const distantTarget = simulation.addStructure("generator", "player", 160, 160);
+
+  simulation.updateEnemyExpansionGarrisons("enemy", anchor, [distantTarget]);
+  const garrison = combatUnits.filter((unit) => unit.garrisonStructureId === mine.id);
+  assert.equal(garrison.length, SIMULATION_RULES.enemyOutpostGarrisonSize);
+  assert.ok(garrison.every((unit) => unit.moveTarget));
+
+  simulation.resources.enemy.metal = 0;
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+  const fieldArmy = combatUnits.filter((unit) => !unit.garrisonStructureId);
+  assert.equal(fieldArmy.length, SIMULATION_RULES.enemyAttackWaveSize);
+  assert.ok(fieldArmy.every((unit) => unit.moveMode === "advance"));
+  assert.ok(fieldArmy.every((unit) => unit.moveTarget));
+  assert.ok(garrison.every((unit) => unit.moveMode !== "advance"));
+
+  const localThreat = simulation.addUnit("scout_mech", "player", mine.x + 120, mine.y);
+  simulation.updateEnemyExpansionGarrisons("enemy", anchor, [distantTarget, localThreat]);
+  assert.ok(garrison.every((unit) => unit.attackTargetId === localThreat.id));
+});
+
 test("enemy AI expands beyond four mines when metal is low and skips player claims", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;

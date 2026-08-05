@@ -90,7 +90,8 @@ The current build is the first playable field test. It includes:
 - Pulse Generators with visible, constant per-second output that never depletes.
 - A concise HUD energy readout showing net building power per second and combined
   stored grid energy against capacity.
-- Independent AI economies that mine, expand, build, produce units, defend, and
+- Independent AI economies that continually expand, accelerate map control against
+  fortified opponents, defend remote mines with sentries and local garrisons, and
   attack any opposing commander in grouped waves using the same rules as the player.
 - Scrap piles dropped when a loaded reclamation drone is destroyed.
 - Symmetrical starts containing three workers, one Tier 1 Mech Factory, one

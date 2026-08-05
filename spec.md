@@ -773,10 +773,14 @@ economic expansion instead of relying indefinitely on its starting mine. It seek
 the nearest unused non-frontier deposit first, constructs a normally vulnerable
 generator outpost within power range when needed, and then has a worker construct
 the mine. Expansion has no mine-count cap or fixed deposit sequence: after the
-basic opening is covered, the AI maintains at least two mines and seeks another
-whenever its available metal is at or below 400 or reaches a 900-metal expansion
-surplus. There is no upper mine limit, so recurring economic pressure or later
-surpluses can carry expansion across the entire map. It prefers non-frontier
+basic opening is covered, the AI maintains at least two mines and raises that
+minimum by one every 55 seconds. Encountering a cluster of at least three player
+Sentry Turrets immediately raises the current expansion target by one, allowing a
+fortified player to trade early safety for an AI that takes map control faster. The
+AI also seeks another mine whenever its available metal is at or below 400 or
+reaches a 900-metal expansion surplus. There is no upper mine limit, so time,
+recurring economic pressure, or later surpluses can carry expansion across the
+entire map. It prefers non-frontier
 deposits before farther frontier deposits and reevaluates ownership and placement
 on every decision, so deposits already claimed by either side or temporarily
 blocked by hostile units are skipped. Construction costs, travel, construction
@@ -800,6 +804,16 @@ a strategic fallback move: units continue toward their regroup point while firin
 hostiles in range, without abandoning the retreat to pursue them. The cadence,
 response radius, strength estimate, defense cluster, retreat, and wave-size values
 are provisional.
+
+Every completed AI mine at least 480 world units from its starting command point is
+treated as an outpost rather than an unprotected income structure. The building AI
+prioritizes a powered Sentry Turret within 300 world units of each undefended
+outpost. Two combat units are assigned to each outpost, excluded from ordinary
+attack waves, and ordered to remain near the mine. They immediately attack hostile
+units or structures within 520 world units and return to their guard positions once
+the local threat is gone. Production counts these garrisons in addition to the
+field army, so protecting expansions does not permanently consume the next assault
+wave. All defense and garrison values remain provisional.
 
 ## 9. Initial Playable Scope
 

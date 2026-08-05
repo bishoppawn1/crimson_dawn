@@ -284,6 +284,7 @@ export class Simulation {
       navigationPath: [],
       navigationTarget: null,
       navigationReplanAt: this.time + navigationReplanPhase(unitId),
+      garrisonStructureId: null,
       energyTransferTargetIds: [],
       energyTransferredThisTick: 0,
       ...overrides,
@@ -1797,6 +1798,9 @@ export class Simulation {
       ...this.structures.filter((entity) => entity.alive && entity.team !== teamId),
     ];
     const desiredWaveSize = this.getEnemyAttackWaveSize(teamId);
+    const expansionMines = this.getEnemyExpansionMines(teamId, enemyAnchor);
+    const desiredGarrisonCount =
+      expansionMines.length * SIMULATION_RULES.enemyOutpostGarrisonSize;
     const supplyState = this.getSupplyState(teamId);
     const supplyIsLow =
       supplyState.remaining <= supplyState.capacity * SIMULATION_RULES.enemySupplyLowRatio;
@@ -1956,7 +1960,7 @@ export class Simulation {
       0,
     );
     const needsCombatForce =
-      stagedCombatCount + queuedCombatCount < desiredWaveSize;
+      stagedCombatCount + queuedCombatCount < desiredWaveSize + desiredGarrisonCount;
     for (const factory of enemyFactories) {
       if (factory.productionQueue.length >= 2) continue;
       const factoryDefinition = STRUCTURE_DEFINITIONS[factory.type];
@@ -2026,6 +2030,7 @@ export class Simulation {
       this.queueProduction(factory.id, choice);
     }
 
+    this.updateEnemyExpansionGarrisons(teamId, enemyAnchor, playerTargets);
     const retreated = this.retreatOutmatchedEnemyAttackers(enemyAnchor, playerTargets, teamId);
     const stagedUnits = this.units.filter((unit) => {
       const definition = UNIT_DEFINITIONS[unit.type];
@@ -2035,6 +2040,7 @@ export class Simulation {
         unit.state === "active" &&
         unit.team === teamId &&
         definition.attackRange > 0 &&
+        !unit.garrisonStructureId &&
         !target?.alive &&
         !unit.moveTarget
       );
@@ -2251,11 +2257,23 @@ export class Simulation {
       }
     }
 
+    const outpostDefenseRequest = this.getEnemyOutpostDefenseRequest(teamId, enemyAnchor, {
+      sentryType: tieredType("sentry_turret", operationalTier),
+    });
+    if (outpostDefenseRequest) {
+      const outpostDefenseScore = this.resources[teamId].metal <= SIMULATION_RULES.enemyLowMetalThreshold
+        ? 102
+        : 126;
+      addCandidate(outpostDefenseScore, outpostDefenseRequest.type, outpostDefenseRequest);
+    }
+
     const desiredChargerCount = combatStrength > 0 ? 1 + Math.floor(combatStrength / 9) : 0;
     if (chargerCount < desiredChargerCount) {
       addCandidate(84, "charger", planPoint(30, sideSign * (180 + chargerCount * 80)));
     }
 
+    const fortifiedOpposition =
+      this.getEnemyAttackWaveSize(teamId) > SIMULATION_RULES.enemyAttackWaveSize;
     const expansionRequest = this.getEnemyExpansionRequest(enemyAnchor, teamId, {
       mineType: tieredType("metal_mine", operationalTier),
       generatorType: tieredType("generator", operationalTier),
@@ -2264,9 +2282,11 @@ export class Simulation {
       const metal = this.resources[teamId].metal;
       const expansionScore = metal <= SIMULATION_RULES.enemyLowMetalThreshold
         ? 108
-        : mineCount < 2
-          ? 78
-          : 52;
+        : fortifiedOpposition
+          ? 110
+          : expansionRequest.urgent
+            ? 92
+            : 62;
       addCandidate(expansionScore, expansionRequest.type, expansionRequest);
     }
 
@@ -2311,8 +2331,14 @@ export class Simulation {
         STRUCTURE_DEFINITIONS[structure.type].metalRate,
     ).length;
     const metal = this.resources[teamId].metal;
+    const fortifiedOpposition =
+      this.getEnemyAttackWaveSize(teamId) > SIMULATION_RULES.enemyAttackWaveSize;
+    const desiredMineCount = 2 + Math.floor(this.time / SIMULATION_RULES.enemyExpansionInterval) + (
+      fortifiedOpposition ? SIMULATION_RULES.enemyFortifiedExpansionBonus : 0
+    );
+    const expansionBehindSchedule = enemyMineCount < desiredMineCount;
     const shouldExpand =
-      enemyMineCount < 2 ||
+      expansionBehindSchedule ||
       metal <= SIMULATION_RULES.enemyLowMetalThreshold ||
       metal >= SIMULATION_RULES.enemyExpansionSurplusMetal;
     if (!shouldExpand) return null;
@@ -2346,6 +2372,7 @@ export class Simulation {
         x: targetDeposit.x,
         y: targetDeposit.y,
         advancesPlan: false,
+        urgent: expansionBehindSchedule,
       };
     }
 
@@ -2365,6 +2392,7 @@ export class Simulation {
         y: targetDeposit.y,
         advancesPlan: false,
         waiting: true,
+        urgent: expansionBehindSchedule,
       };
     }
 
@@ -2376,7 +2404,119 @@ export class Simulation {
       x: targetDeposit.x + towardBaseX * generatorOffset,
       y: targetDeposit.y + towardBaseY * generatorOffset,
       advancesPlan: false,
+      urgent: expansionBehindSchedule,
     };
+  }
+
+  getEnemyExpansionMines(teamId = "enemy", enemyAnchor = null) {
+    const home = this.teamStarts[teamId] || enemyAnchor;
+    if (!home) return [];
+    return this.structures.filter(
+      (structure) =>
+        structure.alive &&
+        structure.complete &&
+        structure.team === teamId &&
+        STRUCTURE_DEFINITIONS[structure.type].metalRate &&
+        distance(structure, home) >= SIMULATION_RULES.enemyOutpostDistance,
+    );
+  }
+
+  getEnemyOutpostDefenseRequest(
+    teamId = "enemy",
+    enemyAnchor = null,
+    { sentryType = "sentry_turret" } = {},
+  ) {
+    const undefendedMine = this.getEnemyExpansionMines(teamId, enemyAnchor).find(
+      (mine) => !this.structures.some(
+        (structure) =>
+          structure.alive &&
+          structure.team === teamId &&
+          STRUCTURE_DEFINITIONS[structure.type].family === "sentry_turret" &&
+          distance(structure, mine) <= SIMULATION_RULES.enemyOutpostDefenseRadius,
+      ),
+    );
+    if (!undefendedMine) return null;
+    const home = this.teamStarts[teamId] || enemyAnchor;
+    const towardHomeX = home.x - undefendedMine.x;
+    const towardHomeY = home.y - undefendedMine.y;
+    const towardHomeLength = Math.hypot(towardHomeX, towardHomeY) || 1;
+    return {
+      type: sentryType,
+      x: undefendedMine.x + (towardHomeX / towardHomeLength) * 80,
+      y: undefendedMine.y + (towardHomeY / towardHomeLength) * 80,
+      advancesPlan: false,
+      outpostMineId: undefendedMine.id,
+    };
+  }
+
+  updateEnemyExpansionGarrisons(teamId, enemyAnchor, playerTargets = []) {
+    const expansionMines = this.getEnemyExpansionMines(teamId, enemyAnchor);
+    const activeMineIds = new Set(expansionMines.map((mine) => mine.id));
+    const combatUnits = this.units.filter((unit) =>
+      unit.alive &&
+      unit.state === "active" &&
+      unit.team === teamId &&
+      UNIT_DEFINITIONS[unit.type].attackRange > 0,
+    );
+    for (const unit of combatUnits) {
+      if (unit.garrisonStructureId && !activeMineIds.has(unit.garrisonStructureId)) {
+        unit.garrisonStructureId = null;
+      }
+    }
+
+    for (const mine of expansionMines) {
+      const defenders = combatUnits.filter((unit) => unit.garrisonStructureId === mine.id);
+      const candidates = combatUnits
+        .filter((unit) =>
+          !unit.garrisonStructureId &&
+          !unit.moveTarget &&
+          !this.getEntity(unit.attackTargetId)?.alive,
+        )
+        .sort((left, right) => distance(left, mine) - distance(right, mine));
+      while (
+        defenders.length < SIMULATION_RULES.enemyOutpostGarrisonSize &&
+        candidates.length > 0
+      ) {
+        const defender = candidates.shift();
+        defender.garrisonStructureId = mine.id;
+        defenders.push(defender);
+      }
+
+      const localThreats = playerTargets.filter((target) =>
+        target.alive &&
+        distance(target, mine) <= SIMULATION_RULES.enemyOutpostResponseRadius,
+      );
+      const localTarget = nearest(mine, localThreats);
+      for (const [index, defender] of defenders.entries()) {
+        if (localTarget) {
+          if (
+            defender.attackTargetId !== localTarget.id ||
+            defender.attackTargetMode !== "explicit"
+          ) {
+            this.commandAttack([defender.id], localTarget.id);
+          }
+          continue;
+        }
+        const target = this.getEntity(defender.attackTargetId);
+        const guardAngle = (index / Math.max(1, defenders.length)) * Math.PI * 2;
+        const guardPoint = {
+          x: mine.x + Math.cos(guardAngle) * 90,
+          y: mine.y + Math.sin(guardAngle) * 90,
+        };
+        if (
+          target?.alive &&
+          distance(target, mine) <= SIMULATION_RULES.enemyOutpostResponseRadius
+        ) {
+          continue;
+        }
+        if (distance(defender, guardPoint) <= SIMULATION_RULES.enemyOutpostGarrisonLeash) {
+          if (target?.alive || defender.moveTarget) this.commandStop([defender.id], true);
+          continue;
+        }
+        if (defender.moveTarget && distance(defender.moveTarget, guardPoint) <= 10) continue;
+        this.commandMove([defender.id], guardPoint.x, guardPoint.y, { force: true });
+      }
+    }
   }
 
   getEnemyAttackWaveSize(teamId = "enemy") {
@@ -2413,6 +2553,7 @@ export class Simulation {
         unit.state === "active" &&
         unit.team === teamId &&
         definition.attackRange > 0 &&
+        !unit.garrisonStructureId &&
         (unit.attackTargetMode === "explicit" || unit.moveMode === "advance") &&
         distance(unit, enemyAnchor) > SIMULATION_RULES.enemyRushResponseRadius
       );
