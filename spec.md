@@ -397,7 +397,7 @@ ladder.
 | Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs and related ground units |
 | Vehicle Factory | Tier 1, Tier 2, Tier 3 | Scout Vehicles, Battle Tanks, Mobile Artillery, and Grid Tankers |
 | Air Factory | Tier 2, Tier 3 | Interceptors, Gunships, Bombers, and Energy Tenders |
-| Experimental Facility | Tier 3 only | The most powerful experimental units |
+| Experimental Factory | Tier 3 only | Arsenal Colossus, Hexapod Landship, and Zenith Doughnut |
 
 A player may pursue mech and vehicle technology at the same tier. Advancing one
 production branch does not inherently replace or advance another branch.
@@ -407,8 +407,8 @@ existing tiered structures. A completed Tier 3 Mech Factory does the same for Ti
 3. Unlocks require a fully constructed factory; an unfinished foundation does not
 count. Once earned, the team keeps the unlock even if that factory is later
 destroyed. Higher-tier factories may still be constructed separately. The current
-field test includes complete provisional Vehicle and Air Factory rosters. The
-Experimental Factory roster remains an unresolved design and implementation task.
+field test includes complete provisional Vehicle, Air, and Experimental Factory
+rosters.
 
 There is no fixed cap on the number of factories or equivalent production
 buildings a player may construct.
@@ -461,6 +461,23 @@ terrain and buildings. Every higher-tier vehicle or aircraft
 improves the integrity, energy storage, and combat statistics relevant to its role.
 All current unit costs, production times, energy budgets, and tier-to-tier stat
 increases are provisional balance values.
+
+#### Experimental Factory roster
+
+The Tier 3 Experimental Factory produces exactly three enormous strategic units:
+
+| Production line | Battlefield role |
+| --- | --- |
+| Arsenal Colossus | Huge assault mech carrying eight visible weapon systems and firing a converging multi-projectile salvo |
+| Hexapod Landship | Six-legged walking battleship with siege guns, extreme durability, and the ability to stride across living building footprints |
+| Zenith Doughnut | Giant toroidal aircraft whose central aperture fires a sustained high-energy laser at ground targets; its player-facing description is “Mmm, tasty!” |
+
+The Hexapod Landship remains a ground unit: impassable terrain and living units
+still constrain it, but buildings are excluded from its destination validation,
+path planning, and movement collisions. The Zenith Doughnut ignores terrain and
+structures, and its central laser cannot target aircraft. All three use ordinary
+paid production, supply, movement-energy, weapon-energy, damage, destruction, and
+salvage rules. Their balance values are provisional.
 
 ### 5.3 Worker Drones and Construction
 

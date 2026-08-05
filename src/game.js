@@ -2265,6 +2265,18 @@ function drawUnitSprite(definition, teamColor, darkColor, stasis, pose) {
     drawWorkerDroneSprite(definition, teamColor, darkColor, stasis, pose);
     return;
   }
+  if (definition.role === "arsenal_colossus") {
+    drawArsenalColossusSprite(definition, teamColor, stasis, pose);
+    return;
+  }
+  if (definition.role === "hexapod_landship") {
+    drawHexapodLandshipSprite(definition, teamColor, stasis, pose);
+    return;
+  }
+  if (definition.role === "zenith_doughnut") {
+    drawZenithDoughnutSprite(definition, teamColor, stasis);
+    return;
+  }
   if (definition.unitDomain === "vehicle") {
     drawVehicleSprite(definition, teamColor, darkColor, stasis);
     return;
@@ -2274,6 +2286,210 @@ function drawUnitSprite(definition, teamColor, darkColor, stasis, pose) {
     return;
   }
   drawMechSprite(definition, teamColor, darkColor, stasis, pose);
+}
+
+function experimentalUnitPalette(teamColor, stasis) {
+  return {
+    outline: stasis ? "#26231f" : "#151c21",
+    armor: stasis ? "#5f594f" : "#889397",
+    armorLight: stasis ? "#777064" : "#c5ccca",
+    armorDark: stasis ? "#3d3932" : "#414d52",
+    joint: stasis ? "#302d28" : "#222b30",
+    accent: stasis ? `${teamColor}88` : teamColor,
+    energy: stasis ? "#655e4e" : colors.energy,
+  };
+}
+
+function drawArsenalColossusSprite(definition, teamColor, stasis, pose) {
+  const palette = experimentalUnitPalette(teamColor, stasis);
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  for (const side of [-1, 1]) {
+    const step = pose.stride * side * 0.08;
+    context.strokeStyle = palette.outline;
+    context.lineWidth = 0.28;
+    context.beginPath();
+    context.moveTo(side * 0.33, 0.36);
+    context.lineTo(side * 0.48, 0.72 + step);
+    context.lineTo(side * 0.43, 1.02 + step);
+    context.stroke();
+    context.strokeStyle = palette.armorDark;
+    context.lineWidth = 0.18;
+    context.stroke();
+    context.fillStyle = palette.outline;
+    context.fillRect(side * 0.43 - 0.16, 0.93 + step, 0.32, 0.18);
+  }
+
+  context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.09;
+  context.beginPath();
+  context.moveTo(-0.58, 0.48);
+  context.lineTo(-0.7, -0.3);
+  context.lineTo(-0.42, -0.7);
+  context.lineTo(0.42, -0.7);
+  context.lineTo(0.7, -0.3);
+  context.lineTo(0.58, 0.48);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = palette.accent;
+  context.fillRect(-0.49, 0.31, 0.98, 0.11);
+  context.fillRect(-0.09, -0.69, 0.18, 0.88);
+
+  // Six cannons plus two shoulder missile pods sell the unit as an entire
+  // eight-system arsenal on legs.
+  for (const side of [-1, 1]) {
+    for (const xOffset of [0.36, 0.52, 0.68]) {
+      const x = side * xOffset;
+      context.strokeStyle = palette.outline;
+      context.lineWidth = 0.16;
+      context.beginPath();
+      context.moveTo(x, -0.18);
+      context.lineTo(x, -0.94);
+      context.stroke();
+      context.strokeStyle = palette.armorLight;
+      context.lineWidth = 0.075;
+      context.stroke();
+      context.fillStyle = palette.outline;
+      context.fillRect(x - 0.11, -1.02, 0.22, 0.12);
+    }
+  }
+  context.fillStyle = palette.armorDark;
+  for (const side of [-1, 1]) {
+    context.fillRect(side * 0.46 - 0.2, -0.5, 0.4, 0.36);
+    context.fillStyle = palette.accent;
+    context.fillRect(side * 0.46 - 0.16, -0.42, 0.32, 0.07);
+    context.fillStyle = palette.armorDark;
+  }
+  context.fillStyle = palette.joint;
+  context.beginPath();
+  context.arc(0, -0.2, 0.27, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = palette.energy;
+  context.lineWidth = 0.06;
+  context.beginPath();
+  context.arc(0, -0.2, 0.14, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
+}
+
+function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
+  const palette = experimentalUnitPalette(teamColor, stasis);
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  for (const side of [-1, 1]) {
+    [-0.55, 0, 0.55].forEach((legY, index) => {
+      const gait = pose.stride * (index % 2 === 0 ? side : -side) * 0.08;
+      context.strokeStyle = palette.outline;
+      context.lineWidth = 0.2;
+      context.beginPath();
+      context.moveTo(side * 0.48, legY);
+      context.lineTo(side * 0.88, legY + gait);
+      context.lineTo(side * 1.02, legY + 0.22 + gait);
+      context.stroke();
+      context.strokeStyle = palette.armorDark;
+      context.lineWidth = 0.11;
+      context.stroke();
+      context.fillStyle = palette.outline;
+      context.beginPath();
+      context.ellipse(side * 1.02, legY + 0.25 + gait, 0.16, 0.1, 0, 0, Math.PI * 2);
+      context.fill();
+    });
+  }
+
+  context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.1;
+  context.beginPath();
+  context.moveTo(0, -1.08);
+  context.lineTo(0.5, -0.76);
+  context.lineTo(0.6, 0.8);
+  context.lineTo(0.34, 1.05);
+  context.lineTo(-0.34, 1.05);
+  context.lineTo(-0.6, 0.8);
+  context.lineTo(-0.5, -0.76);
+  context.closePath();
+  context.fill();
+  context.stroke();
+  context.fillStyle = palette.accent;
+  context.fillRect(-0.51, 0.68, 1.02, 0.12);
+
+  context.fillStyle = palette.armorDark;
+  context.fillRect(-0.38, -0.33, 0.76, 0.62);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.24;
+  context.beginPath();
+  context.moveTo(0, -0.42);
+  context.lineTo(0, -1.42);
+  context.stroke();
+  context.strokeStyle = palette.armorLight;
+  context.lineWidth = 0.12;
+  context.stroke();
+  context.fillStyle = palette.outline;
+  context.fillRect(-0.16, -1.48, 0.32, 0.13);
+
+  for (const side of [-1, 1]) {
+    context.strokeStyle = palette.outline;
+    context.lineWidth = 0.12;
+    context.beginPath();
+    context.moveTo(side * 0.32, 0.14);
+    context.lineTo(side * 0.79, -0.46);
+    context.stroke();
+    context.fillStyle = palette.accent;
+    context.fillRect(side * 0.36 - 0.1, 0.37, 0.2, 0.1);
+  }
+  context.restore();
+}
+
+function drawZenithDoughnutSprite(definition, teamColor, stasis) {
+  const palette = experimentalUnitPalette(teamColor, stasis);
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.1;
+  context.beginPath();
+  context.ellipse(0, 0, 1.05, 0.86, 0, 0, Math.PI * 2);
+  context.ellipse(0, 0, 0.36, 0.28, 0, 0, Math.PI * 2, true);
+  context.fill("evenodd");
+  context.stroke();
+  context.beginPath();
+  context.ellipse(0, 0, 0.36, 0.28, 0, 0, Math.PI * 2);
+  context.stroke();
+
+  context.strokeStyle = palette.armorDark;
+  context.lineWidth = 0.07;
+  for (let segment = 0; segment < 8; segment += 1) {
+    const angle = (segment / 8) * Math.PI * 2;
+    context.beginPath();
+    context.moveTo(Math.cos(angle) * 0.27, Math.sin(angle) * 0.22);
+    context.lineTo(Math.cos(angle) * 0.95, Math.sin(angle) * 0.77);
+    context.stroke();
+  }
+  context.strokeStyle = palette.accent;
+  context.lineWidth = 0.13;
+  context.beginPath();
+  context.ellipse(0, 0, 0.74, 0.58, 0, 0, Math.PI * 2);
+  context.stroke();
+  context.strokeStyle = palette.energy;
+  context.lineWidth = 0.08;
+  context.beginPath();
+  context.ellipse(0, 0, 0.29, 0.22, 0, 0, Math.PI * 2);
+  context.stroke();
+  context.fillStyle = palette.armorLight;
+  context.globalAlpha = 0.55;
+  context.beginPath();
+  context.ellipse(-0.2, -0.24, 0.38, 0.18, -0.22, 0, Math.PI * 2);
+  context.fill();
+  context.restore();
 }
 
 function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis, pose) {
@@ -3478,9 +3694,46 @@ function drawAttackEvent(event, age) {
   context.lineCap = "round";
   context.lineJoin = "round";
   context.globalCompositeOperation = "lighter";
+  if (profile.beam) {
+    const beamProgress = Math.min(1, age / profile.beamDuration);
+    const alpha = Math.sin(beamProgress * Math.PI) ** 0.45;
+    context.globalAlpha = alpha * 0.28;
+    context.strokeStyle = profile.glowColor;
+    context.lineWidth = profile.trailWidth * 4.5;
+    context.shadowColor = profile.glowColor;
+    context.shadowBlur = profile.glow * 2;
+    context.beginPath();
+    context.moveTo(startX, startY);
+    context.lineTo(endX, endY);
+    context.stroke();
+    context.globalAlpha = alpha;
+    context.strokeStyle = profile.projectileColor;
+    context.lineWidth = profile.trailWidth;
+    context.beginPath();
+    context.moveTo(startX, startY);
+    context.lineTo(endX, endY);
+    context.stroke();
+    drawWeaponImpact(event, endX, endY, age, profile);
+    context.restore();
+    return;
+  }
+  const salvoCount = profile.salvoCount || 1;
+  const salvoSpread = profile.salvoSpread || 0;
+  const perpendicularX = -directionY;
+  const perpendicularY = directionX;
   if (age <= profile.muzzleDuration) {
     const muzzleAlpha = 1 - age / profile.muzzleDuration;
-    drawMuzzleFlash(startX, startY, directionX, directionY, profile, muzzleAlpha);
+    for (let shot = 0; shot < salvoCount; shot += 1) {
+      const shotOffset = (shot - (salvoCount - 1) / 2) * salvoSpread;
+      drawMuzzleFlash(
+        startX + perpendicularX * shotOffset,
+        startY + perpendicularY * shotOffset,
+        directionX,
+        directionY,
+        profile,
+        muzzleAlpha,
+      );
+    }
   }
 
   if (age < travelTime) {
@@ -3512,18 +3765,32 @@ function drawAttackEvent(event, age) {
       context.globalAlpha = 1;
     }
 
-    context.strokeStyle = profile.trailColor;
-    context.lineWidth = profile.trailWidth;
-    context.beginPath();
-    context.moveTo(trailX, trailY);
-    context.lineTo(projectileX, projectileY);
-    context.stroke();
-    context.fillStyle = profile.projectileColor;
-    context.shadowColor = profile.glowColor;
-    context.shadowBlur = profile.glow;
-    context.beginPath();
-    context.arc(projectileX, projectileY, profile.projectileSize, 0, Math.PI * 2);
-    context.fill();
+    for (let shot = 0; shot < salvoCount; shot += 1) {
+      const shotOffset = (shot - (salvoCount - 1) / 2) * salvoSpread;
+      const projectileOffset = shotOffset * (1 - progress);
+      const trailOffset = shotOffset * (1 - trailProgress);
+      context.strokeStyle = profile.trailColor;
+      context.lineWidth = profile.trailWidth;
+      context.beginPath();
+      context.moveTo(trailX + perpendicularX * trailOffset, trailY + perpendicularY * trailOffset);
+      context.lineTo(
+        projectileX + perpendicularX * projectileOffset,
+        projectileY + perpendicularY * projectileOffset,
+      );
+      context.stroke();
+      context.fillStyle = profile.projectileColor;
+      context.shadowColor = profile.glowColor;
+      context.shadowBlur = profile.glow;
+      context.beginPath();
+      context.arc(
+        projectileX + perpendicularX * projectileOffset,
+        projectileY + perpendicularY * projectileOffset,
+        profile.projectileSize,
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
+    }
   } else {
     drawWeaponImpact(event, endX, endY, age - travelTime, profile);
   }
@@ -3593,6 +3860,35 @@ function attackPresentation(source) {
       ? UNIT_DEFINITIONS[source.type]
       : null;
   const role = definition?.role;
+  if (role === "zenith_doughnut") {
+    return {
+      beam: true, beamDuration: 0.42, speed: 1, minimumTravelTime: 0,
+      trailFraction: 0, arcHeight: 0, projectileSize: 0, trailWidth: 5.5,
+      muzzleDuration: 0.18, muzzleSize: 18, impactDuration: 0.42,
+      impactSize: 34, sparkCount: 13, glow: 24, smoke: true,
+      projectileColor: "#efffff", trailColor: "#84f7ff", muzzleColor: "#eaffff",
+      glowColor: "#39dff1", impactColor: "#9cfcff", sparkColor: "#e6ffff",
+    };
+  }
+  if (role === "arsenal_colossus") {
+    return {
+      salvoCount: definition.salvoCount || 5, salvoSpread: 8,
+      speed: 760, minimumTravelTime: 0.1, trailFraction: 0.1, arcHeight: 8,
+      projectileSize: 2.8, trailWidth: 1.8, muzzleDuration: 0.11, muzzleSize: 10,
+      impactDuration: 0.36, impactSize: 22, sparkCount: 11, glow: 13, smoke: true,
+      projectileColor: "#fff8d1", trailColor: "#ffc96d", muzzleColor: "#fff0a6",
+      glowColor: "#ff8d3d", impactColor: "#ffb15b", sparkColor: "#ffe4a5",
+    };
+  }
+  if (role === "hexapod_landship") {
+    return {
+      speed: 520, minimumTravelTime: 0.14, trailFraction: 0.08, arcHeight: 18,
+      projectileSize: 5.2, trailWidth: 3.5, muzzleDuration: 0.14, muzzleSize: 17,
+      impactDuration: 0.5, impactSize: 36, sparkCount: 15, glow: 18, smoke: true,
+      projectileColor: "#fff4c0", trailColor: "#ffad50", muzzleColor: "#fff0a6",
+      glowColor: "#ff7733", impactColor: "#ff9f43", sparkColor: "#ffe0a0",
+    };
+  }
   if (role === "artillery" || role === "bomber") {
     return {
       speed: 420, minimumTravelTime: 0.16, trailFraction: 0.11, arcHeight: 42,

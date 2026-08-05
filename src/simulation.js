@@ -482,6 +482,7 @@ export class Simulation {
           requestedDestination.x,
           requestedDestination.y,
           definition.radius,
+          { ignoreStructures: definition.stridesOverStructures },
         );
       unit.moveTarget = { ...destination };
       unit.moveMode = movementMode;
@@ -498,19 +499,21 @@ export class Simulation {
     return accepted;
   }
 
-  findNearestPassablePoint(x, y, radius = 0) {
+  findNearestPassablePoint(x, y, radius = 0, { ignoreStructures = false } = {}) {
     let point = {
       x: clamp(x, radius, this.width - radius),
       y: clamp(y, radius, this.height - radius),
     };
     const obstacles = [
       ...this.terrain.map((obstacle) => terrainBounds(obstacle, radius)),
-      ...this.structures
-        .filter((structure) => structure.alive)
-        .map((structure) => expandedStructureBounds(
-          structure,
-          radius + SIMULATION_RULES.structureCollisionPadding,
-        )),
+      ...(ignoreStructures
+        ? []
+        : this.structures
+          .filter((structure) => structure.alive)
+          .map((structure) => expandedStructureBounds(
+            structure,
+            radius + SIMULATION_RULES.structureCollisionPadding,
+          ))),
     ];
     for (let pass = 0; pass < obstacles.length; pass += 1) {
       const containingBounds = obstacles.find((bounds) => pointInsideBounds(point, bounds));
@@ -550,7 +553,8 @@ export class Simulation {
         !unit.alive ||
         unit.state !== "active" ||
         unit.team === target.team ||
-        definition.attackRange <= 0
+        definition.attackRange <= 0 ||
+        !canUnitAttackTarget(definition, target)
       ) {
         continue;
       }
@@ -1815,6 +1819,7 @@ export class Simulation {
       if (
         existingTarget?.alive &&
         existingTarget.team !== unit.team &&
+        canUnitAttackTarget(definition, existingTarget) &&
         (
           unit.attackTargetMode === "explicit" ||
           unit.attackTargetMode === "retaliation" ||
@@ -1827,7 +1832,9 @@ export class Simulation {
       unit.attackTargetMode = null;
       const potentialTargets = this.getNearbyHostileTargets(unit, definition.attackRange)
         .filter(
-          (target) => distance(unit, target) <= definition.attackRange + entityRadius(target),
+          (target) =>
+            canUnitAttackTarget(definition, target) &&
+            distance(unit, target) <= definition.attackRange + entityRadius(target),
         );
       const target = nearest(unit, preferredTargets(definition, potentialTargets));
       unit.attackTargetId = target?.id || null;
@@ -2903,17 +2910,20 @@ export class Simulation {
       ) {
         continue;
       }
-      const blockedByStructure = definition.movementLayer !== "air" && this.structures.some((structure) => {
-        if (!structure.alive) return false;
-        const footprint = structureFootprint(structure.type);
-        const padding = definition.radius + SIMULATION_RULES.structureCollisionPadding;
-        return (
-          candidate.x > structure.x - footprint.halfWidth - padding &&
-          candidate.x < structure.x + footprint.halfWidth + padding &&
-          candidate.y > structure.y - footprint.halfHeight - padding &&
-          candidate.y < structure.y + footprint.halfHeight + padding
-        );
-      });
+      const blockedByStructure =
+        definition.movementLayer !== "air" &&
+        !definition.stridesOverStructures &&
+        this.structures.some((structure) => {
+          if (!structure.alive) return false;
+          const footprint = structureFootprint(structure.type);
+          const padding = definition.radius + SIMULATION_RULES.structureCollisionPadding;
+          return (
+            candidate.x > structure.x - footprint.halfWidth - padding &&
+            candidate.x < structure.x + footprint.halfWidth + padding &&
+            candidate.y > structure.y - footprint.halfHeight - padding &&
+            candidate.y < structure.y + footprint.halfHeight + padding
+          );
+        });
       if (blockedByStructure) continue;
       factory.rallySequence = slot;
       return candidate;
@@ -2940,14 +2950,17 @@ export class Simulation {
     );
     if (!clearOfTerrain) return false;
 
-    const clearOfStructures = definition.movementLayer === "air" || this.structures.every((structure) => {
-      if (!structure.alive) return true;
-      const clearance =
-        definition.radius +
-        STRUCTURE_DEFINITIONS[structure.type].radius +
-        SIMULATION_RULES.structureCollisionPadding;
-      return distance(point, structure) + EPSILON >= clearance;
-    });
+    const clearOfStructures =
+      definition.movementLayer === "air" ||
+      definition.stridesOverStructures ||
+      this.structures.every((structure) => {
+        if (!structure.alive) return true;
+        const clearance =
+          definition.radius +
+          STRUCTURE_DEFINITIONS[structure.type].radius +
+          SIMULATION_RULES.structureCollisionPadding;
+        return distance(point, structure) + EPSILON >= clearance;
+      });
     if (!clearOfStructures) return false;
 
     return this.units.every((unit) => {
@@ -3012,7 +3025,9 @@ export class Simulation {
     for (const unit of this.units) {
       if (!unit.alive) continue;
       const definition = UNIT_DEFINITIONS[unit.type];
-      if (definition.movementLayer !== "air") this.resolveUnitStructureOverlap(unit);
+      if (definition.movementLayer !== "air" && !definition.stridesOverStructures) {
+        this.resolveUnitStructureOverlap(unit);
+      }
       unit.attackCooldownRemaining = Math.max(0, unit.attackCooldownRemaining - delta);
 
       if (unit.state === "stasis") {
@@ -3050,7 +3065,13 @@ export class Simulation {
       }
 
       const attackTarget = this.getEntity(unit.attackTargetId);
-      if (unit.attackTargetId && (!attackTarget || !attackTarget.alive || attackTarget.team === unit.team)) {
+      if (
+        unit.attackTargetId &&
+        (!attackTarget ||
+          !attackTarget.alive ||
+          attackTarget.team === unit.team ||
+          !canUnitAttackTarget(definition, attackTarget))
+      ) {
         unit.attackTargetId = null;
         unit.attackTargetMode = null;
       }
@@ -3237,7 +3258,11 @@ export class Simulation {
   getGroundNavigationWaypoint(unit, target) {
     const definition = UNIT_DEFINITIONS[unit.type];
     const excludedObstacleId = target.kind === "structure" ? target.id : null;
-    const obstacles = this.getGroundNavigationObstacles(definition.radius, excludedObstacleId);
+    const obstacles = this.getGroundNavigationObstacles(
+      definition.radius,
+      excludedObstacleId,
+      { ignoreStructures: definition.stridesOverStructures },
+    );
     if (navigationSegmentIsClear(unit, target, obstacles)) {
       unit.navigationPath = [];
       unit.navigationTarget = { x: target.x, y: target.y, excludedObstacleId };
@@ -3293,18 +3318,24 @@ export class Simulation {
     return unit.navigationPath[0] || target;
   }
 
-  getGroundNavigationObstacles(radius, excludedObstacleId = null) {
-    const cacheKey = `${radius}:${excludedObstacleId || ""}`;
+  getGroundNavigationObstacles(
+    radius,
+    excludedObstacleId = null,
+    { ignoreStructures = false } = {},
+  ) {
+    const cacheKey = `${radius}:${excludedObstacleId || ""}:${ignoreStructures ? 1 : 0}`;
     const cached = this.groundNavigationObstacleCache.get(cacheKey);
     if (cached) return cached;
     const padding = radius + SIMULATION_RULES.structureCollisionPadding;
     const obstacles = [
-      ...this.structures
-        .filter((structure) => structure.alive && structure.id !== excludedObstacleId)
-        .map((structure) => ({
-          id: structure.id,
-          bounds: expandedStructureBounds(structure, padding),
-        })),
+      ...(ignoreStructures
+        ? []
+        : this.structures
+          .filter((structure) => structure.alive && structure.id !== excludedObstacleId)
+          .map((structure) => ({
+            id: structure.id,
+            bounds: expandedStructureBounds(structure, padding),
+          }))),
       ...this.terrain.map((obstacle) => ({
         id: obstacle.id,
         bounds: terrainBounds(obstacle, padding),
@@ -3383,18 +3414,21 @@ export class Simulation {
 
   findFirstGroundCollision(unit, movementX, movementY) {
     let first = null;
+    const definition = UNIT_DEFINITIONS[unit.type];
     const padding =
-      UNIT_DEFINITIONS[unit.type].radius + SIMULATION_RULES.structureCollisionPadding;
-    for (const structure of this.structures) {
-      if (!structure.alive) continue;
-      const collision = sweepBounds(
-        unit,
-        movementX,
-        movementY,
-        expandedStructureBounds(structure, padding),
-      );
-      if (!collision || (first && collision.time >= first.time)) continue;
-      first = { ...collision, obstacle: structure };
+      definition.radius + SIMULATION_RULES.structureCollisionPadding;
+    if (!definition.stridesOverStructures) {
+      for (const structure of this.structures) {
+        if (!structure.alive) continue;
+        const collision = sweepBounds(
+          unit,
+          movementX,
+          movementY,
+          expandedStructureBounds(structure, padding),
+        );
+        if (!collision || (first && collision.time >= first.time)) continue;
+        first = { ...collision, obstacle: structure };
+      }
     }
     for (const obstacle of this.terrain) {
       const collision = sweepBounds(
@@ -3410,7 +3444,8 @@ export class Simulation {
   }
 
   resolveUnitStructureOverlap(unit) {
-    if (UNIT_DEFINITIONS[unit.type].movementLayer === "air") return;
+    const definition = UNIT_DEFINITIONS[unit.type];
+    if (definition.movementLayer === "air" || definition.stridesOverStructures) return;
     const unitRadius = UNIT_DEFINITIONS[unit.type].radius;
     for (const structure of this.structures) {
       if (!structure.alive) continue;
@@ -3782,6 +3817,7 @@ export class Simulation {
       !aggressor.id ||
       aggressor.team === target.team ||
       definition.attackRange <= 0 ||
+      !canUnitAttackTarget(definition, aggressor) ||
       (
         definition.workerTier &&
         buildTarget?.alive &&
@@ -3869,6 +3905,11 @@ export function distance(a, b) {
 
 export function energyRatio(unit) {
   return unit.energy / UNIT_DEFINITIONS[unit.type].maxEnergy;
+}
+
+function canUnitAttackTarget(definition, target) {
+  if (!definition?.groundAttackOnly || target.kind !== "unit") return true;
+  return UNIT_DEFINITIONS[target.type]?.movementLayer !== "air";
 }
 
 function nearest(origin, candidates) {

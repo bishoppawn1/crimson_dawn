@@ -448,6 +448,31 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
     attackCooldown: 0, metalCost: 330, productionTime: 15, supplyCost: 11,
     transferRange: 150, transferRate: 65, protectedReserve: 140,
   }),
+  arsenal_colossus: provisionalFactoryUnit({
+    name: "Arsenal Colossus", role: "arsenal_colossus",
+    roleDescription: "Huge multi-weapon experimental assault mech",
+    unitDomain: "experimental", tier: 3, radius: 30, maxHp: 2200, maxEnergy: 6000,
+    speed: 42, movementEnergyPerUnit: 0.12, attackRange: 290, attackDamage: 180,
+    attackEnergy: 58, attackCooldown: 1.15, metalCost: 1800, productionTime: 48,
+    supplyCost: 70, weaponCount: 8, salvoCount: 5, structureDamageMultiplier: 1.2,
+  }),
+  hexapod_landship: provisionalFactoryUnit({
+    name: "Hexapod Landship", role: "hexapod_landship",
+    roleDescription: "Six-legged walking battleship that strides over structures",
+    unitDomain: "experimental", tier: 3, radius: 44, maxHp: 4200, maxEnergy: 7800,
+    speed: 25, movementEnergyPerUnit: 0.16, attackRange: 370, attackDamage: 310,
+    attackEnergy: 95, attackCooldown: 2.5, metalCost: 3000, productionTime: 72,
+    supplyCost: 120, legCount: 6, stridesOverStructures: true,
+    structureDamageMultiplier: 1.6,
+  }),
+  zenith_doughnut: provisionalFactoryUnit({
+    name: "Zenith Doughnut", role: "zenith_doughnut",
+    roleDescription: "Mmm, tasty!",
+    unitDomain: "air", tier: 3, radius: 38, maxHp: 2600, maxEnergy: 7200,
+    speed: 40, movementEnergyPerUnit: 0.14, attackRange: 250, attackDamage: 260,
+    attackEnergy: 110, attackCooldown: 3, metalCost: 2500, productionTime: 62,
+    supplyCost: 95, groundAttackOnly: true,
+  }),
 });
 
 export const UNIT_DEFINITIONS = Object.freeze({
@@ -1064,7 +1089,8 @@ Object.assign(structureDefinitions, {
   experimental_factory: {
     name: "Experimental Factory", family: "factory", factoryBranch: "experimental",
     buildTier: 3, minimumWorkerTier: 3, tier: 3, radius: 90, footprint: [5, 5],
-    maxHp: 1500, powerDemand: 18, productionPowerDemand: 30, production: [],
+    maxHp: 1500, powerDemand: 18, productionPowerDemand: 30,
+    production: ["arsenal_colossus", "hexapod_landship", "zenith_doughnut"],
     metalCost: 1000, buildTime: 36, provisionalBalance: true,
   },
 });

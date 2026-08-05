@@ -131,6 +131,85 @@ test("production-building branches expose their requested tiers", () => {
   assert.equal(STRUCTURE_DEFINITIONS.experimental_factory.minimumWorkerTier, 3);
 });
 
+test("experimental factory exposes three distinct strategic units", () => {
+  const roster = STRUCTURE_DEFINITIONS.experimental_factory.production;
+  assert.deepEqual(roster, [
+    "arsenal_colossus",
+    "hexapod_landship",
+    "zenith_doughnut",
+  ]);
+
+  const colossus = UNIT_DEFINITIONS.arsenal_colossus;
+  assert.equal(colossus.weaponCount, 8);
+  assert.ok(colossus.salvoCount > 1);
+  assert.equal(colossus.unitDomain, "experimental");
+
+  const landship = UNIT_DEFINITIONS.hexapod_landship;
+  assert.equal(landship.legCount, 6);
+  assert.equal(landship.stridesOverStructures, true);
+  assert.equal(landship.movementLayer, "ground");
+
+  const doughnut = UNIT_DEFINITIONS.zenith_doughnut;
+  assert.equal(doughnut.movementLayer, "air");
+  assert.equal(doughnut.groundAttackOnly, true);
+  assert.equal(doughnut.roleDescription, "Mmm, tasty!");
+
+  for (const unitType of roster) {
+    const definition = UNIT_DEFINITIONS[unitType];
+    assert.equal(definition.tier, 3);
+    assert.ok(definition.metalCost >= 1_800);
+    assert.ok(definition.supplyCost >= 70);
+  }
+});
+
+test("experimental factory accepts paid production orders", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  const factory = simulation.addStructure("experimental_factory", "player", 400, 300);
+
+  assert.equal(simulation.queueProduction(factory.id, "arsenal_colossus"), true);
+  assert.equal(factory.productionQueue[0].unitType, "arsenal_colossus");
+  assert.equal(
+    simulation.resources.player.metal,
+    10_000 - UNIT_DEFINITIONS.arsenal_colossus.metalCost,
+  );
+});
+
+test("hexapod landship strides through structures but still respects terrain", () => {
+  const simulation = new Simulation({
+    width: 900,
+    height: 600,
+    terrain: [{ id: "ridge", x: 740, y: 300, width: 80, height: 320 }],
+    enemyAiEnabled: false,
+  });
+  simulation.addStructure("mech_factory_t1", "player", 430, 300);
+  const landship = simulation.addUnit("hexapod_landship", "player", 160, 300);
+
+  assert.equal(simulation.commandMove([landship.id], 650, 300), 1);
+  advance(simulation, 22);
+  assert.ok(landship.x > 600, `expected landship beyond factory, got x=${landship.x}`);
+
+  simulation.commandMove([landship.id], 740, 300);
+  assert.notDeepEqual(landship.moveTarget, { x: 740, y: 300 });
+});
+
+test("Zenith Doughnut laser accepts ground targets and rejects aircraft", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  const doughnut = simulation.addUnit("zenith_doughnut", "player", 300, 300);
+  const enemyAircraft = simulation.addUnit("interceptor_t2", "enemy", 380, 300);
+  const enemyStructure = simulation.addStructure("generator", "enemy", 440, 300);
+
+  assert.equal(simulation.commandAttack([doughnut.id], enemyAircraft.id), 0);
+  assert.equal(simulation.commandAttack([doughnut.id], enemyStructure.id), 1);
+  const startingHp = enemyStructure.hp;
+  advance(simulation, 1 / 30);
+  assert.ok(enemyStructure.hp < startingHp);
+  assert.equal(
+    doughnut.energy,
+    UNIT_DEFINITIONS.zenith_doughnut.maxEnergy - UNIT_DEFINITIONS.zenith_doughnut.attackEnergy,
+  );
+});
+
 test("higher-tier building variants retain their family behavior", () => {
   const simulation = new Simulation();
   const generator = simulation.addStructure("generator_t2", "player", 100, 100);
@@ -640,11 +719,15 @@ test("reclamation drones fly directly over starting walls", () => {
   assert.ok(Math.abs(drone.y - target.y) < 0.001);
 });
 
-test("mobile units use compact battlefield footprints", () => {
-  const radii = Object.values(UNIT_DEFINITIONS).map((definition) => definition.radius);
+test("conventional mobile units stay compact while experimentals are exceptional", () => {
+  const radii = Object.values(UNIT_DEFINITIONS)
+    .filter((definition) => !["arsenal_colossus", "hexapod_landship", "zenith_doughnut"].includes(definition.role))
+    .map((definition) => definition.radius);
 
   assert.ok(Math.max(...radii) <= 13);
   assert.ok(Math.min(...radii) >= 6);
+  assert.ok(UNIT_DEFINITIONS.arsenal_colossus.radius > Math.max(...radii));
+  assert.ok(UNIT_DEFINITIONS.hexapod_landship.radius > UNIT_DEFINITIONS.arsenal_colossus.radius);
 });
 
 test("overlapping friendly and enemy units physically separate", () => {
@@ -969,6 +1052,9 @@ test("every unit type has the enlarged provisional energy capacity", () => {
       bomber_t3: 1800,
       energy_tender_t2: 3900,
       energy_tender_t3: 5700,
+      arsenal_colossus: 6000,
+      hexapod_landship: 7800,
+      zenith_doughnut: 7200,
       raider: 1080,
     },
   );
@@ -1670,6 +1756,9 @@ test("unit roles and tiers reserve different provisional supply amounts", () => 
       bomber_t3: 16,
       energy_tender_t2: 8,
       energy_tender_t3: 11,
+      arsenal_colossus: 70,
+      hexapod_landship: 120,
+      zenith_doughnut: 95,
       raider: 4,
     },
   );
