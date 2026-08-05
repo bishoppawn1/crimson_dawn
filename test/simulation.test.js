@@ -1246,6 +1246,52 @@ test("combat units automatically attack hostile units that enter weapon range", 
   assert.ok(enemyUnit.hp < enemyStartingHp);
 });
 
+test("worker drones have weak, short-range defensive weapons", () => {
+  const vanguard = UNIT_DEFINITIONS.scout_mech;
+  for (const workerType of ["worker_drone_t1", "worker_drone_t2", "worker_drone_t3"]) {
+    const worker = UNIT_DEFINITIONS[workerType];
+    assert.ok(worker.attackRange > 0);
+    assert.ok(worker.attackRange < vanguard.attackRange);
+    assert.ok(worker.attackDamage > 0);
+    assert.ok(worker.attackDamage < vanguard.attackDamage);
+    assert.ok(worker.attackEnergy > 0);
+  }
+
+  const simulation = new Simulation();
+  const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const nearbyEnemy = simulation.addUnit("raider", "enemy", 150, 100);
+  const startingHp = nearbyEnemy.hp;
+  const startingEnergy = worker.energy;
+
+  simulation.tick(1 / 30);
+
+  assert.equal(nearbyEnemy.hp, startingHp - UNIT_DEFINITIONS.worker_drone_t1.attackDamage);
+  assert.equal(worker.energy, startingEnergy - UNIT_DEFINITIONS.worker_drone_t1.attackEnergy);
+});
+
+test("worker drones do not target or retaliate while constructing", () => {
+  const simulation = new Simulation();
+  const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const project = simulation.addStructure("battery", "player", 140, 100, {
+    complete: false,
+    constructionProgress: 0,
+  });
+  const aggressor = simulation.addUnit("raider", "enemy", 100, 140);
+  const aggressorStartingHp = aggressor.hp;
+  simulation.commandBuild([worker.id], project.id);
+
+  simulation.applyDamage(worker, 1, aggressor);
+  assert.equal(worker.attackTargetId, null);
+  assert.equal(worker.buildTargetId, project.id);
+
+  simulation.tick(1 / 30);
+
+  assert.equal(worker.attackTargetId, null);
+  assert.equal(worker.buildTargetId, project.id);
+  assert.equal(aggressor.hp, aggressorStartingHp);
+  assert.ok(project.constructionProgress > 0);
+});
+
 test("combat units automatically attack hostile structures in weapon range", () => {
   const simulation = new Simulation();
   const playerUnit = simulation.addUnit("scout_mech", "player", 100, 100);
@@ -3065,6 +3111,22 @@ test("enemy combat units wait for a full wave before attacking", () => {
   assert.ok([...staged, third].every((unit) => unit.moveMode === "advance"));
   assert.ok([...staged, third].every((unit) => unit.moveTarget));
   assert.ok([...staged, third].every((unit) => unit.moveTarget.x < unit.x));
+});
+
+test("enemy AI does not count armed workers as an attack wave", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 100, 100);
+  const workers = [
+    simulation.addUnit("worker_drone_t1", "enemy", 1000, 440),
+    simulation.addUnit("worker_drone_t1", "enemy", 1020, 480),
+    simulation.addUnit("worker_drone_t1", "enemy", 1040, 520),
+  ];
+  simulation.aiThinkRemaining = 0;
+
+  simulation.tick(1 / 30);
+
+  assert.ok(workers.every((worker) => worker.moveMode !== "advance"));
+  assert.ok(workers.every((worker) => worker.moveTarget === null));
 });
 
 test("enemy combat units fire at nearby workers while advancing", () => {

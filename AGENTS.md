@@ -57,6 +57,9 @@ implementation decision establishes or changes player-facing behavior.
   this technology path.
 - Worker drones construct the player's buildings. Mech factories produce the
   worker generation matching the factory tier.
+- Worker drones carry weak, short-range defensive weapons, but an active build
+  assignment takes strict priority over automatic targeting, retaliation, and
+  firing. Do not count armed workers as combat units when forming AI armies.
 - Holding Shift while placing foundations appends them to each selected worker's
   construction queue and keeps placement mode active. Preserve placement order;
   ordinary placement and explicit non-build commands replace the queued orders.

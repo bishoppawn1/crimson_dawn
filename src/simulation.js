@@ -1730,6 +1730,17 @@ export class Simulation {
     for (const unit of this.units) {
       const definition = UNIT_DEFINITIONS[unit.type];
       if (!unit.alive || unit.state !== "active" || definition.attackRange <= 0) continue;
+      const buildTarget = this.getStructure(unit.buildTargetId);
+      if (
+        definition.workerTier &&
+        buildTarget?.alive &&
+        !buildTarget.complete &&
+        buildTarget.team === unit.team
+      ) {
+        unit.attackTargetId = null;
+        unit.attackTargetMode = null;
+        continue;
+      }
       if (unit.moveTarget && unit.moveMode === "force") {
         unit.attackTargetId = null;
         unit.attackTargetMode = null;
@@ -1959,7 +1970,7 @@ export class Simulation {
       return (
         unit.alive &&
         unit.team === teamId &&
-        definition.attackRange > 0 &&
+        isCombatUnitDefinition(definition) &&
         unit.attackTargetMode !== "explicit" &&
         !["advance", "retreat"].includes(unit.moveMode)
       );
@@ -1967,7 +1978,7 @@ export class Simulation {
     const queuedCombatCount = enemyFactories.reduce(
       (total, factory) =>
         total + factory.productionQueue.filter(
-          (order) => UNIT_DEFINITIONS[order.unitType].attackRange > 0,
+          (order) => isCombatUnitDefinition(UNIT_DEFINITIONS[order.unitType]),
         ).length,
       0,
     );
@@ -1980,7 +1991,7 @@ export class Simulation {
         (unitType) => UNIT_DEFINITIONS[unitType].workerTier,
       );
       const combatTypes = factoryDefinition.production.filter(
-        (unitType) => UNIT_DEFINITIONS[unitType].attackRange > 0,
+        (unitType) => isCombatUnitDefinition(UNIT_DEFINITIONS[unitType]),
       );
       const combatType = combatTypes
         .map((unitType, order) => ({
@@ -2051,7 +2062,7 @@ export class Simulation {
         unit.alive &&
         unit.state === "active" &&
         unit.team === teamId &&
-        definition.attackRange > 0 &&
+        isCombatUnitDefinition(definition) &&
         !unit.garrisonStructureId &&
         !target?.alive &&
         !unit.moveTarget
@@ -2114,11 +2125,11 @@ export class Simulation {
       (unit) =>
         unit.alive &&
         unit.team === teamId &&
-        UNIT_DEFINITIONS[unit.type].attackRange > 0,
+        isCombatUnitDefinition(UNIT_DEFINITIONS[unit.type]),
     ).length;
     const queuedCombatUnits = structures.reduce(
       (total, structure) => total + (structure.productionQueue || []).filter(
-        (order) => UNIT_DEFINITIONS[order.unitType]?.attackRange > 0,
+        (order) => isCombatUnitDefinition(UNIT_DEFINITIONS[order.unitType]),
       ).length,
       0,
     );
@@ -2468,7 +2479,7 @@ export class Simulation {
       unit.alive &&
       unit.state === "active" &&
       unit.team === teamId &&
-      UNIT_DEFINITIONS[unit.type].attackRange > 0,
+      isCombatUnitDefinition(UNIT_DEFINITIONS[unit.type]),
     );
     for (const unit of combatUnits) {
       if (unit.garrisonStructureId && !activeMineIds.has(unit.garrisonStructureId)) {
@@ -2564,7 +2575,7 @@ export class Simulation {
         unit.alive &&
         unit.state === "active" &&
         unit.team === teamId &&
-        definition.attackRange > 0 &&
+        isCombatUnitDefinition(definition) &&
         !unit.garrisonStructureId &&
         (unit.attackTargetMode === "explicit" || unit.moveMode === "advance") &&
         distance(unit, enemyAnchor) > SIMULATION_RULES.enemyRushResponseRadius
@@ -2596,7 +2607,7 @@ export class Simulation {
           unit.alive &&
           unit.state === "active" &&
           unit.team === teamId &&
-          UNIT_DEFINITIONS[unit.type].attackRange > 0 &&
+          isCombatUnitDefinition(UNIT_DEFINITIONS[unit.type]) &&
           distance(unit, armyCenter) <= SIMULATION_RULES.enemyRetreatEvaluationRadius,
       );
       const nearbyHostiles = playerTargets.filter((entity) => {
@@ -2606,7 +2617,11 @@ export class Simulation {
         return (
           (entity.kind !== "unit" || entity.state === "active") &&
           (entity.kind !== "structure" || entity.complete) &&
-          definition?.attackRange > 0 &&
+          (
+            entity.kind === "unit"
+              ? isCombatUnitDefinition(definition)
+              : definition?.attackRange > 0
+          ) &&
           distance(entity, armyCenter) <= SIMULATION_RULES.enemyRetreatEvaluationRadius
         );
       });
@@ -2958,7 +2973,11 @@ export class Simulation {
       }
 
       const buildTarget = this.getStructure(unit.buildTargetId);
-      if (buildTarget?.alive && !buildTarget.complete) continue;
+      if (buildTarget?.alive && !buildTarget.complete) {
+        unit.attackTargetId = null;
+        unit.attackTargetMode = null;
+        continue;
+      }
       if (unit.buildTargetId || unit.buildQueue?.length) {
         const nextBuildTarget = this.advanceBuildQueue(unit);
         if (nextBuildTarget) continue;
@@ -3673,13 +3692,23 @@ export class Simulation {
   }
 
   assignRetaliationTarget(target, aggressor) {
+    const definition = target.kind === "unit" ? UNIT_DEFINITIONS[target.type] : null;
+    const buildTarget = target.kind === "unit"
+      ? this.getStructure(target.buildTargetId)
+      : null;
     if (
       target.kind !== "unit" ||
       target.state !== "active" ||
       !aggressor?.alive ||
       !aggressor.id ||
       aggressor.team === target.team ||
-      UNIT_DEFINITIONS[target.type].attackRange <= 0 ||
+      definition.attackRange <= 0 ||
+      (
+        definition.workerTier &&
+        buildTarget?.alive &&
+        !buildTarget.complete &&
+        buildTarget.team === target.team
+      ) ||
       ["force", "advance", "retreat"].includes(target.moveMode)
     ) {
       return false;
@@ -3784,6 +3813,10 @@ function preferredTargets(definition, candidates) {
     return definition.preferredStructureFamilies.includes(family);
   });
   return preferredStructures.length > 0 ? preferredStructures : candidates;
+}
+
+function isCombatUnitDefinition(definition) {
+  return Boolean(definition && definition.attackRange > 0 && !definition.workerTier);
 }
 
 function entityRadius(entity) {

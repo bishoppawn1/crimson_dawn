@@ -460,6 +460,13 @@ Tier 2, and Tier 3 interface categories. Options above the selected worker's
 capability remain visible but locked, making the route to the next construction
 tier explicit.
 
+Every Worker Drone carries a weak, energy-consuming, short-range defensive weapon.
+Its provisional range and damage improve slightly with worker tier but remain well
+below dedicated combat units. Workers automatically defend themselves when idle,
+but a worker assigned to a living unfinished structure does not acquire targets,
+retaliate, or fire until that construction assignment ends. Defensive armament does
+not make workers members of AI attack waves or expansion garrisons.
+
 Worker construction capability is cumulative:
 
 - A Tier 1 Worker Drone constructs every Tier 1 building, including Tier 1 Mech
