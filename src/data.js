@@ -125,12 +125,12 @@ const BROKEN_FRONTIER_DEPOSITS = frozenRecords([
   { x: 3880, y: 1440 }, { x: 4200, y: 920 }, { x: 4200, y: 2280 },
   { x: 2200, y: 240, remote: true, cluster: "Northern Frontier" },
   { x: 2400, y: 240, remote: true, cluster: "Northern Frontier" },
-  { x: 2600, y: 240, remote: true, cluster: "Northern Frontier" },
+  { x: 2600, y: 240, remote: true, cluster: "Northern Frontier", rich: true, yieldMultiplier: 1.5 },
   { x: 2800, y: 240, remote: true, cluster: "Northern Frontier" },
   { x: 3000, y: 240, remote: true, cluster: "Northern Frontier" },
   { x: 2200, y: 2960, remote: true, cluster: "Southern Frontier" },
   { x: 2400, y: 2960, remote: true, cluster: "Southern Frontier" },
-  { x: 2600, y: 2960, remote: true, cluster: "Southern Frontier" },
+  { x: 2600, y: 2960, remote: true, cluster: "Southern Frontier", rich: true, yieldMultiplier: 1.5 },
   { x: 2800, y: 2960, remote: true, cluster: "Southern Frontier" },
   { x: 3000, y: 2960, remote: true, cluster: "Southern Frontier" },
 ]);
@@ -143,6 +143,10 @@ const ASHEN_DIVIDE_TERRAIN = frozenRecords([
   { id: "ashen-east-shelf", name: "Eastern Ash Shelf", x: 3620, y: 2160, width: 640, height: 200 },
   { id: "ashen-west-crags", name: "Western Ash Crags", x: 1540, y: 2460, width: 360, height: 360 },
   { id: "ashen-east-crags", name: "Eastern Ash Crags", x: 3660, y: 740, width: 360, height: 360 },
+  { id: "ashen-northwest-basin", name: "Northwest Ash Basin", terrainType: "fracture", x: 1080, y: 400, width: 400, height: 160 },
+  { id: "ashen-southwest-basin", name: "Southwest Ash Basin", terrainType: "fracture", x: 1080, y: 2800, width: 400, height: 160 },
+  { id: "ashen-northeast-basin", name: "Northeast Ash Basin", terrainType: "fracture", x: 4120, y: 400, width: 400, height: 160 },
+  { id: "ashen-southeast-basin", name: "Southeast Ash Basin", terrainType: "fracture", x: 4120, y: 2800, width: 400, height: 160 },
 ]);
 
 const ASHEN_DIVIDE_DEPOSITS = frozenRecords([
@@ -151,7 +155,7 @@ const ASHEN_DIVIDE_DEPOSITS = frozenRecords([
   { x: 2050, y: 2280 }, { x: 3150, y: 920 }, { x: 3150, y: 2280 },
   { x: 3600, y: 400 }, { x: 3600, y: 2600 }, { x: 3800, y: 1600 },
   { x: 4300, y: 800 }, { x: 4300, y: 2400 }, { x: 2600, y: 920 },
-  { x: 2600, y: 2240 }, { x: 2600, y: 3120, remote: true, cluster: "Southern Ash Field" },
+  { x: 2600, y: 2240 }, { x: 2600, y: 3120, remote: true, cluster: "Southern Ash Field", rich: true, yieldMultiplier: 1.5 },
 ]);
 
 const IRON_CROSSINGS_TERRAIN = frozenRecords([
@@ -161,16 +165,69 @@ const IRON_CROSSINGS_TERRAIN = frozenRecords([
   { id: "cross-southeast", name: "Southeast Iron Mass", x: 3020, y: 2160, width: 400, height: 560 },
   { id: "cross-west-gate", name: "Western Gate Ridge", x: 1420, y: 1600, width: 240, height: 720 },
   { id: "cross-east-gate", name: "Eastern Gate Ridge", x: 3780, y: 1600, width: 240, height: 720 },
+  { id: "cross-west-rim", name: "Western Rim", terrainType: "fracture", x: 1040, y: 1600, width: 160, height: 480 },
+  { id: "cross-east-rim", name: "Eastern Rim", terrainType: "fracture", x: 4160, y: 1600, width: 160, height: 480 },
+  { id: "cross-north-rim", name: "Northern Rim", terrainType: "fracture", x: 2600, y: 240, width: 720, height: 120 },
+  { id: "cross-south-rim", name: "Southern Rim", terrainType: "fracture", x: 2600, y: 2960, width: 720, height: 120 },
 ]);
 
 const IRON_CROSSINGS_DEPOSITS = frozenRecords([
   { x: 920, y: 760 }, { x: 920, y: 2440 }, { x: 1320, y: 960 },
   { x: 1320, y: 2240 }, { x: 1780, y: 480 }, { x: 1780, y: 2720 },
   { x: 1980, y: 1600 }, { x: 2380, y: 1600 }, { x: 2600, y: 480 },
-  { x: 2600, y: 1600, remote: true, cluster: "Central Crossing" }, { x: 2600, y: 2720 },
+  { x: 2600, y: 1600, remote: true, cluster: "Central Crossing", rich: true, yieldMultiplier: 1.5 }, { x: 2600, y: 2720 },
   { x: 2820, y: 1600 }, { x: 3220, y: 1600 }, { x: 3420, y: 480 },
   { x: 3420, y: 2720 }, { x: 3880, y: 960 }, { x: 3880, y: 2240 },
   { x: 4280, y: 760 }, { x: 4280, y: 2440 },
+]);
+
+const RUINED_MERIDIAN_TERRAIN = frozenRecords([
+  { id: "meridian-north-wall", name: "Ancient Meridian", terrainType: "ruins", x: 2600, y: 480, width: 1040, height: 80 },
+  { id: "meridian-south-wall", name: "Ancient Meridian", terrainType: "ruins", x: 2600, y: 2720, width: 1040, height: 80 },
+  { id: "meridian-west-arch", name: "Western Ruin Arch", terrainType: "ruins", x: 2000, y: 1600, width: 80, height: 720 },
+  { id: "meridian-east-arch", name: "Eastern Ruin Arch", terrainType: "ruins", x: 3200, y: 1600, width: 80, height: 720 },
+  { id: "meridian-sanctum-north", name: "Broken Sanctum", terrainType: "ruins", x: 2600, y: 1200, width: 560, height: 80 },
+  { id: "meridian-sanctum-south", name: "Broken Sanctum", terrainType: "ruins", x: 2600, y: 2000, width: 560, height: 80 },
+  { id: "meridian-sanctum-west", name: "Broken Sanctum", terrainType: "ruins", x: 2320, y: 1600, width: 80, height: 320 },
+  { id: "meridian-sanctum-east", name: "Broken Sanctum", terrainType: "ruins", x: 2880, y: 1600, width: 80, height: 320 },
+  { id: "meridian-northwest-pillars", name: "Ancient Pillars", terrainType: "ruins", x: 1440, y: 800, width: 160, height: 320 },
+  { id: "meridian-southwest-pillars", name: "Ancient Pillars", terrainType: "ruins", x: 1440, y: 2400, width: 160, height: 320 },
+  { id: "meridian-northeast-pillars", name: "Ancient Pillars", terrainType: "ruins", x: 3760, y: 800, width: 160, height: 320 },
+  { id: "meridian-southeast-pillars", name: "Ancient Pillars", terrainType: "ruins", x: 3760, y: 2400, width: 160, height: 320 },
+]);
+
+const RUINED_MERIDIAN_DEPOSITS = frozenRecords([
+  { x: 960, y: 800 }, { x: 960, y: 2400 }, { x: 1320, y: 1600 },
+  { x: 1720, y: 480 }, { x: 1720, y: 2720 }, { x: 2040, y: 920 },
+  { x: 2040, y: 2280 }, { x: 2440, y: 800 }, { x: 2440, y: 2400 },
+  { x: 2600, y: 1600, remote: true, cluster: "Sanctum Vault", rich: true, yieldMultiplier: 1.5 },
+  { x: 2760, y: 800 }, { x: 2760, y: 2400 }, { x: 3160, y: 920 },
+  { x: 3160, y: 2280 }, { x: 3480, y: 480 }, { x: 3480, y: 2720 },
+  { x: 3880, y: 1600 }, { x: 4240, y: 800 }, { x: 4240, y: 2400 },
+]);
+
+const TWIN_CALDERAS_TERRAIN = frozenRecords([
+  { id: "caldera-west-north", name: "Western Caldera", terrainType: "fracture", x: 1840, y: 920, width: 720, height: 160 },
+  { id: "caldera-west-south", name: "Western Caldera", terrainType: "fracture", x: 1840, y: 2280, width: 720, height: 160 },
+  { id: "caldera-west-rim", name: "Western Caldera", terrainType: "fracture", x: 1480, y: 1600, width: 160, height: 720 },
+  { id: "caldera-west-inner", name: "Western Caldera", terrainType: "fracture", x: 2200, y: 1600, width: 160, height: 720 },
+  { id: "caldera-east-north", name: "Eastern Caldera", terrainType: "fracture", x: 3360, y: 920, width: 720, height: 160 },
+  { id: "caldera-east-south", name: "Eastern Caldera", terrainType: "fracture", x: 3360, y: 2280, width: 720, height: 160 },
+  { id: "caldera-east-inner", name: "Eastern Caldera", terrainType: "fracture", x: 3000, y: 1600, width: 160, height: 720 },
+  { id: "caldera-east-rim", name: "Eastern Caldera", terrainType: "fracture", x: 3720, y: 1600, width: 160, height: 720 },
+  { id: "caldera-north-split", name: "Northern Fault", terrainType: "fracture", x: 2600, y: 440, width: 240, height: 560 },
+  { id: "caldera-south-split", name: "Southern Fault", terrainType: "fracture", x: 2600, y: 2760, width: 240, height: 560 },
+]);
+
+const TWIN_CALDERAS_DEPOSITS = frozenRecords([
+  { x: 920, y: 760 }, { x: 920, y: 2440 }, { x: 1240, y: 1120 },
+  { x: 1240, y: 2080 }, { x: 1680, y: 1600, remote: true, cluster: "Western Basin" },
+  { x: 1840, y: 560 }, { x: 1840, y: 2640 }, { x: 2360, y: 1040 },
+  { x: 2360, y: 2160 }, { x: 2600, y: 1600, remote: true, cluster: "Caldera Core", rich: true, yieldMultiplier: 1.5 },
+  { x: 2840, y: 1040 }, { x: 2840, y: 2160 }, { x: 3360, y: 560 },
+  { x: 3360, y: 2640 }, { x: 3520, y: 1600, remote: true, cluster: "Eastern Basin" },
+  { x: 3960, y: 1120 }, { x: 3960, y: 2080 }, { x: 4280, y: 760 },
+  { x: 4280, y: 2440 },
 ]);
 
 export const DEFAULT_MAP_ID = "broken_frontier";
@@ -205,6 +262,26 @@ export const MAP_DEFINITIONS = Object.freeze({
     terrain: IRON_CROSSINGS_TERRAIN,
     starts: SHARED_STARTS,
     deposits: IRON_CROSSINGS_DEPOSITS,
+  }),
+  ruined_meridian: Object.freeze({
+    id: "ruined_meridian",
+    name: "Ruined Meridian",
+    description: "Dense ancient walls, shattered arches, and a rich central vault create close, twisting lanes.",
+    width: WORLD_WIDTH,
+    height: WORLD_HEIGHT,
+    terrain: RUINED_MERIDIAN_TERRAIN,
+    starts: SHARED_STARTS,
+    deposits: RUINED_MERIDIAN_DEPOSITS,
+  }),
+  twin_calderas: Object.freeze({
+    id: "twin_calderas",
+    name: "Twin Calderas",
+    description: "Two enclosed basins and a fractured central pass reward risky flanking routes.",
+    width: WORLD_WIDTH,
+    height: WORLD_HEIGHT,
+    terrain: TWIN_CALDERAS_TERRAIN,
+    starts: SHARED_STARTS,
+    deposits: TWIN_CALDERAS_DEPOSITS,
   }),
 });
 

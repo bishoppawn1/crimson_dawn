@@ -240,7 +240,12 @@ export class Simulation {
     return id;
   }
 
-  addMetalDeposit(x, y, { remote = false, cluster = null } = {}) {
+  addMetalDeposit(x, y, {
+    remote = false,
+    cluster = null,
+    rich = false,
+    yieldMultiplier = rich ? 1.5 : 1,
+  } = {}) {
     const deposit = {
       id: this.createId("deposit"),
       kind: "metal_deposit",
@@ -248,6 +253,8 @@ export class Simulation {
       y,
       remote,
       cluster,
+      rich,
+      yieldMultiplier: Math.max(1, yieldMultiplier),
     };
     this.metalDeposits.push(deposit);
     return deposit;
@@ -1402,7 +1409,9 @@ export class Simulation {
     for (const mine of this.structures) {
       const definition = STRUCTURE_DEFINITIONS[mine.type];
       if (mine.alive && mine.complete && mine.powered && definition.metalRate) {
-        this.resources[mine.team].metal += definition.metalRate * delta;
+        const deposit = this.metalDeposits.find((candidate) => candidate.id === mine.depositId);
+        const yieldMultiplier = deposit?.yieldMultiplier || 1;
+        this.resources[mine.team].metal += definition.metalRate * yieldMultiplier * delta;
       }
     }
     this.syncStoredEnergy();

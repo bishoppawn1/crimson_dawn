@@ -17,21 +17,24 @@ having to babysit every ordinary unit.
 
 ### 1.1 Battlefield Layout
 
-Two-player field tests provide three selectable 5,200-by-3,200 battlefields. A
-single-player match may contain from two through eight total commanders: one human
-and one through seven independent AI opponents. Three- through eight-player matches
-automatically use a dedicated map sized and arranged for that exact commander count.
-Those provisional layouts are Triad Reach (3), Fourfold Front (4), Pentagon Expanse
-(5), Hex Ring (6), Sevenfold Frontier (7), and Octagon Crown (8). Their dimensions
-scale from 5,960 by 4,480 to 8,560 by 6,280 world units, with evenly distributed
-starting positions, nearby expansion deposits, contested central deposits, and
-terrain arranged around the full battlefield rather than a two-sided lane.
+Two-player field tests provide five selectable 5,200-by-3,200 battlefields. Every
+player count from three through eight provides three additional maps sized and
+arranged for that exact number of commanders, for 23 maps total. Single-player lets
+the human choose any map valid for the selected player count. Larger maps scale from
+5,960 by 4,480 to 8,560 by 6,280 world units, with evenly distributed starting
+positions, nearby expansion deposits, contested central deposits, and terrain
+arranged around the full battlefield rather than a two-sided lane.
 
-A multiplayer host chooses one of the three duel maps when the lobby contains
-exactly two total commanders. Lobbies with three through eight human-and-AI
-commanders automatically use the dedicated map for their player count. The chosen
-map identity and complete map state are included in the authoritative snapshot sent
-to the guest.
+Each three- through eight-player catalog contains three materially different layout
+families: layered inner and outer crag rings, dense ancient ruin complexes, and long
+fault walls that divide the battlefield into spokes. The three-player **Ancient
+Triad** is especially ruin-heavy, with collapsed arches, pillar fields, courtyards,
+and a broken central sanctuary instead of a few isolated obstacles.
+
+Multiplayer does not provide a map veto or manual picker. When the host starts the
+match, it randomly selects one of the maps valid for the current lobby size. The
+chosen map identity and complete map state are included in the authoritative
+snapshot sent to the guest.
 
 - **Broken Frontier** contains 27 Metal Mine deposits, fortified starting bases,
   central divides, and two distant five-deposit frontier clusters.
@@ -39,6 +42,9 @@ to the guest.
   major contested attack lanes.
 - **Iron Crossings** uses 21 deposits and four central iron masses that create
   narrow horizontal and vertical crossroads.
+- **Ruined Meridian** uses dense ancient walls and shattered arches around a rich
+  central vault.
+- **Twin Calderas** encloses two large basins around a fractured central pass.
 
 Every map preserves the standard starting package at every commander position.
 Map identities, terrain, starts, and deposits are data-driven and all current
@@ -87,7 +93,10 @@ Metal can be obtained from:
 - Reclaiming the wreckage of destroyed units.
 
 Most deposits are individually distributed, while remote frontier locations group
-several deposits into high-value expansion objectives.
+several deposits into expansion objectives. Distance from a starting base does not
+change a deposit's yield or color. Explicit **Rich Metal Deposits** provide a
+provisional 1.5× multiplier to any Metal Mine built on them and are marked yellow;
+ordinary deposits use the same neutral appearance whether nearby or remote.
 
 ### 2.2 Energy
 
@@ -855,9 +864,8 @@ dimensions so it cannot expose space beyond the battlefield boundary.
 ### 9.2 Match Menu and Multiplayer
 
 The game opens on a mode menu. Single Player lets the human choose two through eight
-total players. Two-player matches retain manual selection among the duel maps;
-larger matches show and automatically use the dedicated map for the chosen player
-count. All AI opponents run their full commander logic. The local human is blue,
+total players and then choose among every map supporting that player count. All AI
+opponents run their full commander logic. The local human is blue,
 and up to seven opponents receive distinct red, orange, yellow, purple, green,
 magenta, and pale-gray accents so ownership remains readable.
 
@@ -875,9 +883,10 @@ browser build. Creating a lobby reserves a temporary, randomly generated
 10-character code containing uppercase letters and numbers. The host can copy that
 code directly; the guest enters it once and selects Join Lobby. There is no manual
 offer/answer exchange. The first guest to connect occupies the lobby's single guest
-slot, and the code, roster, player count, and selected map remain visible to both
-players while they are in setup. Map selection is enabled only for an exactly
-two-player roster; larger rosters use their count-specific map automatically.
+slot, and the code, roster, and player count remain visible to both players while
+they are in setup. The lobby reports how many maps support that roster size; the
+actual map is randomized only when the host starts the match and then synchronized
+to the guest.
 
 PeerJS Cloud brokers the WebRTC handshake associated with the short code; game
 commands and snapshots still travel directly between the players. No game account
@@ -886,7 +895,7 @@ assists peer discovery, so both players need internet access and some highly
 restricted or symmetric-NAT networks may still prevent a direct connection.
 
 The host owns the canonical simulation, validates incoming commands against the
-guest's team, applies the lobby's map and AI configuration, and sends versioned
+guest's team, applies the lobby's randomized map and AI configuration, and sends versioned
 simulation snapshots to the guest ten times per second. Every host state carries a
 monotonically increasing sequence number, and the guest ignores older state. The
 guest never advances a second canonical simulation between snapshots. Instead, it

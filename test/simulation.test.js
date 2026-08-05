@@ -25,7 +25,12 @@ import {
   isValidLobbyCode,
   normalizeLobbyCode,
 } from "../src/multiplayer.js";
-import { createMatchTeams, getMatchMap } from "../src/maps.js";
+import {
+  createMatchTeams,
+  getMapsForPlayerCount,
+  getMatchMap,
+  getRandomMatchMap,
+} from "../src/maps.js";
 
 function advance(simulation, seconds, step = 1 / 30) {
   const ticks = Math.ceil(seconds / step);
@@ -361,6 +366,8 @@ test("single-player map selection resolves every available battlefield", () => {
     "broken_frontier",
     "ashen_divide",
     "iron_crossings",
+    "ruined_meridian",
+    "twin_calderas",
   ]);
 
   const terrainLayouts = new Set();
@@ -405,7 +412,7 @@ test("multiplayer ignores a manual map choice and resolves a random shared map",
       selectedMapId: "broken_frontier",
       randomValue: 0.5,
     }),
-    "ashen_divide",
+    "iron_crossings",
   );
   assert.equal(
     resolveMatchMapId({
@@ -413,7 +420,7 @@ test("multiplayer ignores a manual map choice and resolves a random shared map",
       selectedMapId: "broken_frontier",
       randomValue: 0.999,
     }),
-    "iron_crossings",
+    "twin_calderas",
   );
 });
 
@@ -1372,6 +1379,25 @@ test("powered metal mines generate metal over time", () => {
 
   assert.equal(mine.powered, true);
   assert.ok(simulation.resources.player.metal >= startingMetal + 9.9);
+});
+
+test("yellow rich deposits increase the mine's actual metal output", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 100, 100);
+  const richDeposit = simulation.addMetalDeposit(220, 100, {
+    rich: true,
+    yieldMultiplier: 1.5,
+  });
+  simulation.addStructure("metal_mine", "player", richDeposit.x, richDeposit.y, {
+    depositId: richDeposit.id,
+  });
+  const startingMetal = simulation.resources.player.metal;
+
+  advance(simulation, 2);
+
+  assert.equal(richDeposit.rich, true);
+  assert.equal(richDeposit.yieldMultiplier, 1.5);
+  assert.ok(simulation.resources.player.metal >= startingMetal + 14.9);
 });
 
 test("each mech factory tier offers improved copies of the same four unit roles", () => {
@@ -3287,19 +3313,49 @@ test("multiplayer lobby codes are exactly ten uppercase letters and numbers", ()
   assert.equal(isValidLobbyCode("TOO-SHORT"), false);
 });
 
-test("single-player counts from two through eight resolve dedicated battlefield layouts", () => {
-  const generatedMapIds = new Set();
+test("every player count offers multiple dense and selectable battlefield layouts", () => {
+  const allMapIds = new Set();
   for (let playerCount = 2; playerCount <= 8; playerCount += 1) {
-    const map = getMatchMap(playerCount);
-    assert.equal(map.playerCount, playerCount);
-    assert.equal(map.starts.length, playerCount);
-    assert.ok(map.deposits.length >= playerCount * 2);
-    assert.ok(map.starts.every((start) =>
-      start.x >= 0 && start.x <= map.width && start.y >= 0 && start.y <= map.height));
-    if (playerCount > 2) generatedMapIds.add(map.id);
+    const maps = getMapsForPlayerCount(playerCount);
+    assert.ok(maps.length >= 3);
+    for (const map of maps) {
+      assert.equal(map.playerCount, playerCount);
+      assert.equal(map.starts.length, playerCount);
+      assert.ok(map.terrain.length >= 10, `${map.name} should have a substantial terrain layout`);
+      assert.ok(map.deposits.length >= playerCount * 2);
+      assert.ok(map.deposits.some((deposit) => deposit.rich));
+      assert.ok(map.starts.every((start) =>
+        start.x >= 0 && start.x <= map.width && start.y >= 0 && start.y <= map.height));
+      for (const start of map.starts) {
+        const startingPoints = [start, start.mine, start.factory, ...start.workers];
+        for (const point of startingPoints) {
+          assert.equal(map.terrain.some((obstacle) =>
+            Math.abs(point.x - obstacle.x) <= obstacle.width / 2 + 40 &&
+            Math.abs(point.y - obstacle.y) <= obstacle.height / 2 + 40), false);
+        }
+      }
+      assert.equal(getMatchMap(playerCount, map.id).id, map.id);
+      assert.equal(allMapIds.has(map.id), false);
+      allMapIds.add(map.id);
+      for (const deposit of map.deposits) {
+        assert.equal(map.terrain.some((obstacle) =>
+          Math.abs(deposit.x - obstacle.x) <= obstacle.width / 2 + 20 &&
+          Math.abs(deposit.y - obstacle.y) <= obstacle.height / 2 + 20), false);
+      }
+    }
+    assert.equal(getRandomMatchMap(playerCount, 0).id, maps[0].id);
+    assert.equal(getRandomMatchMap(playerCount, 0.999).id, maps.at(-1).id);
   }
-  assert.equal(generatedMapIds.size, 6);
   assert.throws(() => getMatchMap(9), /between 2 and 8/);
+});
+
+test("the three-player ancient ruins map is a dense ruin complex", () => {
+  const map = getMatchMap(3, "3-player-ancient-ruins");
+
+  assert.equal(map.name, "Ancient Triad");
+  assert.ok(map.description.includes("ancient ruin"));
+  assert.ok(map.terrain.length >= 16);
+  assert.ok(map.terrain.every((obstacle) => obstacle.terrainType === "ruins"));
 });
 
 test("an eight-player match gives every commander the standard starting package", () => {

@@ -13,7 +13,7 @@ The current build is the first playable field test. It includes:
 - AI commanders that expand their economy, progress through Tier 2 and Tier 3 Mech
   Factories, produce advanced workers, and construct higher-tier infrastructure.
 - Host-authoritative WebRTC multiplayer with one 10-character lobby code,
-  explicit host start, two-player map selection, automatic larger maps,
+  explicit host start, randomized count-compatible maps,
   team-validated commands, and no gameplay server or account.
 - Selectable mechs with movement and weapon energy costs.
 - Realistic role-specific top-down Canvas sprites with directional lighting,
@@ -51,8 +51,12 @@ The current build is the first playable field test. It includes:
 - Metal mines, relay-tower power networks, and static sentry defenses.
 - Grid-charged sentry capacitors with visible range, charge, and targeting status.
 - Map-defined metal deposits that restrict mine construction locations.
-- Three selectable 5,200×3,200 duel battlefields plus dedicated, progressively
-  larger layouts for every total player count from three through eight.
+- Five selectable 5,200×3,200 duel battlefields plus three distinct layouts for
+  every total player count from three through eight: 23 maps in total.
+- Dense ancient-ruin, layered-crag, and fractured-spoke map families, including
+  the ruin-heavy three-player Ancient Triad battlefield.
+- Neutral-colored ordinary deposits at every distance plus yellow Rich Metal
+  Deposits that provide a provisional 1.5× Metal Mine output multiplier.
 - Visible impassable ridges, shelves, crags, and broken starting walls that block
   ground movement and construction for both players and AI while leaving open gates.
 - Tier 1–3 mech factories, each offering matching-tier Worker, Vanguard, Bulwark,

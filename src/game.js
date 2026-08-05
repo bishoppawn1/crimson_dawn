@@ -3,15 +3,13 @@ import {
   canWorkerTierBuildStructure,
   DEFAULT_MAP_ID,
   DRONE_DEFINITION,
-  MAP_DEFINITIONS,
-  resolveMatchMapId,
   SIMULATION_RULES,
   STRUCTURE_DEFINITIONS,
   UNIT_DEFINITIONS,
   powerCoverageBounds,
   structureFootprint,
 } from "./data.js";
-import { getMatchMap } from "./maps.js";
+import { getMapsForPlayerCount, getMatchMap, getRandomMatchMap } from "./maps.js";
 import { energyRatio, Simulation } from "./simulation.js";
 import {
   isValidLobbyCode,
@@ -160,15 +158,19 @@ function teamPalette(teamId) {
   return teamPalettes[Math.max(1, opponentIndex + 1) % teamPalettes.length];
 }
 
-for (const map of Object.values(MAP_DEFINITIONS)) {
-  const option = document.createElement("option");
-  option.value = map.id;
-  option.textContent = map.name;
-  singlePlayerMap.append(option);
-  const lobbyOption = option.cloneNode(true);
-  lobbyMap.append(lobbyOption);
+function populateMapSelect(select, playerCount, selectedMapId = null) {
+  const maps = getMapsForPlayerCount(playerCount);
+  const selectedMap = maps.find((map) => map.id === selectedMapId) || maps[0];
+  select.replaceChildren(...maps.map((map) => {
+    const option = document.createElement("option");
+    option.value = map.id;
+    option.textContent = map.name;
+    return option;
+  }));
+  select.value = selectedMap.id;
+  return selectedMap;
 }
-singlePlayerMap.value = DEFAULT_MAP_ID;
+populateMapSelect(singlePlayerMap, 2, DEFAULT_MAP_ID);
 updateSinglePlayerMapDescription();
 
 const buildButtons = new Map();
@@ -285,11 +287,9 @@ function resetGame() {
 
 function updateSinglePlayerMapDescription() {
   const playerCount = Number(singlePlayerCount.value);
-  const map = getMatchMap(playerCount, singlePlayerMap.value);
-  singlePlayerMap.disabled = playerCount > 2;
-  singlePlayerMapDescription.textContent = playerCount === 2
-    ? (MAP_DEFINITIONS[map.id]?.description || map.name)
-    : `${map.name} is the dedicated ${playerCount}-player battlefield. All ${playerCount - 1} AI commanders use independent bases, economies, and armies.`;
+  const map = populateMapSelect(singlePlayerMap, playerCount, singlePlayerMap.value);
+  singlePlayerMap.disabled = false;
+  singlePlayerMapDescription.textContent = `${map.description} ${playerCount - 1} AI commander${playerCount === 2 ? "" : "s"} will use independent bases, economies, and armies.`;
 }
 
 function showSinglePlayerSetup() {
@@ -297,7 +297,7 @@ function showSinglePlayerSetup() {
   multiplayerSetup.hidden = true;
   singlePlayerSetup.hidden = false;
   singlePlayerCount.value = String(activePlayerCount);
-  singlePlayerMap.value = activeMapId;
+  populateMapSelect(singlePlayerMap, activePlayerCount, activeMapId);
   updateSinglePlayerMapDescription();
 }
 
@@ -337,27 +337,20 @@ function renderMultiplayerLobby() {
   }));
 
   const playerCount = roster.length;
-  const map = getMatchMap(Math.max(2, playerCount), multiplayerLobby.mapId);
-  const canChooseMap = playerCount === 2;
-  lobbyMap.querySelector("[data-generated-map]")?.remove();
-  if (!canChooseMap && playerCount >= 3) {
-    const option = document.createElement("option");
-    option.value = map.id;
-    option.textContent = map.name;
-    option.dataset.generatedMap = "true";
-    lobbyMap.append(option);
-  }
+  const eligibleMaps = getMapsForPlayerCount(Math.max(2, playerCount));
+  const randomOption = document.createElement("option");
+  randomOption.value = "random";
+  randomOption.textContent = `Random map · ${eligibleMaps.length} available`;
+  lobbyMap.replaceChildren(randomOption);
   lobbyHostControls.hidden = lobbyRole !== "host";
-  lobbyMap.value = map.id;
-  lobbyMap.disabled = !canChooseMap;
+  lobbyMap.value = "random";
+  lobbyMap.disabled = true;
   addAiButton.disabled = playerCount >= 8;
   removeAiButton.disabled = multiplayerLobby.botCount === 0;
   startLobbyMatchButton.disabled = playerCount < 2;
   lobbyMapSummary.textContent = playerCount < 2
     ? "Add an AI bot or wait for a guest before starting."
-    : canChooseMap
-    ? `${map.name}: ${MAP_DEFINITIONS[map.id]?.description || "two-player battlefield"}`
-    : `${map.name} is automatically selected for ${playerCount} players.`;
+    : `One of ${eligibleMaps.length} ${playerCount}-player battlefields will be selected randomly when the match starts.`;
 }
 
 function sendLobbyState() {
@@ -384,11 +377,8 @@ function startSinglePlayer() {
   multiplayerConnected = false;
   matchMode = "single_player";
   localTeam = "player";
-  activeMapId = resolveMatchMapId({
-    matchMode: "singleplayer",
-    selectedMapId: singlePlayerMap.value,
-  });
   activePlayerCount = Number(singlePlayerCount.value);
+  activeMapId = getMatchMap(activePlayerCount, singlePlayerMap.value).id;
   resetGame();
   matchModeLabel.textContent = `SINGLE PLAYER · ${activePlayerCount} PLAYERS · ${simulation.mapName.toUpperCase()}`;
   showGame();
@@ -428,7 +418,7 @@ function startHostedLobbyMatch() {
   if (lobbyRole !== "host" || !multiplayerLobby) return;
   const playerCount = lobbyRoster().length;
   if (playerCount < 2) return;
-  const map = getMatchMap(playerCount, multiplayerLobby.mapId);
+  const map = getRandomMatchMap(playerCount, Math.random());
   const hasGuest = multiplayerLobby.guestConnected;
   simulation = Simulation.createFieldTest({
     enemyAiEnabled: multiplayerLobby.botCount > 0,
@@ -1047,16 +1037,36 @@ function drawImpassableTerrain() {
     const top = obstacle.y - obstacle.height / 2;
     if (!worldRectIsVisible(left, top, left + obstacle.width, top + obstacle.height, 40)) continue;
     const isStartingWall = obstacle.terrainType === "starting_wall";
+    const isRuins = obstacle.terrainType === "ruins";
+    const isFracture = obstacle.terrainType === "fracture";
     context.save();
-    context.fillStyle = isStartingWall ? "#465451" : "#4b4234";
-    context.strokeStyle = isStartingWall ? "#879b92" : "#75654a";
+    context.fillStyle = isStartingWall
+      ? "#465451"
+      : isRuins
+        ? "#55534c"
+        : isFracture
+          ? "#3e3533"
+          : "#4b4234";
+    context.strokeStyle = isStartingWall
+      ? "#879b92"
+      : isRuins
+        ? "#a49d88"
+        : isFracture
+          ? "#8f6254"
+          : "#75654a";
     context.lineWidth = 4;
     context.fillRect(left, top, obstacle.width, obstacle.height);
     context.strokeRect(left, top, obstacle.width, obstacle.height);
     context.beginPath();
     context.rect(left, top, obstacle.width, obstacle.height);
     context.clip();
-    context.strokeStyle = isStartingWall ? "#d1ded653" : "#b69d7040";
+    context.strokeStyle = isStartingWall
+      ? "#d1ded653"
+      : isRuins
+        ? "#d6ceb84d"
+        : isFracture
+          ? "#d07b5a45"
+          : "#b69d7040";
     context.lineWidth = 2;
     for (
       let offset = -obstacle.height;
@@ -1068,8 +1078,23 @@ function drawImpassableTerrain() {
       context.lineTo(left + offset + obstacle.height, top);
       context.stroke();
     }
+    if (isRuins) {
+      context.strokeStyle = "#24262280";
+      for (let x = left + 40; x < left + obstacle.width; x += 80) {
+        context.beginPath();
+        context.moveTo(x, top);
+        context.lineTo(x, top + obstacle.height);
+        context.stroke();
+      }
+      for (let y = top + 40; y < top + obstacle.height; y += 80) {
+        context.beginPath();
+        context.moveTo(left, y);
+        context.lineTo(left + obstacle.width, y);
+        context.stroke();
+      }
+    }
     context.restore();
-    if (!isStartingWall) {
+    if (!isStartingWall && obstacle.showLabel !== false) {
       drawLabel(obstacle.x, obstacle.y, `${obstacle.name} · Impassable`, true, "#9aa3aa");
     }
   }
@@ -1169,7 +1194,7 @@ function drawMetalDeposits() {
   for (const deposit of simulation.metalDeposits) {
     if (!worldPointIsVisible(deposit.x, deposit.y, 100)) continue;
     const available = !occupiedIds.has(deposit.id);
-    const remote = Boolean(deposit.remote);
+    const rich = Boolean(deposit.rich);
     const emphasized = Boolean(
       placementStructureType &&
       STRUCTURE_DEFINITIONS[placementStructureType].metalRate &&
@@ -1179,18 +1204,18 @@ function drawMetalDeposits() {
     context.translate(deposit.x, deposit.y);
     context.strokeStyle = emphasized
       ? colors.selection
-      : remote && available
+      : rich && available
         ? "#d8b76fbb"
         : available
           ? "#aaa39170"
           : "#5e5a5240";
-    context.fillStyle = emphasized ? "#d0c9b91c" : remote ? "#d8b76f18" : "#8b867a10";
-    context.lineWidth = emphasized || remote ? 3 : 2;
+    context.fillStyle = emphasized ? "#d0c9b91c" : rich ? "#d8b76f18" : "#8b867a10";
+    context.lineWidth = emphasized || rich ? 3 : 2;
     context.beginPath();
-    context.arc(0, 0, remote ? 49 : 43, 0, Math.PI * 2);
+    context.arc(0, 0, rich ? 49 : 43, 0, Math.PI * 2);
     context.fill();
     context.stroke();
-    if (remote) {
+    if (rich) {
       context.strokeStyle = "#d8b76f66";
       context.setLineDash([8, 7]);
       context.beginPath();
@@ -1210,10 +1235,14 @@ function drawMetalDeposits() {
     if (available) {
       drawLabel(
         deposit.x,
-        deposit.y + (remote ? 70 : 57),
-        remote ? `${deposit.cluster} · Remote Deposit` : "Metal Deposit",
+        deposit.y + (rich ? 70 : 57),
+        rich
+          ? `Rich Metal Deposit · ${deposit.yieldMultiplier.toFixed(1)}× output`
+          : deposit.cluster
+            ? `${deposit.cluster} · Metal Deposit`
+            : "Metal Deposit",
         true,
-        emphasized ? colors.selection : remote ? "#d8b76f" : "#8f8b82",
+        emphasized ? colors.selection : rich ? "#d8b76f" : "#8f8b82",
       );
     }
   }
@@ -3729,7 +3758,13 @@ function updateInterface() {
     const chargerText = definition.chargeRadius
       ? ` · ${definition.chargeRate}/s unit recharge · ${definition.chargeRadius} field radius`
       : "";
-    const mineText = definition.metalRate ? ` · +${definition.metalRate} metal/s` : "";
+    const mineDeposit = definition.metalRate
+      ? simulation.metalDeposits.find((deposit) => deposit.id === selectedStructure.depositId)
+      : null;
+    const mineRate = definition.metalRate * (mineDeposit?.yieldMultiplier || 1);
+    const mineText = definition.metalRate
+      ? ` · +${mineRate} metal/s${mineDeposit?.rich ? " · RICH DEPOSIT" : ""}`
+      : "";
     const salvageText = definition.droneCount
       ? ` · ${definition.droneCount} reclamation drones · ${definition.droneReplacementTime}s rebuild`
       : "";
@@ -4346,9 +4381,6 @@ removeAiButton.addEventListener("click", () => {
   if (multiplayerLobby?.botCount > 0) {
     updateHostedLobby({ botCount: multiplayerLobby.botCount - 1 });
   }
-});
-lobbyMap.addEventListener("change", () => {
-  if (lobbyRoster().length === 2) updateHostedLobby({ mapId: lobbyMap.value });
 });
 startLobbyMatchButton.addEventListener("click", startHostedLobbyMatch);
 joinLobbyCode.addEventListener("input", () => {
