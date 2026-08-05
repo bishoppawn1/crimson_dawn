@@ -496,10 +496,11 @@ tier explicit.
 
 Every Worker Drone carries a weak, energy-consuming, short-range defensive weapon.
 Its provisional range and damage improve slightly with worker tier but remain well
-below dedicated combat units. Workers automatically defend themselves when idle,
-but a worker assigned to a living unfinished structure does not acquire targets,
-retaliate, or fire until that construction assignment ends. Defensive armament does
-not make workers members of AI attack waves or expansion garrisons.
+below dedicated combat units. Provisional damage per shot is 4, 5, and 6 for Tier
+1, Tier 2, and Tier 3 workers respectively. Workers automatically defend themselves
+when idle, but a worker assigned to a living unfinished structure does not acquire
+targets, retaliate, or fire until that construction assignment ends. Defensive
+armament does not make workers members of AI attack waves or expansion garrisons.
 
 Worker construction capability is cumulative:
 

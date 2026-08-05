@@ -1364,12 +1364,18 @@ test("combat units automatically attack hostile units that enter weapon range", 
 
 test("worker drones have weak, short-range defensive weapons", () => {
   const vanguard = UNIT_DEFINITIONS.scout_mech;
-  for (const workerType of ["worker_drone_t1", "worker_drone_t2", "worker_drone_t3"]) {
+  const workerDamageByTier = {
+    worker_drone_t1: 4,
+    worker_drone_t2: 5,
+    worker_drone_t3: 6,
+  };
+  for (const [workerType, expectedDamage] of Object.entries(workerDamageByTier)) {
     const worker = UNIT_DEFINITIONS[workerType];
     assert.ok(worker.attackRange > 0);
     assert.ok(worker.attackRange < vanguard.attackRange);
     assert.ok(worker.attackDamage > 0);
     assert.ok(worker.attackDamage < vanguard.attackDamage);
+    assert.equal(worker.attackDamage, expectedDamage);
     assert.ok(worker.attackEnergy > 0);
   }
 
