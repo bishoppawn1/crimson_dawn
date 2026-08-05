@@ -2925,121 +2925,42 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
   context.strokeStyle = outline;
   context.lineWidth = 0.1;
 
-  for (const side of [-1, 1]) {
-    context.save();
-    const hipX = side * 0.38;
-    context.translate(hipX, 0.34);
-    context.rotate(side * pose.stride * 0.15);
-    context.translate(-hipX, -0.34);
-
-    // Each rear foot gets its own shadow so the silhouette reads as two planted
-    // legs instead of a single prone body tapering behind the torso.
-    context.fillStyle = "#080c0f70";
-    context.beginPath();
-    context.ellipse(side * 0.49, 1.37, 0.34, 0.17, side * 0.08, 0, Math.PI * 2);
-    context.fill();
-
-    // Wide hip pivots and outward-canted thighs remain visible beyond the torso.
-    context.fillStyle = joint;
-    context.beginPath();
-    context.arc(hipX, 0.34, 0.21, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
-
-    context.fillStyle = armorDark;
-    context.beginPath();
-    context.moveTo(side * 0.2, 0.28);
-    context.lineTo(side * 0.56, 0.27);
-    context.lineTo(side * 0.68, 0.72);
-    context.lineTo(side * 0.39, 0.82);
-    context.closePath();
-    context.fill();
-    context.stroke();
-
-    // An exposed knee ring breaks the rear assembly into unmistakable upper and
-    // lower leg segments at normal gameplay zoom.
-    context.fillStyle = joint;
-    context.beginPath();
-    context.arc(side * 0.54, 0.76, 0.16, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
-    context.strokeStyle = armorLight;
-    context.lineWidth = 0.05;
-    context.beginPath();
-    context.arc(side * 0.54, 0.76, 0.09, 0, Math.PI * 2);
-    context.stroke();
-
-    // Long armored shins run behind the knee and terminate in broad heel-to-toe
-    // pads, giving the mech a bipedal/chicken-walker stance from above.
-    context.fillStyle = armorDark;
-    context.beginPath();
-    context.moveTo(side * 0.36, 0.76);
-    context.lineTo(side * 0.69, 0.7);
-    context.lineTo(side * 0.65, 1.25);
-    context.lineTo(side * 0.32, 1.29);
-    context.closePath();
-    context.fill();
-    context.stroke();
-
-    context.fillStyle = armor;
-    context.beginPath();
-    context.moveTo(side * 0.39, 0.82);
-    context.lineTo(side * 0.6, 0.78);
-    context.lineTo(side * 0.58, 1.19);
-    context.lineTo(side * 0.36, 1.22);
-    context.closePath();
-    context.fill();
-    context.stroke();
-
-    context.fillStyle = joint;
-    context.beginPath();
-    context.arc(side * 0.49, 1.18, 0.1, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
-
-    // Broad separated feet extend well beyond the rear armor and carry bright
-    // toe caps, remaining readable even when the unit is only a few pixels tall.
-    context.fillStyle = armorDark;
-    context.beginPath();
-    context.moveTo(side * 0.27, 1.14);
-    context.lineTo(side * 0.72, 1.1);
-    context.lineTo(side * 0.79, 1.42);
-    context.lineTo(side * 0.2, 1.5);
-    context.closePath();
-    context.fill();
-    context.stroke();
-    context.strokeStyle = armorLight;
-    context.lineWidth = 0.075;
-    context.beginPath();
-    context.moveTo(side * 0.27, 1.39);
-    context.lineTo(side * 0.7, 1.34);
-    context.stroke();
-    context.strokeStyle = joint;
-    context.lineWidth = 0.045;
-    context.beginPath();
-    context.moveTo(side * 0.31, 0.46);
-    context.lineTo(side * 0.58, 0.5);
-    context.moveTo(side * 0.39, 0.93);
-    context.lineTo(side * 0.61, 0.89);
-    context.stroke();
-    context.fillStyle = armorLight;
-    context.beginPath();
-    context.arc(side * 0.41, 0.39, 0.045, 0, Math.PI * 2);
-    context.fill();
-    context.strokeStyle = outline;
-    context.lineWidth = 0.1;
-    context.restore();
+  // From directly above, the chassis hides almost the entire walking assembly.
+  // Movement briefly exposes alternating rear actuator and foot tips without
+  // swinging anything sideways, avoiding the old swimming/paddling silhouette.
+  if (pose.moving) {
+    for (const side of [-1, 1]) {
+      const step = Math.max(0, side * pose.stride);
+      const footY = 0.53 + step * 0.24;
+      context.fillStyle = "#080c0f70";
+      context.beginPath();
+      context.ellipse(side * 0.27, footY + 0.14, 0.16, 0.09, 0, 0, Math.PI * 2);
+      context.fill();
+      context.strokeStyle = outline;
+      context.lineWidth = 0.08;
+      context.fillStyle = armorDark;
+      context.beginPath();
+      context.roundRect(side * 0.27 - 0.11, footY - 0.08, 0.22, 0.3, 0.07);
+      context.fill();
+      context.stroke();
+      context.strokeStyle = armorLight;
+      context.lineWidth = 0.045;
+      context.beginPath();
+      context.moveTo(side * 0.19, footY + 0.14);
+      context.lineTo(side * 0.35, footY + 0.14);
+      context.stroke();
+    }
   }
 
-  // The rear hip bar deliberately protrudes on both sides of the torso and ties
-  // the two leg roots together as one mechanical pelvis.
+  // The rear hip bar remains a small overhead machinery cue, but the torso
+  // overlaps its roots so it no longer reads as a pair of exposed legs.
   context.fillStyle = armorDark;
   context.beginPath();
-  context.roundRect(-0.61, 0.28, 1.22, 0.27, 0.08);
+  context.roundRect(-0.5, 0.28, 1, 0.24, 0.08);
   context.fill();
   context.stroke();
   context.fillStyle = accent;
-  context.fillRect(-0.47, 0.43, 0.94, 0.055);
+  context.fillRect(-0.37, 0.4, 0.74, 0.05);
 
   // The broad shoulder deck, inset cockpit roof, and rear engine plate are all
   // visible from above; no vertical chest or face plane is exposed.
@@ -3051,25 +2972,59 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
 
   context.fillStyle = unitSurfaceGradient(armorLight, armor, armorDark);
   context.beginPath();
-  context.moveTo(0, -0.78);
-  context.lineTo(0.47, -0.61);
-  context.lineTo(0.62, -0.2);
-  context.lineTo(0.46, 0.4);
-  context.lineTo(0, 0.52);
-  context.lineTo(-0.46, 0.4);
-  context.lineTo(-0.62, -0.2);
-  context.lineTo(-0.47, -0.61);
+  if (heavy) {
+    context.moveTo(-0.28, -0.69);
+    context.lineTo(0.39, -0.69);
+    context.lineTo(0.68, -0.48);
+    context.lineTo(0.72, 0.3);
+    context.lineTo(0.43, 0.56);
+    context.lineTo(-0.43, 0.56);
+    context.lineTo(-0.72, 0.3);
+    context.lineTo(-0.68, -0.48);
+  } else if (carrier) {
+    context.moveTo(0, -0.72);
+    context.lineTo(0.5, -0.55);
+    context.lineTo(0.64, -0.12);
+    context.lineTo(0.48, 0.45);
+    context.lineTo(0, 0.58);
+    context.lineTo(-0.48, 0.45);
+    context.lineTo(-0.64, -0.12);
+    context.lineTo(-0.5, -0.55);
+  } else {
+    context.moveTo(0, -0.9);
+    context.lineTo(0.36, -0.64);
+    context.lineTo(0.51, -0.17);
+    context.lineTo(0.34, 0.4);
+    context.lineTo(0, 0.52);
+    context.lineTo(-0.34, 0.4);
+    context.lineTo(-0.51, -0.17);
+    context.lineTo(-0.36, -0.64);
+  }
   context.closePath();
   context.fill();
   context.stroke();
 
   context.fillStyle = armorLight;
   context.beginPath();
-  context.moveTo(-0.42, -0.54);
-  context.lineTo(0, -0.69);
-  context.lineTo(0, 0.39);
-  context.lineTo(-0.34, 0.29);
-  context.lineTo(-0.5, -0.15);
+  if (heavy) {
+    context.moveTo(-0.52, -0.49);
+    context.lineTo(-0.07, -0.57);
+    context.lineTo(-0.07, 0.38);
+    context.lineTo(-0.49, 0.28);
+    context.lineTo(-0.58, -0.2);
+  } else if (carrier) {
+    context.moveTo(-0.43, -0.49);
+    context.lineTo(0, -0.63);
+    context.lineTo(0, 0.42);
+    context.lineTo(-0.35, 0.32);
+    context.lineTo(-0.52, -0.1);
+  } else {
+    context.moveTo(-0.32, -0.62);
+    context.lineTo(0, -0.8);
+    context.lineTo(0, 0.35);
+    context.lineTo(-0.25, 0.27);
+    context.lineTo(-0.4, -0.17);
+  }
   context.closePath();
   context.fill();
 
@@ -3130,23 +3085,47 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
   // The cockpit canopy is a narrow roof window that points toward the nose.
   context.fillStyle = glass;
   context.beginPath();
-  context.moveTo(0, -0.66);
-  context.lineTo(0.25, -0.39);
-  context.lineTo(0.2, -0.05);
-  context.lineTo(0, 0.08);
-  context.lineTo(-0.2, -0.05);
-  context.lineTo(-0.25, -0.39);
+  if (heavy) {
+    context.moveTo(-0.2, -0.56);
+    context.lineTo(0.25, -0.56);
+    context.lineTo(0.31, -0.27);
+    context.lineTo(0.18, -0.06);
+    context.lineTo(-0.18, -0.06);
+    context.lineTo(-0.31, -0.27);
+  } else if (carrier) {
+    context.moveTo(0, -0.6);
+    context.lineTo(0.27, -0.34);
+    context.lineTo(0.2, 0.01);
+    context.lineTo(0, 0.13);
+    context.lineTo(-0.2, 0.01);
+    context.lineTo(-0.27, -0.34);
+  } else {
+    context.moveTo(0, -0.78);
+    context.lineTo(0.19, -0.45);
+    context.lineTo(0.14, -0.05);
+    context.lineTo(0, 0.07);
+    context.lineTo(-0.14, -0.05);
+    context.lineTo(-0.19, -0.45);
+  }
   context.closePath();
   context.fill();
   context.stroke();
   context.fillStyle = accent;
   context.beginPath();
-  context.moveTo(-0.22, -0.43);
-  context.lineTo(0, -0.54);
-  context.lineTo(0.22, -0.43);
-  context.lineTo(0.2, -0.35);
-  context.lineTo(0, -0.45);
-  context.lineTo(-0.2, -0.35);
+  if (heavy) {
+    context.rect(-0.26, -0.5, 0.52, 0.08);
+  } else if (carrier) {
+    context.arc(0, -0.34, 0.17, Math.PI, 0);
+    context.lineTo(0.13, -0.28);
+    context.arc(0, -0.34, 0.13, 0, Math.PI, true);
+  } else {
+    context.moveTo(-0.16, -0.49);
+    context.lineTo(0, -0.66);
+    context.lineTo(0.16, -0.49);
+    context.lineTo(0.13, -0.4);
+    context.lineTo(0, -0.54);
+    context.lineTo(-0.13, -0.4);
+  }
   context.closePath();
   context.fill();
 
