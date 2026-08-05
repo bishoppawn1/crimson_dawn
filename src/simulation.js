@@ -53,6 +53,7 @@ export class Simulation {
     this.matchRulesEnabled = matchRulesEnabled;
     this.enemyAiEnabled = enemyAiEnabled;
     this.matchResult = null;
+    this.matchWinnerTeamId = null;
     this.mapId = mapId;
     this.mapName = mapName;
     this.teams = teams.map((team) => ({ ...team }));
@@ -181,6 +182,7 @@ export class Simulation {
       enemyAiEnabled: this.enemyAiEnabled,
       matchRulesEnabled: this.matchRulesEnabled,
       matchResult: this.matchResult,
+      matchWinnerTeamId: this.matchWinnerTeamId,
       structureTechTier: this.structureTechTier,
       resources: this.resources,
     };
@@ -222,6 +224,8 @@ export class Simulation {
       simulation.aiBuildIndex = snapshot.aiBuildIndex;
     }
     simulation.matchResult = snapshot.matchResult;
+    simulation.matchWinnerTeamId = snapshot.matchWinnerTeamId
+      || (snapshot.matchResult === "victory" ? "player" : null);
     simulation.structureTechTier = snapshot.structureTechTier || { player: 1, enemy: 1 };
     simulation.resources = snapshot.resources;
     return simulation;
@@ -1307,15 +1311,14 @@ export class Simulation {
     const hasLivingAssets = (team) =>
       this.units.some((unit) => unit.alive && unit.team === team) ||
       this.structures.some((structure) => structure.alive && structure.team === team);
-    const playerAlive = hasLivingAssets("player");
-    const livingAiTeams = this.teams
-      .filter((team) => team.kind === "ai" && hasLivingAssets(team.id));
-    if (playerAlive && livingAiTeams.length > 0) return null;
+    const livingTeams = this.teams.filter((team) => hasLivingAssets(team.id));
+    if (livingTeams.length > 1) return null;
 
-    this.matchResult = playerAlive && livingAiTeams.length === 0 ? "victory" : "defeat";
+    this.matchWinnerTeamId = livingTeams[0]?.id || null;
+    this.matchResult = this.matchWinnerTeamId === "player" ? "victory" : "defeat";
     this.emit("match_complete", this.width / 2, this.height / 2, {
       result: this.matchResult,
-      winner: this.matchResult === "victory" ? "player" : livingAiTeams[0]?.id || null,
+      winner: this.matchWinnerTeamId,
     });
     return this.matchResult;
   }

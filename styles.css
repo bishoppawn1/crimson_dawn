@@ -234,6 +234,78 @@ button {
   color: #ff8b9b;
 }
 
+.lobby-panel {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid #49343d;
+  border-radius: 8px;
+  background: #110e12;
+}
+
+.lobby-panel[hidden],
+.lobby-host-controls[hidden] {
+  display: none;
+}
+
+.lobby-heading,
+.lobby-player-list li,
+.lobby-bot-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lobby-heading h2 {
+  margin: 4px 0 12px;
+}
+
+.lobby-player-list {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.lobby-player-list li {
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #3d3037;
+  border-radius: 5px;
+  background: #181318;
+}
+
+.lobby-player-list small {
+  color: #968d95;
+  text-transform: uppercase;
+}
+
+.lobby-host-controls label {
+  display: block;
+  margin: 14px 0 6px;
+  color: #bbb1ba;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lobby-host-controls select {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 11px;
+  border: 1px solid #5b424c;
+  border-radius: 6px;
+  background: #0b090c;
+  color: #f4ecef;
+  font: inherit;
+}
+
+.lobby-bot-controls .menu-back {
+  flex: 1;
+}
+
 .match-mode {
   margin: 5px 0 0;
   color: #8f858e;

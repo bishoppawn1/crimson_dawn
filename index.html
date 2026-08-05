@@ -12,7 +12,7 @@
       <div class="start-menu-card">
         <p class="eyebrow">CRIMSON DAWN // COMMAND LINK</p>
         <h1 id="start-menu-title">Choose a battle mode</h1>
-        <p class="start-menu-intro">Fight up to seven independent AI commanders or connect directly to another player.</p>
+        <p class="start-menu-intro">Fight up to seven independent AI commanders alone or in a hosted lobby.</p>
 
         <div id="mode-choices" class="mode-choices">
           <button id="single-player-button" class="mode-card" type="button">
@@ -21,7 +21,7 @@
           </button>
           <button id="multiplayer-button" class="mode-card" type="button">
             <strong>Multiplayer</strong>
-            <span>Host or join a direct two-player match with no account required.</span>
+            <span>Host or join a shared lobby, add AI bots, and play with up to eight commanders.</span>
           </button>
         </div>
 
@@ -70,7 +70,27 @@
               <button id="join-lobby-button" class="menu-action" type="button" disabled>Join lobby</button>
             </section>
           </div>
-          <p class="map-description">Lobby codes contain exactly 10 letters and numbers. The host randomly selects and synchronizes the battlefield when a guest joins.</p>
+          <section id="lobby-panel" class="lobby-panel" hidden aria-labelledby="lobby-title">
+            <div class="lobby-heading">
+              <div>
+                <p class="panel-label">OPEN LOBBY · <span id="visible-lobby-code">----------</span></p>
+                <h2 id="lobby-title">Players</h2>
+              </div>
+              <strong id="lobby-player-count">1 / 8</strong>
+            </div>
+            <ol id="lobby-player-list" class="lobby-player-list"></ol>
+            <div id="lobby-host-controls" class="lobby-host-controls" hidden>
+              <div class="lobby-bot-controls">
+                <button id="add-ai-button" class="menu-back" type="button">Add AI bot</button>
+                <button id="remove-ai-button" class="menu-back" type="button">Remove AI bot</button>
+              </div>
+              <label for="lobby-map">Map</label>
+              <select id="lobby-map"></select>
+              <button id="start-lobby-match-button" class="menu-action" type="button" disabled>Start match</button>
+            </div>
+            <p id="lobby-map-summary" class="map-description"></p>
+          </section>
+          <p class="map-description">Lobby codes contain exactly 10 letters and numbers. The host manages AI slots and starts the match when everyone is ready.</p>
           <p id="connection-status" class="connection-status" aria-live="polite">Create a lobby or enter a lobby code to begin.</p>
           <button id="back-to-modes-button" class="menu-back" type="button">Back to mode selection</button>
         </section>
@@ -194,7 +214,7 @@
             <p>Disabled units slowly build an emergency charge, then reactivate.</p>
             <p>Salvage drones can share a wreck and visit nearby piles until their cargo is full.</p>
             <p>Aircraft and hovering reclamation drones pass over starting walls; rocky terrain still redirects reclamation drones.</p>
-            <p>Multiplayer uses a direct host-authoritative peer connection. The host commands the western base; the guest commands the eastern base.</p>
+            <p>Multiplayer uses a host-authoritative peer connection. The shared lobby lists the host, guest, and AI bots; the host chooses two-player maps and starts the match.</p>
           </section>
         </aside>
       </section>

@@ -124,7 +124,12 @@ export class PeerMultiplayerSession {
     this.connection = connection;
     connection.on("open", () => this.markOpen());
     connection.on("close", () => {
-      if (!this.closed) this.handlers.onClose?.("closed");
+      if (this.closed) return;
+      if (this.role === "host" && this.connection === connection) {
+        this.connection = null;
+        this.opened = false;
+      }
+      this.handlers.onClose?.("closed");
     });
     connection.on("error", (error) => {
       if (!this.closed) this.handlers.onError?.(friendlyPeerError(error));

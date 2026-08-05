@@ -3001,6 +3001,26 @@ test("simulation snapshots restore a playable multiplayer client state", () => {
   assert.doesNotThrow(() => guest.tick(1 / 30));
 });
 
+test("mixed human and AI matches continue until only one command team remains", () => {
+  const simulation = Simulation.createFieldTest({ playerCount: 3, enemyAiEnabled: true });
+  simulation.teams.find((team) => team.id === "enemy").kind = "human";
+  delete simulation.aiStates.enemy;
+
+  for (const unit of simulation.units.filter((entity) => entity.team === "player")) unit.alive = false;
+  for (const structure of simulation.structures.filter((entity) => entity.team === "player")) structure.alive = false;
+  simulation.tick(1 / 30);
+  assert.equal(simulation.matchResult, null);
+
+  for (const unit of simulation.units.filter((entity) => entity.team === "enemy-2")) unit.alive = false;
+  for (const structure of simulation.structures.filter((entity) => entity.team === "enemy-2")) structure.alive = false;
+  simulation.tick(1 / 30);
+  assert.equal(simulation.matchResult, "defeat");
+  assert.equal(simulation.matchWinnerTeamId, "enemy");
+
+  const restored = Simulation.fromSnapshot(JSON.parse(JSON.stringify(simulation.createSnapshot())));
+  assert.equal(restored.matchWinnerTeamId, "enemy");
+});
+
 test("multiplayer lobby codes are exactly ten uppercase letters and numbers", () => {
   const code = generateLobbyCode(Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
 

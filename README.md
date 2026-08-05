@@ -8,11 +8,11 @@ units moving, attacking, and using selected special abilities.
 
 The current build is the first playable field test. It includes:
 
-- A start menu for two- through eight-player single-player matches (one human and
-  up to seven independent AI commanders) or direct two-player multiplayer.
+- A start menu for two- through eight-player single-player matches and hosted
+  multiplayer lobbies with a shared player roster and host-managed AI slots.
 - Host-authoritative WebRTC multiplayer with one 10-character lobby code,
-  synchronized random maps, team-validated commands, and no gameplay server or
-  account.
+  explicit host start, two-player map selection, automatic larger maps,
+  team-validated commands, and no gameplay server or account.
 - Selectable mechs with movement and weapon energy costs.
 - Realistic role-specific top-down Canvas sprites with directional lighting,
   articulated machinery, functional equipment, target-aware facing, and clearly
