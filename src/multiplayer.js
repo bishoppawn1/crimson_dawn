@@ -2,6 +2,8 @@ const LOBBY_CODE_LENGTH = 10;
 const LOBBY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 const MAX_BUFFERED_BYTES = 2 * 1024 * 1024;
+const MAX_STATE_BUFFERED_BYTES = 64 * 1024;
+const STATE_FLUSH_RETRY_MS = 25;
 const PEER_OPEN_TIMEOUT_MS = 12_000;
 const GUEST_CONNECTION_TIMEOUT_MS = 15_000;
 const MAX_CODE_ATTEMPTS = 5;
@@ -39,6 +41,8 @@ export class PeerMultiplayerSession {
     this.closed = false;
     this.lobbyCode = null;
     this.connectionTimeout = null;
+    this.pendingState = null;
+    this.stateFlushTimer = null;
 
     peer.on("error", (error) => {
       if (this.closed) return;
@@ -124,6 +128,9 @@ export class PeerMultiplayerSession {
     this.connection = connection;
     connection.on("open", () => this.markOpen());
     connection.on("close", () => {
+      clearTimeout(this.stateFlushTimer);
+      this.pendingState = null;
+      this.stateFlushTimer = null;
       if (!this.closed) this.handlers.onClose?.("closed");
     });
     connection.on("error", (error) => {
@@ -138,7 +145,11 @@ export class PeerMultiplayerSession {
         return;
       }
       if (serialized.length > MAX_MESSAGE_BYTES) return;
-      this.handlers.onMessage?.(message);
+      try {
+        this.handlers.onMessage?.(message);
+      } catch (error) {
+        this.handlers.onError?.(error?.message || "Could not process multiplayer data.");
+      }
     });
   }
 
@@ -151,22 +162,73 @@ export class PeerMultiplayerSession {
   }
 
   send(message) {
-    const bufferedAmount = this.connection?.dataChannel?.bufferedAmount || 0;
     if (
       this.closed ||
       !this.connection?.open ||
-      bufferedAmount > MAX_BUFFERED_BYTES
+      this.bufferedAmount() > MAX_BUFFERED_BYTES
     ) {
       return false;
     }
-    this.connection.send(message);
-    return true;
+    return this.sendNow(message);
+  }
+
+  sendState(message) {
+    if (this.closed || !this.connection?.open) return false;
+    if (this.pendingState || this.stateChannelBusy()) {
+      this.pendingState = message;
+      this.scheduleStateFlush();
+      return true;
+    }
+    return this.sendNow(message);
+  }
+
+  bufferedAmount() {
+    return this.connection?.dataChannel?.bufferedAmount || 0;
+  }
+
+  stateChannelBusy() {
+    return (
+      this.bufferedAmount() > MAX_STATE_BUFFERED_BYTES ||
+      (this.connection?.bufferSize || 0) > 0
+    );
+  }
+
+  sendNow(message) {
+    try {
+      this.connection.send(message);
+      return true;
+    } catch (error) {
+      this.handlers.onError?.(friendlyPeerError(error));
+      return false;
+    }
+  }
+
+  scheduleStateFlush() {
+    if (this.stateFlushTimer || this.closed) return;
+    this.stateFlushTimer = setTimeout(() => {
+      this.stateFlushTimer = null;
+      if (this.closed || !this.pendingState) return;
+      if (!this.connection?.open) {
+        this.pendingState = null;
+        return;
+      }
+      if (this.stateChannelBusy()) {
+        this.scheduleStateFlush();
+        return;
+      }
+      const state = this.pendingState;
+      this.pendingState = null;
+      this.sendNow(state);
+    }, STATE_FLUSH_RETRY_MS);
   }
 
   close() {
     if (this.closed) return;
     this.closed = true;
     clearTimeout(this.connectionTimeout);
+    clearTimeout(this.stateFlushTimer);
+    this.pendingState = null;
+    this.stateFlushTimer = null;
     this.connection?.close?.();
     this.peer?.destroy?.();
   }

@@ -124,3 +124,57 @@ test("host and guest connect through one short lobby code and exchange game mess
   host.session.close();
   guest.session.close();
 });
+
+test("host state backpressure keeps only the newest unsent snapshot", async () => {
+  FakePeer.peers.clear();
+  const guestMessages = [];
+  const host = await PeerMultiplayerSession.createHost(
+    {},
+    { PeerConstructor: FakePeer, codeFactory: () => "GH56JK78LM" },
+  );
+  const guest = await PeerMultiplayerSession.createGuest(
+    "GH56JK78LM",
+    { onMessage: (message) => guestMessages.push(message) },
+    { PeerConstructor: FakePeer },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  host.session.connection.dataChannel.bufferedAmount = 128 * 1024;
+  assert.equal(host.session.sendState({ type: "state", sequence: 1 }), true);
+  assert.equal(host.session.sendState({ type: "state", sequence: 2 }), true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(guestMessages, []);
+
+  host.session.connection.dataChannel.bufferedAmount = 0;
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.deepEqual(guestMessages, [{ type: "state", sequence: 2 }]);
+
+  host.session.close();
+  guest.session.close();
+});
+
+test("a data-channel send failure is reported without escaping into the game loop", async () => {
+  FakePeer.peers.clear();
+  let reportedError = null;
+  const host = await PeerMultiplayerSession.createHost(
+    { onError: (message) => { reportedError = message; } },
+    { PeerConstructor: FakePeer, codeFactory: () => "NP34QR56ST" },
+  );
+  const guest = await PeerMultiplayerSession.createGuest(
+    "NP34QR56ST",
+    {},
+    { PeerConstructor: FakePeer },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  host.session.connection.send = () => {
+    throw new Error("Data channel closed during send.");
+  };
+
+  assert.doesNotThrow(() => {
+    assert.equal(host.session.send({ type: "state", sequence: 1 }), false);
+  });
+  assert.equal(reportedError, "Data channel closed during send.");
+
+  host.session.close();
+  guest.session.close();
+});

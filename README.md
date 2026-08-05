@@ -122,7 +122,10 @@ No package installation or external runtime is required.
 
 The host commands the western base and the guest commands the eastern base. The
 game connection is direct and requires internet access; PeerJS Cloud brokers the
-initial handshake, with no account or dedicated gameplay server required.
+initial handshake, with no account or dedicated gameplay server required. The host
+owns the match state; guest commands appear immediately as predictions and are then
+confirmed or corrected by ordered host updates. If a connection stalls, delayed
+snapshots are replaced by the newest state instead of accumulating a stale backlog.
 
 ## Controls
 

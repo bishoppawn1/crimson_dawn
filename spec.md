@@ -827,8 +827,16 @@ restricted or symmetric-NAT networks may still prevent a direct connection.
 
 The host owns the canonical simulation, validates incoming commands against the
 guest's team, chooses the multiplayer map at random, and sends versioned simulation
-snapshots to the guest ten times per second. The guest simulates between snapshots
-for smoother presentation and is corrected by each authoritative host state.
+snapshots to the guest ten times per second. Every host state carries a monotonically
+increasing sequence number, and the guest ignores older state. The guest never
+advances a second canonical simulation between snapshots. Instead, it predicts its
+own submitted commands against the latest host state, replays still-unacknowledged
+commands when a newer state arrives, and removes or corrects them when the host
+acknowledges the result. This keeps placement and other commands responsive without
+allowing the peers to become split-brained. When the outgoing channel is congested,
+the host retains only the newest waiting snapshot; stale snapshots may not build an
+ever-older delivery backlog. Transport send failures are contained and surfaced to
+the player rather than escaping the animation loop and stopping the game.
 Movement, attack, construction, production, rally, stop, ability, cancellation,
 and upgrade commands all use the same simulation APIs as single player. Pausing and
 match resets are disabled during multiplayer; either player may leave the match and
