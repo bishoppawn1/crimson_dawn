@@ -187,6 +187,8 @@ test("experimental factory exposes three distinct strategic units", () => {
   const doughnut = UNIT_DEFINITIONS.zenith_doughnut;
   assert.equal(doughnut.movementLayer, "air");
   assert.equal(doughnut.groundAttackOnly, true);
+  assert.equal(doughnut.attackRange, 0);
+  assert.ok(doughnut.underbellyBeamRadius > 0);
   assert.equal(doughnut.roleDescription, "Mmm, tasty!");
 
   for (const unitType of roster) {
@@ -228,21 +230,68 @@ test("hexapod landship strides through structures but still respects terrain", (
   assert.notDeepEqual(landship.moveTarget, { x: 740, y: 300 });
 });
 
-test("Zenith Doughnut laser accepts ground targets and rejects aircraft", () => {
+test("Zenith Doughnut burns ground targets directly beneath it while moving", () => {
   const simulation = new Simulation({ enemyAiEnabled: false });
   const doughnut = simulation.addUnit("zenith_doughnut", "player", 300, 300);
   const enemyAircraft = simulation.addUnit("interceptor_t2", "enemy", 380, 300);
-  const enemyStructure = simulation.addStructure("generator", "enemy", 440, 300);
+  const enemyStructure = simulation.addStructure("generator", "enemy", 330, 300);
+  const distantGroundStructure = simulation.addStructure("generator", "enemy", 430, 300);
+  const aircraftStartingHp = enemyAircraft.hp;
+  const structureStartingHp = enemyStructure.hp;
+  const distantStructureStartingHp = distantGroundStructure.hp;
+  const startingEnergy = doughnut.energy;
 
   assert.equal(simulation.commandAttack([doughnut.id], enemyAircraft.id), 0);
   assert.equal(simulation.commandAttack([doughnut.id], enemyStructure.id), 1);
-  const startingHp = enemyStructure.hp;
-  advance(simulation, 1 / 30);
-  assert.ok(enemyStructure.hp < startingHp);
-  assert.equal(
-    doughnut.energy,
-    UNIT_DEFINITIONS.zenith_doughnut.maxEnergy - UNIT_DEFINITIONS.zenith_doughnut.attackEnergy,
+  assert.deepEqual(doughnut.moveTarget, {
+    x: enemyStructure.x,
+    y: enemyStructure.y,
+  });
+
+  simulation.tick(1 / 30);
+
+  const definition = UNIT_DEFINITIONS.zenith_doughnut;
+  assert.ok(doughnut.x > 300, "the aircraft should keep moving while its beam fires");
+  assert.equal(doughnut.attackTargetId, null);
+  assert.equal(doughnut.underbellyBeamActive, true);
+  assert.deepEqual(
+    new Set(doughnut.underbellyBeamTargetIds),
+    new Set([enemyStructure.id]),
   );
+  assert.ok(enemyStructure.hp < structureStartingHp);
+  assert.equal(distantGroundStructure.hp, distantStructureStartingHp);
+  assert.equal(enemyAircraft.hp, aircraftStartingHp);
+  assert.ok(
+    doughnut.energy <= startingEnergy - definition.underbellyBeamEnergyPerSecond / 30,
+  );
+
+  const groundTargetSimulation = new Simulation({ enemyAiEnabled: false });
+  const secondDoughnut = groundTargetSimulation.addUnit(
+    "zenith_doughnut",
+    "player",
+    300,
+    300,
+  );
+  const enemyUnit = groundTargetSimulation.addUnit(
+    "worker_drone_t1",
+    "enemy",
+    320,
+    300,
+  );
+  const aircraftUnderBeam = groundTargetSimulation.addUnit(
+    "interceptor_t2",
+    "enemy",
+    300,
+    300,
+  );
+  const unitStartingHp = enemyUnit.hp;
+  const aircraftUnderBeamStartingHp = aircraftUnderBeam.hp;
+
+  groundTargetSimulation.tick(1 / 30);
+
+  assert.equal(secondDoughnut.underbellyBeamActive, true);
+  assert.ok(enemyUnit.hp < unitStartingHp);
+  assert.equal(aircraftUnderBeam.hp, aircraftUnderBeamStartingHp);
 });
 
 test("higher-tier building variants retain their family behavior", () => {

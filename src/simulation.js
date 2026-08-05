@@ -318,6 +318,8 @@ export class Simulation {
       garrisonStructureId: null,
       energyTransferTargetIds: [],
       energyTransferredThisTick: 0,
+      underbellyBeamActive: false,
+      underbellyBeamTargetIds: [],
       ...overrides,
     };
     unit.hp = clamp(unit.hp, 0, definition.maxHp);
@@ -563,11 +565,15 @@ export class Simulation {
         !unit.alive ||
         unit.state !== "active" ||
         unit.team === target.team ||
-        definition.attackRange <= 0 ||
         !canUnitAttackTarget(definition, target)
       ) {
         continue;
       }
+      if (definition.underbellyBeamRadius) {
+        accepted += this.commandMove([unit.id], target.x, target.y);
+        continue;
+      }
+      if (definition.attackRange <= 0) continue;
       unit.attackTargetId = targetId;
       unit.attackTargetMode = "explicit";
       unit.moveTarget = null;
@@ -3150,6 +3156,11 @@ export class Simulation {
         );
       }
 
+      if (definition.underbellyBeamRadius) {
+        this.updateUnderbellyBeam(unit, definition, delta);
+        if (unit.state !== "active") continue;
+      }
+
       const buildTarget = this.getStructure(unit.buildTargetId);
       if (buildTarget?.alive && !buildTarget.complete) {
         unit.attackTargetId = null;
@@ -3351,6 +3362,37 @@ export class Simulation {
       unit,
     );
     this.emitAttack(unit, target);
+    if (unit.energy <= EPSILON) this.enterStasis(unit);
+    return true;
+  }
+
+  updateUnderbellyBeam(unit, definition, delta) {
+    unit.attackTargetId = null;
+    unit.attackTargetMode = null;
+    unit.underbellyBeamActive = false;
+    unit.underbellyBeamTargetIds = [];
+    const targets = this.getNearbyHostileTargets(unit, definition.underbellyBeamRadius)
+      .filter(
+        (target) =>
+          isUnderbellyBeamTarget(target) &&
+          distance(unit, target) <= definition.underbellyBeamRadius + entityRadius(target),
+      );
+    if (targets.length === 0 || unit.energy <= EPSILON) return false;
+
+    const activeSeconds = Math.min(
+      delta,
+      unit.energy / definition.underbellyBeamEnergyPerSecond,
+    );
+    if (activeSeconds <= EPSILON) return false;
+
+    unit.energy = Math.max(
+      0,
+      unit.energy - definition.underbellyBeamEnergyPerSecond * activeSeconds,
+    );
+    unit.underbellyBeamActive = true;
+    unit.underbellyBeamTargetIds = targets.map((target) => target.id);
+    const damage = definition.underbellyBeamDamagePerSecond * activeSeconds;
+    for (const target of targets) this.applyDamage(target, damage, unit);
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return true;
   }
@@ -3677,6 +3719,8 @@ export class Simulation {
     unit.moveMode = null;
     unit.attackTargetId = null;
     unit.attackTargetMode = null;
+    unit.underbellyBeamActive = false;
+    unit.underbellyBeamTargetIds = [];
     unit.navigationObstacleId = null;
     unit.navigationSide = null;
     this.emit("stasis", unit.x, unit.y, { unitId: unit.id });
@@ -4195,8 +4239,17 @@ export function energyRatio(unit) {
 }
 
 function canUnitAttackTarget(definition, target) {
+  if (definition?.underbellyBeamRadius) return isUnderbellyBeamTarget(target);
   if (!definition?.groundAttackOnly || target.kind !== "unit") return true;
   return UNIT_DEFINITIONS[target.type]?.movementLayer !== "air";
+}
+
+function isUnderbellyBeamTarget(target) {
+  if (target.kind === "structure") return true;
+  return (
+    target.kind === "unit" &&
+    UNIT_DEFINITIONS[target.type]?.movementLayer !== "air"
+  );
 }
 
 function nearest(origin, candidates) {
@@ -4244,7 +4297,11 @@ function damageMultiplierAgainstTarget(definition, target) {
 }
 
 function isCombatUnitDefinition(definition) {
-  return Boolean(definition && definition.attackRange > 0 && !definition.workerTier);
+  return Boolean(
+    definition &&
+    (definition.attackRange > 0 || definition.underbellyBeamRadius > 0) &&
+    !definition.workerTier,
+  );
 }
 
 function isStaticDefenseTargetInRange(definition, defense, target) {
@@ -4292,9 +4349,13 @@ function combatStrength(entity) {
   const definition = entity.kind === "unit"
     ? UNIT_DEFINITIONS[entity.type]
     : STRUCTURE_DEFINITIONS[entity.type];
-  if (!definition?.attackRange || !definition.maxHp) return 0;
+  if (
+    !definition?.maxHp ||
+    (!definition.attackRange && !definition.underbellyBeamRadius)
+  ) return 0;
   const healthRatio = clamp(entity.hp / definition.maxHp, 0, 1);
-  const damageRate = definition.attackDamage / Math.max(definition.attackCooldown, EPSILON);
+  const damageRate = definition.underbellyBeamDamagePerSecond ||
+    definition.attackDamage / Math.max(definition.attackCooldown, EPSILON);
   return healthRatio * (definition.maxHp + damageRate * 20);
 }
 

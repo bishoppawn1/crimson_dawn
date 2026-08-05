@@ -123,6 +123,9 @@ implementation decision establishes or changes player-facing behavior.
   unlimited resources.
 - Do not interpret factory categories as a linear tier ladder. Mech, vehicle, and
   aerospace production are parallel branches with their own available tech tiers.
+- Keep the Zenith Doughnut circular in top-down view. Its continuous laser projects
+  only into a small footprint directly beneath it, damages ground targets while the
+  aircraft keeps moving, and never becomes a conventional ranged target-lock weapon.
 - Avoid silently inventing factions, setting lore, or final balance numbers. Record
   unresolved decisions in the spec until they are tested or explicitly decided.
 

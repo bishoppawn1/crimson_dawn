@@ -249,9 +249,11 @@ for (const unitType of producibleUnitTypes) {
   const button = document.createElement("button");
   button.className = "command-button";
   const roleSummary = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
-  const combatSummary = definition.attackRange
-    ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× vs air` : ""}`
-    : "";
+  const combatSummary = definition.underbellyBeamRadius
+    ? ` · ${definition.underbellyBeamDamagePerSecond}/s underbelly beam · ${definition.underbellyBeamRadius} radius`
+    : definition.attackRange
+      ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× vs air` : ""}`
+      : "";
   button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · ${definition.supplyCost} supply${roleSummary}${combatSummary}</small>`;
   button.addEventListener("click", () => {
     if (selectedStructureId) {
@@ -2299,6 +2301,10 @@ function drawUnit(unit) {
   const activeBuildTarget = getActiveConstructionTarget(unit);
   const activeRepairTarget = getActiveRepairTarget(unit);
 
+  if (definition.underbellyBeamRadius) {
+    drawZenithUnderbellyBeam(unit, definition, selected);
+  }
+
   if (definition.transferRate && selected) {
     context.save();
     context.strokeStyle = `${colors.energy}80`;
@@ -2565,6 +2571,7 @@ function drawWorkerConstructionEffect(unit, structure, pose, teamColor) {
 
 function drawUnitGroundShadow(definition) {
   const airborne = definition.unitDomain === "air";
+  const circularAircraft = definition.role === "zenith_doughnut";
   context.save();
   context.translate(airborne ? 7 : 3, airborne ? 10 : 5);
   context.fillStyle = airborne ? "#10151038" : "#10151070";
@@ -2573,7 +2580,7 @@ function drawUnitGroundShadow(definition) {
     0,
     0,
     definition.radius * (airborne ? 1.05 : 0.86),
-    definition.radius * (airborne ? 0.58 : 0.62),
+    definition.radius * (circularAircraft ? 0.94 : airborne ? 0.58 : 0.62),
     -0.18,
     0,
     Math.PI * 2,
@@ -2787,12 +2794,12 @@ function drawZenithDoughnutSprite(definition, teamColor, stasis) {
   context.strokeStyle = palette.outline;
   context.lineWidth = 0.1;
   context.beginPath();
-  context.ellipse(0, 0, 1.05, 0.86, 0, 0, Math.PI * 2);
-  context.ellipse(0, 0, 0.36, 0.28, 0, 0, Math.PI * 2, true);
+  context.arc(0, 0, 1.05, 0, Math.PI * 2);
+  context.arc(0, 0, 0.38, 0, Math.PI * 2, true);
   context.fill("evenodd");
   context.stroke();
   context.beginPath();
-  context.ellipse(0, 0, 0.36, 0.28, 0, 0, Math.PI * 2);
+  context.arc(0, 0, 0.38, 0, Math.PI * 2);
   context.stroke();
 
   context.strokeStyle = palette.armorDark;
@@ -2800,25 +2807,69 @@ function drawZenithDoughnutSprite(definition, teamColor, stasis) {
   for (let segment = 0; segment < 8; segment += 1) {
     const angle = (segment / 8) * Math.PI * 2;
     context.beginPath();
-    context.moveTo(Math.cos(angle) * 0.27, Math.sin(angle) * 0.22);
-    context.lineTo(Math.cos(angle) * 0.95, Math.sin(angle) * 0.77);
+    context.moveTo(Math.cos(angle) * 0.3, Math.sin(angle) * 0.3);
+    context.lineTo(Math.cos(angle) * 0.95, Math.sin(angle) * 0.95);
     context.stroke();
   }
   context.strokeStyle = palette.accent;
   context.lineWidth = 0.13;
   context.beginPath();
-  context.ellipse(0, 0, 0.74, 0.58, 0, 0, Math.PI * 2);
+  context.arc(0, 0, 0.75, 0, Math.PI * 2);
   context.stroke();
   context.strokeStyle = palette.energy;
   context.lineWidth = 0.08;
   context.beginPath();
-  context.ellipse(0, 0, 0.29, 0.22, 0, 0, Math.PI * 2);
+  context.arc(0, 0, 0.31, 0, Math.PI * 2);
   context.stroke();
-  context.fillStyle = palette.armorLight;
+  context.strokeStyle = palette.armorLight;
   context.globalAlpha = 0.55;
+  context.lineWidth = 0.11;
   context.beginPath();
-  context.ellipse(-0.2, -0.24, 0.38, 0.18, -0.22, 0, Math.PI * 2);
+  context.arc(0, 0, 0.9, Math.PI * 1.05, Math.PI * 1.65);
+  context.stroke();
+  context.restore();
+}
+
+function drawZenithUnderbellyBeam(unit, definition, selected) {
+  const radius = definition.underbellyBeamRadius;
+  context.save();
+  context.translate(unit.x, unit.y);
+  if (selected) {
+    context.fillStyle = "#52eaff0c";
+    context.strokeStyle = "#6cf4ff70";
+    context.lineWidth = 1.5;
+    context.setLineDash([5, 6]);
+    context.beginPath();
+    context.arc(0, 0, radius, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.setLineDash([]);
+  }
+  if (!unit.underbellyBeamActive) {
+    context.restore();
+    return;
+  }
+
+  const pulse = 0.88 + Math.sin(simulation.time * 16) * 0.12;
+  const glow = context.createRadialGradient(0, 0, 1, 0, 0, radius);
+  glow.addColorStop(0, "#f4fffffa");
+  glow.addColorStop(0.18, "#b8fbfff0");
+  glow.addColorStop(0.48, "#49e8ffc0");
+  glow.addColorStop(1, "#20b9db08");
+  context.globalCompositeOperation = "lighter";
+  context.globalAlpha = pulse;
+  context.fillStyle = glow;
+  context.shadowColor = "#4cecff";
+  context.shadowBlur = 24;
+  context.beginPath();
+  context.arc(0, 0, radius, 0, Math.PI * 2);
   context.fill();
+  context.globalAlpha = 0.9;
+  context.strokeStyle = "#d9ffff";
+  context.lineWidth = 3.5;
+  context.beginPath();
+  context.arc(0, 0, radius * 0.48, 0, Math.PI * 2);
+  context.stroke();
   context.restore();
 }
 
@@ -4248,16 +4299,6 @@ function attackPresentation(source) {
       glowColor: "#ff7138", impactColor: "#ff9848", sparkColor: "#ffd68a",
     };
   }
-  if (role === "zenith_doughnut") {
-    return {
-      beam: true, beamDuration: 0.42, speed: 1, minimumTravelTime: 0,
-      trailFraction: 0, arcHeight: 0, projectileSize: 0, trailWidth: 5.5,
-      muzzleDuration: 0.18, muzzleSize: 18, impactDuration: 0.42,
-      impactSize: 34, sparkCount: 13, glow: 24, smoke: true,
-      projectileColor: "#efffff", trailColor: "#84f7ff", muzzleColor: "#eaffff",
-      glowColor: "#39dff1", impactColor: "#9cfcff", sparkColor: "#e6ffff",
-    };
-  }
   if (role === "arsenal_colossus") {
     return {
       salvoCount: definition.salvoCount || 5, salvoSpread: 8,
@@ -4609,9 +4650,11 @@ function updateInterface() {
         : ` · NO UNIT IN ${definition.transferRange} RANGE`
       : "";
     const roleText = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
-    const combatText = definition.attackRange
-      ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}`
-      : "";
+    const combatText = definition.underbellyBeamRadius
+      ? ` · ${definition.underbellyBeamDamagePerSecond} damage/s underbelly beam · ${definition.underbellyBeamRadius} radius · ${definition.speed} speed`
+      : definition.attackRange
+        ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}`
+        : "";
     selectionName.textContent = definition.name;
     selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${combatText}${emergencyRecoveryText}${supplyText}${orderText}${repairText}${buildQueueText}`;
   } else {

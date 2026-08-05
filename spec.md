@@ -496,14 +496,19 @@ The Tier 3 Experimental Factory produces exactly three enormous strategic units:
 | --- | --- |
 | Arsenal Colossus | Huge assault mech carrying eight visible weapon systems and firing a converging multi-projectile salvo |
 | Hexapod Landship | Six-legged walking battleship with siege guns, extreme durability, and the ability to stride across living building footprints |
-| Zenith Doughnut | Giant toroidal aircraft whose central aperture fires a sustained high-energy laser at ground targets; its player-facing description is “Mmm, tasty!” |
+| Zenith Doughnut | Giant circular toroidal aircraft whose central aperture projects a sustained high-energy laser straight down; its player-facing description is “Mmm, tasty!” |
 
 The Hexapod Landship remains a ground unit: impassable terrain and living units
 still constrain it, but buildings are excluded from its destination validation,
 path planning, and movement collisions. The Zenith Doughnut ignores terrain and
-structures, and its central laser cannot target aircraft. All three use ordinary
-paid production, supply, movement-energy, weapon-energy, damage, destruction, and
-salvage rules. Their balance values are provisional.
+structures. Its laser has no horizontal firing range, remains centered beneath the
+aircraft, and automatically damages every hostile ground unit or structure inside
+its small footprint without stopping movement. Players attack by routing the
+aircraft over enemy assets; attack commands on ground targets are interpreted as
+movement to the target position. The laser cannot damage aircraft and consumes
+energy continuously while it is damaging at least one target. All three use
+ordinary paid production, supply, movement-energy, weapon-energy, damage,
+destruction, and salvage rules. Their balance values are provisional.
 
 ### 5.3 Worker Drones and Construction
 
