@@ -1285,6 +1285,7 @@ function drawUnit(unit) {
   const selected = selectedUnitIds.has(unit.id);
   const lowEnergy = energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio;
   const overdrive = unit.abilityActiveUntil.overdrive > simulation.time;
+  const activeBuildTarget = getActiveConstructionTarget(unit);
 
   if (definition.transferRate && selected) {
     context.save();
@@ -1330,10 +1331,14 @@ function drawUnit(unit) {
   }
 
   drawUnitGroundShadow(definition);
-  const pose = getUnitRenderPose(unit);
+  const pose = getUnitRenderPose(unit, activeBuildTarget);
   context.rotate(pose.facing);
   drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis", pose);
   context.restore();
+
+  if (activeBuildTarget) {
+    drawWorkerConstructionEffect(unit, activeBuildTarget, pose, teamColor);
+  }
 
   const barWidth = Math.max(24, definition.radius * 2.3);
   drawBar(unit.x, unit.y - definition.radius - 12, barWidth, unit.hp / definition.maxHp, colors.health);
@@ -1347,7 +1352,25 @@ function drawUnit(unit) {
   if (unit.state === "stasis") drawLabel(unit.x, unit.y + definition.radius + 17, "STASIS", false, colors.stasis);
 }
 
-function getUnitRenderPose(unit) {
+function getActiveConstructionTarget(unit) {
+  const definition = UNIT_DEFINITIONS[unit.type];
+  const buildTarget = simulation.getStructure(unit.buildTargetId);
+  if (
+    !definition.workerTier ||
+    unit.state !== "active" ||
+    !buildTarget?.alive ||
+    buildTarget.complete ||
+    buildTarget.team !== unit.team
+  ) {
+    return null;
+  }
+  const footprint = structureFootprint(buildTarget.type);
+  const deltaX = Math.max(Math.abs(unit.x - buildTarget.x) - footprint.halfWidth, 0);
+  const deltaY = Math.max(Math.abs(unit.y - buildTarget.y) - footprint.halfHeight, 0);
+  return Math.hypot(deltaX, deltaY) <= 24.001 ? buildTarget : null;
+}
+
+function getUnitRenderPose(unit, activeBuildTarget = null) {
   const attackTarget = simulation.getEntity(unit.attackTargetId);
   const buildTarget = simulation.getStructure(unit.buildTargetId);
   const transferTarget = unit.energyTransferTargetIds?.length
@@ -1368,8 +1391,72 @@ function getUnitRenderPose(unit) {
   return {
     facing,
     moving,
+    building: Boolean(activeBuildTarget),
+    workCycle: Math.sin(simulation.time * 13 + phase),
+    phase,
     stride: moving ? Math.sin(simulation.time * 9 + phase) : 0,
   };
+}
+
+function drawWorkerConstructionEffect(unit, structure, pose, teamColor) {
+  const definition = UNIT_DEFINITIONS[unit.type];
+  const footprint = structureFootprint(structure.type);
+  const deltaX = structure.x - unit.x;
+  const deltaY = structure.y - unit.y;
+  const length = Math.hypot(deltaX, deltaY);
+  const directionX = length > 0.0001 ? deltaX / length : 0;
+  const directionY = length > 0.0001 ? deltaY / length : -1;
+  const boundaryDistance = Math.min(
+    Math.abs(directionX) > 0.0001 ? footprint.halfWidth / Math.abs(directionX) : Infinity,
+    Math.abs(directionY) > 0.0001 ? footprint.halfHeight / Math.abs(directionY) : Infinity,
+  );
+  const start = {
+    x: unit.x + directionX * definition.radius * 0.75,
+    y: unit.y + directionY * definition.radius * 0.75,
+  };
+  const impact = {
+    x: structure.x - directionX * boundaryDistance,
+    y: structure.y - directionY * boundaryDistance,
+  };
+  const pulse = 0.5 + Math.sin(simulation.time * 17 + pose.phase) * 0.5;
+
+  context.save();
+  const beam = context.createLinearGradient(start.x, start.y, impact.x, impact.y);
+  beam.addColorStop(0, `${teamColor}70`);
+  beam.addColorStop(0.7, `${colors.energy}b8`);
+  beam.addColorStop(1, "#ffe2a8e8");
+  context.strokeStyle = beam;
+  context.lineWidth = 1.2 + pulse * 1.3;
+  context.setLineDash([4, 3]);
+  context.lineDashOffset = -simulation.time * 24;
+  context.beginPath();
+  context.moveTo(start.x, start.y);
+  context.lineTo(impact.x, impact.y);
+  context.stroke();
+  context.setLineDash([]);
+
+  context.fillStyle = "#fff1c8";
+  context.globalAlpha = 0.65 + pulse * 0.35;
+  context.beginPath();
+  context.arc(impact.x, impact.y, 1.8 + pulse * 1.5, 0, Math.PI * 2);
+  context.fill();
+
+  for (let index = 0; index < 4; index += 1) {
+    const sparkPhase = (simulation.time * 5.5 + pose.phase + index * 0.23) % 1;
+    const sparkAngle = pose.phase + index * 1.83 + sparkPhase * 0.8;
+    const sparkDistance = 3 + sparkPhase * 10;
+    context.globalAlpha = 1 - sparkPhase;
+    context.strokeStyle = index % 2 === 0 ? "#ffe29a" : colors.metal;
+    context.lineWidth = 1.2;
+    context.beginPath();
+    context.moveTo(impact.x, impact.y);
+    context.lineTo(
+      impact.x + Math.cos(sparkAngle) * sparkDistance,
+      impact.y + Math.sin(sparkAngle) * sparkDistance,
+    );
+    context.stroke();
+  }
+  context.restore();
 }
 
 function drawUnitGroundShadow(definition) {
@@ -1422,7 +1509,11 @@ function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis, pose) {
   const armorDark = stasis ? "#37332d" : "#424d50";
   const joint = stasis ? "#2d2a25" : "#222b30";
   const accent = stasis ? `${teamColor}88` : teamColor;
-  const toolSwing = pose.moving ? pose.stride * 0.1 : Math.sin(simulation.time * 2.2) * 0.025;
+  const toolSwing = pose.building
+    ? pose.workCycle * 0.22
+    : pose.moving
+      ? pose.stride * 0.1
+      : Math.sin(simulation.time * 2.2) * 0.025;
   context.save();
   context.scale(definition.radius, definition.radius);
   context.lineCap = "round";

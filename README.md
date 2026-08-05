@@ -69,6 +69,8 @@ The current build is the first playable field test. It includes:
   reservations, and powered 8×6 Strategic Supply Complexes that upgrade from
   5,000 to 10,000 and 20,000 added capacity.
 - Worker-driven building placement and construction.
+- Active construction animation with rapidly working drone arms, a tool beam, and
+  impact sparks that appear only while a worker is contributing build progress.
 - Shift-queued building placement, with workers completing foundations in order.
 - Collision-safe factory exits and spread rally formations for player and enemy units.
 - Resumable and cancellable construction with abandoned-project recovery for AI workers.

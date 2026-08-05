@@ -477,6 +477,12 @@ demands are 6 energy per second for Tier 1, 10 for Tier 2, and 16 for Tier 3, in
 addition to their respective idle demands of 3, 5, and 8. Production pauses when
 the local grid cannot supply the combined demand.
 
+An active Worker Drone visibly accelerates its articulated tool arms and projects a
+short construction beam with impact sparks while it is in build range and actively
+contributing progress. The effect stops while the worker is traveling, paused, in
+stasis, or after the foundation completes, so the animation communicates actual
+construction state rather than merely the presence of a build order.
+
 Completed units deploy to the nearest valid factory exit that does not overlap a
 living structure, another living unit, or the battlefield boundary. If all factory exits are blocked,
 the completed production order waits inside the factory until an exit becomes
