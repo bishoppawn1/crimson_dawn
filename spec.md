@@ -358,6 +358,15 @@ dorsal energy core. Player blue and enemy red appear only on restrained
 identification panels, cockpit trim, and tier markings. Stasis state, health, and
 energy remain separately visible.
 
+Aircraft roles use independent silhouettes rather than one shared airframe with
+minor attachments. Interceptors have needle noses, swept delta wings, and twin tail
+fins; Gunships use short armored fuselages, straight weapon wings, large paired
+engine nacelles, and visible cannons; Bombers are broad tailless flying wings with
+recessed payload bays; and Energy Tenders use narrow transport bodies dominated by
+two long external energy cylinders and illuminated transfer conduits. Tier 3 models
+retain their role silhouette while adding extra control surfaces, exhausts, armor,
+or energy-system markings.
+
 ## 5. Production Branches and Technology Tiers
 
 Production categories are parallel branches, not consecutive steps in a single
