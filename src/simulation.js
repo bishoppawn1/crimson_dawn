@@ -2293,6 +2293,15 @@ export class Simulation {
     const chargerCount = countFamily("charger");
     const relayCount = countFamily("power_tower");
     const salvageYardCount = countFamily("salvage_yard");
+    const gridEnergy = this.resources[teamId];
+    const gridEnergyIsLow =
+      gridEnergy.energyCapacity <= EPSILON ||
+      gridEnergy.energy <=
+        gridEnergy.energyCapacity * SIMULATION_RULES.enemyLowGridEnergyRatio + EPSILON;
+    const generatorConstructionPending = structures.some(
+      (structure) =>
+        !structure.complete && Boolean(STRUCTURE_DEFINITIONS[structure.type].generationRate),
+    );
     const powerConsumerCount = structures.filter(
       (structure) => !STRUCTURE_DEFINITIONS[structure.type].generationRate,
     ).length;
@@ -2382,7 +2391,10 @@ export class Simulation {
       if (!hasFamilyAtTier("generator", operationalTier)) {
         addCandidate(82, advancedGenerator, planPoint(-80, sideSign * 260));
       }
-      if (!hasFamilyAtTier("battery", operationalTier)) {
+      if (
+        (!gridEnergyIsLow || batteryCount === 0) &&
+        !hasFamilyAtTier("battery", operationalTier)
+      ) {
         addCandidate(76, advancedBattery, planPoint(20, -sideSign * 260));
       }
       if (!hasFamilyAtTier("sentry_turret", operationalTier)) {
@@ -2412,7 +2424,17 @@ export class Simulation {
 
     const desiredBatteryCount = Math.max(1, Math.ceil(powerConsumerCount / 6));
     if (batteryCount < desiredBatteryCount) {
-      addCandidate(batteryCount === 0 ? 94 : 56, "battery", planPoint(-40, sideSign * laneOffset));
+      if (gridEnergyIsLow && batteryCount > 0) {
+        if (!generatorConstructionPending) {
+          addCandidate(
+            94,
+            tieredType("generator", operationalTier),
+            planPoint(-40, sideSign * laneOffset),
+          );
+        }
+      } else {
+        addCandidate(batteryCount === 0 ? 94 : 56, "battery", planPoint(-40, sideSign * laneOffset));
+      }
     }
 
     const desiredSentryCount = Math.min(

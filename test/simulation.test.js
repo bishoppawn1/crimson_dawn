@@ -3000,10 +3000,14 @@ test("enemy AI searches nearby grid cells when its preferred site is occupied", 
   );
 });
 
-test("enemy AI chooses buildings from current strategic needs instead of a build index", () => {
+test("enemy AI replaces battery requests with generation while grid energy is low", () => {
   const simulation = new Simulation();
   const anchor = simulation.addStructure("generator", "enemy", 2600, 900);
   simulation.addStructure("mech_factory_t1", "enemy", 2440, 1040);
+  simulation.addStructure("battery", "enemy", 2520, 820);
+  for (let index = 0; index < 6; index += 1) {
+    simulation.addStructure("power_tower", "enemy", 2360 + index * 40, 760);
+  }
   const planPoint = (forward, side = 0) => ({ x: anchor.x - forward, y: anchor.y + side });
 
   const earlyRequest = simulation.getEnemyStrategicConstructionRequest(
@@ -3013,7 +3017,7 @@ test("enemy AI chooses buildings from current strategic needs instead of a build
     planPoint,
     1,
   );
-  const laterCounterRequest = simulation.getEnemyStrategicConstructionRequest(
+  const laterLowEnergyRequest = simulation.getEnemyStrategicConstructionRequest(
     "enemy",
     anchor,
     [],
@@ -3021,10 +3025,20 @@ test("enemy AI chooses buildings from current strategic needs instead of a build
     19,
   );
 
-  assert.equal(earlyRequest.type, "battery");
-  assert.equal(laterCounterRequest.type, "battery");
+  assert.equal(earlyRequest.type, "generator");
+  assert.equal(laterLowEnergyRequest.type, "generator");
 
-  simulation.addStructure("battery", "enemy", 2520, 820);
+  simulation.refreshPowerState(0);
+  simulation.resources.enemy.energy = simulation.resources.enemy.energyCapacity;
+  const recoveredRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    1,
+  );
+  assert.notEqual(recoveredRequest.type, "generator");
+
   const rushedTarget = simulation.addUnit("scout_mech", "player", 2300, 900);
   const defensiveRequest = simulation.getEnemyStrategicConstructionRequest(
     "enemy",
@@ -3036,6 +3050,32 @@ test("enemy AI chooses buildings from current strategic needs instead of a build
 
   assert.equal(defensiveRequest.type, "sentry_turret");
   assert.ok(defensiveRequest.x < anchor.x, "the defense should face the nearby threat");
+});
+
+test("enemy AI waits for its pending low-energy generator instead of adding a battery", () => {
+  const simulation = new Simulation();
+  const anchor = simulation.addStructure("generator", "enemy", 2600, 900);
+  simulation.addStructure("mech_factory_t1", "enemy", 2440, 1040);
+  simulation.addStructure("battery", "enemy", 2520, 900);
+  for (let index = 0; index < 6; index += 1) {
+    simulation.addStructure("power_tower", "enemy", 2360 + index * 40, 760);
+  }
+  simulation.addStructure("generator", "enemy", 2520, 820, {
+    complete: false,
+    constructionProgress: 0.5,
+  });
+  const planPoint = (forward, side = 0) => ({ x: anchor.x - forward, y: anchor.y + side });
+
+  const request = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    1,
+  );
+
+  assert.notEqual(request.type, "battery");
+  assert.notEqual(request.type, "generator");
 });
 
 test("enemy AI requests flak when aircraft threaten its base", () => {

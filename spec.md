@@ -856,6 +856,14 @@ batteries, relays, defenses, chargers, salvage capacity, and factories. The
 decision counter varies valid placement lanes but never dictates the next
 structure type. These relative priorities are provisional tuning values.
 
+After establishing its first Grid Battery, an AI whose stored grid energy falls to
+20% or less of live storage capacity treats the condition as a generation shortage
+rather than a storage shortage. It suppresses requests for additional Grid
+Batteries and constructs a matching-tier Pulse Generator instead. It waits for an
+unfinished recovery generator rather than queueing another generator or battery,
+and resumes ordinary battery expansion only after stored grid energy rises above
+the low-energy threshold.
+
 Aircraft observed near an AI base add a Flak Turret request to that same strategic
 scoring system. AI mech and vehicle factories also produce Skyguards and Flak
 Crawlers through the same role-balancing production logic used for other combat
