@@ -37,6 +37,9 @@ implementation decision establishes or changes player-facing behavior.
   attack orders as higher-priority commands.
 - Keep mobile units visually compact relative to buildings. Living units on either
   team maintain physical separation and may not stack at the same position.
+- Mech silhouettes must read as upright bipedal machines from above: keep a visible
+  rear hip bar, two articulated rear legs, and separated feet protruding beyond the
+  torso rather than allowing the sprite to resemble a prone soldier.
 - The enemy AI must use the same resource, power, construction, production,
   energy, combat, and salvage rules available to the player. Do not grant hidden
   free units or functional immunity to normal requirements.

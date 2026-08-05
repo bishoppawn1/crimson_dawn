@@ -14,7 +14,8 @@ The current build is the first playable field test. It includes:
   random maps, team-validated commands, and no dedicated game server or account.
 - Selectable mechs with movement and weapon energy costs.
 - Realistic role-specific top-down Canvas sprites with directional lighting,
-  articulated machinery, functional equipment, and target-aware facing.
+  articulated machinery, functional equipment, target-aware facing, and clearly
+  separated rear legs and feet on every mech.
 - A muted olive-and-earth battlefield palette with subtle fixed ground texture
   that keeps neutral gray units readable.
 - Energy-dependent shutdown, stasis regeneration, and reactivation.

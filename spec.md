@@ -334,7 +334,10 @@ of occupying an unlimited stack at one position.
 
 The Canvas battlefield uses role-readable, top-down mechanical sprites rather than
 generic diamonds or side-view silhouettes. A mech's cockpit roof, shoulder deck,
-dorsal armor, rearward legs, and forward-pointing weapons are visible from above.
+dorsal armor, wide rear hip assembly, two outward-canted articulated legs, separated
+feet, and forward-pointing weapons are visible from above. The rear legs and feet
+must protrude beyond the torso silhouette at gameplay scale so a mech never reads as
+a prone or crawling soldier.
 Vanguard, Bulwark, Carrier, and hostile combat silhouettes remain distinct at
 gameplay scale through their overhead equipment profiles. Layered armor plates,
 panel seams, joints, cooling vents, fasteners, and weapon or support housings add
