@@ -706,6 +706,21 @@ test("attacking damages the target and spends the attacker's energy", () => {
 
   assert.equal(target.hp, startingHp - UNIT_DEFINITIONS.scout_mech.attackDamage);
   assert.equal(attacker.energy, 20 - UNIT_DEFINITIONS.scout_mech.attackEnergy);
+  const firingEvent = simulation.events.find((event) => event.type === "attack");
+  assert.deepEqual(
+    {
+      sourceX: firingEvent.sourceX,
+      sourceY: firingEvent.sourceY,
+      targetX: firingEvent.targetX,
+      targetY: firingEvent.targetY,
+    },
+    { sourceX: 100, sourceY: 100, targetX: 150, targetY: 100 },
+  );
+
+  attacker.x = 140;
+  target.x = 220;
+  assert.equal(firingEvent.sourceX, 100, "the muzzle origin should remain fixed after firing");
+  assert.equal(firingEvent.targetX, 150, "the impact position should remain fixed after firing");
 });
 
 test("Raiders are fast harassment units that deal bonus damage to structures", () => {

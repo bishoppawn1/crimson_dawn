@@ -2398,7 +2398,7 @@ export class Simulation {
       defense.attackCooldownRemaining = definition.attackCooldown;
       defense.defenseStatus = "firing";
       this.applyDamage(target, definition.attackDamage, defense);
-      this.emit("attack", target.x, target.y, { sourceId: defense.id, targetId: target.id });
+      this.emitAttack(defense, target);
     }
   }
 
@@ -2561,7 +2561,7 @@ export class Simulation {
       ? definition.structureDamageMultiplier || 1
       : 1;
     this.applyDamage(target, definition.attackDamage * structureDamageMultiplier, unit);
-    this.emit("attack", target.x, target.y, { sourceId: unit.id, targetId: target.id });
+    this.emitAttack(unit, target);
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return true;
   }
@@ -3212,6 +3212,19 @@ export class Simulation {
 
   emit(type, x, y, detail = {}) {
     this.events.push({ type, x, y, time: this.time, ...detail });
+  }
+
+  emitAttack(source, target) {
+    this.emit("attack", target.x, target.y, {
+      sourceId: source.id,
+      targetId: target.id,
+      sourceX: source.x,
+      sourceY: source.y,
+      targetX: target.x,
+      targetY: target.y,
+      sourceRadius: entityRadius(source),
+      targetRadius: entityRadius(target),
+    });
   }
 }
 

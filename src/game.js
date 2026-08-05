@@ -1468,9 +1468,11 @@ function drawSentryBuilding(structure, definition, footprint, powered, teamColor
   context.ellipse(0, 0, base * 0.64, base * 0.47, 0, 0, Math.PI * 2);
   context.fill();
   context.stroke();
+  const firingAge = recentAttackAge(structure.id);
+  const recoil = firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * size * 0.08;
   const barrels = (definition.buildTier || 1) >= 2 ? [-4, 4] : [0];
   for (const barrelY of barrels) {
-    const barrelLength = size * 0.42;
+    const barrelLength = size * 0.42 - recoil;
     context.fillStyle = "#303b3f";
     context.fillRect(base * 0.2, barrelY - 2.5, barrelLength, 5);
     context.strokeRect(base * 0.2, barrelY - 2.5, barrelLength, 5);
@@ -1729,6 +1731,7 @@ function drawUnit(unit) {
   drawUnitGroundShadow(definition);
   const pose = getUnitRenderPose(unit);
   context.rotate(pose.facing);
+  context.translate(0, pose.recoil * definition.radius);
   drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis", pose);
   context.restore();
 
@@ -1762,10 +1765,12 @@ function getUnitRenderPose(unit) {
     : fallbackFacing;
   const moving = unit.state === "active" && Boolean(unit.moveTarget);
   const phase = [...unit.id].reduce((total, character) => total + character.charCodeAt(0), 0) * 0.31;
+  const firingAge = recentAttackAge(unit.id);
   return {
     facing,
     moving,
     stride: moving ? Math.sin(simulation.time * 9 + phase) : 0,
+    recoil: firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * 0.12,
   };
 }
 
@@ -2751,17 +2756,10 @@ function drawWreck(wreck) {
 function drawEvents() {
   for (const event of simulation.events) {
     const age = simulation.time - event.time;
-    const alpha = Math.max(0, 1 - age / 1.2);
     if (event.type === "attack") {
-      const source = simulation.getEntity(event.sourceId);
-      if (!source) continue;
-      context.strokeStyle = `rgba(255, 110, 115, ${alpha})`;
-      context.lineWidth = 3;
-      context.beginPath();
-      context.moveTo(source.x, source.y);
-      context.lineTo(event.x, event.y);
-      context.stroke();
+      drawAttackEvent(event, age);
     } else {
+      const alpha = Math.max(0, 1 - age / 1.2);
       const eventColor = event.type === "stasis" ? colors.stasis : colors.energy;
       context.globalAlpha = alpha;
       context.strokeStyle = eventColor;
@@ -2772,6 +2770,205 @@ function drawEvents() {
       context.globalAlpha = 1;
     }
   }
+}
+
+function drawAttackEvent(event, age) {
+  const source = simulation.getEntity(event.sourceId);
+  const profile = attackPresentation(source);
+  const sourceX = event.sourceX ?? source?.x;
+  const sourceY = event.sourceY ?? source?.y;
+  const targetX = event.targetX ?? event.x;
+  const targetY = event.targetY ?? event.y;
+  if (![sourceX, sourceY, targetX, targetY].every(Number.isFinite)) return;
+
+  const deltaX = targetX - sourceX;
+  const deltaY = targetY - sourceY;
+  const separation = Math.max(0.0001, Math.hypot(deltaX, deltaY));
+  const directionX = deltaX / separation;
+  const directionY = deltaY / separation;
+  const sourceRadius = event.sourceRadius || (source ? entityRenderRadius(source) : 8);
+  const muzzleDistance = Math.max(5, sourceRadius * 0.72);
+  const impactInset = Math.max(2, (event.targetRadius || 8) * 0.3);
+  const startX = sourceX + directionX * muzzleDistance;
+  const startY = sourceY + directionY * muzzleDistance;
+  const endX = targetX - directionX * impactInset;
+  const endY = targetY - directionY * impactInset;
+  const flightDistance = Math.hypot(endX - startX, endY - startY);
+  const travelTime = Math.max(profile.minimumTravelTime, flightDistance / profile.speed);
+
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.globalCompositeOperation = "lighter";
+  if (age <= profile.muzzleDuration) {
+    const muzzleAlpha = 1 - age / profile.muzzleDuration;
+    drawMuzzleFlash(startX, startY, directionX, directionY, profile, muzzleAlpha);
+  }
+
+  if (age < travelTime) {
+    const progress = Math.max(0, age / travelTime);
+    const trailProgress = Math.max(0, progress - profile.trailFraction);
+    const projectileHeight = Math.sin(progress * Math.PI) * profile.arcHeight;
+    const trailHeight = Math.sin(trailProgress * Math.PI) * profile.arcHeight;
+    const projectileX = lerp(startX, endX, progress);
+    const projectileY = lerp(startY, endY, progress) - projectileHeight * 0.28;
+    const trailX = lerp(startX, endX, trailProgress);
+    const trailY = lerp(startY, endY, trailProgress) - trailHeight * 0.28;
+
+    if (profile.arcHeight > 0) {
+      context.globalCompositeOperation = "source-over";
+      context.globalAlpha = 0.2;
+      context.fillStyle = "#050609";
+      context.beginPath();
+      context.ellipse(
+        projectileX + projectileHeight * 0.12,
+        lerp(startY, endY, progress) + projectileHeight * 0.12,
+        profile.projectileSize * 1.25,
+        profile.projectileSize * 0.65,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
+      context.globalCompositeOperation = "lighter";
+      context.globalAlpha = 1;
+    }
+
+    context.strokeStyle = profile.trailColor;
+    context.lineWidth = profile.trailWidth;
+    context.beginPath();
+    context.moveTo(trailX, trailY);
+    context.lineTo(projectileX, projectileY);
+    context.stroke();
+    context.fillStyle = profile.projectileColor;
+    context.shadowColor = profile.glowColor;
+    context.shadowBlur = profile.glow;
+    context.beginPath();
+    context.arc(projectileX, projectileY, profile.projectileSize, 0, Math.PI * 2);
+    context.fill();
+  } else {
+    drawWeaponImpact(event, endX, endY, age - travelTime, profile);
+  }
+  context.restore();
+}
+
+function drawMuzzleFlash(x, y, directionX, directionY, profile, alpha) {
+  const perpendicularX = -directionY;
+  const perpendicularY = directionX;
+  const length = profile.muzzleSize * (0.75 + alpha * 0.45);
+  const width = profile.muzzleSize * 0.36;
+  context.globalAlpha = alpha;
+  context.fillStyle = profile.muzzleColor;
+  context.shadowColor = profile.glowColor;
+  context.shadowBlur = profile.glow * 1.4;
+  context.beginPath();
+  context.moveTo(x + directionX * length, y + directionY * length);
+  context.lineTo(x - directionX * length * 0.2 + perpendicularX * width, y - directionY * length * 0.2 + perpendicularY * width);
+  context.lineTo(x - directionX * length * 0.2 - perpendicularX * width, y - directionY * length * 0.2 - perpendicularY * width);
+  context.closePath();
+  context.fill();
+  context.beginPath();
+  context.arc(x, y, width * 0.8, 0, Math.PI * 2);
+  context.fill();
+  context.globalAlpha = 1;
+}
+
+function drawWeaponImpact(event, x, y, impactAge, profile) {
+  if (impactAge > profile.impactDuration) return;
+  const progress = impactAge / profile.impactDuration;
+  const alpha = 1 - progress;
+  context.globalAlpha = alpha;
+  context.strokeStyle = profile.impactColor;
+  context.lineWidth = Math.max(1, profile.trailWidth * (1 - progress * 0.5));
+  context.beginPath();
+  context.arc(x, y, profile.impactSize * (0.3 + progress * 0.9), 0, Math.PI * 2);
+  context.stroke();
+
+  const seed = stableVisualSeed(`${event.sourceId}:${event.targetId}:${event.time}`);
+  context.strokeStyle = profile.sparkColor;
+  context.lineWidth = 1.4;
+  for (let spark = 0; spark < profile.sparkCount; spark += 1) {
+    const angle = (seed * 0.017 + spark * 2.39996) % (Math.PI * 2);
+    const inner = profile.impactSize * 0.18 * progress;
+    const outer = profile.impactSize * (0.35 + ((seed + spark * 17) % 31) / 50) * progress;
+    context.beginPath();
+    context.moveTo(x + Math.cos(angle) * inner, y + Math.sin(angle) * inner);
+    context.lineTo(x + Math.cos(angle) * outer, y + Math.sin(angle) * outer);
+    context.stroke();
+  }
+
+  if (profile.smoke) {
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = alpha * 0.2;
+    context.fillStyle = "#8c8984";
+    context.beginPath();
+    context.arc(x + progress * 4, y - progress * 7, profile.impactSize * (0.28 + progress * 0.5), 0, Math.PI * 2);
+    context.fill();
+  }
+  context.globalAlpha = 1;
+}
+
+function attackPresentation(source) {
+  const definition = source?.kind === "structure"
+    ? STRUCTURE_DEFINITIONS[source.type]
+    : source?.kind === "unit"
+      ? UNIT_DEFINITIONS[source.type]
+      : null;
+  const role = definition?.role;
+  if (role === "artillery" || role === "bomber") {
+    return {
+      speed: 420, minimumTravelTime: 0.16, trailFraction: 0.11, arcHeight: 42,
+      projectileSize: 3.8, trailWidth: 2.4, muzzleDuration: 0.1, muzzleSize: 12,
+      impactDuration: 0.42, impactSize: 24, sparkCount: 9, glow: 13, smoke: true,
+      projectileColor: "#fff3c4", trailColor: "#ffb65f", muzzleColor: "#fff1b0",
+      glowColor: "#ff8d3d", impactColor: "#ffb45b", sparkColor: "#ffe2a0",
+    };
+  }
+  if (role === "tank" || role === "bulwark") {
+    return {
+      speed: 680, minimumTravelTime: 0.09, trailFraction: 0.09, arcHeight: 5,
+      projectileSize: 3, trailWidth: 2.2, muzzleDuration: 0.085, muzzleSize: 10,
+      impactDuration: 0.3, impactSize: 16, sparkCount: 7, glow: 11, smoke: true,
+      projectileColor: "#fff5ce", trailColor: "#ffc36d", muzzleColor: "#fff0a6",
+      glowColor: "#ff963f", impactColor: "#ffb15b", sparkColor: "#ffe4a5",
+    };
+  }
+  return {
+    speed: 980, minimumTravelTime: 0.055, trailFraction: 0.13, arcHeight: 0,
+    projectileSize: 2.1, trailWidth: 1.6, muzzleDuration: 0.06, muzzleSize: 7,
+    impactDuration: 0.2, impactSize: 10, sparkCount: 5, glow: 9, smoke: false,
+    projectileColor: "#fffbe0", trailColor: "#ffcf79", muzzleColor: "#fff4b8",
+    glowColor: "#ff9e4d", impactColor: "#ffd17b", sparkColor: "#fff0b6",
+  };
+}
+
+function recentAttackAge(sourceId) {
+  for (let index = simulation.events.length - 1; index >= 0; index -= 1) {
+    const event = simulation.events[index];
+    if (event.type !== "attack" || event.sourceId !== sourceId) continue;
+    const age = simulation.time - event.time;
+    return age <= 0.18 ? age : null;
+  }
+  return null;
+}
+
+function entityRenderRadius(entity) {
+  if (entity.kind === "unit") return UNIT_DEFINITIONS[entity.type]?.radius || 8;
+  if (entity.kind === "structure") return STRUCTURE_DEFINITIONS[entity.type]?.radius || 12;
+  return 8;
+}
+
+function stableVisualSeed(value) {
+  let seed = 2166136261;
+  for (const character of value) {
+    seed ^= character.charCodeAt(0);
+    seed = Math.imul(seed, 16777619);
+  }
+  return seed >>> 0;
+}
+
+function lerp(start, end, amount) {
+  return start + (end - start) * amount;
 }
 
 function drawBar(x, y, width, ratio, fill) {

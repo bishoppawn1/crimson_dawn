@@ -289,6 +289,12 @@ research building such as a Mech Lab.
 
 Combat-capable units automatically attack hostile units, reclamation drones, and
 structures—including unfinished foundations—that enter their weapon range.
+Firing is presented as a short physical sequence with a fixed muzzle origin,
+weapon recoil, a visible moving tracer or shell, and a brief impact flash. Heavy
+cannons and artillery use slower, weightier projectiles and larger impacts than
+rapid weapons. These effects use the authoritative attack event's firing-time
+positions; they do not stretch from a shooter or target that moves after the shot,
+and they do not change deterministic hit resolution or established damage timing.
 Surviving combat units on either team retaliate when damaged: unless they are
 force-moving or already following an explicit attack order, they abandon their
 current automatic target or ordinary movement and pursue the aggressor. Retaliation
