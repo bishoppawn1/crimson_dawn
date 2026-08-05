@@ -124,4 +124,3 @@ test("host and guest connect through one short lobby code and exchange game mess
   host.session.close();
   guest.session.close();
 });
-
