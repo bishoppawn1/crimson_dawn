@@ -317,10 +317,14 @@ area. Explicit attack orders and retaliation remain higher priority. Their ordin
 anti-unit damage remains deliberately weaker than a Tier 1 Vanguard's.
 
 Ground units treat completed buildings and unfinished foundations as solid
-obstacles. Movement uses deterministic shortest-path routing around compound terrain
+obstacles. Movement uses deterministic multi-corner routing around compound terrain
 and exact structure footprints, with collision-time sliding retained as a safety
 fallback. Routes may use multiple corners to escape concave obstacle arrangements
-and are recomputed when a moving target shifts or a route becomes blocked. Units
+and are recomputed when a moving target shifts or a route becomes blocked. Group
+orders stagger those route computations across simulation ticks so large armies do
+not rebuild every visibility graph in the same frame. Route searches first use the
+obstacles near the movement corridor and deterministically fall back to the complete
+obstacle set when the local graph cannot find a valid path. Units
 cannot pass through buildings to reach a destination, and move orders placed inside
 a structure resolve to the nearest reachable edge of its visible footprint.
 
@@ -793,6 +797,8 @@ synchronization, and rendering optimizations within the web platform.
 
 The battlefield uses Canvas rendering. Menus, command panels, accessibility
 features, and other interface elements may use HTML and CSS where appropriate.
+Canvas passes cull off-screen units, structures, deposits, terrain details, and grid
+segments so match cost scales primarily with what the camera can actually show.
 
 Battlefields currently range from 5,200 by 3,200 world units for two commanders to
 8,560 by 6,280 for eight. The 1,600-by-900 Canvas is a movable viewport rather than

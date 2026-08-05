@@ -502,6 +502,25 @@ test("ground units route around impassable terrain without entering it", () => {
   assert.equal(unit.moveTarget, null);
 });
 
+test("group movement staggers expensive path replans across simulation ticks", () => {
+  const obstacle = { id: "long-ridge", x: 300, y: 200, width: 80, height: 320 };
+  const simulation = new Simulation({ width: 700, height: 500, terrain: [obstacle] });
+  const units = Array.from({ length: 12 }, (_, index) =>
+    simulation.addUnit("scout_mech", "player", 80, 70 + index * 24),
+  );
+
+  simulation.commandMove(units.map((unit) => unit.id), 620, 200);
+  assert.ok(new Set(units.map((unit) => unit.navigationReplanAt)).size > 8);
+
+  simulation.tick(1 / 30);
+  const initiallyPlanned = units.filter((unit) => unit.navigationTarget).length;
+  assert.ok(initiallyPlanned > 0);
+  assert.ok(initiallyPlanned < units.length);
+
+  advance(simulation, 1);
+  assert.ok(units.every((unit) => unit.navigationTarget));
+});
+
 test("ground units escape U-shaped terrain instead of dead-ending against the back wall", () => {
   const terrain = [
     { id: "u-back", x: 300, y: 200, width: 40, height: 240 },
@@ -3052,6 +3071,11 @@ test("an eight-player match gives every commander the standard starting package"
   assert.equal(simulation.teams.length, 8);
   assert.equal(Object.keys(simulation.resources).length, 8);
   assert.equal(Object.keys(simulation.aiStates).length, 7);
+  assert.equal(
+    new Set(Object.values(simulation.aiStates).map((state) => state.thinkRemaining)).size,
+    7,
+    "AI think cycles should be distributed instead of firing on one simulation tick",
+  );
   for (const team of simulation.teams) {
     const units = simulation.units.filter((unit) => unit.alive && unit.team === team.id);
     const structures = simulation.structures.filter(

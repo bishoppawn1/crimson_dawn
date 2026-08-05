@@ -19,6 +19,7 @@ import { createMatchTeams, getMatchMap } from "./maps.js";
 const EPSILON = 0.0001;
 const NAVIGATION_CORNER_MARGIN = 1;
 const NAVIGATION_REPLAN_INTERVAL = 0.75;
+const NAVIGATION_SEARCH_MARGIN = 400;
 const NAVIGATION_TARGET_TOLERANCE = 24;
 const STORAGE_PRIORITY = Object.freeze({ battery: 0, power_tower: 1, generator: 2 });
 
@@ -62,11 +63,12 @@ export class Simulation {
     this.resources = Object.fromEntries(
       this.teams.map((team) => [team.id, { metal: 520, energy: 0, energyCapacity: 0 }]),
     );
+    const aiTeams = this.teams.filter((team) => team.kind === "ai");
     this.aiStates = Object.fromEntries(
-      this.teams
-        .filter((team) => team.kind === "ai")
-        .map((team) => [team.id, {
-          thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay,
+      aiTeams
+        .map((team, index) => [team.id, {
+          thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay +
+            (index / Math.max(1, aiTeams.length)) * SIMULATION_RULES.enemyThinkInterval,
           decisionIndex: 0,
         }]),
     );
@@ -152,7 +154,8 @@ export class Simulation {
     if (!this.structureTechTier[teamId]) this.structureTechTier[teamId] = 1;
     if (kind === "ai" && !this.aiStates[teamId]) {
       this.aiStates[teamId] = {
-        thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay,
+        thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay +
+          deterministicPhase(teamId, SIMULATION_RULES.enemyThinkInterval),
         decisionIndex: 0,
       };
     }
@@ -255,8 +258,9 @@ export class Simulation {
     if (!definition) throw new Error(`Unknown unit type: ${type}`);
     this.ensureTeam(team);
 
+    const unitId = this.createId("unit");
     const unit = {
-      id: this.createId("unit"),
+      id: unitId,
       kind: "unit",
       type,
       team,
@@ -279,7 +283,7 @@ export class Simulation {
       navigationSide: null,
       navigationPath: [],
       navigationTarget: null,
-      navigationReplanAt: 0,
+      navigationReplanAt: this.time + navigationReplanPhase(unitId),
       energyTransferTargetIds: [],
       energyTransferredThisTick: 0,
       ...overrides,
@@ -413,13 +417,14 @@ export class Simulation {
   }
 
   commandMove(unitIds, x, y, { force = false } = {}) {
+    const orderedIds = [...unitIds];
     const requestedDestination = {
       x: clamp(x, 0, this.width),
       y: clamp(y, 0, this.height),
     };
     let accepted = 0;
 
-    for (const id of unitIds) {
+    for (const [orderIndex, id] of orderedIds.entries()) {
       const unit = this.getUnit(id);
       if (!unit || !unit.alive || unit.state !== "active") continue;
       const definition = UNIT_DEFINITIONS[unit.type];
@@ -442,6 +447,7 @@ export class Simulation {
       unit.holdPosition = false;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
+      this.resetUnitNavigation(unit, orderIndex, orderedIds.length);
       accepted += 1;
     }
     return accepted;
@@ -490,7 +496,8 @@ export class Simulation {
     if (!target || !target.alive || target.kind === "wreck") return 0;
 
     let accepted = 0;
-    for (const id of unitIds) {
+    const orderedIds = [...unitIds];
+    for (const [orderIndex, id] of orderedIds.entries()) {
       const unit = this.getUnit(id);
       const definition = unit && UNIT_DEFINITIONS[unit.type];
       if (
@@ -511,6 +518,7 @@ export class Simulation {
       unit.holdPosition = false;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
+      this.resetUnitNavigation(unit, orderIndex, orderedIds.length);
       accepted += 1;
     }
     return accepted;
@@ -530,6 +538,8 @@ export class Simulation {
       unit.holdPosition = holdPosition;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
+      unit.navigationPath = [];
+      unit.navigationTarget = null;
       accepted += 1;
     }
     return accepted;
@@ -544,6 +554,16 @@ export class Simulation {
     worker.holdPosition = false;
     worker.navigationObstacleId = null;
     worker.navigationSide = null;
+    this.resetUnitNavigation(worker);
+  }
+
+  resetUnitNavigation(unit, orderIndex = null, orderCount = 1) {
+    unit.navigationPath = [];
+    unit.navigationTarget = null;
+    const phase = orderIndex === null
+      ? navigationReplanPhase(unit.id)
+      : (orderIndex / Math.max(1, orderCount)) * NAVIGATION_REPLAN_INTERVAL;
+    unit.navigationReplanAt = this.time + phase;
   }
 
   advanceBuildQueue(worker) {
@@ -2818,12 +2838,14 @@ export class Simulation {
       break;
     }
 
+    const replanDue = this.time + EPSILON >= unit.navigationReplanAt;
     if (
       targetChanged ||
       pathBlocked ||
       !unit.navigationPath?.length ||
-      this.time + EPSILON >= unit.navigationReplanAt
+      replanDue
     ) {
+      if (!replanDue) return targetChanged || pathBlocked ? target : unit.navigationPath[0] || target;
       const path = findNavigationPath(
         unit,
         target,
@@ -3519,6 +3541,18 @@ function terrainBounds(obstacle, padding = 0) {
   };
 }
 
+function navigationReplanPhase(entityId) {
+  return deterministicPhase(entityId, NAVIGATION_REPLAN_INTERVAL);
+}
+
+function deterministicPhase(entityId, interval) {
+  let hash = 0;
+  for (let index = 0; index < entityId.length; index += 1) {
+    hash = (hash * 31 + entityId.charCodeAt(index)) >>> 0;
+  }
+  return (hash % 997) / 997 * interval;
+}
+
 function footprintOverlapsTerrain(x, y, footprint, obstacle) {
   return (
     Math.abs(x - obstacle.x) + EPSILON < footprint.halfWidth + obstacle.width / 2 &&
@@ -3551,8 +3585,47 @@ function navigationSegmentIsClear(start, end, obstacles) {
 }
 
 function findNavigationPath(start, goal, obstacles, radius, worldWidth, worldHeight) {
+  const searchBounds = {
+    minX: Math.min(start.x, goal.x) - NAVIGATION_SEARCH_MARGIN,
+    maxX: Math.max(start.x, goal.x) + NAVIGATION_SEARCH_MARGIN,
+    minY: Math.min(start.y, goal.y) - NAVIGATION_SEARCH_MARGIN,
+    maxY: Math.max(start.y, goal.y) + NAVIGATION_SEARCH_MARGIN,
+  };
+  const nearbyObstacles = obstacles.filter(({ bounds }) =>
+    boundsOverlap(bounds, searchBounds) && boundsNearSegment(bounds, start, goal),
+  );
+  const nearbyPath = findVisibilityPath(
+    start,
+    goal,
+    nearbyObstacles,
+    obstacles,
+    radius,
+    worldWidth,
+    worldHeight,
+  );
+  if (nearbyPath || nearbyObstacles.length === obstacles.length) return nearbyPath;
+  return findVisibilityPath(
+    start,
+    goal,
+    obstacles,
+    obstacles,
+    radius,
+    worldWidth,
+    worldHeight,
+  );
+}
+
+function findVisibilityPath(
+  start,
+  goal,
+  nodeObstacles,
+  collisionObstacles,
+  radius,
+  worldWidth,
+  worldHeight,
+) {
   const nodes = [{ x: start.x, y: start.y }, { x: goal.x, y: goal.y }];
-  for (const { bounds } of obstacles) {
+  for (const { bounds } of nodeObstacles) {
     const corners = [
       { x: bounds.minX - NAVIGATION_CORNER_MARGIN, y: bounds.minY - NAVIGATION_CORNER_MARGIN },
       { x: bounds.maxX + NAVIGATION_CORNER_MARGIN, y: bounds.minY - NAVIGATION_CORNER_MARGIN },
@@ -3565,7 +3638,7 @@ function findNavigationPath(start, goal, obstacles, radius, worldWidth, worldHei
         corner.x > worldWidth - radius ||
         corner.y < radius ||
         corner.y > worldHeight - radius ||
-        obstacles.some(({ bounds: otherBounds }) => pointInsideBounds(corner, otherBounds))
+        collisionObstacles.some(({ bounds: otherBounds }) => pointInsideBounds(corner, otherBounds))
       ) {
         continue;
       }
@@ -3602,7 +3675,7 @@ function findNavigationPath(start, goal, obstacles, radius, worldWidth, worldHei
       const edgeKey = current < neighbor ? `${current}:${neighbor}` : `${neighbor}:${current}`;
       let visible = edgeVisibility.get(edgeKey);
       if (visible === undefined) {
-        visible = navigationSegmentIsClear(nodes[current], nodes[neighbor], obstacles);
+        visible = navigationSegmentIsClear(nodes[current], nodes[neighbor], collisionObstacles);
         edgeVisibility.set(edgeKey, visible);
       }
       if (!visible) continue;
@@ -3619,6 +3692,41 @@ function findNavigationPath(start, goal, obstacles, radius, worldWidth, worldHei
   for (let index = 1; index !== -1; index = previous[index]) path.push(nodes[index]);
   path.reverse();
   return path;
+}
+
+function boundsOverlap(first, second) {
+  return (
+    first.maxX >= second.minX &&
+    first.minX <= second.maxX &&
+    first.maxY >= second.minY &&
+    first.minY <= second.maxY
+  );
+}
+
+function boundsNearSegment(bounds, start, goal) {
+  const center = {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2,
+  };
+  const segmentX = goal.x - start.x;
+  const segmentY = goal.y - start.y;
+  const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+  const projection = segmentLengthSquared > EPSILON
+    ? clamp(
+      ((center.x - start.x) * segmentX + (center.y - start.y) * segmentY) /
+        segmentLengthSquared,
+      0,
+      1,
+    )
+    : 0;
+  const closestX = start.x + segmentX * projection;
+  const closestY = start.y + segmentY * projection;
+  const obstacleRadius = Math.hypot(
+    bounds.maxX - bounds.minX,
+    bounds.maxY - bounds.minY,
+  ) / 2;
+  return Math.hypot(center.x - closestX, center.y - closestY)
+    <= NAVIGATION_SEARCH_MARGIN + obstacleRadius;
 }
 
 function sweepBounds(origin, movementX, movementY, bounds) {

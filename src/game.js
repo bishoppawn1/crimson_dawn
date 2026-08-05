@@ -115,6 +115,8 @@ const camera = {
   y: simulation.height / 2,
   zoom: 1,
 };
+let renderViewBounds = null;
+let renderTeamPalettes = new Map();
 const cameraKeys = new Set();
 const cameraPanSpeed = 700;
 const minCameraZoom = 0.5;
@@ -148,6 +150,8 @@ const teamPalettes = Object.freeze([
 ]);
 
 function teamPalette(teamId) {
+  const cached = renderTeamPalettes.get(teamId);
+  if (cached) return cached;
   if (teamId === localTeam) return teamPalettes[0];
   const opponentIndex = simulation.teams
     .filter((team) => team.id !== localTeam)
@@ -813,6 +817,14 @@ function frame(now) {
 }
 
 function render() {
+  renderViewBounds = visibleWorldBounds();
+  renderTeamPalettes = new Map([[localTeam, teamPalettes[0]]]);
+  let opponentPaletteIndex = 1;
+  for (const team of simulation.teams) {
+    if (team.id === localTeam) continue;
+    renderTeamPalettes.set(team.id, teamPalettes[opponentPaletteIndex % teamPalettes.length]);
+    opponentPaletteIndex += 1;
+  }
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
   context.translate(canvas.width / 2, canvas.height / 2);
@@ -823,21 +835,58 @@ function render() {
   drawPowerNetwork();
   drawCommandIndicators();
 
-  for (const wreck of simulation.wrecks) drawWreck(wreck);
+  for (const wreck of simulation.wrecks) {
+    if (worldPointIsVisible(wreck.x, wreck.y, 80)) drawWreck(wreck);
+  }
   for (const structure of simulation.structures) {
-    if (structure.alive) drawStructure(structure);
+    if (!structure.alive) continue;
+    const footprint = structureFootprint(structure.type);
+    if (worldPointIsVisible(structure.x, structure.y, Math.max(footprint.width, footprint.height))) {
+      drawStructure(structure);
+    }
   }
   for (const drone of simulation.getDrones()) {
-    if (drone.alive) drawDrone(drone);
+    if (drone.alive && worldPointIsVisible(drone.x, drone.y, 70)) drawDrone(drone);
   }
   for (const unit of simulation.units) {
-    if (unit.alive) drawUnit(unit);
+    if (unit.alive && worldPointIsVisible(unit.x, unit.y, 100)) drawUnit(unit);
   }
   drawPlacementPreview();
   drawEvents();
   drawSelectionBox();
   context.restore();
   drawCameraHud();
+}
+
+function visibleWorldBounds(margin = 0) {
+  const halfWidth = canvas.width / (2 * camera.zoom) + margin;
+  const halfHeight = canvas.height / (2 * camera.zoom) + margin;
+  return {
+    left: Math.max(0, camera.x - halfWidth),
+    right: Math.min(simulation.width, camera.x + halfWidth),
+    top: Math.max(0, camera.y - halfHeight),
+    bottom: Math.min(simulation.height, camera.y + halfHeight),
+  };
+}
+
+function worldPointIsVisible(x, y, margin = 0) {
+  const bounds = renderViewBounds || visibleWorldBounds();
+  return (
+    x >= bounds.left - margin &&
+    x <= bounds.right + margin &&
+    y >= bounds.top - margin &&
+    y <= bounds.bottom + margin
+  );
+}
+
+function worldRectIsVisible(left, top, right, bottom, margin = 0) {
+  const bounds = renderViewBounds || visibleWorldBounds();
+  return (
+    right >= bounds.left - margin &&
+    left <= bounds.right + margin &&
+    bottom >= bounds.top - margin &&
+    top <= bounds.bottom + margin
+  );
 }
 
 function resetCamera() {
@@ -911,8 +960,11 @@ function drawTerrain() {
   // Small deterministic mottles keep the field organic without shimmering as
   // the camera moves or introducing simulation-side randomness.
   context.fillStyle = "#8a76512b";
-  for (let y = 80; y < simulation.height; y += 160) {
-    for (let x = 80; x < simulation.width; x += 160) {
+  const visibleBounds = visibleWorldBounds(80);
+  const firstMottleX = Math.max(80, Math.floor(visibleBounds.left / 160) * 160 + 80);
+  const firstMottleY = Math.max(80, Math.floor(visibleBounds.top / 160) * 160 + 80);
+  for (let y = firstMottleY; y <= visibleBounds.bottom; y += 160) {
+    for (let x = firstMottleX; x <= visibleBounds.right; x += 160) {
       if ((x / 160 + y / 160) % 3 === 0) continue;
       const offsetX = ((x * 7 + y * 3) % 41) - 20;
       const offsetY = ((x * 5 + y * 11) % 37) - 18;
@@ -924,7 +976,9 @@ function drawTerrain() {
 
   const gridSize = SIMULATION_RULES.buildingGridSize;
   context.lineWidth = placementStructureType ? 1.5 : 1;
-  for (let x = 0; x <= simulation.width; x += gridSize) {
+  const firstGridX = Math.floor(visibleBounds.left / gridSize) * gridSize;
+  const firstGridY = Math.floor(visibleBounds.top / gridSize) * gridSize;
+  for (let x = firstGridX; x <= visibleBounds.right; x += gridSize) {
     context.strokeStyle = placementStructureType
       ? x % (gridSize * 5) === 0
         ? "#b6c69a"
@@ -933,11 +987,11 @@ function drawTerrain() {
         ? colors.gridStrong
         : colors.gridFine;
     context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, simulation.height);
+    context.moveTo(x, visibleBounds.top);
+    context.lineTo(x, visibleBounds.bottom);
     context.stroke();
   }
-  for (let y = 0; y <= simulation.height; y += gridSize) {
+  for (let y = firstGridY; y <= visibleBounds.bottom; y += gridSize) {
     context.strokeStyle = placementStructureType
       ? y % (gridSize * 5) === 0
         ? "#b6c69a"
@@ -946,8 +1000,8 @@ function drawTerrain() {
         ? colors.gridStrong
         : colors.gridFine;
     context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(simulation.width, y);
+    context.moveTo(visibleBounds.left, y);
+    context.lineTo(visibleBounds.right, y);
     context.stroke();
   }
 
@@ -956,7 +1010,7 @@ function drawTerrain() {
   context.font = "700 12px ui-monospace, monospace";
   for (const team of simulation.teams) {
     const start = simulation.teamStarts[team.id];
-    if (!start) continue;
+    if (!start || !worldPointIsVisible(start.x, start.y - 300, 100)) continue;
     context.fillStyle = teamPalette(team.id).bright;
     context.textAlign = "center";
     context.fillText(team.id === localTeam ? "YOUR COMMAND" : team.name.toUpperCase(), start.x, start.y - 300);
@@ -968,6 +1022,7 @@ function drawImpassableTerrain() {
   for (const obstacle of simulation.terrain) {
     const left = obstacle.x - obstacle.width / 2;
     const top = obstacle.y - obstacle.height / 2;
+    if (!worldRectIsVisible(left, top, left + obstacle.width, top + obstacle.height, 40)) continue;
     const isStartingWall = obstacle.terrainType === "starting_wall";
     context.save();
     context.fillStyle = isStartingWall ? "#465451" : "#4b4234";
@@ -1089,6 +1144,7 @@ function drawMetalDeposits() {
       .map((structure) => structure.depositId),
   );
   for (const deposit of simulation.metalDeposits) {
+    if (!worldPointIsVisible(deposit.x, deposit.y, 100)) continue;
     const available = !occupiedIds.has(deposit.id);
     const remote = Boolean(deposit.remote);
     const emphasized = Boolean(
@@ -1156,13 +1212,22 @@ function drawPowerNetwork() {
       if (node.team !== localTeam || !node.connected) continue;
       const definition = STRUCTURE_DEFINITIONS[node.type];
       const reach = definition.powerRadius || definition.relayRadius;
-      if (reach) drawPowerCoverage(node.type, node.x, node.y, colors.energy);
+      if (reach && worldPointIsVisible(node.x, node.y, reach)) {
+        drawPowerCoverage(node.type, node.x, node.y, colors.energy);
+      }
     }
   }
   for (const link of simulation.powerLinks || []) {
     const from = simulation.getStructure(link.fromId);
     const to = simulation.getStructure(link.toId);
     if (!from?.alive || !to?.alive) continue;
+    if (!worldRectIsVisible(
+      Math.min(from.x, to.x),
+      Math.min(from.y, to.y),
+      Math.max(from.x, to.x),
+      Math.max(from.y, to.y),
+      20,
+    )) continue;
     context.save();
     context.strokeStyle = from.connected && to.connected ? `${colors.energy}4d` : `${colors.disconnected}55`;
     context.lineWidth = 2;
