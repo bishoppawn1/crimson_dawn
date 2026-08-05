@@ -315,9 +315,9 @@ button {
 }
 
 .shell {
-  width: min(1800px, 100%);
+  width: 100%;
   margin: 0 auto;
-  padding: 24px;
+  padding: clamp(12px, 1vw, 18px);
 }
 
 .topbar {
@@ -400,8 +400,8 @@ h2 {
 
 .play-area {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) clamp(260px, 18vw, 300px);
+  gap: 10px;
 }
 
 .canvas-frame {
@@ -823,7 +823,7 @@ button:not(:disabled):hover {
   background: #2c1b21;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1120px) {
   .play-area {
     grid-template-columns: 1fr;
   }

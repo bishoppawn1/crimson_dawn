@@ -53,8 +53,8 @@ test("the tactical minimap fits the whole battlefield and maps its viewport", ()
   assert.equal(origin.y, layout.mapTop);
   assert.ok(farCorner.x <= 1600 - 18);
   assert.ok(farCorner.y <= 900 - 18);
-  assert.ok(layout.mapWidth <= 360);
-  assert.ok(layout.mapHeight <= 240);
+  assert.ok(layout.mapWidth <= 240);
+  assert.ok(layout.mapHeight <= 160);
 
   const worldPoint = minimapWorldPoint(layout, minimapPoint(layout, 4280, 3140));
   assert.ok(Math.abs(worldPoint.x - 4280) < 0.001);

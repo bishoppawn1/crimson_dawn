@@ -1,8 +1,8 @@
 const OUTER_MARGIN = 18;
 const INNER_PADDING = 10;
 const HEADER_HEIGHT = 26;
-const MAX_MAP_WIDTH = 360;
-const MAX_MAP_HEIGHT = 240;
+const MAX_MAP_WIDTH = 240;
+const MAX_MAP_HEIGHT = 160;
 
 export function calculateMinimapLayout(canvasWidth, canvasHeight, worldWidth, worldHeight) {
   if (
