@@ -367,11 +367,13 @@ a structure resolve to the nearest reachable edge of its visible footprint.
 
 Aircraft use a separate air movement layer. They fly directly over impassable
 terrain, completed structures, and foundations, but remain constrained by the map
-boundary, their movement-energy cost, and physical separation from other living
-units. Aircraft emphasize speed over survivability: the standard air roster moves
+boundary, their movement-energy cost, and physical separation from other aircraft.
+Air and ground units do not push one another apart, allowing aircraft to pass over
+ground formations without displacing them. Aircraft emphasize speed over
+survivability: the standard air roster moves
 at 105–200 world units per second and has lower provisional integrity than its
-previous profiles. The experimental Zenith Doughnut likewise trades part of its
-integrity for a higher 52-unit movement speed.
+previous profiles. The experimental Zenith Doughnut is a much larger 72-radius
+aircraft with a provisional movement speed of 120 world units per second.
 
 Ordinary weapons deal a provisional 0.55× damage multiplier against aircraft.
 Dedicated anti-air weapons instead deal 2× damage and automatically prefer an
@@ -381,9 +383,10 @@ still fire at ground targets for their listed base damage, but an incidental gro
 target never pulls their automatic targeting away from an aircraft in range.
 
 Mobile units use compact battlefield footprints so armies remain visually smaller
-than bases and defensive structures. All living units, friendly or hostile,
-maintain physical separation. Dense formations spread around one another instead
-of occupying an unlimited stack at one position.
+than bases and defensive structures. Living units on the same movement layer,
+friendly or hostile, maintain physical separation. Dense ground formations and
+dense air formations spread around one another instead of occupying an unlimited
+stack at one position; units on different layers may overlap.
 
 The Canvas battlefield uses role-readable, top-down mechanical sprites rather than
 generic diamonds or side-view silhouettes. A mech's cockpit roof, shoulder deck,
@@ -514,15 +517,17 @@ salvo. Shell damage resolves when the visible projectiles reach their target, no
 when the firing order begins. Its six legs use a deliberate pull-step gait: each
 pair reaches toward the travel direction, plants its feet against the ground, and
 pulls the hull forward before releasing and reaching again. The Zenith Doughnut
-ignores terrain and structures. Its laser has no horizontal firing range, remains
-centered beneath the aircraft, and automatically damages every hostile ground unit
-or structure inside its small footprint without stopping movement. Players attack
+ignores terrain, structures, and ground-unit separation. Its laser has no horizontal
+firing range, remains centered beneath the aircraft, and automatically damages
+every hostile ground unit or structure inside its 48-unit-radius footprint without
+stopping movement. Players attack
 by routing the aircraft over enemy assets; attack commands on ground targets are
 interpreted as movement to the target position. The laser cannot damage aircraft
 and consumes energy continuously while it is damaging at least one target. All
 three use ordinary paid production, supply, movement-energy, weapon-energy, damage,
-destruction, and salvage rules. The Zenith's current provisional movement speed is
-58 world units per second. All experimental balance values remain provisional.
+destruction, and salvage rules. The Zenith's current provisional size is 72 radius
+and its movement speed is 120 world units per second. All experimental balance
+values remain provisional.
 
 ### 5.3 Worker Drones and Construction
 

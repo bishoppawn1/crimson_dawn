@@ -199,7 +199,7 @@ test("experimental factory exposes three distinct strategic units", () => {
   assert.equal(doughnut.groundAttackOnly, true);
   assert.equal(doughnut.attackRange, 0);
   assert.ok(doughnut.underbellyBeamRadius > 0);
-  assert.equal(doughnut.speed, 58);
+  assert.equal(doughnut.speed, 120);
   assert.equal(doughnut.roleDescription, "Mmm, tasty!");
 
   for (const unitType of roster) {
@@ -330,6 +330,28 @@ test("Zenith Doughnut burns ground targets directly beneath it while moving", ()
   assert.equal(secondDoughnut.underbellyBeamActive, true);
   assert.ok(enemyUnit.hp < unitStartingHp);
   assert.equal(aircraftUnderBeam.hp, aircraftUnderBeamStartingHp);
+});
+
+test("airborne Zenith Doughnuts do not push ground units out of their beam", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  const doughnut = simulation.addUnit("zenith_doughnut", "player", 300, 300, {
+    holdPosition: true,
+  });
+  const groundUnit = simulation.addUnit("worker_drone_t1", "enemy", 300, 300, {
+    holdPosition: true,
+  });
+  const startingGroundPosition = { x: groundUnit.x, y: groundUnit.y };
+  const startingHp = groundUnit.hp;
+
+  simulation.tick(1 / 30);
+
+  assert.deepEqual(
+    { x: groundUnit.x, y: groundUnit.y },
+    startingGroundPosition,
+    "a ground unit should remain beneath an aircraft on the separate air layer",
+  );
+  assert.equal(doughnut.underbellyBeamActive, true);
+  assert.ok(groundUnit.hp < startingHp);
 });
 
 test("higher-tier building variants retain their family behavior", () => {
@@ -938,6 +960,15 @@ test("conventional mobile units stay compact while experimentals are exceptional
   assert.ok(Math.min(...radii) >= 6);
   assert.ok(UNIT_DEFINITIONS.arsenal_colossus.radius > Math.max(...radii));
   assert.ok(UNIT_DEFINITIONS.hexapod_landship.radius > UNIT_DEFINITIONS.arsenal_colossus.radius);
+  assert.ok(UNIT_DEFINITIONS.zenith_doughnut.radius > UNIT_DEFINITIONS.hexapod_landship.radius);
+});
+
+test("Zenith Doughnuts are enormous and fast strategic aircraft", () => {
+  const doughnut = UNIT_DEFINITIONS.zenith_doughnut;
+
+  assert.ok(doughnut.radius >= 70);
+  assert.ok(doughnut.speed >= 120);
+  assert.ok(doughnut.underbellyBeamRadius >= 48);
 });
 
 test("overlapping friendly and enemy units physically separate", () => {

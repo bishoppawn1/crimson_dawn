@@ -34,6 +34,12 @@ const MAX_COMBAT_TARGET_RADIUS = Math.max(
   ...Object.values(UNIT_DEFINITIONS).map((definition) => definition.radius || 0),
   ...Object.values(STRUCTURE_DEFINITIONS).map((definition) => definition.radius || 0),
 );
+const UNIT_SEPARATION_CELL_SIZE = Math.max(
+  40,
+  ...Object.values(UNIT_DEFINITIONS).map(
+    (definition) => definition.radius * 2 + SIMULATION_RULES.unitCollisionPadding,
+  ),
+);
 const STORAGE_PRIORITY = Object.freeze({ battery: 0, power_tower: 1, generator: 2 });
 
 export class Simulation {
@@ -3477,7 +3483,7 @@ export class Simulation {
     this.lastUnitSeparationPasses = 0;
     if (aliveUnits.length < 2) return;
 
-    const cellSize = 40;
+    const cellSize = UNIT_SEPARATION_CELL_SIZE;
     for (let pass = 0; pass < UNIT_SEPARATION_MAX_PASSES; pass += 1) {
       this.lastUnitSeparationPasses += 1;
       const cells = new Map();
@@ -3509,9 +3515,12 @@ export class Simulation {
   }
 
   separateUnitPair(first, second) {
+    const firstDefinition = UNIT_DEFINITIONS[first.type];
+    const secondDefinition = UNIT_DEFINITIONS[second.type];
+    if (firstDefinition.movementLayer !== secondDefinition.movementLayer) return false;
     const minimumDistance =
-      UNIT_DEFINITIONS[first.type].radius +
-      UNIT_DEFINITIONS[second.type].radius +
+      firstDefinition.radius +
+      secondDefinition.radius +
       SIMULATION_RULES.unitCollisionPadding;
     const deltaX = second.x - first.x;
     const deltaY = second.y - first.y;
@@ -3534,8 +3543,8 @@ export class Simulation {
     const secondIsMoving = Boolean(second.moveTarget);
     const firstShare = firstIsMoving === secondIsMoving ? 0.5 : firstIsMoving ? 0.2 : 0.8;
     const secondShare = 1 - firstShare;
-    const firstRadius = UNIT_DEFINITIONS[first.type].radius;
-    const secondRadius = UNIT_DEFINITIONS[second.type].radius;
+    const firstRadius = firstDefinition.radius;
+    const secondRadius = secondDefinition.radius;
     first.x = clamp(first.x - normalX * overlap * firstShare, firstRadius, this.width - firstRadius);
     first.y = clamp(first.y - normalY * overlap * firstShare, firstRadius, this.height - firstRadius);
     second.x = clamp(second.x + normalX * overlap * secondShare, secondRadius, this.width - secondRadius);
