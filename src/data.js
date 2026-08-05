@@ -90,6 +90,113 @@ export const TERRAIN_OBSTACLES = Object.freeze([
   }),
 ]);
 
+function provisionalFactoryUnit({ name, role, roleDescription, unitDomain, tier, ...stats }) {
+  return {
+    name,
+    role,
+    roleDescription,
+    unitDomain,
+    movementLayer: unitDomain === "air" ? "air" : "ground",
+    tier,
+    ...stats,
+    metalValue: stats.metalCost,
+    provisionalBalance: true,
+  };
+}
+
+const FACTORY_UNIT_DEFINITIONS = Object.freeze({
+  scout_vehicle: provisionalFactoryUnit({
+    name: "Tier 1 Scout Vehicle", role: "vehicle_scout", roleDescription: "Fast ground reconnaissance",
+    unitDomain: "vehicle", tier: 1, radius: 9, maxHp: 135, maxEnergy: 660, speed: 108,
+    movementEnergyPerUnit: 0.05, attackRange: 120, attackDamage: 11, attackEnergy: 5,
+    attackCooldown: 0.65, metalCost: 80, productionTime: 6, supplyCost: 3,
+  }),
+  scout_vehicle_t2: provisionalFactoryUnit({
+    name: "Tier 2 Scout Vehicle", role: "vehicle_scout", roleDescription: "Fast ground reconnaissance",
+    unitDomain: "vehicle", tier: 2, radius: 10, maxHp: 190, maxEnergy: 900, speed: 116,
+    movementEnergyPerUnit: 0.045, attackRange: 135, attackDamage: 16, attackEnergy: 6,
+    attackCooldown: 0.58, metalCost: 125, productionTime: 7.5, supplyCost: 5,
+  }),
+  scout_vehicle_t3: provisionalFactoryUnit({
+    name: "Tier 3 Scout Vehicle", role: "vehicle_scout", roleDescription: "Fast ground reconnaissance",
+    unitDomain: "vehicle", tier: 3, radius: 11, maxHp: 260, maxEnergy: 1200, speed: 125,
+    movementEnergyPerUnit: 0.04, attackRange: 150, attackDamage: 22, attackEnergy: 7,
+    attackCooldown: 0.5, metalCost: 180, productionTime: 9, supplyCost: 7,
+  }),
+  battle_tank: provisionalFactoryUnit({
+    name: "Tier 1 Battle Tank", role: "tank", roleDescription: "Armored direct-fire combat",
+    unitDomain: "vehicle", tier: 1, radius: 12, maxHp: 310, maxEnergy: 840, speed: 58,
+    movementEnergyPerUnit: 0.07, attackRange: 145, attackDamage: 30, attackEnergy: 12,
+    attackCooldown: 1.4, metalCost: 180, productionTime: 12, supplyCost: 9,
+  }),
+  battle_tank_t2: provisionalFactoryUnit({
+    name: "Tier 2 Battle Tank", role: "tank", roleDescription: "Armored direct-fire combat",
+    unitDomain: "vehicle", tier: 2, radius: 13, maxHp: 440, maxEnergy: 1140, speed: 62,
+    movementEnergyPerUnit: 0.064, attackRange: 160, attackDamage: 43, attackEnergy: 14,
+    attackCooldown: 1.28, metalCost: 275, productionTime: 14.5, supplyCost: 13,
+  }),
+  battle_tank_t3: provisionalFactoryUnit({
+    name: "Tier 3 Battle Tank", role: "tank", roleDescription: "Armored direct-fire combat",
+    unitDomain: "vehicle", tier: 3, radius: 13, maxHp: 610, maxEnergy: 1500, speed: 66,
+    movementEnergyPerUnit: 0.058, attackRange: 175, attackDamage: 59, attackEnergy: 17,
+    attackCooldown: 1.15, metalCost: 410, productionTime: 18, supplyCost: 18,
+  }),
+  mobile_artillery: provisionalFactoryUnit({
+    name: "Tier 1 Mobile Artillery", role: "artillery", roleDescription: "Long-range fire support",
+    unitDomain: "vehicle", tier: 1, radius: 11, maxHp: 135, maxEnergy: 780, speed: 54,
+    movementEnergyPerUnit: 0.06, attackRange: 260, attackDamage: 40, attackEnergy: 16,
+    attackCooldown: 2.2, metalCost: 170, productionTime: 13, supplyCost: 7,
+  }),
+  mobile_artillery_t2: provisionalFactoryUnit({
+    name: "Tier 2 Mobile Artillery", role: "artillery", roleDescription: "Long-range fire support",
+    unitDomain: "vehicle", tier: 2, radius: 12, maxHp: 195, maxEnergy: 1080, speed: 58,
+    movementEnergyPerUnit: 0.055, attackRange: 295, attackDamage: 57, attackEnergy: 19,
+    attackCooldown: 2, metalCost: 260, productionTime: 15.5, supplyCost: 11,
+  }),
+  mobile_artillery_t3: provisionalFactoryUnit({
+    name: "Tier 3 Mobile Artillery", role: "artillery", roleDescription: "Long-range fire support",
+    unitDomain: "vehicle", tier: 3, radius: 13, maxHp: 275, maxEnergy: 1440, speed: 62,
+    movementEnergyPerUnit: 0.05, attackRange: 335, attackDamage: 78, attackEnergy: 23,
+    attackCooldown: 1.8, metalCost: 390, productionTime: 19, supplyCost: 15,
+  }),
+  interceptor_t2: provisionalFactoryUnit({
+    name: "Tier 2 Interceptor", role: "interceptor", roleDescription: "Fast aerial combat",
+    unitDomain: "air", tier: 2, radius: 9, maxHp: 145, maxEnergy: 900, speed: 150,
+    movementEnergyPerUnit: 0.08, attackRange: 155, attackDamage: 18, attackEnergy: 8,
+    attackCooldown: 0.55, metalCost: 150, productionTime: 8, supplyCost: 5,
+  }),
+  interceptor_t3: provisionalFactoryUnit({
+    name: "Tier 3 Interceptor", role: "interceptor", roleDescription: "Fast aerial combat",
+    unitDomain: "air", tier: 3, radius: 10, maxHp: 205, maxEnergy: 1260, speed: 165,
+    movementEnergyPerUnit: 0.072, attackRange: 175, attackDamage: 26, attackEnergy: 10,
+    attackCooldown: 0.46, metalCost: 225, productionTime: 10, supplyCost: 7,
+  }),
+  gunship_t2: provisionalFactoryUnit({
+    name: "Tier 2 Gunship", role: "gunship", roleDescription: "Durable aerial assault",
+    unitDomain: "air", tier: 2, radius: 12, maxHp: 270, maxEnergy: 1140, speed: 98,
+    movementEnergyPerUnit: 0.095, attackRange: 175, attackDamage: 25, attackEnergy: 11,
+    attackCooldown: 0.82, metalCost: 240, productionTime: 13, supplyCost: 9,
+  }),
+  gunship_t3: provisionalFactoryUnit({
+    name: "Tier 3 Gunship", role: "gunship", roleDescription: "Durable aerial assault",
+    unitDomain: "air", tier: 3, radius: 13, maxHp: 390, maxEnergy: 1560, speed: 108,
+    movementEnergyPerUnit: 0.086, attackRange: 200, attackDamage: 36, attackEnergy: 14,
+    attackCooldown: 0.7, metalCost: 360, productionTime: 16, supplyCost: 13,
+  }),
+  bomber_t2: provisionalFactoryUnit({
+    name: "Tier 2 Bomber", role: "bomber", roleDescription: "Heavy aerial strike",
+    unitDomain: "air", tier: 2, radius: 13, maxHp: 235, maxEnergy: 1320, speed: 82,
+    movementEnergyPerUnit: 0.11, attackRange: 190, attackDamage: 56, attackEnergy: 22,
+    attackCooldown: 2.3, metalCost: 285, productionTime: 15, supplyCost: 11,
+  }),
+  bomber_t3: provisionalFactoryUnit({
+    name: "Tier 3 Bomber", role: "bomber", roleDescription: "Heavy aerial strike",
+    unitDomain: "air", tier: 3, radius: 13, maxHp: 340, maxEnergy: 1800, speed: 90,
+    movementEnergyPerUnit: 0.1, attackRange: 215, attackDamage: 82, attackEnergy: 28,
+    attackCooldown: 2.05, metalCost: 430, productionTime: 19, supplyCost: 16,
+  }),
+});
+
 export const UNIT_DEFINITIONS = Object.freeze({
   worker_drone_t1: {
     name: "Tier 1 Worker Drone",
@@ -358,6 +465,7 @@ export const UNIT_DEFINITIONS = Object.freeze({
     protectedReserve: 120,
     provisionalBalance: true,
   },
+  ...FACTORY_UNIT_DEFINITIONS,
   raider: {
     name: "Hostile Raider",
     role: "raider",
@@ -480,6 +588,7 @@ const structureDefinitions = {
     maxHp: 650,
     powerDemand: 3,
     productionPowerDemand: 6,
+    productionRate: 1,
     tier: 1,
     production: ["worker_drone_t1", "scout_mech", "assault_mech", "energy_carrier"],
     metalCost: 180,
@@ -496,6 +605,7 @@ const structureDefinitions = {
     maxHp: 820,
     powerDemand: 5,
     productionPowerDemand: 10,
+    productionRate: 1.25,
     tier: 2,
     production: ["worker_drone_t2", "scout_mech_t2", "assault_mech_t2", "energy_carrier_t2"],
     metalCost: 340,
@@ -512,6 +622,7 @@ const structureDefinitions = {
     maxHp: 1050,
     powerDemand: 8,
     productionPowerDemand: 16,
+    productionRate: 1.5,
     tier: 3,
     production: ["worker_drone_t3", "scout_mech_t3", "assault_mech_t3", "energy_carrier_t3"],
     metalCost: 600,
@@ -574,14 +685,10 @@ Object.assign(structureDefinitions, {
   vehicle_factory_t1: {
     name: "Tier 1 Vehicle Factory", family: "factory", factoryBranch: "vehicle",
     buildTier: 1, minimumWorkerTier: 1, tier: 1, radius: 34, footprint: [2, 2],
-    maxHp: 700, powerDemand: 4, productionPowerDemand: 7, production: [],
+    maxHp: 700, powerDemand: 4, productionPowerDemand: 7,
+    production: ["scout_vehicle", "battle_tank", "mobile_artillery"],
+    productionRate: 1,
     metalCost: 200, buildTime: 13, provisionalBalance: true,
-  },
-  air_factory_t1: {
-    name: "Tier 1 Air Factory", family: "factory", factoryBranch: "air",
-    buildTier: 1, minimumWorkerTier: 1, tier: 1, radius: 34, footprint: [2, 2],
-    maxHp: 620, powerDemand: 5, productionPowerDemand: 8, production: [],
-    metalCost: 220, buildTime: 14, provisionalBalance: true,
   },
   generator_t2: {
     ...structureDefinitions.generator, name: "Tier 2 Pulse Generator", buildTier: 2,
@@ -613,19 +720,23 @@ Object.assign(structureDefinitions, {
   vehicle_factory_t2: {
     name: "Tier 2 Vehicle Factory", family: "factory", factoryBranch: "vehicle",
     buildTier: 2, minimumWorkerTier: 2, tier: 2, radius: 52, footprint: [3, 3],
-    maxHp: 900, powerDemand: 7, productionPowerDemand: 12, production: [],
+    maxHp: 900, powerDemand: 7, productionPowerDemand: 12,
+    production: ["scout_vehicle_t2", "battle_tank_t2", "mobile_artillery_t2"],
+    productionRate: 1.25,
     metalCost: 380, buildTime: 20, provisionalBalance: true,
   },
   air_factory_t2: {
     name: "Tier 2 Air Factory", family: "factory", factoryBranch: "air",
     buildTier: 2, minimumWorkerTier: 2, tier: 2, radius: 52, footprint: [3, 3],
-    maxHp: 810, powerDemand: 8, productionPowerDemand: 14, production: [],
+    maxHp: 810, powerDemand: 8, productionPowerDemand: 14,
+    production: ["interceptor_t2", "gunship_t2", "bomber_t2"],
+    productionRate: 1.25,
     metalCost: 420, buildTime: 21, provisionalBalance: true,
   },
   sentry_turret_t2: {
     ...structureDefinitions.sentry_turret, name: "Tier 2 Sentry Turret", buildTier: 2,
-    minimumWorkerTier: 2, radius: 28, footprint: [2, 2], maxHp: 570, attackRange: 220, attackDamage: 20,
-    attackEnergy: 5, capacitorCapacity: 20, capacitorChargeRate: 12,
+    minimumWorkerTier: 2, radius: 28, footprint: [2, 2], maxHp: 570, attackRange: 250, attackDamage: 24,
+    attackEnergy: 6, attackCooldown: 0.75, capacitorCapacity: 30, capacitorChargeRate: 20,
     metalCost: 160, buildTime: 10, provisionalBalance: true,
   },
   salvage_yard_t2: {
@@ -665,19 +776,24 @@ Object.assign(structureDefinitions, {
   vehicle_factory_t3: {
     name: "Tier 3 Vehicle Factory", family: "factory", factoryBranch: "vehicle",
     buildTier: 3, minimumWorkerTier: 3, tier: 3, radius: 72, footprint: [4, 4],
-    maxHp: 1180, powerDemand: 11, productionPowerDemand: 19, production: [],
+    maxHp: 1180, powerDemand: 11, productionPowerDemand: 19,
+    production: ["scout_vehicle_t3", "battle_tank_t3", "mobile_artillery_t3"],
+    productionRate: 1.5,
     metalCost: 680, buildTime: 28, provisionalBalance: true,
   },
   air_factory_t3: {
     name: "Tier 3 Air Factory", family: "factory", factoryBranch: "air",
     buildTier: 3, minimumWorkerTier: 3, tier: 3, radius: 72, footprint: [4, 4],
-    maxHp: 1050, powerDemand: 13, productionPowerDemand: 22, production: [],
+    maxHp: 1050, powerDemand: 13, productionPowerDemand: 22,
+    production: ["interceptor_t3", "gunship_t3", "bomber_t3"],
+    productionRate: 1.5,
     metalCost: 740, buildTime: 30, provisionalBalance: true,
   },
   sentry_turret_t3: {
     ...structureDefinitions.sentry_turret, name: "Tier 3 Sentry Turret", buildTier: 3,
-    minimumWorkerTier: 3, radius: 38, footprint: [3, 3], maxHp: 820, attackRange: 260,
-    attackDamage: 32, attackEnergy: 8, capacitorCapacity: 32, capacitorChargeRate: 18,
+    minimumWorkerTier: 3, radius: 38, footprint: [3, 3], maxHp: 820, attackRange: 340,
+    attackDamage: 42, attackEnergy: 10, attackCooldown: 0.6, capacitorCapacity: 60,
+    capacitorChargeRate: 35,
     metalCost: 300, buildTime: 16, provisionalBalance: true,
   },
   salvage_yard_t3: {
@@ -699,7 +815,7 @@ export const STRUCTURE_DEFINITIONS = Object.freeze(structureDefinitions);
 export const BUILD_MENU_BY_TIER = Object.freeze({
   1: Object.freeze([
     "generator", "battery", "power_tower", "charger", "metal_mine",
-    "mech_factory_t1", "vehicle_factory_t1", "air_factory_t1",
+    "mech_factory_t1", "vehicle_factory_t1",
     "sentry_turret", "salvage_yard", "supply_complex",
   ]),
   2: Object.freeze([

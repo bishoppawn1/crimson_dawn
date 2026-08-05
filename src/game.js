@@ -116,7 +116,8 @@ for (const tier of [1, 2, 3]) {
     const definition = STRUCTURE_DEFINITIONS[structureType];
     const button = document.createElement("button");
     button.className = "command-button build-command-button";
-    button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · T${definition.minimumWorkerTier} worker</small>`;
+    const roleSummary = describeStructureRole(definition);
+    button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · T${definition.minimumWorkerTier} worker${roleSummary ? ` · ${roleSummary}` : ""}</small>`;
     button.addEventListener("click", () => {
       placementStructureType = placementStructureType === structureType ? null : structureType;
       placementMessage = null;
@@ -137,7 +138,11 @@ for (const unitType of producibleUnitTypes) {
   const definition = UNIT_DEFINITIONS[unitType];
   const button = document.createElement("button");
   button.className = "command-button";
-  button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · ${definition.supplyCost} supply</small>`;
+  const roleSummary = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
+  const combatSummary = definition.attackRange
+    ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range`
+    : "";
+  button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · ${definition.supplyCost} supply${roleSummary}${combatSummary}</small>`;
   button.addEventListener("click", () => {
     if (selectedStructureId) simulation.queueProduction(selectedStructureId, unitType);
     updateInterface();
@@ -162,6 +167,33 @@ function resetGame() {
   pauseButton.textContent = "Pause simulation";
   accumulator = 0;
   updateInterface();
+}
+
+function describeStructureRole(definition) {
+  if (definition.capacitorCapacity) {
+    const damagePerSecond = definition.attackDamage / definition.attackCooldown;
+    return `${definition.attackDamage} damage · ${definition.attackRange} range · ${damagePerSecond.toFixed(1)} DPS`;
+  }
+  if (definition.chargeRadius) {
+    return `${definition.chargeRate}/s recharge · ${definition.chargeRadius} radius`;
+  }
+  if (definition.metalRate) return `+${definition.metalRate} metal/s`;
+  if (definition.droneCount) {
+    return `${definition.droneCount} drones · ${definition.droneReplacementTime}s rebuild`;
+  }
+  if (definition.factoryBranch) {
+    return `T${definition.tier} units · ${Math.round((definition.productionRate || 1) * 100)}% production speed`;
+  }
+  if (definition.generationRate) {
+    return `+${definition.generationRate} energy/s · ${definition.powerRadius} grid reach`;
+  }
+  if (definition.family === "battery") {
+    return `${definition.storageCapacity} storage · ${definition.dischargeRate}/s discharge`;
+  }
+  if (definition.relayRadius) {
+    return `${definition.relayRadius} relay reach · ${definition.storageCapacity} buffer`;
+  }
+  return "";
 }
 
 function frame(now) {
@@ -921,6 +953,14 @@ function drawUnitSprite(definition, teamColor, darkColor, stasis) {
     drawWorkerDroneSprite(definition, teamColor, darkColor, stasis);
     return;
   }
+  if (definition.unitDomain === "vehicle") {
+    drawVehicleSprite(definition, teamColor, darkColor, stasis);
+    return;
+  }
+  if (definition.unitDomain === "air") {
+    drawAircraftSprite(definition, teamColor, darkColor, stasis);
+    return;
+  }
   drawMechSprite(definition, teamColor, darkColor, stasis);
 }
 
@@ -964,6 +1004,162 @@ function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis) {
   context.moveTo(0.9, -0.62);
   context.lineTo(0.7, -0.72);
   context.stroke();
+  context.restore();
+}
+
+function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
+  const outline = stasis ? "#24231f" : "#171d23";
+  const armor = stasis ? "#555047" : "#68727c";
+  const armorLight = stasis ? "#777066" : "#9ca6af";
+  const accent = stasis ? `${teamColor}88` : teamColor;
+  const artillery = definition.role === "artillery";
+  const scout = definition.role === "vehicle_scout";
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.strokeStyle = outline;
+  context.lineWidth = 0.1;
+
+  context.fillStyle = "#080d1260";
+  context.beginPath();
+  context.ellipse(0, 0.14, 0.92, 0.72, 0, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = stasis ? "#33302b" : darkColor;
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.roundRect(side * 0.55 - 0.18, -0.72, 0.36, 1.44, 0.14);
+    context.fill();
+    context.stroke();
+    context.strokeStyle = armorLight;
+    context.lineWidth = 0.045;
+    for (let tread = -0.5; tread <= 0.5; tread += 0.25) {
+      context.beginPath();
+      context.moveTo(side * 0.7, tread);
+      context.lineTo(side * 0.48, tread);
+      context.stroke();
+    }
+    context.strokeStyle = outline;
+    context.lineWidth = 0.1;
+  }
+
+  context.fillStyle = armor;
+  context.beginPath();
+  context.moveTo(0, -0.82);
+  context.lineTo(0.48, -0.52);
+  context.lineTo(0.45, 0.63);
+  context.lineTo(0, 0.82);
+  context.lineTo(-0.45, 0.63);
+  context.lineTo(-0.48, -0.52);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = armorLight;
+  context.beginPath();
+  context.moveTo(-0.33, -0.48);
+  context.lineTo(0, -0.68);
+  context.lineTo(0, 0.58);
+  context.lineTo(-0.29, 0.48);
+  context.closePath();
+  context.fill();
+
+  context.fillStyle = accent;
+  context.fillRect(-0.32, 0.5, 0.64, 0.11);
+
+  context.fillStyle = stasis ? "#403b32" : darkColor;
+  context.beginPath();
+  context.arc(0, artillery ? 0.08 : -0.08, scout ? 0.25 : 0.32, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+
+  context.strokeStyle = accent;
+  context.lineWidth = artillery ? 0.16 : 0.13;
+  context.beginPath();
+  context.moveTo(0, artillery ? -0.02 : -0.18);
+  context.lineTo(0, artillery ? -1.25 : scout ? -0.82 : -1.05);
+  context.stroke();
+  if (artillery) {
+    context.lineWidth = 0.08;
+    context.beginPath();
+    context.moveTo(-0.3, 0.35);
+    context.lineTo(-0.72, 0.86);
+    context.moveTo(0.3, 0.35);
+    context.lineTo(0.72, 0.86);
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
+  const outline = stasis ? "#24231f" : "#171d23";
+  const armor = stasis ? "#59544b" : "#737f89";
+  const armorLight = stasis ? "#777066" : "#a9b3bc";
+  const accent = stasis ? `${teamColor}88` : teamColor;
+  const bomber = definition.role === "bomber";
+  const gunship = definition.role === "gunship";
+  const wingSpan = bomber ? 1.08 : gunship ? 0.94 : 0.82;
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  context.lineJoin = "round";
+  context.strokeStyle = outline;
+  context.lineWidth = 0.09;
+
+  context.fillStyle = "#05090d55";
+  context.beginPath();
+  context.ellipse(0.12, 0.25, wingSpan, 0.66, 0, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = armor;
+  context.beginPath();
+  context.moveTo(0, -1.08);
+  context.lineTo(0.2, -0.48);
+  context.lineTo(wingSpan, 0.18);
+  context.lineTo(0.38, 0.3);
+  context.lineTo(0.28, 0.82);
+  context.lineTo(0, 0.62);
+  context.lineTo(-0.28, 0.82);
+  context.lineTo(-0.38, 0.3);
+  context.lineTo(-wingSpan, 0.18);
+  context.lineTo(-0.2, -0.48);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = armorLight;
+  context.beginPath();
+  context.moveTo(-0.05, -0.92);
+  context.lineTo(0.05, -0.92);
+  context.lineTo(0.16, 0.57);
+  context.lineTo(0, 0.48);
+  context.lineTo(-0.16, 0.57);
+  context.closePath();
+  context.fill();
+
+  context.fillStyle = stasis ? "#6d6249" : "#183642";
+  context.beginPath();
+  context.ellipse(0, -0.43, gunship ? 0.2 : 0.14, gunship ? 0.34 : 0.27, 0, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+
+  context.strokeStyle = accent;
+  context.lineWidth = 0.1;
+  context.beginPath();
+  context.moveTo(-wingSpan * 0.74, 0.13);
+  context.lineTo(-wingSpan * 0.3, 0.18);
+  context.moveTo(wingSpan * 0.74, 0.13);
+  context.lineTo(wingSpan * 0.3, 0.18);
+  context.stroke();
+
+  if (gunship) {
+    context.fillStyle = darkColor;
+    context.fillRect(-0.72, 0.05, 0.25, 0.28);
+    context.fillRect(0.47, 0.05, 0.25, 0.28);
+  } else if (bomber) {
+    context.fillStyle = accent;
+    context.fillRect(-0.32, 0.32, 0.64, 0.12);
+  }
   context.restore();
 }
 
@@ -1397,7 +1593,17 @@ function updateInterface() {
       ? ` · ${definition.relayRadius} relay range · ${definition.chargeRate}/s buffer charge · ${definition.dischargeRate}/s discharge`
       : "";
     const defenseText = definition.capacitorCapacity
-      ? ` · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
+      ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${(definition.attackDamage / definition.attackCooldown).toFixed(1)} DPS · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
+      : "";
+    const chargerText = definition.chargeRadius
+      ? ` · ${definition.chargeRate}/s unit recharge · ${definition.chargeRadius} field radius`
+      : "";
+    const mineText = definition.metalRate ? ` · +${definition.metalRate} metal/s` : "";
+    const salvageText = definition.droneCount
+      ? ` · ${definition.droneCount} reclamation drones · ${definition.droneReplacementTime}s rebuild`
+      : "";
+    const factoryText = definition.factoryBranch
+      ? ` · ${Math.round((definition.productionRate || 1) * 100)}% production speed`
       : "";
     const builderCount = selectedStructure.complete
       ? 0
@@ -1415,7 +1621,7 @@ function updateInterface() {
         ? ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · UPGRADING TO ${selectedStructure.supplyUpgrade.targetLevel}`
         : ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · +${definition.supplyLevels[selectedStructure.supplyLevel - 1].capacity.toLocaleString()} capacity`
       : "";
-    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${demandText}${defenseText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
+    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${chargerText}${mineText}${demandText}${defenseText}${salvageText}${factoryText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
   } else if (selectedUnits.length === 0) {
     selectionName.textContent = "No units selected";
     selectionDetails.textContent = "Select friendly units or a structure on the battlefield.";
@@ -1438,8 +1644,12 @@ function updateInterface() {
         ? ` · SUPPLYING ${unit.energyTransferTargetIds.length} UNIT${unit.energyTransferTargetIds.length === 1 ? "" : "S"}`
         : ` · NO UNIT IN ${definition.transferRange} RANGE`
       : "";
+    const roleText = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
+    const combatText = definition.attackRange
+      ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed`
+      : "";
     selectionName.textContent = definition.name;
-    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${emergencyRecoveryText}${supplyText}${orderText}${buildQueueText}`;
+    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${combatText}${emergencyRecoveryText}${supplyText}${orderText}${buildQueueText}`;
   } else {
     const activeCount = selectedUnits.filter((unit) => unit.state === "active").length;
     selectionName.textContent = `${selectedUnits.length} units selected`;
@@ -1537,8 +1747,9 @@ function updateInterface() {
   if (canShowBuildingUpgrade) {
     const targetDefinition = STRUCTURE_DEFINITIONS[buildingUpgrade.targetType];
     buildingUpgradeTitle.textContent = `Upgrade to ${targetDefinition.name}`;
+    const roleSummary = describeStructureRole(targetDefinition);
     buildingUpgradeDetails.textContent = buildingUpgrade.valid
-      ? `${buildingUpgrade.metalCost.toLocaleString()} metal · immediate in-place upgrade`
+      ? `${buildingUpgrade.metalCost.toLocaleString()} metal · immediate${roleSummary ? ` · ${roleSummary}` : ""}`
       : buildingUpgrade.reason;
     buildingUpgradeButton.disabled = !buildingUpgrade.valid;
   }

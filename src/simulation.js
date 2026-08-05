@@ -294,11 +294,17 @@ export class Simulation {
     for (const id of unitIds) {
       const unit = this.getUnit(id);
       if (!unit || !unit.alive || unit.state !== "active") continue;
-      const destination = this.findNearestPassablePoint(
-        requestedDestination.x,
-        requestedDestination.y,
-        UNIT_DEFINITIONS[unit.type].radius,
-      );
+      const definition = UNIT_DEFINITIONS[unit.type];
+      const destination = definition.movementLayer === "air"
+        ? {
+          x: clamp(requestedDestination.x, definition.radius, this.width - definition.radius),
+          y: clamp(requestedDestination.y, definition.radius, this.height - definition.radius),
+        }
+        : this.findNearestPassablePoint(
+          requestedDestination.x,
+          requestedDestination.y,
+          definition.radius,
+        );
       unit.moveTarget = { ...destination };
       unit.moveMode = force ? "force" : "normal";
       unit.attackTargetId = null;
@@ -2047,7 +2053,7 @@ export class Simulation {
       }
       const order = factory.productionQueue[0];
       const unitDefinition = UNIT_DEFINITIONS[order.unitType];
-      order.progress += delta;
+      order.progress += delta * (definition.productionRate || 1);
       if (order.progress + EPSILON < unitDefinition.productionTime) continue;
 
       const spawn = this.findUnitSpawn(factory, order.unitType);
@@ -2137,7 +2143,7 @@ export class Simulation {
       ) {
         continue;
       }
-      const blockedByStructure = this.structures.some((structure) => {
+      const blockedByStructure = definition.movementLayer !== "air" && this.structures.some((structure) => {
         if (!structure.alive) return false;
         const footprint = structureFootprint(structure.type);
         const padding = definition.radius + SIMULATION_RULES.structureCollisionPadding;
@@ -2169,12 +2175,12 @@ export class Simulation {
       return false;
     }
 
-    const clearOfTerrain = this.terrain.every(
+    const clearOfTerrain = definition.movementLayer === "air" || this.terrain.every(
       (obstacle) => !pointInsideBounds(point, terrainBounds(obstacle, definition.radius)),
     );
     if (!clearOfTerrain) return false;
 
-    const clearOfStructures = this.structures.every((structure) => {
+    const clearOfStructures = definition.movementLayer === "air" || this.structures.every((structure) => {
       if (!structure.alive) return true;
       const clearance =
         definition.radius +
@@ -2244,7 +2250,7 @@ export class Simulation {
     for (const unit of this.units) {
       if (!unit.alive) continue;
       const definition = UNIT_DEFINITIONS[unit.type];
-      this.resolveUnitStructureOverlap(unit);
+      if (definition.movementLayer !== "air") this.resolveUnitStructureOverlap(unit);
       unit.attackCooldownRemaining = Math.max(0, unit.attackCooldownRemaining - delta);
 
       if (unit.state === "stasis") {
@@ -2313,7 +2319,9 @@ export class Simulation {
     }
     this.resolveUnitOverlaps();
     for (const unit of this.units) {
-      if (unit.alive) this.resolveUnitTerrainOverlap(unit);
+      if (unit.alive && UNIT_DEFINITIONS[unit.type].movementLayer !== "air") {
+        this.resolveUnitTerrainOverlap(unit);
+      }
     }
   }
 
@@ -2443,6 +2451,15 @@ export class Simulation {
   }
 
   moveUnitWithStructureCollisions(unit, movementX, movementY) {
+    if (UNIT_DEFINITIONS[unit.type].movementLayer === "air") {
+      const radius = UNIT_DEFINITIONS[unit.type].radius;
+      const nextX = clamp(unit.x + movementX, radius, this.width - radius);
+      const nextY = clamp(unit.y + movementY, radius, this.height - radius);
+      const traveled = Math.hypot(nextX - unit.x, nextY - unit.y);
+      unit.x = nextX;
+      unit.y = nextY;
+      return traveled;
+    }
     let remainingX = movementX;
     let remainingY = movementY;
     let traveled = 0;
@@ -2529,6 +2546,7 @@ export class Simulation {
   }
 
   resolveUnitStructureOverlap(unit) {
+    if (UNIT_DEFINITIONS[unit.type].movementLayer === "air") return;
     const unitRadius = UNIT_DEFINITIONS[unit.type].radius;
     for (const structure of this.structures) {
       if (!structure.alive) continue;
@@ -2555,6 +2573,7 @@ export class Simulation {
   }
 
   resolveUnitTerrainOverlap(unit) {
+    if (UNIT_DEFINITIONS[unit.type].movementLayer === "air") return;
     const unitRadius = UNIT_DEFINITIONS[unit.type].radius;
     for (const obstacle of this.terrain) {
       const bounds = terrainBounds(obstacle, unitRadius);

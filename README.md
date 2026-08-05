@@ -45,12 +45,16 @@ The current build is the first playable field test. It includes:
   ground movement and construction for both players and AI while leaving open gates.
 - Tier 1–3 mech factories, each offering matching-tier Worker, Vanguard, Bulwark,
   and Arc Energy Carrier production lines.
-- Tiered Vehicle and Air factories, plus the Tier 3 Experimental Factory, with
-  their future unit rosters explicitly left open for design.
+- Tier 1–3 Vehicle Factories producing Scout Vehicles, Battle Tanks, and Mobile
+  Artillery, plus Tier 2–3 Air Factories producing Interceptors, Gunships, and
+  Bombers. Aircraft fly over terrain and structures.
+- A constructible Tier 3 Experimental Factory whose unit roster remains open.
 - Tier 1–3 worker construction inheritance and a three-category build menu;
   Tier 1 and Tier 2 workers can construct the next Mech Factory to advance.
 - Tiered generator, storage, relay, charger, mine, sentry, and salvage-yard
-  variants with provisional values.
+  variants with progressively stronger role-specific output and visible statistics.
+- Higher-tier factories produce at provisional 1.25× and 1.5× throughput, while
+  Tier 2 and Tier 3 sentries gain substantial damage, range, and reload upgrades.
 - Completed Tier 2 and Tier 3 Mech Factories globally unlock one-step, in-place
   upgrades for existing tiered structures.
 - A massive supply system with role- and tier-specific unit costs, queue

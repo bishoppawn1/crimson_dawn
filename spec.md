@@ -134,6 +134,13 @@ second, and 180 discharge per second; Power Relay Tower, 30 capacity, 8 charge p
 second, and 12 discharge per second. Their costs, build times, and distribution
 radii are also provisional balance values.
 
+The Tier 2 Power Relay Tower keeps the Tier 1 tower's compact 1×1 footprint while
+improving every relay function: its provisional relay reach is 285 world units, its
+buffer stores 55 energy, and it charges/discharges at 14/22 energy per second. On
+the 40-unit power grid its valid 1×1 placement centers produce a 15×15-cell coverage
+field, compared with the Tier 1 tower's 13×13 cells. Selected relays display these
+range and buffer-transfer values directly in the structure details.
+
 The building roster may include:
 
 - Standard power generators.
@@ -271,6 +278,11 @@ Ground units treat completed buildings and unfinished foundations as solid
 obstacles. Movement resolves against structure footprints and slides around them;
 units cannot pass through buildings to reach a destination.
 
+Aircraft use a separate air movement layer. They fly directly over impassable
+terrain, completed structures, and foundations, but remain constrained by the map
+boundary, their movement-energy cost, and physical separation from other living
+units.
+
 Mobile units use compact battlefield footprints so armies remain visually smaller
 than bases and defensive structures. All living units, friendly or hostile,
 maintain physical separation. Dense formations spread around one another instead
@@ -294,8 +306,8 @@ ladder.
 | Production building | Available tiers | Produces |
 | --- | --- | --- |
 | Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs and related ground units |
-| Vehicle Plant | Tier 1, Tier 2, Tier 3 | Tanks, artillery, transports, and other vehicles |
-| Air Factory | Tier 1, Tier 2, Tier 3 | Air units |
+| Vehicle Factory | Tier 1, Tier 2, Tier 3 | Scout Vehicles, Battle Tanks, and Mobile Artillery |
+| Air Factory | Tier 2, Tier 3 | Interceptors, Gunships, and Bombers |
 | Experimental Facility | Tier 3 only | The most powerful experimental units |
 
 A player may pursue mech and vehicle technology at the same tier. Advancing one
@@ -305,9 +317,9 @@ A completed Tier 2 Mech Factory globally unlocks Tier 2 upgrades for that team's
 existing tiered structures. A completed Tier 3 Mech Factory does the same for Tier
 3. Unlocks require a fully constructed factory; an unfinished foundation does not
 count. Once earned, the team keeps the unlock even if that factory is later
-destroyed. Higher-tier factories may still be constructed separately, and the current
-field test includes constructible Vehicle, Air, and Experimental factories whose unit
-rosters remain an unresolved design and implementation task.
+destroyed. Higher-tier factories may still be constructed separately. The current
+field test includes complete provisional Vehicle and Air Factory rosters. The
+Experimental Factory roster remains an unresolved design and implementation task.
 
 There is no fixed cap on the number of factories or equivalent production
 buildings a player may construct.
@@ -331,7 +343,32 @@ Vanguards and Bulwarks become more combat-capable, and Arc Energy Carriers store
 and transfer more energy. All current unit costs, production times, and tier-to-tier
 stat increases are provisional balance values.
 
-### 5.2 Worker Drones and Construction
+### 5.2 Vehicle and Air Factory Rosters
+
+Every Vehicle Factory produces three conventional ground-combat roles at the
+factory's matching tier:
+
+| Production line | Battlefield role |
+| --- | --- |
+| Scout Vehicle | Fast ground reconnaissance and light combat |
+| Battle Tank | Durable direct-fire frontline combat |
+| Mobile Artillery | Long-range fire support |
+
+Air production begins at Tier 2; there is no Tier 1 Air Factory. Tier 2 and Tier 3
+Air Factories each produce matching-tier versions of three aircraft roles:
+
+| Production line | Battlefield role |
+| --- | --- |
+| Interceptor | Fast aerial combat |
+| Gunship | Durable aerial assault |
+| Bomber | Heavy aerial strikes |
+
+Aircraft fly over terrain and buildings. Every higher-tier vehicle or aircraft
+improves the integrity, energy storage, and combat statistics relevant to its role.
+All current unit costs, production times, energy budgets, and tier-to-tier stat
+increases are provisional balance values.
+
+### 5.3 Worker Drones and Construction
 
 Worker drones construct the player's primary buildings. Tier 1, Tier 2, and Tier 3
 Mech Factories produce increasingly capable Tier 1, Tier 2, and Tier 3 Worker
@@ -342,8 +379,8 @@ tier explicit.
 
 Worker construction capability is cumulative:
 
-- A Tier 1 Worker Drone constructs every Tier 1 building, including Tier 1 Mech,
-  Vehicle, and Air factories. It also constructs the Tier 2 Mech Factory, which
+- A Tier 1 Worker Drone constructs every Tier 1 building, including Tier 1 Mech
+  and Vehicle Factories. It also constructs the Tier 2 Mech Factory, which
   produces the Tier 2 Worker Drone.
 - A Tier 2 Worker Drone inherits every Tier 1 option, constructs every Tier 2
   production, economy, logistics, and defense building, and constructs the Tier 3
@@ -364,6 +401,17 @@ provisional costs, footprints, durability, demand, and role-specific output or
 capacity. The Strategic Supply Complex remains a Tier 1 construction option with
 its own internal upgrade levels rather than separate tiered foundations. All new
 factory and building-variant balance values are provisional.
+
+Every higher tier must provide a visible functional improvement, not merely a
+larger model or more durability. Generators improve output and grid reach;
+batteries improve storage and transfer throughput; relays improve reach and
+buffering; chargers improve field size and recharge throughput; mines improve
+metal income; reclamation yards field more drones with faster replacement; and
+factories gain provisional production-speed multipliers of 1.0×, 1.25×, and 1.5×.
+Sentry Turrets scale especially clearly: provisional Tier 1/Tier 2/Tier 3 weapon
+profiles are 12/24/42 damage, 185/250/340 range, and 0.85/0.75/0.60-second reloads.
+Build controls, upgrade controls, and selected-structure details display the
+role-defining statistics so these advantages are apparent before metal is spent.
 
 A player upgrades one selected completed structure at a time. Each upgrade advances
 only one tier and costs the provisional difference between the target tier's metal
@@ -429,9 +477,10 @@ there is no additional structure-clearance padding.
 Tier 1 infrastructure is deliberately compact. Pulse Generators, Grid Batteries,
 Induction Chargers, Metal Mines, Power Relay Towers, and Sentry Turrets use 1×1
 footprints. Tier 1 factories use 2×2 footprints. Equivalent Tier 2 infrastructure
-uses 2×2 footprints and Tier 2 factories use 3×3 footprints; Tier 3 infrastructure
-uses 3×3 footprints and Tier 3 factories use 4×4 footprints. Exceptional strategic
-or experimental structures may use larger bespoke footprints.
+uses 2×2 footprints except for the Tier 2 Power Relay Tower, which remains 1×1.
+Tier 2 factories use 3×3 footprints; Tier 3 infrastructure uses 3×3 footprints and
+Tier 3 factories use 4×4 footprints. Exceptional strategic or experimental
+structures may use larger bespoke footprints.
 
 An incomplete friendly building is a contextual construction target. Right-clicking
 it with one or more selected workers assigns those workers to continue construction,

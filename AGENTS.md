@@ -70,8 +70,13 @@ implementation decision establishes or changes player-facing behavior.
   on a grid line. Preserve distinct cell footprints for compact defenses, economy
   structures, and increasingly large factory tiers.
 - Tier 1 generators, batteries, chargers, mines, towers, and turrets use compact
-  1×1 footprints. Tier 1 factories use 2×2 footprints; corresponding Tier 2 and
-  Tier 3 buildings scale upward to 2×2/3×3 infrastructure and 3×3/4×4 factories.
+  1×1 footprints. Tier 2 Power Relay Towers also remain 1×1 so their value comes
+  from improved grid reach and buffering rather than added placement burden. Tier
+  1 factories use 2×2 footprints; other corresponding Tier 2 and Tier 3 buildings
+  scale upward to 2×2/3×3 infrastructure and 3×3/4×4 factories.
+- Every higher-tier structure must visibly improve the function that defines its
+  role, not merely footprint size or durability. Surface those improvements in
+  build, upgrade, and selected-structure UI text.
 - Pulse Generators produce their stated energy-per-second rate continuously and
   never deplete or consume fuel. Battery capacity limits storage, not generation.
 - The main HUD energy value shows total live production per second only. Keep
