@@ -2700,21 +2700,42 @@ function drawArsenalColossusSprite(definition, teamColor, stasis, pose) {
   context.lineCap = "round";
   context.lineJoin = "round";
 
-  for (const side of [-1, 1]) {
-    const step = pose.stride * side * 0.08;
-    context.strokeStyle = palette.outline;
-    context.lineWidth = 0.28;
-    context.beginPath();
-    context.moveTo(side * 0.33, 0.36);
-    context.lineTo(side * 0.48, 0.72 + step);
-    context.lineTo(side * 0.43, 1.02 + step);
-    context.stroke();
-    context.strokeStyle = palette.armorDark;
-    context.lineWidth = 0.18;
-    context.stroke();
-    context.fillStyle = palette.outline;
-    context.fillRect(side * 0.43 - 0.16, 0.93 + step, 0.32, 0.18);
+  // Like conventional mechs, the Colossus carries its walking assembly beneath
+  // the hull. Only compact rear actuator and foot tips emerge while it moves;
+  // fully extended legs made the overhead sprite read like a side-view figure.
+  if (pose.moving) {
+    for (const side of [-1, 1]) {
+      const step = Math.max(0, side * pose.stride);
+      const footY = 0.5 + step * 0.2;
+      context.fillStyle = "#080c0f70";
+      context.beginPath();
+      context.ellipse(side * 0.34, footY + 0.22, 0.2, 0.1, 0, 0, Math.PI * 2);
+      context.fill();
+      context.fillStyle = palette.armorDark;
+      context.strokeStyle = palette.outline;
+      context.lineWidth = 0.1;
+      context.beginPath();
+      context.roundRect(side * 0.34 - 0.14, footY - 0.08, 0.28, 0.38, 0.08);
+      context.fill();
+      context.stroke();
+      context.strokeStyle = palette.armorLight;
+      context.lineWidth = 0.05;
+      context.beginPath();
+      context.moveTo(side * 0.34 - 0.1, footY + 0.21);
+      context.lineTo(side * 0.34 + 0.1, footY + 0.21);
+      context.stroke();
+    }
   }
+
+  context.fillStyle = palette.armorDark;
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.09;
+  context.beginPath();
+  context.roundRect(-0.52, 0.3, 1.04, 0.28, 0.09);
+  context.fill();
+  context.stroke();
+  context.fillStyle = palette.accent;
+  context.fillRect(-0.4, 0.45, 0.8, 0.06);
 
   context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
   context.strokeStyle = palette.outline;

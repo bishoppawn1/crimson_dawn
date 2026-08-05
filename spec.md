@@ -510,6 +510,9 @@ The Tier 3 Experimental Factory produces exactly three enormous strategic units:
 | Hexapod Landship | Six-legged walking battleship with three siege cannons, extreme durability, and the ability to stride across living building footprints |
 | Zenith Doughnut | Giant circular toroidal aircraft whose central aperture projects a sustained high-energy laser straight down; its player-facing description is “Mmm, tasty!” |
 
+The Arsenal Colossus follows the same overhead leg language as conventional mechs:
+its hull hides the walking assembly while stationary, leaving only compact rear hip
+machinery visible, and small alternating actuator and foot tips emerge while moving.
 The Hexapod Landship remains a ground unit: impassable terrain and living units
 still constrain it, but buildings are excluded from its destination validation,
 path planning, and movement collisions. Its three cannons fire a converging shell
