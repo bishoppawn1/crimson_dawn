@@ -324,6 +324,7 @@ export class Simulation {
       productionQueue: [],
       rallyPoint: null,
       rallySequence: 0,
+      rallySequenceStride: 1,
       supplyLevel: definition.supplyLevels ? 1 : null,
       supplyUpgrade: null,
       attackCooldownRemaining: 0,
@@ -959,16 +960,44 @@ export class Simulation {
   }
 
   commandRally(structureId, x, y) {
-    const factory = this.getStructure(structureId);
-    const definition = factory && STRUCTURE_DEFINITIONS[factory.type];
-    if (!factory?.alive || !factory.complete || !definition?.production) return false;
+    return this.commandGroupRally([structureId], x, y) === 1;
+  }
 
-    factory.rallyPoint = this.findNearestPassablePoint(x, y);
-    factory.rallySequence = 0;
-    this.emit("rally_set", factory.rallyPoint.x, factory.rallyPoint.y, {
-      factoryId: factory.id,
-    });
-    return true;
+  commandGroupRally(structureIds, x, y) {
+    if (!Array.isArray(structureIds) || structureIds.length === 0) return 0;
+    const factories = [...new Set(structureIds)]
+      .map((structureId) => this.getStructure(structureId));
+    const firstFactory = factories[0];
+    const firstDefinition = firstFactory && STRUCTURE_DEFINITIONS[firstFactory.type];
+    if (
+      !firstFactory?.alive ||
+      !firstFactory.complete ||
+      !firstDefinition?.production ||
+      factories.some((factory) => {
+        const definition = factory && STRUCTURE_DEFINITIONS[factory.type];
+        return (
+          !factory?.alive ||
+          !factory.complete ||
+          !definition?.production ||
+          factory.team !== firstFactory.team ||
+          factory.type !== firstFactory.type
+        );
+      })
+    ) {
+      return 0;
+    }
+
+    const rallyPoint = this.findNearestPassablePoint(x, y);
+    for (const [index, factory] of factories.entries()) {
+      factory.rallyPoint = { ...rallyPoint };
+      factory.rallySequence = index;
+      factory.rallySequenceStride = factories.length;
+      this.emit("rally_set", rallyPoint.x, rallyPoint.y, {
+        factoryId: factory.id,
+        factoryIds: factories.map((candidate) => candidate.id),
+      });
+    }
+    return factories.length;
   }
 
   startConstruction(workerIds, structureType, x, y, { queue = false } = {}) {
@@ -2615,9 +2644,10 @@ export class Simulation {
     if (!factory.rallyPoint || !definition) return factory.rallyPoint;
 
     let slot = factory.rallySequence || 0;
+    const stride = Math.max(1, factory.rallySequenceStride || 1);
     for (let attempts = 0; attempts < 4096; attempts += 1) {
       const offset = squareSpiralOffset(slot);
-      slot += 1;
+      slot += stride;
       const candidate = {
         x: factory.rallyPoint.x + offset.x * SIMULATION_RULES.rallyFormationSpacing,
         y: factory.rallyPoint.y + offset.y * SIMULATION_RULES.rallyFormationSpacing,

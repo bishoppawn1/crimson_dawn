@@ -47,7 +47,7 @@ The current build is the first playable field test. It includes:
 - Fast, long-endurance Raiders deal 1.75× damage to structures and automatically
   prioritize exposed economic and power infrastructure.
 - Compact unit silhouettes with physical unit-to-unit separation for dense groups.
-- Drag-box unit selection plus stop and hold-position commands.
+- Drag-box unit selection plus matching factory-group selection, stop, and hold-position commands.
 - Metal mines, relay-tower power networks, and static sentry defenses.
 - Grid-charged sentry capacitors with visible range, charge, and targeting status.
 - Map-defined metal deposits that restrict mine construction locations.
@@ -134,7 +134,7 @@ snapshots are replaced by the newest state instead of accumulating a stale backl
 
 - Use `WASD` to pan the camera and the mouse wheel to zoom around the cursor.
 - Left-click a friendly unit or structure to select it.
-- Left-click and drag to box-select units; hold Shift to add to the selection.
+- Left-click and drag to box-select units, or matching factories of the same type and tier; hold Shift to add compatible selections.
 - Right-click terrain to move selected units.
 - Press `G`, then right-click to force-move without engaging enemies en route.
 - Right-click a hostile unit to attack it.
@@ -143,7 +143,7 @@ snapshots are replaced by the newest state instead of accumulating a stale backl
 - Press `Q` to use Overdrive with selected Bulwark Mechs.
 - Select a worker to place buildings, or select a mech factory to queue units.
 - Hold Shift while placing buildings to queue multiple foundations for the selected workers.
-- With a production building selected, right-click terrain to set the attack-move rally point for newly produced units.
+- With one production building or a matching factory group selected, right-click terrain to set the attack-move rally point for newly produced units.
 - Press Space to pause or resume.
 
 See `spec.md` for the game design and `AGENTS.md` for project implementation rules.

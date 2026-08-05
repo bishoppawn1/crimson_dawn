@@ -100,6 +100,7 @@ let pendingGuestCommands = new Map();
 let multiplayerSyncMessage = null;
 let selectedUnitIds = new Set();
 let selectedStructureId = null;
+let selectedStructureIds = new Set();
 let selectionDrag = null;
 let placementStructureType = null;
 let placementMessage = null;
@@ -247,6 +248,7 @@ for (const unitType of producibleUnitTypes) {
 function resetPresentation() {
   selectedUnitIds = new Set();
   selectedStructureId = null;
+  selectedStructureIds = new Set();
   selectionDrag = null;
   placementStructureType = null;
   placementMessage = null;
@@ -259,6 +261,17 @@ function resetPresentation() {
   pauseButton.textContent = "Pause simulation";
   accumulator = 0;
   updateInterface();
+}
+
+function getSelectedStructures() {
+  return [...selectedStructureIds]
+    .map((id) => simulation.getStructure(id))
+    .filter((structure) => structure?.alive && structure.team === localTeam);
+}
+
+function selectStructures(structures) {
+  selectedStructureIds = new Set(structures.map((structure) => structure.id));
+  selectedStructureId = structures[0]?.id || null;
 }
 
 function resetGame() {
@@ -705,9 +718,19 @@ function applyAuthorizedCommand(command, team) {
       return simulation.queueProduction(structure.id, command.unitType);
     }
     case "rally": {
-      const structure = ownedStructure(command.structureId, team);
-      if (!structure || !Number.isFinite(command.x) || !Number.isFinite(command.y)) return false;
-      return simulation.commandRally(structure.id, command.x, command.y);
+      const structureIds = Array.isArray(command.structureIds)
+        ? [...new Set(command.structureIds)].slice(0, 200)
+        : [command.structureId];
+      const structures = structureIds.map((structureId) => ownedStructure(structureId, team));
+      if (
+        structures.length === 0 ||
+        structures.some((structure) => !structure) ||
+        !Number.isFinite(command.x) ||
+        !Number.isFinite(command.y)
+      ) {
+        return false;
+      }
+      return simulation.commandGroupRally(structureIds, command.x, command.y) === structures.length;
     }
     case "ability": {
       if (command.abilityId !== "overdrive") return false;
@@ -1241,7 +1264,7 @@ function drawPowerNetwork() {
   for (const node of nodes) {
     const nodeDefinition = STRUCTURE_DEFINITIONS[node.type];
     const reach = nodeDefinition.powerRadius || nodeDefinition.relayRadius;
-    if (selectedStructureId === node.id) {
+    if (selectedStructureIds.has(node.id)) {
       if (reach) drawPowerCoverage(node.type, node.x, node.y, colors.energy, true);
     }
   }
@@ -1282,22 +1305,26 @@ function drawSelectionBox() {
 }
 
 function drawCommandIndicators() {
-  const selectedStructure = simulation.getStructure(selectedStructureId);
-  if (
-    selectedStructure?.alive &&
-    STRUCTURE_DEFINITIONS[selectedStructure.type].production &&
-    selectedStructure.rallyPoint
-  ) {
+  const selectedFactories = getSelectedStructures().filter(
+    (structure) => STRUCTURE_DEFINITIONS[structure.type].production && structure.rallyPoint,
+  );
+  for (const factory of selectedFactories) {
     context.save();
     context.strokeStyle = `${colors.selection}70`;
     context.lineWidth = 2;
     context.setLineDash([7, 7]);
     context.beginPath();
-    context.moveTo(selectedStructure.x, selectedStructure.y);
-    context.lineTo(selectedStructure.rallyPoint.x, selectedStructure.rallyPoint.y);
+    context.moveTo(factory.x, factory.y);
+    context.lineTo(factory.rallyPoint.x, factory.rallyPoint.y);
     context.stroke();
     context.restore();
-    drawDestination(selectedStructure.rallyPoint.x, selectedStructure.rallyPoint.y, colors.selection);
+  }
+  const displayedRallyPoints = new Set();
+  for (const factory of selectedFactories) {
+    const rallyKey = `${factory.rallyPoint.x}:${factory.rallyPoint.y}`;
+    if (displayedRallyPoints.has(rallyKey)) continue;
+    displayedRallyPoints.add(rallyKey);
+    drawDestination(factory.rallyPoint.x, factory.rallyPoint.y, colors.selection);
   }
 
   for (const unit of simulation.units) {
@@ -1844,7 +1871,7 @@ function drawStructure(structure) {
   context.translate(structure.x, structure.y);
   context.globalAlpha = structure.complete ? 1 : 0.58;
 
-  if (selectedStructureId === structure.id) {
+  if (selectedStructureIds.has(structure.id)) {
     context.strokeStyle = colors.selection;
     context.lineWidth = 2;
     context.strokeRect(
@@ -1863,7 +1890,7 @@ function drawStructure(structure) {
     context.stroke();
   }
 
-  if (family === "sentry_turret" && selectedStructureId === structure.id) {
+  if (family === "sentry_turret" && selectedStructureIds.has(structure.id)) {
     context.strokeStyle = "#ef596455";
     context.lineWidth = 2;
     context.setLineDash([7, 9]);
@@ -1966,7 +1993,7 @@ function drawStructure(structure) {
       !warning,
       warning ? colors.disconnected : structure.powerStatus === "discharging" ? "#bdaaff" : colors.energy,
     );
-  } else if (structure.complete && family === "sentry_turret" && selectedStructureId === structure.id) {
+  } else if (structure.complete && family === "sentry_turret" && selectedStructureIds.has(structure.id)) {
     drawLabel(
       structure.x,
       structure.y + footprint.halfHeight + 33,
@@ -3654,8 +3681,28 @@ function updateInterface() {
   const selectedUnits = [...selectedUnitIds]
     .map((id) => simulation.getUnit(id))
     .filter(Boolean);
+  const selectedStructures = getSelectedStructures();
   const selectedStructure = simulation.getStructure(selectedStructureId);
-  if (selectedStructure) {
+  if (selectedStructures.length > 1) {
+    const definition = STRUCTURE_DEFINITIONS[selectedStructure.type];
+    const poweredCount = selectedStructures.filter((structure) => structure.powered).length;
+    const queuedCount = selectedStructures.reduce(
+      (total, structure) => total + structure.productionQueue.length,
+      0,
+    );
+    const firstRally = selectedStructures[0].rallyPoint;
+    const hasSharedRally = Boolean(
+      firstRally && selectedStructures.every(
+        (structure) =>
+          structure.rallyPoint?.x === firstRally.x && structure.rallyPoint?.y === firstRally.y,
+      ),
+    );
+    const rallyText = hasSharedRally
+      ? ` · shared rally ${Math.round(firstRally.x)},${Math.round(firstRally.y)}`
+      : " · right-click terrain to set shared rally";
+    selectionName.textContent = `${selectedStructures.length} × ${definition.name}`;
+    selectionDetails.textContent = `${poweredCount}/${selectedStructures.length} powered · ${queuedCount} total queued${rallyText}`;
+  } else if (selectedStructure) {
     const definition = STRUCTURE_DEFINITIONS[selectedStructure.type];
     selectionName.textContent = definition.name;
     const queueText = selectedStructure.productionQueue.length
@@ -3779,7 +3826,9 @@ function updateInterface() {
   }
 
   const factoryDefinition = selectedStructure && STRUCTURE_DEFINITIONS[selectedStructure.type];
-  const availableProduction = factoryDefinition?.production || [];
+  const availableProduction = selectedStructures.length === 1
+    ? factoryDefinition?.production || []
+    : [];
   productionCommands.hidden = matchEnded || availableProduction.length === 0;
   for (const [unitType, button] of productionButtons) {
     const available = availableProduction.includes(unitType);
@@ -3791,7 +3840,9 @@ function updateInterface() {
       playerSupply.remaining < unitDefinition.supplyCost;
   }
 
-  const canCancelConstruction = Boolean(selectedStructure && !selectedStructure.complete);
+  const canCancelConstruction = Boolean(
+    selectedStructures.length === 1 && selectedStructure && !selectedStructure.complete,
+  );
   cancelConstructionButton.hidden = !canCancelConstruction;
   if (canCancelConstruction) {
     const definition = STRUCTURE_DEFINITIONS[selectedStructure.type];
@@ -3804,6 +3855,7 @@ function updateInterface() {
   }
   const supplyDefinition = selectedStructure && STRUCTURE_DEFINITIONS[selectedStructure.type];
   const canShowSupplyUpgrade = Boolean(
+    selectedStructures.length === 1 &&
     selectedStructure?.complete &&
     supplyDefinition?.supplyLevels &&
     (selectedStructure.supplyUpgrade || selectedStructure.supplyLevel < supplyDefinition.supplyLevels.length),
@@ -3823,7 +3875,7 @@ function updateInterface() {
       supplyUpgradeButton.disabled = localResources.metal < upgrade.metalCost;
     }
   }
-  const buildingUpgrade = selectedStructure?.complete
+  const buildingUpgrade = selectedStructures.length === 1 && selectedStructure?.complete
     ? simulation.getStructureUpgradeInfo(selectedStructure.id)
     : null;
   const canShowBuildingUpgrade = Boolean(buildingUpgrade?.targetType);
@@ -3895,8 +3947,7 @@ function pruneSelection() {
       return unit?.alive && unit.team === localTeam;
     }),
   );
-  const structure = simulation.getStructure(selectedStructureId);
-  if (!structure?.alive || structure.team !== localTeam) selectedStructureId = null;
+  selectStructures(getSelectedStructures());
 }
 
 function canvasScreenPoint(event) {
@@ -3961,6 +4012,19 @@ function findStructureAt(point, team = null) {
     );
   });
   return candidates.at(-1) || null;
+}
+
+function matchingFactoryGroup(factories) {
+  const groups = new Map();
+  for (const factory of factories) {
+    const group = groups.get(factory.type) || [];
+    group.push(factory);
+    groups.set(factory.type, group);
+  }
+  return [...groups.values()].reduce(
+    (largest, group) => group.length > largest.length ? group : largest,
+    [],
+  );
 }
 
 function findEnemyAt(point) {
@@ -4070,33 +4134,59 @@ canvas.addEventListener("mouseup", (event) => {
     const right = Math.max(drag.start.x, drag.current.x);
     const top = Math.min(drag.start.y, drag.current.y);
     const bottom = Math.max(drag.start.y, drag.current.y);
-    if (!drag.shift) selectedUnitIds.clear();
-    for (const unit of simulation.units) {
-      if (
+    const boxedUnits = simulation.units.filter(
+      (unit) =>
         unit.alive &&
         unit.team === localTeam &&
         unit.x >= left &&
         unit.x <= right &&
         unit.y >= top &&
-        unit.y <= bottom
-      ) {
-        selectedUnitIds.add(unit.id);
-      }
+        unit.y <= bottom,
+    );
+    const boxedFactories = simulation.structures.filter((structure) => {
+      const definition = STRUCTURE_DEFINITIONS[structure.type];
+      return (
+        structure.alive &&
+        structure.complete &&
+        structure.team === localTeam &&
+        definition.production &&
+        structure.x >= left &&
+        structure.x <= right &&
+        structure.y >= top &&
+        structure.y <= bottom
+      );
+    });
+    const factoryGroup = matchingFactoryGroup(boxedFactories);
+    const selectFactoryGroup = factoryGroup.length > 1 || (factoryGroup.length === 1 && boxedUnits.length === 0);
+    if (selectFactoryGroup) {
+      const existingStructures = getSelectedStructures();
+      const matchingExisting = drag.shift && existingStructures.every(
+        (structure) => structure.type === factoryGroup[0].type,
+      )
+        ? existingStructures
+        : [];
+      selectStructures([...new Map(
+        [...matchingExisting, ...factoryGroup].map((structure) => [structure.id, structure]),
+      ).values()]);
+      selectedUnitIds.clear();
+    } else {
+      if (!drag.shift) selectedUnitIds.clear();
+      for (const unit of boxedUnits) selectedUnitIds.add(unit.id);
+      selectStructures([]);
     }
-    selectedStructureId = null;
   } else {
     const unit = findUnitAt(drag.current, localTeam);
     const structure = unit ? null : findStructureAt(drag.current, localTeam);
     if (!drag.shift) {
       selectedUnitIds.clear();
-      selectedStructureId = null;
+      selectStructures([]);
     }
     if (unit) {
       if (drag.shift && selectedUnitIds.has(unit.id)) selectedUnitIds.delete(unit.id);
       else selectedUnitIds.add(unit.id);
-      selectedStructureId = null;
+      selectStructures([]);
     } else if (structure) {
-      selectedStructureId = structure.id;
+      selectStructures([structure]);
       selectedUnitIds.clear();
     }
   }
@@ -4114,13 +4204,14 @@ canvas.addEventListener("contextmenu", (event) => {
     return;
   }
   const point = canvasPoint(event);
-  const selectedStructure = simulation.getStructure(selectedStructureId);
+  const selectedStructures = getSelectedStructures();
+  const selectedStructure = selectedStructures[0];
   if (
     selectedStructure?.team === localTeam &&
     STRUCTURE_DEFINITIONS[selectedStructure.type].production &&
     issueGameCommand({
       type: "rally",
-      structureId: selectedStructure.id,
+      structureIds: selectedStructures.map((structure) => structure.id),
       x: point.x,
       y: point.y,
     })
@@ -4186,7 +4277,7 @@ function cancelSelectedConstruction() {
     structureId: selectedStructureId,
   });
   if (!result) return false;
-  selectedStructureId = null;
+  selectStructures([]);
   updateInterface();
   return true;
 }

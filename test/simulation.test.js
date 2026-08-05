@@ -1752,6 +1752,44 @@ test("setting a new factory rally point resets its formation slots", () => {
   );
 });
 
+test("matching factories share an atomic grouped rally point and formation", () => {
+  const simulation = new Simulation({ width: 1400, height: 900 });
+  const firstFactory = simulation.addStructure("mech_factory_t2", "player", 300, 300);
+  const secondFactory = simulation.addStructure("mech_factory_t2", "player", 600, 300);
+
+  firstFactory.rallySequence = 12;
+  secondFactory.rallySequence = 9;
+  assert.equal(
+    simulation.commandGroupRally([firstFactory.id, secondFactory.id], 900, 600),
+    2,
+  );
+  assert.deepEqual(firstFactory.rallyPoint, { x: 900, y: 600 });
+  assert.deepEqual(secondFactory.rallyPoint, { x: 900, y: 600 });
+  assert.equal(firstFactory.rallySequence, 0);
+  assert.equal(secondFactory.rallySequence, 1);
+  assert.equal(firstFactory.rallySequenceStride, 2);
+  assert.equal(secondFactory.rallySequenceStride, 2);
+
+  const firstDestination = simulation.getFactoryRallyDestination(firstFactory, "scout_mech_t2");
+  const secondDestination = simulation.getFactoryRallyDestination(secondFactory, "scout_mech_t2");
+  assert.notDeepEqual(firstDestination, secondDestination);
+});
+
+test("grouped rally rejects mixed factory types and tiers without changing either", () => {
+  const simulation = new Simulation({ width: 1400, height: 900 });
+  const tierOneFactory = simulation.addStructure("mech_factory_t1", "player", 300, 300);
+  const tierTwoFactory = simulation.addStructure("mech_factory_t2", "player", 600, 300);
+  simulation.commandRally(tierOneFactory.id, 700, 500);
+  simulation.commandRally(tierTwoFactory.id, 800, 500);
+
+  assert.equal(
+    simulation.commandGroupRally([tierOneFactory.id, tierTwoFactory.id], 1000, 600),
+    0,
+  );
+  assert.deepEqual(tierOneFactory.rallyPoint, { x: 700, y: 500 });
+  assert.deepEqual(tierTwoFactory.rallyPoint, { x: 800, y: 500 });
+});
+
 test("a completed unit waits in a surrounded factory until an exit opens", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 400, 200);

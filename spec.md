@@ -529,8 +529,13 @@ Changing the rally point resets the formation sequence. Physical separation rema
 active during movement as a fallback for dense groups and mixed orders.
 
 The player can select a production building and right-click terrain to set its
-rally point. The interface displays the rally point and its path from the selected
-building. Newly completed units automatically attack-move toward that point,
+rally point. Dragging a selection box around two or more friendly factories of the
+same branch and tier selects them as a factory group; other factory types and tiers
+are not mixed into that group. Right-clicking terrain then assigns one shared rally
+point atomically to every selected factory. Their formation slots are interleaved so
+combined production does not assign duplicate rally destinations. The interface
+displays the rally point and a path from every selected factory. Newly completed
+units automatically attack-move toward that point,
 engaging hostile units they encounter along the way before continuing toward the
 rally destination.
 
