@@ -68,9 +68,9 @@ const minCameraZoom = 0.5;
 const maxCameraZoom = 2;
 
 const colors = {
-  background: "#10141a",
-  gridFine: "#181f27",
-  gridStrong: "#232c35",
+  background: "#4a593d",
+  gridFine: "#405037",
+  gridStrong: "#667358",
   player: "#7fd4ef",
   playerDark: "#24627c",
   enemy: "#e65a64",
@@ -286,13 +286,50 @@ function drawTerrain() {
   context.fillStyle = colors.background;
   context.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
+  const groundPatches = [
+    { x: 620, y: 1600, radiusX: 560, radiusY: 820, rotation: 0.1, color: "#66583e" },
+    { x: 1500, y: 700, radiusX: 760, radiusY: 390, rotation: -0.18, color: "#596343" },
+    { x: 2100, y: 2380, radiusX: 920, radiusY: 420, rotation: 0.14, color: "#6d5c3d" },
+    { x: 2900, y: 1050, radiusX: 840, radiusY: 440, rotation: -0.08, color: "#566443" },
+    { x: 3750, y: 2450, radiusX: 780, radiusY: 430, rotation: 0.2, color: "#705f40" },
+    { x: 4580, y: 1600, radiusX: 560, radiusY: 820, rotation: -0.1, color: "#65543b" },
+  ];
+  for (const patch of groundPatches) {
+    context.fillStyle = patch.color;
+    context.beginPath();
+    context.ellipse(
+      patch.x,
+      patch.y,
+      patch.radiusX,
+      patch.radiusY,
+      patch.rotation,
+      0,
+      Math.PI * 2,
+    );
+    context.fill();
+  }
+
+  // Small deterministic mottles keep the field organic without shimmering as
+  // the camera moves or introducing simulation-side randomness.
+  context.fillStyle = "#8a76512b";
+  for (let y = 80; y < WORLD_HEIGHT; y += 160) {
+    for (let x = 80; x < WORLD_WIDTH; x += 160) {
+      if ((x / 160 + y / 160) % 3 === 0) continue;
+      const offsetX = ((x * 7 + y * 3) % 41) - 20;
+      const offsetY = ((x * 5 + y * 11) % 37) - 18;
+      context.beginPath();
+      context.ellipse(x + offsetX, y + offsetY, 18, 8, (x + y) * 0.002, 0, Math.PI * 2);
+      context.fill();
+    }
+  }
+
   const gridSize = SIMULATION_RULES.buildingGridSize;
   context.lineWidth = placementStructureType ? 1.5 : 1;
   for (let x = 0; x <= WORLD_WIDTH; x += gridSize) {
     context.strokeStyle = placementStructureType
       ? x % (gridSize * 5) === 0
-        ? "#496170"
-        : "#2f414d"
+        ? "#b6c69a"
+        : "#81936f"
       : x % (gridSize * 5) === 0
         ? colors.gridStrong
         : colors.gridFine;
@@ -304,8 +341,8 @@ function drawTerrain() {
   for (let y = 0; y <= WORLD_HEIGHT; y += gridSize) {
     context.strokeStyle = placementStructureType
       ? y % (gridSize * 5) === 0
-        ? "#496170"
-        : "#2f414d"
+        ? "#b6c69a"
+        : "#81936f"
       : y % (gridSize * 5) === 0
         ? colors.gridStrong
         : colors.gridFine;
@@ -315,21 +352,12 @@ function drawTerrain() {
     context.stroke();
   }
 
-  context.fillStyle = "#6f303018";
-  context.beginPath();
-  context.ellipse(WORLD_WIDTH - 480, WORLD_HEIGHT / 2, 520, 700, -0.2, 0, Math.PI * 2);
-  context.fill();
-  context.fillStyle = "#236b7a10";
-  context.beginPath();
-  context.ellipse(480, WORLD_HEIGHT / 2, 560, 720, 0.15, 0, Math.PI * 2);
-  context.fill();
-
   drawImpassableTerrain();
 
-  context.fillStyle = "#83909d";
+  context.fillStyle = "#c0d8d1";
   context.font = "700 12px ui-monospace, monospace";
   context.fillText("FRIENDLY GRID", 55, 500);
-  context.fillStyle = "#a56a70";
+  context.fillStyle = "#e0aaa3";
   context.fillText("HOSTILE APPROACH", WORLD_WIDTH - 235, 500);
 }
 
@@ -339,15 +367,15 @@ function drawImpassableTerrain() {
     const top = obstacle.y - obstacle.height / 2;
     const isStartingWall = obstacle.terrainType === "starting_wall";
     context.save();
-    context.fillStyle = isStartingWall ? "#34434b" : "#252b31";
-    context.strokeStyle = isStartingWall ? "#78909a" : "#59636b";
+    context.fillStyle = isStartingWall ? "#465451" : "#4b4234";
+    context.strokeStyle = isStartingWall ? "#879b92" : "#75654a";
     context.lineWidth = 4;
     context.fillRect(left, top, obstacle.width, obstacle.height);
     context.strokeRect(left, top, obstacle.width, obstacle.height);
     context.beginPath();
     context.rect(left, top, obstacle.width, obstacle.height);
     context.clip();
-    context.strokeStyle = isStartingWall ? "#b2cad443" : "#77818a28";
+    context.strokeStyle = isStartingWall ? "#d1ded653" : "#b69d7040";
     context.lineWidth = 2;
     for (
       let offset = -obstacle.height;
@@ -967,6 +995,7 @@ function drawUnitSprite(definition, teamColor, darkColor, stasis) {
 function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis) {
   const outline = stasis ? colors.stasis : teamColor;
   const body = stasis ? "#403b32" : darkColor;
+  const hardware = stasis ? "#827969" : "#d2d8d3";
   context.save();
   context.scale(definition.radius, definition.radius);
   context.lineCap = "round";
@@ -992,8 +1021,21 @@ function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis) {
   context.stroke();
   context.fillStyle = stasis ? colors.stasis : teamColor;
   context.fillRect(-0.18, -0.18, 0.36, 0.36);
+  context.strokeStyle = hardware;
+  context.lineWidth = 0.08;
+  context.beginPath();
+  context.arc(0, 0, 0.36, 0, Math.PI * 2);
+  context.stroke();
+  context.beginPath();
+  context.moveTo(-0.28, 0);
+  context.lineTo(0, -0.28);
+  context.lineTo(0.28, 0);
+  context.lineTo(0, 0.28);
+  context.closePath();
+  context.stroke();
 
   context.lineWidth = 0.12;
+  context.strokeStyle = outline;
   context.beginPath();
   context.moveTo(-0.9, -0.62);
   context.lineTo(-1, -0.42);
@@ -1009,8 +1051,9 @@ function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis) {
 
 function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
   const outline = stasis ? "#24231f" : "#171d23";
-  const armor = stasis ? "#555047" : "#68727c";
-  const armorLight = stasis ? "#777066" : "#9ca6af";
+  const armor = stasis ? "#555047" : "#90999a";
+  const armorLight = stasis ? "#777066" : "#d1d6d2";
+  const armorDark = stasis ? "#35322d" : "#4c575a";
   const accent = stasis ? `${teamColor}88` : teamColor;
   const artillery = definition.role === "artillery";
   const scout = definition.role === "vehicle_scout";
@@ -1066,6 +1109,24 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
   context.closePath();
   context.fill();
 
+  context.strokeStyle = armorDark;
+  context.lineWidth = 0.055;
+  context.beginPath();
+  context.moveTo(-0.31, -0.38);
+  context.lineTo(0, -0.56);
+  context.lineTo(0.31, -0.38);
+  context.moveTo(-0.31, 0.25);
+  context.lineTo(0.31, 0.25);
+  context.moveTo(-0.2, 0.48);
+  context.lineTo(0.2, 0.48);
+  context.stroke();
+  context.fillStyle = armorDark;
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.arc(side * 0.31, -0.4, 0.055, 0, Math.PI * 2);
+    context.fill();
+  }
+
   context.fillStyle = accent;
   context.fillRect(-0.32, 0.5, 0.64, 0.11);
 
@@ -1109,8 +1170,9 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
 
 function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
   const outline = stasis ? "#24231f" : "#171d23";
-  const armor = stasis ? "#59544b" : "#737f89";
-  const armorLight = stasis ? "#777066" : "#a9b3bc";
+  const armor = stasis ? "#59544b" : "#9da7a9";
+  const armorLight = stasis ? "#777066" : "#d9ddda";
+  const armorDark = stasis ? "#39352f" : "#526064";
   const accent = stasis ? `${teamColor}88` : teamColor;
   const bomber = definition.role === "bomber";
   const gunship = definition.role === "gunship";
@@ -1152,6 +1214,25 @@ function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
   context.lineTo(-0.16, 0.57);
   context.closePath();
   context.fill();
+
+  context.strokeStyle = armorDark;
+  context.lineWidth = 0.05;
+  context.beginPath();
+  context.moveTo(-wingSpan * 0.82, 0.15);
+  context.lineTo(-0.26, 0.02);
+  context.lineTo(-0.15, 0.52);
+  context.moveTo(wingSpan * 0.82, 0.15);
+  context.lineTo(0.26, 0.02);
+  context.lineTo(0.15, 0.52);
+  context.moveTo(-0.13, -0.31);
+  context.lineTo(0.13, -0.31);
+  context.stroke();
+  context.fillStyle = armorDark;
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.ellipse(side * wingSpan * 0.5, 0.2, 0.09, 0.15, 0, 0, Math.PI * 2);
+    context.fill();
+  }
 
   context.fillStyle = stasis ? "#6d6249" : "#183642";
   context.beginPath();
@@ -1195,9 +1276,9 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
   const carrier = role === "carrier";
   const raider = role === "raider";
   const outline = stasis ? "#24231f" : "#171d23";
-  const armor = stasis ? "#555047" : "#68727c";
-  const armorDark = stasis ? "#35322d" : "#343d46";
-  const armorLight = stasis ? "#777066" : "#9ca6af";
+  const armor = stasis ? "#555047" : "#9ba4a5";
+  const armorDark = stasis ? "#35322d" : "#4c575c";
+  const armorLight = stasis ? "#777066" : "#d5dad6";
   const joint = stasis ? "#292721" : "#20272e";
   const accent = stasis ? `${teamColor}88` : teamColor;
   const glass = stasis ? "#776b4d" : "#183642";
@@ -1266,6 +1347,18 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
     context.moveTo(side * 0.26, 0.68);
     context.lineTo(side * 0.43, 0.88);
     context.stroke();
+    context.strokeStyle = joint;
+    context.lineWidth = 0.045;
+    context.beginPath();
+    context.moveTo(side * 0.2, 0.45);
+    context.lineTo(side * 0.47, 0.43);
+    context.moveTo(side * 0.21, 0.82);
+    context.lineTo(side * 0.51, 0.78);
+    context.stroke();
+    context.fillStyle = armorLight;
+    context.beginPath();
+    context.arc(side * 0.33, 0.37, 0.04, 0, Math.PI * 2);
+    context.fill();
     context.strokeStyle = outline;
     context.lineWidth = 0.1;
   }
@@ -1302,6 +1395,20 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
   context.closePath();
   context.fill();
 
+  // Panel seams, a reinforced center spine, and rear cooling vents remain
+  // legible as bright/dark breaks even when the mech is only a few pixels wide.
+  context.strokeStyle = armorDark;
+  context.lineWidth = 0.055;
+  context.beginPath();
+  context.moveTo(-0.4, -0.43);
+  context.lineTo(-0.13, -0.14);
+  context.lineTo(0, 0.28);
+  context.lineTo(0.13, -0.14);
+  context.lineTo(0.4, -0.43);
+  context.moveTo(0, 0.06);
+  context.lineTo(0, 0.4);
+  context.stroke();
+
   context.fillStyle = armorDark;
   context.beginPath();
   context.moveTo(-0.4, 0.28);
@@ -1312,6 +1419,14 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
   context.closePath();
   context.fill();
   context.stroke();
+  context.strokeStyle = armorLight;
+  context.lineWidth = 0.045;
+  for (const ventX of [-0.18, 0, 0.18]) {
+    context.beginPath();
+    context.moveTo(ventX - 0.06, 0.36);
+    context.lineTo(ventX + 0.06, 0.4);
+    context.stroke();
+  }
 
   // The cockpit canopy is a narrow roof window that points toward the nose.
   context.fillStyle = glass;
@@ -1356,6 +1471,10 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
     context.lineTo(side * 0.58, -0.3);
     context.closePath();
     context.fill();
+    context.fillStyle = armorLight;
+    context.beginPath();
+    context.arc(side * (0.54 + shoulderWidth * 0.55), -0.17, 0.045, 0, Math.PI * 2);
+    context.fill();
   }
 
   if (heavy) {
@@ -1372,6 +1491,15 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
     context.stroke();
     context.fillStyle = accent;
     context.fillRect(-0.97, -0.45, 0.07, 0.65);
+    context.strokeStyle = armorDark;
+    context.lineWidth = 0.05;
+    context.strokeRect(-0.94, -0.34, 0.15, 0.58);
+    context.fillStyle = armorLight;
+    for (const rivetY of [-0.24, 0.14]) {
+      context.beginPath();
+      context.arc(-0.865, rivetY, 0.035, 0, Math.PI * 2);
+      context.fill();
+    }
     context.strokeStyle = joint;
     context.lineWidth = 0.11;
     for (const offset of [-0.08, 0.08]) {
@@ -1391,6 +1519,14 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
       context.stroke();
       context.fillStyle = accent;
       context.fillRect(side * 0.72 - 0.08, -0.03, 0.16, 0.08);
+      context.strokeStyle = armorLight;
+      context.lineWidth = 0.045;
+      context.beginPath();
+      context.moveTo(side * 0.62, -0.08);
+      context.lineTo(side * 0.82, -0.08);
+      context.moveTo(side * 0.62, 0.24);
+      context.lineTo(side * 0.82, 0.24);
+      context.stroke();
       context.fillStyle = armorDark;
     }
     context.strokeStyle = stasis ? colors.stasis : colors.energy;
@@ -1405,6 +1541,20 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
   } else {
     // Vanguards and raiders carry a compact gun along the right side of the
     // chassis. Its forward barrel makes the overhead facing unmistakable.
+    context.fillStyle = armorDark;
+    context.beginPath();
+    context.moveTo(-0.65, -0.3);
+    context.lineTo(-0.86, -0.2);
+    context.lineTo(-0.84, 0.32);
+    context.lineTo(-0.63, 0.24);
+    context.closePath();
+    context.fill();
+    context.stroke();
+    context.fillStyle = joint;
+    context.beginPath();
+    context.arc(-0.72, 0.02, 0.08, 0, Math.PI * 2);
+    context.fill();
+
     context.fillStyle = armor;
     context.beginPath();
     context.moveTo(0.66, 0.22);
@@ -1423,6 +1573,14 @@ function drawMechSprite(definition, teamColor, darkColor, stasis) {
     context.beginPath();
     context.moveTo(0.82, -0.55);
     context.lineTo(0.82, -1.08);
+    context.stroke();
+    context.strokeStyle = armorLight;
+    context.lineWidth = 0.045;
+    context.beginPath();
+    context.moveTo(0.74, -0.44);
+    context.lineTo(0.88, -0.44);
+    context.moveTo(0.74, -0.18);
+    context.lineTo(0.88, -0.18);
     context.stroke();
     if (raider) {
       context.fillStyle = armorDark;

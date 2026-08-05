@@ -25,6 +25,12 @@ The Northern Frontier and Southern Frontier clusters sit near the far map edges,
 well away from both starting bases, so controlling their concentrated metal
 requires a substantial logistics commitment.
 
+The battlefield ground uses muted olive vegetation and broad earthen-brown patches
+with a subtle fixed mottled texture. Construction-grid lines remain visible across
+both surfaces. This brighter natural palette separates neutral gray unit armor from
+the ground while preserving the readability of team markings, range overlays, and
+placement indicators.
+
 Grid-aligned ridges, shelves, and crags form impassable terrain. Their visible
 rectangular boundaries use the same 40-unit grid as construction. Buildings and
 upgrades cannot overlap them, and player units, enemy units, and reclamation drones
@@ -293,11 +299,13 @@ The Canvas battlefield uses role-readable, top-down mechanical sprites rather th
 generic diamonds or side-view silhouettes. A mech's cockpit roof, shoulder deck,
 dorsal armor, rearward legs, and forward-pointing weapons are visible from above.
 Vanguard, Bulwark, Carrier, and hostile combat silhouettes remain distinct at
-gameplay scale through their overhead equipment profiles. Worker Drones use a
-compact multi-arm tool silhouette, while Arc Energy Carriers use a bipedal support
-frame with a visible dorsal energy core. Player blue and enemy red appear only on
-restrained identification panels, cockpit trim, and tier markings. Stasis state,
-health, and energy remain separately visible.
+gameplay scale through their overhead equipment profiles. Layered armor plates,
+panel seams, joints, cooling vents, fasteners, and weapon or support housings add
+detail without enlarging unit footprints. Worker Drones use a compact multi-arm
+tool silhouette, while Arc Energy Carriers use a bipedal support frame with a
+visible dorsal energy core. Player blue and enemy red appear only on restrained
+identification panels, cockpit trim, and tier markings. Stasis state, health, and
+energy remain separately visible.
 
 ## 5. Production Branches and Technology Tiers
 

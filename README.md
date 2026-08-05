@@ -9,7 +9,10 @@ units moving, attacking, and using selected special abilities.
 The current build is the first playable field test. It includes:
 
 - Selectable mechs with movement and weapon energy costs.
-- Role-specific top-down Canvas sprites with clearly readable mech silhouettes.
+- Detailed role-specific top-down Canvas sprites with layered armor, panel seams,
+  and clearly readable equipment silhouettes.
+- A muted olive-and-earth battlefield palette with subtle fixed ground texture
+  that keeps neutral gray units readable.
 - Energy-dependent shutdown, stasis regeneration, and reactivation.
 - Greatly expanded internal batteries for every worker, combat unit, carrier, and
   enemy unit.
