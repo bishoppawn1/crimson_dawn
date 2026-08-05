@@ -655,6 +655,13 @@ For a selected factory, the interface identifies the unit currently in productio
 shows its live completion percentage and power or deployment wait state, and lists
 every later order in queue order. When a matching factory group is selected, each
 factory's independent queue appears as a separate status card.
+The shared production controls remain available for that matching group. Each unit
+order is paid for once and routed to a powered selected factory with the fewest
+units currently queued. Ties prefer the factory with the least remaining production
+work, then the group's deterministic selection order, so repeated clicks naturally
+spread production instead of piling every order into the first factory. Unpowered
+factories remain selected and share rally commands, but do not receive new group
+production orders until powered again.
 
 A new ordinary foundation snaps to footprint-aware centers on the visible 40-unit
 construction grid, with every footprint edge aligned to a grid line, and must fit

@@ -153,6 +153,7 @@ snapshots are replaced by the newest state instead of accumulating a stale backl
 - Select an unfinished building and press `C` to cancel it for a partial refund.
 - Press `Q` to use Overdrive with selected Bulwark Mechs.
 - Select a worker to place buildings, or select a mech factory to queue units.
+- Matching selected factories share production controls; new orders automatically go to the powered factory with the shortest queue.
 - Hold Shift while placing buildings to queue multiple foundations for the selected workers.
 - With one production building or a matching factory group selected, right-click terrain to set the attack-move rally point for newly produced units.
 - Press Space to pause or resume.

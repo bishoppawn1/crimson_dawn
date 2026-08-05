@@ -2206,6 +2206,88 @@ test("factories only queue the five unit variants matching their tier", () => {
   assert.equal(simulation.queueProduction(tierTwoFactory.id, "scout_mech"), false);
 });
 
+test("matching factory groups route production to the shortest powered queue", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  const first = simulation.addStructure("mech_factory_t1", "player", 220, 100, {
+    powered: true,
+  });
+  const second = simulation.addStructure("mech_factory_t1", "player", 420, 100, {
+    powered: true,
+  });
+  const third = simulation.addStructure("mech_factory_t1", "player", 620, 100, {
+    powered: true,
+  });
+  first.productionQueue.push(
+    { unitType: "scout_mech", progress: 0 },
+    { unitType: "scout_mech", progress: 0 },
+  );
+  third.productionQueue.push({ unitType: "scout_mech", progress: 0 });
+
+  assert.equal(
+    simulation.queueGroupProduction([first.id, second.id, third.id], "scout_mech"),
+    second.id,
+  );
+  assert.equal(first.productionQueue.length, 2);
+  assert.equal(second.productionQueue.length, 1);
+  assert.equal(third.productionQueue.length, 1);
+});
+
+test("repeated group production orders distribute across matching factories", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  const factories = [220, 420, 620].map((x) =>
+    simulation.addStructure("mech_factory_t1", "player", x, 100, { powered: true })
+  );
+
+  const routedFactoryIds = Array.from({ length: 6 }, () =>
+    simulation.queueGroupProduction(
+      factories.map((factory) => factory.id),
+      "worker_drone_t1",
+    )
+  );
+
+  assert.deepEqual(
+    routedFactoryIds,
+    [
+      factories[0].id,
+      factories[1].id,
+      factories[2].id,
+      factories[0].id,
+      factories[1].id,
+      factories[2].id,
+    ],
+  );
+  assert.deepEqual(factories.map((factory) => factory.productionQueue.length), [2, 2, 2]);
+});
+
+test("group production skips unpowered factories and rejects mixed factory types", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  const unpowered = simulation.addStructure("mech_factory_t1", "player", 220, 100, {
+    powered: false,
+  });
+  const powered = simulation.addStructure("mech_factory_t1", "player", 420, 100, {
+    powered: true,
+  });
+  const vehicleFactory = simulation.addStructure("vehicle_factory_t1", "player", 620, 100, {
+    powered: true,
+  });
+
+  assert.equal(
+    simulation.queueGroupProduction([unpowered.id, powered.id], "scout_mech"),
+    powered.id,
+  );
+  assert.equal(unpowered.productionQueue.length, 0);
+  const metalBeforeInvalidOrder = simulation.resources.player.metal;
+  assert.equal(
+    simulation.queueGroupProduction([powered.id, vehicleFactory.id], "scout_mech"),
+    null,
+  );
+  assert.equal(simulation.resources.player.metal, metalBeforeInvalidOrder);
+  assert.match(simulation.lastProductionError, /matching completed factories/i);
+});
+
 test("a Tier 1 mech factory spends metal and constructs a worker drone", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);

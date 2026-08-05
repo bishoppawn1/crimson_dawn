@@ -816,6 +816,56 @@ export class Simulation {
     return true;
   }
 
+  queueGroupProduction(structureIds, unitType) {
+    this.lastProductionError = null;
+    const uniqueIds = [...new Set(structureIds || [])];
+    const factories = uniqueIds.map((id) => this.getStructure(id));
+    const firstFactory = factories[0];
+    const firstDefinition = firstFactory && STRUCTURE_DEFINITIONS[firstFactory.type];
+    if (
+      factories.length === 0 ||
+      !firstFactory?.alive ||
+      !firstFactory.complete ||
+      !firstDefinition?.production?.includes(unitType) ||
+      factories.some((factory) =>
+        !factory?.alive ||
+        !factory.complete ||
+        factory.team !== firstFactory.team ||
+        factory.type !== firstFactory.type
+      )
+    ) {
+      this.lastProductionError = "Select matching completed factories.";
+      return null;
+    }
+
+    const poweredFactories = factories.filter((factory) => factory.powered);
+    if (poweredFactories.length === 0) {
+      this.lastProductionError = "The selected factories are unpowered.";
+      return null;
+    }
+    const workload = (factory) => factory.productionQueue.reduce((total, order, index) => {
+      const definition = UNIT_DEFINITIONS[order.unitType];
+      const remaining = Math.max(0, (definition?.productionTime || 0) - (index === 0 ? order.progress : 0));
+      return total + remaining;
+    }, 0) / (STRUCTURE_DEFINITIONS[factory.type].productionRate || 1);
+    const selectedFactory = poweredFactories
+      .map((factory, selectionIndex) => ({
+        factory,
+        selectionIndex,
+        queueLength: factory.productionQueue.length,
+        workload: workload(factory),
+      }))
+      .sort(
+        (left, right) =>
+          left.queueLength - right.queueLength ||
+          left.workload - right.workload ||
+          left.selectionIndex - right.selectionIndex,
+      )[0].factory;
+    return this.queueProduction(selectedFactory.id, unitType)
+      ? selectedFactory.id
+      : null;
+  }
+
   getSupplyState(team) {
     const unitSupply = this.units
       .filter((unit) => unit.alive && unit.team === team)

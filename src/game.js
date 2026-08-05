@@ -259,10 +259,11 @@ for (const unitType of producibleUnitTypes) {
       : "";
   button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · ${definition.supplyCost} supply${roleSummary}${combatSummary}</small>`;
   button.addEventListener("click", () => {
-    if (selectedStructureId) {
+    const selectedFactories = getSelectedStructures();
+    if (selectedFactories.length > 0) {
       issueGameCommand({
         type: "production",
-        structureId: selectedStructureId,
+        structureIds: selectedFactories.map((factory) => factory.id),
         unitType,
       });
     }
@@ -771,9 +772,18 @@ function applyAuthorizedCommand(command, team) {
       );
     }
     case "production": {
-      const structure = ownedStructure(command.structureId, team);
-      if (!structure || !UNIT_DEFINITIONS[command.unitType]) return false;
-      return simulation.queueProduction(structure.id, command.unitType);
+      const structureIds = Array.isArray(command.structureIds)
+        ? [...new Set(command.structureIds)].slice(0, 200)
+        : [command.structureId];
+      const structures = structureIds.map((structureId) => ownedStructure(structureId, team));
+      if (
+        structures.length === 0 ||
+        structures.some((structure) => !structure) ||
+        !UNIT_DEFINITIONS[command.unitType]
+      ) {
+        return false;
+      }
+      return Boolean(simulation.queueGroupProduction(structureIds, command.unitType));
     }
     case "rally": {
       const structureIds = Array.isArray(command.structureIds)
@@ -4673,7 +4683,7 @@ function updateInterface() {
       ? ` · shared rally ${Math.round(firstRally.x)},${Math.round(firstRally.y)}`
       : " · right-click terrain to set shared rally";
     selectionName.textContent = `${selectedStructures.length} × ${definition.name}`;
-    selectionDetails.textContent = `${poweredCount}/${selectedStructures.length} powered · ${queuedCount} total queued${rallyText}`;
+    selectionDetails.textContent = `${poweredCount}/${selectedStructures.length} powered · ${queuedCount} total queued · new units use shortest queue${rallyText}`;
   } else if (selectedStructure) {
     const definition = STRUCTURE_DEFINITIONS[selectedStructure.type];
     selectionName.textContent = definition.name;
@@ -4816,16 +4826,27 @@ function updateInterface() {
   }
 
   const factoryDefinition = selectedStructure && STRUCTURE_DEFINITIONS[selectedStructure.type];
-  const availableProduction = selectedStructures.length === 1
-    ? factoryDefinition?.production || []
+  const hasMatchingFactorySelection = Boolean(
+    selectedStructures.length > 0 &&
+    factoryDefinition?.production &&
+    selectedStructures.every(
+      (structure) =>
+        structure.complete &&
+        structure.type === selectedStructure.type &&
+        STRUCTURE_DEFINITIONS[structure.type].production,
+    )
+  );
+  const availableProduction = hasMatchingFactorySelection
+    ? factoryDefinition.production
     : [];
+  const hasPoweredSelectedFactory = selectedStructures.some((structure) => structure.powered);
   productionCommands.hidden = matchEnded || availableProduction.length === 0;
   for (const [unitType, button] of productionButtons) {
     const available = availableProduction.includes(unitType);
     const unitDefinition = UNIT_DEFINITIONS[unitType];
     button.hidden = !available;
     button.disabled =
-      !selectedStructure?.powered ||
+      !hasPoweredSelectedFactory ||
       localResources.metal < unitDefinition.metalCost ||
       playerSupply.remaining < unitDefinition.supplyCost;
   }
