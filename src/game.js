@@ -250,7 +250,7 @@ for (const unitType of producibleUnitTypes) {
   button.className = "command-button";
   const roleSummary = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
   const combatSummary = definition.attackRange
-    ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range`
+    ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× vs air` : ""}`
     : "";
   button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · ${definition.supplyCost} supply${roleSummary}${combatSummary}</small>`;
   button.addEventListener("click", () => {
@@ -813,7 +813,10 @@ function describeStructureRole(definition) {
     const range = definition.minimumAttackRange
       ? `${definition.minimumAttackRange}–${definition.attackRange} range`
       : `${definition.attackRange} range`;
-    return `${definition.attackDamage} damage · ${range} · ${damagePerSecond.toFixed(1)} DPS`;
+    const airBonus = definition.airDamageMultiplier
+      ? ` · ${definition.airDamageMultiplier}× vs air`
+      : "";
+    return `${definition.attackDamage} damage · ${range} · ${damagePerSecond.toFixed(1)} DPS${airBonus}`;
   }
   if (definition.chargeRadius) {
     return `${definition.chargeRate}/s recharge · ${definition.chargeRadius} radius`;
@@ -2032,6 +2035,52 @@ function drawMortarBuilding(structure, definition, footprint, powered, teamColor
   }
 }
 
+function drawFlakBuilding(structure, definition, footprint, powered, teamColor) {
+  const size = Math.min(footprint.width, footprint.height);
+  const base = size * 0.31;
+  context.fillStyle = structureMetalGradient();
+  context.strokeStyle = "#10171a";
+  context.lineWidth = 3;
+  polygon(8, base, Math.PI / 8);
+  context.fill();
+  context.stroke();
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.arc(0, 0, base * 0.72, 0, Math.PI * 2);
+  context.stroke();
+
+  const target = simulation.getEntity(structure.defenseTargetId);
+  if (target?.alive) context.rotate(Math.atan2(target.y - structure.y, target.x - structure.x));
+  context.fillStyle = "#273236";
+  context.strokeStyle = "#10171a";
+  context.beginPath();
+  context.roundRect(-base * 0.52, -base * 0.42, base * 1.04, base * 0.84, base * 0.18);
+  context.fill();
+  context.stroke();
+
+  const firingAge = recentAttackAge(structure.id);
+  const recoil = firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * size * 0.045;
+  const barrelOffsets = (definition.buildTier || 1) >= 2 ? [-7, -2.5, 2.5, 7] : [-3, 3];
+  for (const barrelY of barrelOffsets) {
+    const barrelLength = size * 0.34 - recoil;
+    context.fillStyle = "#344247";
+    context.fillRect(base * 0.16, barrelY - 1.8, barrelLength, 3.6);
+    context.strokeRect(base * 0.16, barrelY - 1.8, barrelLength, 3.6);
+    context.fillStyle = "#080c0e";
+    context.fillRect(base * 0.16 + barrelLength - 2, barrelY - 2.5, 4, 5);
+  }
+  context.fillStyle = powered ? colors.energy : "#645053";
+  context.beginPath();
+  context.arc(-base * 0.19, 0, base * 0.13, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = powered ? colors.energy : "#645053";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.arc(-base * 0.31, -base * 0.52, base * 0.2, Math.PI * 0.15, Math.PI * 0.85);
+  context.stroke();
+}
+
 function drawSalvageYardBuilding(definition, footprint, powered, teamColor) {
   const width = footprint.width * 0.82;
   const height = footprint.height * 0.78;
@@ -2081,6 +2130,7 @@ function drawCompletedBuilding(structure, definition, footprint, family, powered
   else if (family === "supply_complex") drawSupplyComplexBuilding(structure, footprint, powered, teamColor);
   else if (family === "sentry_turret") drawSentryBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "mortar_turret") drawMortarBuilding(structure, definition, footprint, powered, teamColor);
+  else if (family === "flak_turret") drawFlakBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "salvage_yard") drawSalvageYardBuilding(definition, footprint, powered, teamColor);
 }
 
@@ -2885,6 +2935,7 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
   const artillery = definition.role === "artillery";
   const scout = definition.role === "vehicle_scout";
   const tanker = definition.role === "grid_tanker";
+  const antiAir = definition.role === "anti_air_vehicle";
   context.save();
   context.scale(definition.radius, definition.radius);
   context.lineCap = "round";
@@ -3025,22 +3076,42 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
     context.fill();
     context.stroke();
 
-    // A dark breech, armored barrel sleeve, and muzzle brake give the weapon a
-    // credible mechanical assembly while the narrow team stripe identifies it.
-    context.strokeStyle = outline;
-    context.lineWidth = artillery ? 0.19 : 0.16;
-    context.beginPath();
-    context.moveTo(0, artillery ? -0.02 : -0.18);
-    context.lineTo(0, artillery ? -1.25 : scout ? -0.82 : -1.05);
-    context.stroke();
-    context.strokeStyle = armorLight;
-    context.lineWidth = artillery ? 0.105 : 0.085;
-    context.beginPath();
-    context.moveTo(0, artillery ? -0.1 : -0.22);
-    context.lineTo(0, artillery ? -1.14 : scout ? -0.72 : -0.94);
-    context.stroke();
-    context.fillStyle = outline;
-    context.fillRect(artillery ? -0.14 : -0.11, artillery ? -1.28 : scout ? -0.87 : -1.09, artillery ? 0.28 : 0.22, 0.11);
+    if (antiAir) {
+      // Four short autocannons and a rear tracking dish distinguish the flak
+      // crawler from the single-gun direct-fire vehicles.
+      context.strokeStyle = outline;
+      context.lineWidth = 0.11;
+      for (const barrelX of [-0.18, -0.06, 0.06, 0.18]) {
+        context.beginPath();
+        context.moveTo(barrelX, -0.19);
+        context.lineTo(barrelX, -0.91);
+        context.stroke();
+        context.fillStyle = outline;
+        context.fillRect(barrelX - 0.055, -0.96, 0.11, 0.09);
+      }
+      context.strokeStyle = accent;
+      context.lineWidth = 0.07;
+      context.beginPath();
+      context.arc(0, 0.19, 0.22, Math.PI * 0.12, Math.PI * 0.88);
+      context.stroke();
+    } else {
+      // A dark breech, armored barrel sleeve, and muzzle brake give the weapon
+      // a credible mechanical assembly while the narrow team stripe identifies it.
+      context.strokeStyle = outline;
+      context.lineWidth = artillery ? 0.19 : 0.16;
+      context.beginPath();
+      context.moveTo(0, artillery ? -0.02 : -0.18);
+      context.lineTo(0, artillery ? -1.25 : scout ? -0.82 : -1.05);
+      context.stroke();
+      context.strokeStyle = armorLight;
+      context.lineWidth = artillery ? 0.105 : 0.085;
+      context.beginPath();
+      context.moveTo(0, artillery ? -0.1 : -0.22);
+      context.lineTo(0, artillery ? -1.14 : scout ? -0.72 : -0.94);
+      context.stroke();
+      context.fillStyle = outline;
+      context.fillRect(artillery ? -0.14 : -0.11, artillery ? -1.28 : scout ? -0.87 : -1.09, artillery ? 0.28 : 0.22, 0.11);
+    }
     context.fillStyle = accent;
     context.fillRect(-turretHalfWidth, turretY + 0.12, turretHalfWidth * 2, 0.07);
   }
@@ -3407,6 +3478,7 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
   const heavy = role === "bulwark";
   const carrier = role === "carrier";
   const raider = role === "raider";
+  const antiAir = role === "anti_air_mech";
   const outline = stasis ? "#24231f" : "#171d23";
   const armor = stasis ? "#555047" : "#9ba4a5";
   const armorDark = stasis ? "#35322d" : "#4c575c";
@@ -3625,7 +3697,7 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
   context.closePath();
   context.fill();
 
-  const shoulderWidth = heavy ? 0.42 : carrier ? 0.34 : 0.3;
+  const shoulderWidth = heavy ? 0.42 : carrier ? 0.34 : antiAir ? 0.38 : 0.3;
   for (const side of [-1, 1]) {
     context.fillStyle = unitSurfaceGradient(armor, armorDark, outline);
     context.beginPath();
@@ -3726,6 +3798,33 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
     context.beginPath();
     context.arc(0, 0.02, 0.1, 0, Math.PI * 2);
     context.fill();
+  } else if (antiAir) {
+    // Paired shoulder missile racks and a central tracking dish give the
+    // Skyguard a broad, unmistakable anti-air equipment profile.
+    for (const side of [-1, 1]) {
+      context.fillStyle = armorDark;
+      context.strokeStyle = outline;
+      context.lineWidth = 0.08;
+      context.beginPath();
+      context.roundRect(side * 0.72 - 0.18, -0.55, 0.36, 0.62, 0.08);
+      context.fill();
+      context.stroke();
+      context.fillStyle = outline;
+      for (const missileX of [-0.09, 0.09]) {
+        for (const missileY of [-0.39, -0.14]) {
+          context.beginPath();
+          context.arc(side * 0.72 + missileX, missileY, 0.045, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+      context.fillStyle = accent;
+      context.fillRect(side * 0.72 - 0.14, -0.02, 0.28, 0.055);
+    }
+    context.strokeStyle = stasis ? colors.stasis : colors.energy;
+    context.lineWidth = 0.07;
+    context.beginPath();
+    context.arc(0, -0.05, 0.24, Math.PI * 0.12, Math.PI * 0.88);
+    context.stroke();
   } else {
     // Vanguards and raiders carry a compact gun along the right side of the
     // chassis. Its forward barrel makes the overhead facing unmistakable.
@@ -4443,7 +4542,7 @@ function updateInterface() {
       ? ` · ${definition.relayRadius} relay range · ${definition.chargeRate}/s buffer charge · ${definition.dischargeRate}/s discharge`
       : "";
     const defenseText = definition.capacitorCapacity
-      ? ` · ${definition.attackDamage} damage · ${definition.minimumAttackRange ? `${definition.minimumAttackRange}–` : ""}${definition.attackRange} range · ${(definition.attackDamage / definition.attackCooldown).toFixed(1)} DPS · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
+      ? ` · ${definition.attackDamage} damage · ${definition.minimumAttackRange ? `${definition.minimumAttackRange}–` : ""}${definition.attackRange} range · ${(definition.attackDamage / definition.attackCooldown).toFixed(1)} DPS${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""} · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
       : "";
     const chargerText = definition.chargeRadius
       ? ` · ${definition.chargeRate}/s unit recharge · ${definition.chargeRadius} field radius`
@@ -4511,7 +4610,7 @@ function updateInterface() {
       : "";
     const roleText = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
     const combatText = definition.attackRange
-      ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed`
+      ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}`
       : "";
     selectionName.textContent = definition.name;
     selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${combatText}${emergencyRecoveryText}${supplyText}${orderText}${repairText}${buildQueueText}`;

@@ -2279,6 +2279,7 @@ export class Simulation {
     ).length;
     const batteryCount = countFamily("battery");
     const sentryCount = countFamily("sentry_turret");
+    const flakCount = countFamily("flak_turret");
     const chargerCount = countFamily("charger");
     const relayCount = countFamily("power_tower");
     const salvageYardCount = countFamily("salvage_yard");
@@ -2290,6 +2291,12 @@ export class Simulation {
         (structure) => distance(structure, target) <= SIMULATION_RULES.enemyRushResponseRadius,
       ),
     );
+    const enemyAircraft = playerTargets.filter(
+      (target) =>
+        target.kind === "unit" &&
+        UNIT_DEFINITIONS[target.type]?.movementLayer === "air",
+    );
+    const nearbyAircraft = enemyAircraft.filter((target) => nearbyThreats.includes(target));
     const basicForceReady = combatStrength >= this.getEnemyAttackWaveSize(teamId);
     const coreBaseReady =
       batteryCount > 0 && sentryCount > 0 && chargerCount > 0 && basicForceReady;
@@ -2360,6 +2367,7 @@ export class Simulation {
       const advancedGenerator = tieredType("generator", operationalTier);
       const advancedBattery = tieredType("battery", operationalTier);
       const advancedSentry = tieredType("sentry_turret", operationalTier);
+      const advancedFlak = tieredType("flak_turret", operationalTier);
       const advancedCharger = tieredType("charger", operationalTier);
       if (!hasFamilyAtTier("generator", operationalTier)) {
         addCandidate(82, advancedGenerator, planPoint(-80, sideSign * 260));
@@ -2369,6 +2377,9 @@ export class Simulation {
       }
       if (!hasFamilyAtTier("sentry_turret", operationalTier)) {
         addCandidate(86, advancedSentry, planPoint(160, sideSign * 320));
+      }
+      if (flakCount > 0 && !hasFamilyAtTier("flak_turret", operationalTier)) {
+        addCandidate(87, advancedFlak, planPoint(220, -sideSign * 320));
       }
       if (!hasFamilyAtTier("charger", operationalTier)) {
         addCandidate(78, advancedCharger, planPoint(80, -sideSign * 340));
@@ -2411,6 +2422,16 @@ export class Simulation {
       } else {
         addCandidate(88, "sentry_turret", planPoint(100, -sideSign * (160 + sentryCount * 80)));
       }
+    }
+
+    const desiredFlakCount = Math.min(3, Math.ceil(nearbyAircraft.length / 3));
+    if (flakCount < desiredFlakCount) {
+      const airThreat = nearest(anchor, nearbyAircraft);
+      const threatDistance = distance(anchor, airThreat) || 1;
+      addCandidate(124, tieredType("flak_turret", operationalTier), {
+        x: anchor.x + ((airThreat.x - anchor.x) / threatDistance) * 130,
+        y: anchor.y + ((airThreat.y - anchor.y) / threatDistance) * 130,
+      });
     }
 
     const outpostDefenseRequest = this.getEnemyOutpostDefenseRequest(teamId, enemyAnchor, {
@@ -3062,7 +3083,7 @@ export class Simulation {
       const targets = nearbyTargets.filter((target) =>
         isStaticDefenseTargetInRange(definition, defense, target)
       );
-      const target = nearest(defense, targets);
+      const target = nearest(defense, preferredTargets(definition, targets));
       if (!target) {
         const targetInsideDeadZone = nearbyTargets.some((candidate) =>
           distance(defense, candidate) + EPSILON < (definition.minimumAttackRange || 0)
@@ -3086,7 +3107,11 @@ export class Simulation {
       defense.weaponEnergy = Math.max(0, defense.weaponEnergy - definition.attackEnergy);
       defense.attackCooldownRemaining = definition.attackCooldown;
       defense.defenseStatus = "firing";
-      this.applyDamage(target, definition.attackDamage, defense);
+      this.applyDamage(
+        target,
+        definition.attackDamage * damageMultiplierAgainstTarget(definition, target),
+        defense,
+      );
       this.emitAttack(defense, target);
     }
   }
@@ -3320,10 +3345,11 @@ export class Simulation {
       ? definition.abilities.overdrive.cooldownMultiplier
       : 1;
     unit.attackCooldownRemaining = definition.attackCooldown * cooldownMultiplier;
-    const structureDamageMultiplier = target.kind === "structure"
-      ? definition.structureDamageMultiplier || 1
-      : 1;
-    this.applyDamage(target, definition.attackDamage * structureDamageMultiplier, unit);
+    this.applyDamage(
+      target,
+      definition.attackDamage * damageMultiplierAgainstTarget(definition, target),
+      unit,
+    );
     this.emitAttack(unit, target);
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return true;
@@ -4187,6 +4213,14 @@ function nearest(origin, candidates) {
 }
 
 function preferredTargets(definition, candidates) {
+  if (definition.preferredTargetLayer) {
+    const preferredLayerTargets = candidates.filter(
+      (candidate) =>
+        candidate.kind === "unit" &&
+        UNIT_DEFINITIONS[candidate.type]?.movementLayer === definition.preferredTargetLayer,
+    );
+    if (preferredLayerTargets.length > 0) return preferredLayerTargets;
+  }
   if (!definition.preferredStructureFamilies?.length) return candidates;
   const preferredStructures = candidates.filter((candidate) => {
     if (candidate.kind !== "structure") return false;
@@ -4194,6 +4228,19 @@ function preferredTargets(definition, candidates) {
     return definition.preferredStructureFamilies.includes(family);
   });
   return preferredStructures.length > 0 ? preferredStructures : candidates;
+}
+
+function damageMultiplierAgainstTarget(definition, target) {
+  let multiplier = target.kind === "structure"
+    ? definition.structureDamageMultiplier || 1
+    : 1;
+  if (
+    target.kind === "unit" &&
+    UNIT_DEFINITIONS[target.type]?.movementLayer === "air"
+  ) {
+    multiplier *= definition.airDamageMultiplier || SIMULATION_RULES.normalAirDamageMultiplier;
+  }
+  return multiplier;
 }
 
 function isCombatUnitDefinition(definition) {

@@ -274,6 +274,7 @@ test("every higher-tier infrastructure building improves its defining function",
     metal_mine: ["metalRate"],
     sentry_turret: ["attackRange", "attackDamage", "capacitorCapacity", "capacitorChargeRate"],
     mortar_turret: ["attackRange", "attackDamage", "capacitorCapacity", "capacitorChargeRate"],
+    flak_turret: ["attackRange", "attackDamage", "capacitorCapacity", "capacitorChargeRate"],
     salvage_yard: ["droneCount"],
   };
 
@@ -407,6 +408,8 @@ test("completed mech factories globally unlock matching structure upgrades", () 
   assert.equal(getNextStructureTierType("generator"), "generator_t2");
   assert.equal(getNextStructureTierType("generator_t2"), "generator_t3");
   assert.equal(getNextStructureTierType("mech_factory_t1"), "mech_factory_t2");
+  assert.equal(getNextStructureTierType("flak_turret"), "flak_turret_t2");
+  assert.equal(getNextStructureTierType("flak_turret_t2"), "flak_turret_t3");
   assert.equal(getNextStructureTierType("supply_complex"), null);
   assert.equal(simulation.getStructureUpgradeInfo(generator.id).valid, false);
   assert.match(simulation.getStructureUpgradeInfo(generator.id).reason, /Tier 2 Mech Factory/);
@@ -983,6 +986,61 @@ test("attacking damages the target and spends the attacker's energy", () => {
   assert.equal(firingEvent.targetX, 150, "the impact position should remain fixed after firing");
 });
 
+test("ordinary weapons deal reduced damage to aircraft", () => {
+  const simulation = new Simulation();
+  const attacker = simulation.addUnit("scout_mech", "player", 100, 100);
+  const aircraft = simulation.addUnit("interceptor_t2", "enemy", 150, 100);
+  const startingHp = aircraft.hp;
+
+  simulation.commandAttack([attacker.id], aircraft.id);
+  simulation.tick(1 / 30);
+
+  assert.equal(
+    aircraft.hp,
+    startingHp -
+      UNIT_DEFINITIONS.scout_mech.attackDamage * SIMULATION_RULES.normalAirDamageMultiplier,
+  );
+});
+
+test("dedicated anti-air units deal bonus damage to aircraft", () => {
+  function damageAgainst(targetType) {
+    const simulation = new Simulation();
+    const attacker = simulation.addUnit("skyguard_mech", "player", 100, 100);
+    const target = simulation.addUnit(targetType, "enemy", 150, 100);
+    const startingHp = target.hp;
+    simulation.commandAttack([attacker.id], target.id);
+    simulation.tick(1 / 30);
+    return startingHp - target.hp;
+  }
+
+  assert.equal(damageAgainst("scout_mech"), UNIT_DEFINITIONS.skyguard_mech.attackDamage);
+  assert.equal(
+    damageAgainst("interceptor_t2"),
+    UNIT_DEFINITIONS.skyguard_mech.attackDamage *
+      UNIT_DEFINITIONS.skyguard_mech.airDamageMultiplier,
+  );
+});
+
+test("flak turrets prioritize aircraft and apply their air damage bonus", () => {
+  const simulation = new Simulation();
+  const flak = simulation.addStructure("flak_turret", "player", 100, 100, { powered: true });
+  const groundTarget = simulation.addUnit("scout_mech", "enemy", 120, 100);
+  const aircraft = simulation.addUnit("interceptor_t2", "enemy", 180, 100);
+  const groundStartingHp = groundTarget.hp;
+  const aircraftStartingHp = aircraft.hp;
+
+  simulation.updateStaticDefenses(1 / 30);
+
+  assert.equal(flak.defenseTargetId, aircraft.id);
+  assert.equal(groundTarget.hp, groundStartingHp);
+  assert.equal(
+    aircraft.hp,
+    aircraftStartingHp -
+      STRUCTURE_DEFINITIONS.flak_turret.attackDamage *
+      STRUCTURE_DEFINITIONS.flak_turret.airDamageMultiplier,
+  );
+});
+
 test("Raiders are fast harassment units that deal bonus damage to structures", () => {
   const definition = UNIT_DEFINITIONS.raider;
   const vanguard = UNIT_DEFINITIONS.scout_mech;
@@ -1146,6 +1204,9 @@ test("every unit type has the enlarged provisional energy capacity", () => {
       assault_mech: 780,
       assault_mech_t2: 1080,
       assault_mech_t3: 1440,
+      skyguard_mech: 720,
+      skyguard_mech_t2: 1020,
+      skyguard_mech_t3: 1380,
       energy_carrier: 2520,
       energy_carrier_t2: 3600,
       energy_carrier_t3: 5100,
@@ -1161,6 +1222,9 @@ test("every unit type has the enlarged provisional energy capacity", () => {
       grid_tanker: 3000,
       grid_tanker_t2: 4200,
       grid_tanker_t3: 6000,
+      flak_crawler: 720,
+      flak_crawler_t2: 990,
+      flak_crawler_t3: 1320,
       interceptor_t2: 900,
       interceptor_t3: 1260,
       gunship_t2: 1140,
@@ -1757,13 +1821,13 @@ test("yellow rich deposits increase the mine's actual metal output", () => {
   assert.ok(simulation.resources.player.metal >= startingMetal + 14.9);
 });
 
-test("each mech factory tier offers improved copies of the same four unit roles", () => {
+test("each mech factory tier offers improved copies of the same five unit roles", () => {
   const factoryTypes = ["mech_factory_t1", "mech_factory_t2", "mech_factory_t3"];
-  const expectedRoles = ["worker", "vanguard", "bulwark", "carrier"];
+  const expectedRoles = ["worker", "vanguard", "bulwark", "anti_air_mech", "carrier"];
   const definitionsByTier = factoryTypes.map((factoryType, index) => {
     const tier = index + 1;
     const production = STRUCTURE_DEFINITIONS[factoryType].production;
-    assert.equal(production.length, 4);
+    assert.equal(production.length, 5);
     const definitions = production.map((unitType) => UNIT_DEFINITIONS[unitType]);
     assert.deepEqual(definitions.map((definition) => definition.role), expectedRoles);
     assert.ok(definitions.every((definition) => definition.tier === tier));
@@ -1783,13 +1847,14 @@ test("each mech factory tier offers improved copies of the same four unit roles"
     assert.ok(currentTier.worker.buildRate > previousTier.worker.buildRate);
     assert.ok(currentTier.vanguard.attackDamage > previousTier.vanguard.attackDamage);
     assert.ok(currentTier.bulwark.attackDamage > previousTier.bulwark.attackDamage);
+    assert.ok(currentTier.anti_air_mech.attackDamage > previousTier.anti_air_mech.attackDamage);
     assert.ok(currentTier.carrier.transferRate > previousTier.carrier.transferRate);
   }
 });
 
-test("vehicle factories produce four matching-tier vehicle roles", () => {
+test("vehicle factories produce five matching-tier vehicle roles", () => {
   const factoryTypes = ["vehicle_factory_t1", "vehicle_factory_t2", "vehicle_factory_t3"];
-  const expectedRoles = ["vehicle_scout", "tank", "artillery", "grid_tanker"];
+  const expectedRoles = ["vehicle_scout", "tank", "artillery", "anti_air_vehicle", "grid_tanker"];
   const definitionsByTier = factoryTypes.map((factoryType, index) => {
     const tier = index + 1;
     const definitions = STRUCTURE_DEFINITIONS[factoryType].production
@@ -1838,6 +1903,20 @@ test("air factories begin at Tier 2 and produce four matching-tier aircraft role
   }
 });
 
+test("aircraft trade integrity for higher movement speed", () => {
+  const standardAircraft = [
+    "interceptor_t2", "interceptor_t3",
+    "gunship_t2", "gunship_t3",
+    "bomber_t2", "bomber_t3",
+    "energy_tender_t2", "energy_tender_t3",
+  ].map((type) => UNIT_DEFINITIONS[type]);
+
+  assert.ok(standardAircraft.every((definition) => definition.speed >= 105));
+  assert.ok(standardAircraft.every((definition) => definition.maxHp <= 295));
+  assert.ok(UNIT_DEFINITIONS.zenith_doughnut.speed > UNIT_DEFINITIONS.arsenal_colossus.speed);
+  assert.ok(UNIT_DEFINITIONS.zenith_doughnut.maxHp < UNIT_DEFINITIONS.arsenal_colossus.maxHp);
+});
+
 test("vehicle and air factories only queue units from their own tier and branch", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 100_000;
@@ -1877,7 +1956,7 @@ test("vehicle and air factories deploy their completed production orders", () =>
   assert.equal(airFactory.productionQueue.length, 0);
 });
 
-test("factories only queue the four unit variants matching their tier", () => {
+test("factories only queue the five unit variants matching their tier", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;
   const tierOneFactory = simulation.addStructure("mech_factory_t1", "player", 220, 100);
@@ -1886,13 +1965,13 @@ test("factories only queue the four unit variants matching their tier", () => {
   for (const unitType of STRUCTURE_DEFINITIONS.mech_factory_t1.production) {
     assert.equal(simulation.queueProduction(tierOneFactory.id, unitType), true);
   }
-  assert.equal(tierOneFactory.productionQueue.length, 4);
+  assert.equal(tierOneFactory.productionQueue.length, 5);
   assert.equal(simulation.queueProduction(tierOneFactory.id, "scout_mech_t2"), false);
 
   for (const unitType of STRUCTURE_DEFINITIONS.mech_factory_t2.production) {
     assert.equal(simulation.queueProduction(tierTwoFactory.id, unitType), true);
   }
-  assert.equal(tierTwoFactory.productionQueue.length, 4);
+  assert.equal(tierTwoFactory.productionQueue.length, 5);
   assert.equal(simulation.queueProduction(tierTwoFactory.id, "scout_mech"), false);
 });
 
@@ -1928,6 +2007,9 @@ test("unit roles and tiers reserve different provisional supply amounts", () => 
       assault_mech: 8,
       assault_mech_t2: 12,
       assault_mech_t3: 16,
+      skyguard_mech: 5,
+      skyguard_mech_t2: 8,
+      skyguard_mech_t3: 11,
       energy_carrier: 6,
       energy_carrier_t2: 9,
       energy_carrier_t3: 12,
@@ -1943,6 +2025,9 @@ test("unit roles and tiers reserve different provisional supply amounts", () => 
       grid_tanker: 6,
       grid_tanker_t2: 9,
       grid_tanker_t3: 13,
+      flak_crawler: 6,
+      flak_crawler_t2: 9,
+      flak_crawler_t3: 13,
       interceptor_t2: 5,
       interceptor_t3: 7,
       gunship_t2: 9,
@@ -2872,6 +2957,26 @@ test("enemy AI chooses buildings from current strategic needs instead of a build
 
   assert.equal(defensiveRequest.type, "sentry_turret");
   assert.ok(defensiveRequest.x < anchor.x, "the defense should face the nearby threat");
+});
+
+test("enemy AI requests flak when aircraft threaten its base", () => {
+  const simulation = new Simulation();
+  const anchor = simulation.addStructure("generator", "enemy", 2600, 900);
+  simulation.addStructure("mech_factory_t1", "enemy", 2440, 1040);
+  simulation.addStructure("battery", "enemy", 2520, 820);
+  const aircraft = simulation.addUnit("interceptor_t2", "player", 2300, 900);
+  const planPoint = (forward, side = 0) => ({ x: anchor.x - forward, y: anchor.y + side });
+
+  const request = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [aircraft],
+    planPoint,
+    3,
+  );
+
+  assert.equal(request.type, "flak_turret");
+  assert.ok(request.x < anchor.x, "the flak position should face the incoming aircraft");
 });
 
 test("a mature enemy economy deliberately progresses through Tier 2 and Tier 3 factories", () => {

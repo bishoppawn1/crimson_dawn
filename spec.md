@@ -359,7 +359,17 @@ a structure resolve to the nearest reachable edge of its visible footprint.
 Aircraft use a separate air movement layer. They fly directly over impassable
 terrain, completed structures, and foundations, but remain constrained by the map
 boundary, their movement-energy cost, and physical separation from other living
-units.
+units. Aircraft emphasize speed over survivability: the standard air roster moves
+at 105–200 world units per second and has lower provisional integrity than its
+previous profiles. The experimental Zenith Doughnut likewise trades part of its
+integrity for a higher 52-unit movement speed.
+
+Ordinary weapons deal a provisional 0.55× damage multiplier against aircraft.
+Dedicated anti-air weapons instead deal 2× damage and automatically prefer an
+aircraft when both air and ground targets are in range. Skyguard Mechs, Flak
+Crawler vehicles, and Flak Turrets are the current dedicated counters. They may
+still fire at ground targets for their listed base damage, but an incidental ground
+target never pulls their automatic targeting away from an aircraft in range.
 
 Mobile units use compact battlefield footprints so armies remain visually smaller
 than bases and defensive structures. All living units, friendly or hostile,
@@ -376,7 +386,7 @@ swinging laterally, so the mech never reads as swimming, paddling, prone, or
 crawling. The Vanguard uses a narrow arrowhead chassis and long canopy, while the
 Bulwark uses a broad slab-sided hull, short wide canopy, shield, and twin cannon so
 the two roles remain distinct without relying mainly on scale.
-Vanguard, Bulwark, Carrier, and hostile combat silhouettes remain distinct at
+Vanguard, Bulwark, Skyguard, Carrier, and hostile combat silhouettes remain distinct at
 gameplay scale through their overhead equipment profiles. Layered armor plates,
 panel seams, joints, cooling vents, fasteners, and weapon or support housings add
 detail without enlarging unit footprints. Directional lighting, offset ground
@@ -384,7 +394,9 @@ shadows, sparse edge wear, articulated movement, and units turning toward moveme
 construction, transfer, or combat targets give the machinery a grounded physical
 presence. Vehicles expose wheels or track rollers, engine grilles, exhausts, and
 complete turret assemblies; aircraft expose engine nacelles, control surfaces,
-hardpoints, and navigation lights. Worker Drones use articulated multi-arm tool
+hardpoints, and navigation lights. Skyguards expose paired shoulder missile racks
+and a central tracking dish, Flak Crawlers use four short autocannons and a rear
+tracking dish, and Flak Turrets use compact multi-barrel mounts. Worker Drones use articulated multi-arm tool
 machinery, while Arc Energy Carriers use a bipedal support frame with a visible
 dorsal energy core. Player blue and enemy red appear only on restrained
 identification panels, cockpit trim, and tier markings. Stasis state, health, and
@@ -407,7 +419,7 @@ ladder.
 | Production building | Available tiers | Produces |
 | --- | --- | --- |
 | Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs and related ground units |
-| Vehicle Factory | Tier 1, Tier 2, Tier 3 | Scout Vehicles, Battle Tanks, Mobile Artillery, and Grid Tankers |
+| Vehicle Factory | Tier 1, Tier 2, Tier 3 | Scout Vehicles, Battle Tanks, Mobile Artillery, Flak Crawlers, and Grid Tankers |
 | Air Factory | Tier 2, Tier 3 | Interceptors, Gunships, Bombers, and Energy Tenders |
 | Experimental Factory | Tier 3 only | Arsenal Colossus, Hexapod Landship, and Zenith Doughnut |
 
@@ -427,26 +439,27 @@ buildings a player may construct.
 
 ### 5.1 Tiered Mech Factory Roster
 
-Every Mech Factory exposes four consistent production lines at its own tier:
+Every Mech Factory exposes five consistent production lines at its own tier:
 
 | Production line | Battlefield role |
 | --- | --- |
 | Worker Drone | Construction and economic expansion |
 | Vanguard Mech | Fast, efficient general-purpose combat and scouting |
 | Bulwark Mech | Slower, durable frontline combat with the energy-consuming Overdrive ability |
+| Skyguard Mech | Mobile missile defense with extra damage against aircraft |
 | Arc Energy Carrier | Unarmed mobile energy storage and transfer support |
 
-A Tier 1 Mech Factory produces the Tier 1 version of all four units. Tier 2 and
-Tier 3 factories each produce a stronger version of the same four roles at their
+A Tier 1 Mech Factory produces the Tier 1 version of all five units. Tier 2 and
+Tier 3 factories each produce a stronger version of the same five roles at their
 matching tier rather than mixing lower-tier units into their menus. Higher-tier
 copies improve the statistics relevant to their role: workers build faster,
-Vanguards and Bulwarks become more combat-capable, and Arc Energy Carriers store
-and transfer more energy. All current unit costs, production times, and tier-to-tier
-stat increases are provisional balance values.
+Vanguards, Bulwarks, and Skyguards become more combat-capable, and Arc Energy
+Carriers store and transfer more energy. All current unit costs, production times,
+and tier-to-tier stat increases are provisional balance values.
 
 ### 5.2 Vehicle and Air Factory Rosters
 
-Every Vehicle Factory produces four conventional ground and logistics roles at the
+Every Vehicle Factory produces five conventional ground and logistics roles at the
 factory's matching tier:
 
 | Production line | Battlefield role |
@@ -454,6 +467,7 @@ factory's matching tier:
 | Scout Vehicle | Fast ground reconnaissance and light combat |
 | Battle Tank | Durable direct-fire frontline combat |
 | Mobile Artillery | Long-range fire support |
+| Flak Crawler | Mobile rapid-fire anti-air defense |
 | Grid Tanker | Armored mobile energy storage and transfer support |
 
 Air production begins at Tier 2; there is no Tier 1 Air Factory. Tier 2 and Tier 3
@@ -526,10 +540,11 @@ afford are displayed brightly, while structures blocked by worker tier or curren
 metal are dimmed but remain visible so the progression path stays clear.
 
 Pulse Generators, Grid Batteries, Power Relay Towers, Induction Chargers, Metal
-Mines, Sentry Turrets, Mortar Turrets, and Salvage Reclamation Yards currently have
-separate Tier 1, Tier 2, and Tier 3 construction definitions. Higher-tier versions
-have larger provisional costs, footprints, durability, demand, and role-specific
-output or capacity. The Strategic Supply Complex remains a Tier 1 construction option with
+Mines, Sentry Turrets, Mortar Turrets, Flak Turrets, and Salvage Reclamation Yards
+currently have separate Tier 1, Tier 2, and Tier 3 construction definitions.
+Higher-tier versions have larger provisional costs, footprints, durability,
+demand, and role-specific output or capacity. The Strategic Supply Complex remains
+a Tier 1 construction option with
 its own internal upgrade levels rather than separate tiered foundations. All new
 factory and building-variant balance values are provisional.
 
@@ -545,6 +560,8 @@ Mortar Turrets provide slower indirect fire at 140–420, 160–550, and 180–7
 minimum-to-maximum range across the three tiers. A Mortar Turret never acquires or
 fires on a target whose center is inside its minimum range, creating a deliberate
 close-range dead zone. Its selected range display shows both boundaries.
+Flak Turrets scale from 8/13/20 base damage, 225/285/360 range, and
+0.38/0.32/0.27-second reloads while retaining their 2× aircraft multiplier.
 Build controls, upgrade controls, and selected-structure details display the
 role-defining statistics so these advantages are apparent before metal is spent.
 
@@ -828,6 +845,11 @@ the base can protect it, and larger economies naturally request additional
 batteries, relays, defenses, chargers, salvage capacity, and factories. The
 decision counter varies valid placement lanes but never dictates the next
 structure type. These relative priorities are provisional tuning values.
+
+Aircraft observed near an AI base add a Flak Turret request to that same strategic
+scoring system. AI mech and vehicle factories also produce Skyguards and Flak
+Crawlers through the same role-balancing production logic used for other combat
+units; none are spawned or granted for free.
 
 Once its opening battery, sentry, charger, first combat wave, and paid expansion
 are established, an AI with metal above its low-economy recovery threshold
