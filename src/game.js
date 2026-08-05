@@ -40,6 +40,16 @@ const backToModesButton = document.querySelector("#back-to-modes-button");
 const hostLobbyCode = document.querySelector("#host-lobby-code");
 const joinLobbyCode = document.querySelector("#join-lobby-code");
 const connectionStatus = document.querySelector("#connection-status");
+const lobbyPanel = document.querySelector("#lobby-panel");
+const visibleLobbyCode = document.querySelector("#visible-lobby-code");
+const lobbyPlayerCount = document.querySelector("#lobby-player-count");
+const lobbyPlayerList = document.querySelector("#lobby-player-list");
+const lobbyHostControls = document.querySelector("#lobby-host-controls");
+const addAiButton = document.querySelector("#add-ai-button");
+const removeAiButton = document.querySelector("#remove-ai-button");
+const lobbyMap = document.querySelector("#lobby-map");
+const lobbyMapSummary = document.querySelector("#lobby-map-summary");
+const startLobbyMatchButton = document.querySelector("#start-lobby-match-button");
 const matchModeLabel = document.querySelector("#match-mode");
 const metalValue = document.querySelector("#metal-value");
 const energyValue = document.querySelector("#energy-value");
@@ -78,6 +88,8 @@ let activeMapId = DEFAULT_MAP_ID;
 let activePlayerCount = 2;
 let peerSession = null;
 let multiplayerConnected = false;
+let lobbyRole = null;
+let multiplayerLobby = null;
 let snapshotSendRemaining = 0;
 let nextGuestCommandId = 1;
 let lastProcessedGuestCommandId = 0;
@@ -148,6 +160,8 @@ for (const map of Object.values(MAP_DEFINITIONS)) {
   option.value = map.id;
   option.textContent = map.name;
   singlePlayerMap.append(option);
+  const lobbyOption = option.cloneNode(true);
+  lobbyMap.append(lobbyOption);
 }
 singlePlayerMap.value = DEFAULT_MAP_ID;
 updateSinglePlayerMapDescription();
@@ -279,6 +293,68 @@ function setConnectionStatus(message, error = false) {
   connectionStatus.classList.toggle("error", error);
 }
 
+function lobbyRoster(state = multiplayerLobby) {
+  if (!state) return [];
+  const roster = [{ name: "Host", role: "Human · Host" }];
+  if (state.guestConnected) roster.push({ name: "Player 2", role: "Human · Guest" });
+  for (let index = 0; index < state.botCount; index += 1) {
+    roster.push({ name: `AI Bot ${index + 1}`, role: "Computer" });
+  }
+  return roster;
+}
+
+function renderMultiplayerLobby() {
+  const roster = lobbyRoster();
+  lobbyPanel.hidden = !multiplayerLobby;
+  if (!multiplayerLobby) return;
+  visibleLobbyCode.textContent = multiplayerLobby.code;
+  lobbyPlayerCount.textContent = `${roster.length} / 8`;
+  lobbyPlayerList.replaceChildren(...roster.map((player, index) => {
+    const item = document.createElement("li");
+    const name = document.createElement("strong");
+    name.textContent = `${index + 1}. ${player.name}`;
+    const role = document.createElement("small");
+    role.textContent = player.role;
+    item.append(name, role);
+    return item;
+  }));
+
+  const playerCount = roster.length;
+  const map = getMatchMap(Math.max(2, playerCount), multiplayerLobby.mapId);
+  const canChooseMap = playerCount === 2;
+  lobbyMap.querySelector("[data-generated-map]")?.remove();
+  if (!canChooseMap && playerCount >= 3) {
+    const option = document.createElement("option");
+    option.value = map.id;
+    option.textContent = map.name;
+    option.dataset.generatedMap = "true";
+    lobbyMap.append(option);
+  }
+  lobbyHostControls.hidden = lobbyRole !== "host";
+  lobbyMap.value = map.id;
+  lobbyMap.disabled = !canChooseMap;
+  addAiButton.disabled = playerCount >= 8;
+  removeAiButton.disabled = multiplayerLobby.botCount === 0;
+  startLobbyMatchButton.disabled = playerCount < 2;
+  lobbyMapSummary.textContent = playerCount < 2
+    ? "Add an AI bot or wait for a guest before starting."
+    : canChooseMap
+    ? `${map.name}: ${MAP_DEFINITIONS[map.id]?.description || "two-player battlefield"}`
+    : `${map.name} is automatically selected for ${playerCount} players.`;
+}
+
+function sendLobbyState() {
+  if (lobbyRole !== "host" || !multiplayerLobby?.guestConnected) return;
+  peerSession?.send({ type: "lobby_state", lobby: multiplayerLobby });
+}
+
+function updateHostedLobby(update) {
+  if (lobbyRole !== "host" || !multiplayerLobby) return;
+  multiplayerLobby = { ...multiplayerLobby, ...update };
+  renderMultiplayerLobby();
+  sendLobbyState();
+}
+
 function showGame() {
   startMenu.hidden = true;
   gameShell.setAttribute("aria-hidden", "false");
@@ -301,10 +377,18 @@ function startSinglePlayer() {
   showGame();
 }
 
-function startMultiplayerMatch(role) {
+function configureGuestTeam(sim) {
+  const guestTeam = sim.teams.find((team) => team.id === "enemy");
+  if (!guestTeam) return;
+  guestTeam.kind = "human";
+  guestTeam.name = "Player 2";
+  delete sim.aiStates.enemy;
+}
+
+function enterMultiplayerMatch(role) {
   matchMode = role === "host" ? "multiplayer_host" : "multiplayer_guest";
   localTeam = role === "host" ? "player" : "enemy";
-  multiplayerConnected = true;
+  multiplayerConnected = Boolean(peerSession?.opened);
   snapshotSendRemaining = 0;
   nextGuestCommandId = 1;
   lastProcessedGuestCommandId = 0;
@@ -313,22 +397,38 @@ function startMultiplayerMatch(role) {
   lastHostStateReceivedAt = role === "guest" ? performance.now() : 0;
   pendingGuestCommands = new Map();
   multiplayerSyncMessage = null;
-  if (role === "host") {
-    activeMapId = resolveMatchMapId({
-      matchMode: "multiplayer",
-      randomValue: Math.random(),
-    });
-  }
-  simulation = Simulation.createFieldTest({ enemyAiEnabled: false, mapId: activeMapId });
-  matchModeLabel.textContent = role === "host"
-    ? `MULTIPLAYER HOST · ${simulation.mapName.toUpperCase()} · WESTERN COMMAND`
-    : "MULTIPLAYER GUEST · RECEIVING RANDOM MAP · EASTERN COMMAND";
+  activeMapId = simulation.mapId;
+  activePlayerCount = simulation.teams.length;
+  matchModeLabel.textContent = `${role === "host" ? "MULTIPLAYER HOST" : "MULTIPLAYER GUEST"} · ${simulation.mapName.toUpperCase()} · ${localTeam === "player" ? "WESTERN" : "EASTERN"} COMMAND`;
   resetPresentation();
   pauseButton.disabled = true;
   resetButton.textContent = "Leave multiplayer";
   restartMatchButton.textContent = "Return to menu";
   showGame();
-  if (role === "host") sendMultiplayerSnapshot();
+}
+
+function startHostedLobbyMatch() {
+  if (lobbyRole !== "host" || !multiplayerLobby) return;
+  const playerCount = lobbyRoster().length;
+  if (playerCount < 2) return;
+  const map = getMatchMap(playerCount, multiplayerLobby.mapId);
+  const hasGuest = multiplayerLobby.guestConnected;
+  simulation = Simulation.createFieldTest({
+    enemyAiEnabled: multiplayerLobby.botCount > 0,
+    mapId: map.id,
+    playerCount,
+  });
+  if (hasGuest) configureGuestTeam(simulation);
+  const message = { type: "match_start", snapshot: simulation.createSnapshot() };
+  if (hasGuest && !peerSession?.send(message)) {
+    setConnectionStatus("Could not deliver the match start. Check the guest connection and try again.", true);
+    return;
+  }
+  if (!hasGuest) {
+    peerSession?.close();
+    peerSession = null;
+  }
+  enterMultiplayerMatch("host");
 }
 
 function returnToMenu() {
@@ -337,6 +437,8 @@ function returnToMenu() {
   multiplayerConnected = false;
   pendingGuestCommands.clear();
   multiplayerSyncMessage = null;
+  lobbyRole = null;
+  multiplayerLobby = null;
   matchMode = "menu";
   localTeam = "player";
   activePlayerCount = 2;
@@ -355,14 +457,24 @@ function returnToMenu() {
   copyLobbyCodeButton.disabled = true;
   joinLobbyButton.disabled = true;
   matchModeLabel.textContent = "MATCH SETUP";
+  lobbyPanel.hidden = true;
   setConnectionStatus("Create a lobby or enter a lobby code to begin.");
 }
 
 function multiplayerHandlers(role) {
   return {
     onOpen() {
-      setConnectionStatus(role === "host" ? "Player joined. Starting match…" : "Lobby joined. Starting match…");
-      if (matchMode === "menu") startMultiplayerMatch(role);
+      multiplayerConnected = true;
+      if (role === "host") {
+        const previousBotCount = multiplayerLobby?.botCount || 0;
+        const botCount = Math.min(previousBotCount, 6);
+        updateHostedLobby({ guestConnected: true, botCount });
+        setConnectionStatus(botCount < previousBotCount
+          ? "Player joined the final slot; the last AI bot was removed."
+          : "Player joined. The host can now start the match.");
+      } else {
+        setConnectionStatus("Lobby joined. Waiting for the host to start the match…");
+      }
     },
     onMessage(message) {
       if (role === "host" && message.type === "command") {
@@ -381,6 +493,16 @@ function multiplayerHandlers(role) {
             : simulation.lastPlacementError || "The host rejected that command.",
         });
         sendMultiplayerSnapshot();
+      } else if (role === "guest" && message.type === "lobby_state" && matchMode === "menu") {
+        multiplayerLobby = { ...message.lobby };
+        renderMultiplayerLobby();
+      } else if (role === "guest" && message.type === "match_start" && matchMode === "menu") {
+        try {
+          simulation = Simulation.fromSnapshot(message.snapshot);
+          enterMultiplayerMatch("guest");
+        } catch {
+          setConnectionStatus("The host sent an incompatible match setup.", true);
+        }
       } else if (role === "guest" && message.type === "state") {
         const sequence = Number.isSafeInteger(message.sequence)
           ? message.sequence
@@ -424,6 +546,15 @@ function multiplayerHandlers(role) {
     onClose() {
       if (!multiplayerConnected) return;
       multiplayerConnected = false;
+      if (matchMode === "menu") {
+        if (role === "host") {
+          updateHostedLobby({ guestConnected: false });
+          setConnectionStatus("The guest left. The lobby is still open.");
+        } else {
+          setConnectionStatus("The host closed the lobby.", true);
+        }
+        return;
+      }
       paused = true;
       multiplayerSyncMessage = "MULTIPLAYER CONNECTION LOST · LEAVE MATCH TO RECONNECT";
       statusBanner.hidden = false;
@@ -445,9 +576,17 @@ async function createHostMatch() {
     peerSession?.close();
     const created = await PeerMultiplayerSession.createHost(multiplayerHandlers("host"));
     peerSession = created.session;
+    lobbyRole = "host";
+    multiplayerLobby = {
+      code: created.lobbyCode,
+      guestConnected: false,
+      botCount: 0,
+      mapId: DEFAULT_MAP_ID,
+    };
     hostLobbyCode.value = created.lobbyCode;
     copyLobbyCodeButton.disabled = false;
     setConnectionStatus(`Lobby ${created.lobbyCode} is open. Waiting for another player…`);
+    renderMultiplayerLobby();
   } catch (error) {
     setConnectionStatus(error.message || "Could not create the lobby.", true);
   } finally {
@@ -471,6 +610,14 @@ async function joinMultiplayerLobby() {
       multiplayerHandlers("guest"),
     );
     peerSession = created.session;
+    lobbyRole = "guest";
+    multiplayerLobby = {
+      code: created.lobbyCode,
+      guestConnected: true,
+      botCount: 0,
+      mapId: DEFAULT_MAP_ID,
+    };
+    renderMultiplayerLobby();
     setConnectionStatus(`Connecting to lobby ${created.lobbyCode}…`);
   } catch (error) {
     setConnectionStatus(error.message || "Could not join that lobby.", true);
@@ -3226,8 +3373,11 @@ function updateInterface() {
   const matchEnded = Boolean(simulation.matchResult);
   matchResultPanel.hidden = !matchEnded;
   if (matchEnded) {
-    const westernVictory = simulation.matchResult === "victory";
-    const victory = localTeam === "player" ? westernVictory : !westernVictory;
+    const victory = simulation.matchWinnerTeamId
+      ? simulation.matchWinnerTeamId === localTeam
+      : localTeam === "player"
+        ? simulation.matchResult === "victory"
+        : simulation.matchResult === "defeat";
     matchResultTitle.textContent = victory ? "You win." : "You lose.";
     matchResultDetails.textContent = victory
       ? "All opposing buildings and units have been destroyed."
@@ -3449,7 +3599,7 @@ function updateInterface() {
     matchMode === "multiplayer_guest" &&
     multiplayerConnected &&
     performance.now() - lastHostStateReceivedAt > 3000;
-  if (isMultiplayer() && !multiplayerConnected) {
+  if (isMultiplayer() && peerSession && !multiplayerConnected) {
     statusBanner.hidden = false;
     statusBanner.textContent = "MULTIPLAYER CONNECTION LOST · LEAVE MATCH TO RECONNECT";
   } else if (guestStateDelayed) {
@@ -3840,6 +3990,19 @@ backToModesButton.addEventListener("click", returnToMenu);
 createHostButton.addEventListener("click", createHostMatch);
 copyLobbyCodeButton.addEventListener("click", copyLobbyCode);
 joinLobbyButton.addEventListener("click", joinMultiplayerLobby);
+addAiButton.addEventListener("click", () => {
+  const playerCount = lobbyRoster().length;
+  if (playerCount < 8) updateHostedLobby({ botCount: multiplayerLobby.botCount + 1 });
+});
+removeAiButton.addEventListener("click", () => {
+  if (multiplayerLobby?.botCount > 0) {
+    updateHostedLobby({ botCount: multiplayerLobby.botCount - 1 });
+  }
+});
+lobbyMap.addEventListener("change", () => {
+  if (lobbyRoster().length === 2) updateHostedLobby({ mapId: lobbyMap.value });
+});
+startLobbyMatchButton.addEventListener("click", startHostedLobbyMatch);
 joinLobbyCode.addEventListener("input", () => {
   joinLobbyCode.value = normalizeLobbyCode(joinLobbyCode.value);
   joinLobbyButton.disabled = !isValidLobbyCode(joinLobbyCode.value);

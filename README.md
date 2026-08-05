@@ -8,11 +8,11 @@ units moving, attacking, and using selected special abilities.
 
 The current build is the first playable field test. It includes:
 
-- A start menu for two- through eight-player single-player matches (one human and
-  up to seven independent AI commanders) or direct two-player multiplayer.
+- A start menu for two- through eight-player single-player matches and hosted
+  multiplayer lobbies with a shared player roster and host-managed AI slots.
 - Host-authoritative WebRTC multiplayer with one 10-character lobby code,
-  synchronized random maps, team-validated commands, and no gameplay server or
-  account.
+  explicit host start, two-player map selection, automatic larger maps,
+  team-validated commands, and no gameplay server or account.
 - Selectable mechs with movement and weapon energy costs.
 - Realistic role-specific top-down Canvas sprites with directional lighting,
   articulated machinery, functional equipment, target-aware facing, and clearly
@@ -118,7 +118,8 @@ No package installation or external runtime is required.
 1. Both players choose **Multiplayer** from the start menu.
 2. The host selects **Create lobby** and copies the 10-character lobby code.
 3. The guest enters that code and selects **Join lobby** (or presses Enter).
-4. The match starts automatically when the direct connection opens.
+4. The host adjusts the shared human-and-AI roster and map options.
+5. The host selects **Start match** when the roster is ready.
 
 The host commands the western base and the guest commands the eastern base. The
 game connection is direct and requires internet access; PeerJS Cloud brokers the

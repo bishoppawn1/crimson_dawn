@@ -27,9 +27,11 @@ scale from 5,960 by 4,480 to 8,560 by 6,280 world units, with evenly distributed
 starting positions, nearby expansion deposits, contested central deposits, and
 terrain arranged around the full battlefield rather than a two-sided lane.
 
-A two-player multiplayer host selects one of the three duel maps at random and
-includes that map identity and complete map state in the authoritative snapshot
-sent to the guest; neither player manually chooses or vetoes the multiplayer map.
+A multiplayer host chooses one of the three duel maps when the lobby contains
+exactly two total commanders. Lobbies with three through eight human-and-AI
+commanders automatically use the dedicated map for their player count. The chosen
+map identity and complete map state are included in the authoritative snapshot sent
+to the guest.
 
 - **Broken Frontier** contains 27 Metal Mine deposits, fortified starting bases,
   central divides, and two distant five-deposit frontier clusters.
@@ -808,16 +810,23 @@ count. All AI opponents run their full commander logic. The local human is blue,
 and up to seven opponents receive distinct red, orange, yellow, purple, green,
 magenta, and pale-gray accents so ownership remains readable.
 
-Multiplayer currently creates a direct two-player match: the host controls the
-western team and the guest controls the eastern team. The enemy AI is disabled so
-both sides use only human commands.
+Multiplayer uses a visible pre-match roster shared by the host and guest. The roster
+always identifies the host and lists the connected guest and every AI bot. The host
+may add or remove bots up to the eight-commander match maximum and explicitly
+starts the match. A lobby can start with the host and AI bots even when no guest is
+connected. When a guest is present, the host controls the first team, the guest
+controls the second team, and any remaining slots are independent AI commanders.
+If a guest joins a host-plus-seven-AI lobby, the final AI slot is removed to honor
+the eight-player maximum.
 
 Multiplayer uses a host-authoritative WebRTC data channel suitable for the static
 browser build. Creating a lobby reserves a temporary, randomly generated
 10-character code containing uppercase letters and numbers. The host can copy that
 code directly; the guest enters it once and selects Join Lobby. There is no manual
 offer/answer exchange. The first guest to connect occupies the lobby's single guest
-slot, and the code remains visible to both players while they are in setup.
+slot, and the code, roster, player count, and selected map remain visible to both
+players while they are in setup. Map selection is enabled only for an exactly
+two-player roster; larger rosters use their count-specific map automatically.
 
 PeerJS Cloud brokers the WebRTC handshake associated with the short code; game
 commands and snapshots still travel directly between the players. No game account
@@ -826,11 +835,11 @@ assists peer discovery, so both players need internet access and some highly
 restricted or symmetric-NAT networks may still prevent a direct connection.
 
 The host owns the canonical simulation, validates incoming commands against the
-guest's team, chooses the multiplayer map at random, and sends versioned simulation
-snapshots to the guest ten times per second. Every host state carries a monotonically
-increasing sequence number, and the guest ignores older state. The guest never
-advances a second canonical simulation between snapshots. Instead, it predicts its
-own submitted commands against the latest host state, replays still-unacknowledged
+guest's team, applies the lobby's map and AI configuration, and sends versioned
+simulation snapshots to the guest ten times per second. Every host state carries a
+monotonically increasing sequence number, and the guest ignores older state. The
+guest never advances a second canonical simulation between snapshots. Instead, it
+predicts its own submitted commands against the latest host state, replays still-unacknowledged
 commands when a newer state arrives, and removes or corrects them when the host
 acknowledges the result. This keeps placement and other commands responsive without
 allowing the peers to become split-brained. When the outgoing channel is congested,

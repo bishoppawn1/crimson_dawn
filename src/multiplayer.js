@@ -131,7 +131,12 @@ export class PeerMultiplayerSession {
       clearTimeout(this.stateFlushTimer);
       this.pendingState = null;
       this.stateFlushTimer = null;
-      if (!this.closed) this.handlers.onClose?.("closed");
+      if (this.closed) return;
+      if (this.role === "host" && this.connection === connection) {
+        this.connection = null;
+        this.opened = false;
+      }
+      this.handlers.onClose?.("closed");
     });
     connection.on("error", (error) => {
       if (!this.closed) this.handlers.onError?.(friendlyPeerError(error));
