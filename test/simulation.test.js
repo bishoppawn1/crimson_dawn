@@ -20,7 +20,11 @@ import {
   structureFootprint,
 } from "../src/data.js";
 import { Simulation } from "../src/simulation.js";
-import { decodeSessionDescription, encodeSessionDescription } from "../src/multiplayer.js";
+import {
+  generateLobbyCode,
+  isValidLobbyCode,
+  normalizeLobbyCode,
+} from "../src/multiplayer.js";
 import { createMatchTeams, getMatchMap } from "../src/maps.js";
 
 function advance(simulation, seconds, step = 1 / 30) {
@@ -2997,14 +3001,14 @@ test("simulation snapshots restore a playable multiplayer client state", () => {
   assert.doesNotThrow(() => guest.tick(1 / 30));
 });
 
-test("manual multiplayer connection codes round-trip session descriptions", () => {
-  const description = { type: "offer", sdp: "v=0\r\na=ice-ufrag:test+/=\r\n" };
-  const code = encodeSessionDescription(description);
+test("multiplayer lobby codes are exactly ten uppercase letters and numbers", () => {
+  const code = generateLobbyCode(Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
 
-  assert.match(code, /^[A-Za-z0-9_-]+$/);
-  assert.deepEqual(decodeSessionDescription(code, "offer"), { ...description, roomId: null });
-  assert.throws(() => decodeSessionDescription(code, "answer"), /Expected a valid answer/);
-  assert.throws(() => decodeSessionDescription("not a code", "offer"), /not valid/);
+  assert.equal(code, "ABCDEFGHJK");
+  assert.equal(code.length, 10);
+  assert.equal(isValidLobbyCode(code), true);
+  assert.equal(normalizeLobbyCode("ab12-cd34 ef"), "AB12CD34EF");
+  assert.equal(isValidLobbyCode("TOO-SHORT"), false);
 });
 
 test("single-player counts from two through eight resolve dedicated battlefield layouts", () => {

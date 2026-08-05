@@ -813,11 +813,17 @@ western team and the guest controls the eastern team. The enemy AI is disabled s
 both sides use only human commands.
 
 Multiplayer uses a host-authoritative WebRTC data channel suitable for the static
-browser build. The host generates an offer code, the guest pastes it and generates
-an answer code, and the host pastes that answer to finish the direct connection.
-No game account or dedicated Crimson Dawn server is required. A public STUN service
-assists peer discovery, so both players still need internet access and some highly
-restricted networks may prevent a direct connection.
+browser build. Creating a lobby reserves a temporary, randomly generated
+10-character code containing uppercase letters and numbers. The host can copy that
+code directly; the guest enters it once and selects Join Lobby. There is no manual
+offer/answer exchange. The first guest to connect occupies the lobby's single guest
+slot, and the code remains visible to both players while they are in setup.
+
+PeerJS Cloud brokers the WebRTC handshake associated with the short code; game
+commands and snapshots still travel directly between the players. No game account
+or dedicated Crimson Dawn gameplay server is required. A public STUN service
+assists peer discovery, so both players need internet access and some highly
+restricted or symmetric-NAT networks may still prevent a direct connection.
 
 The host owns the canonical simulation, validates incoming commands against the
 guest's team, chooses the multiplayer map at random, and sends versioned simulation

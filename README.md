@@ -10,8 +10,9 @@ The current build is the first playable field test. It includes:
 
 - A start menu for two- through eight-player single-player matches (one human and
   up to seven independent AI commanders) or direct two-player multiplayer.
-- Host-authoritative WebRTC multiplayer with manual offer/answer codes, synchronized
-  random maps, team-validated commands, and no dedicated game server or account.
+- Host-authoritative WebRTC multiplayer with one 10-character lobby code,
+  synchronized random maps, team-validated commands, and no gameplay server or
+  account.
 - Selectable mechs with movement and weapon energy costs.
 - Realistic role-specific top-down Canvas sprites with directional lighting,
   articulated machinery, functional equipment, target-aware facing, and clearly
@@ -115,13 +116,13 @@ No package installation or external runtime is required.
 ## Multiplayer
 
 1. Both players choose **Multiplayer** from the start menu.
-2. The host generates an offer code and sends it to the guest.
-3. The guest pastes that offer, generates an answer code, and sends the answer back.
-4. The host pastes the answer and connects the match.
+2. The host selects **Create lobby** and copies the 10-character lobby code.
+3. The guest enters that code and selects **Join lobby** (or presses Enter).
+4. The match starts automatically when the direct connection opens.
 
 The host commands the western base and the guest commands the eastern base. The
-connection is direct and requires internet access; no account or dedicated game
-server is required.
+game connection is direct and requires internet access; PeerJS Cloud brokers the
+initial handshake, with no account or dedicated gameplay server required.
 
 ## Controls
 

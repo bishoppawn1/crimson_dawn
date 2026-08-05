@@ -52,28 +52,26 @@
             <section class="connection-card">
               <p class="panel-label">HOST · WESTERN BASE</p>
               <h2>Create a match</h2>
-              <p>Generate an offer and send it to the other player. Paste their answer below to connect.</p>
-              <button id="create-host-button" class="menu-action" type="button">Generate host offer</button>
-              <label for="host-offer-code">Host offer</label>
-              <textarea id="host-offer-code" rows="4" readonly placeholder="Your offer code appears here"></textarea>
-              <label for="guest-answer-code">Guest answer</label>
-              <textarea id="guest-answer-code" rows="4" placeholder="Paste the guest answer here"></textarea>
-              <button id="accept-answer-button" class="menu-action" type="button" disabled>Connect guest</button>
+              <p>Create a lobby, then send its short code to the other player.</p>
+              <button id="create-host-button" class="menu-action" type="button">Create lobby</button>
+              <label for="host-lobby-code">Lobby code</label>
+              <div class="lobby-code-row">
+                <input id="host-lobby-code" class="lobby-code" type="text" maxlength="10" readonly placeholder="----------" />
+                <button id="copy-lobby-code-button" class="menu-back" type="button" disabled>Copy</button>
+              </div>
             </section>
 
             <section class="connection-card">
               <p class="panel-label">JOIN · EASTERN BASE</p>
               <h2>Join a match</h2>
-              <p>Paste the host offer, generate an answer, then send that answer back to the host.</p>
-              <label for="join-offer-code">Host offer</label>
-              <textarea id="join-offer-code" rows="4" placeholder="Paste the host offer here"></textarea>
-              <button id="create-guest-button" class="menu-action" type="button">Generate guest answer</button>
-              <label for="guest-response-code">Guest answer</label>
-              <textarea id="guest-response-code" rows="4" readonly placeholder="Your answer code appears here"></textarea>
+              <p>Enter the host's 10-character lobby code and join immediately.</p>
+              <label for="join-lobby-code">Lobby code</label>
+              <input id="join-lobby-code" class="lobby-code" type="text" inputmode="text" maxlength="10" pattern="[A-Z0-9]{10}" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="AB12CD34EF" />
+              <button id="join-lobby-button" class="menu-action" type="button" disabled>Join lobby</button>
             </section>
           </div>
-          <p class="map-description">The host randomly selects the battlefield when the connection opens. The chosen map is synchronized to the guest.</p>
-          <p id="connection-status" class="connection-status" aria-live="polite">Choose Host or Join to begin.</p>
+          <p class="map-description">Lobby codes contain exactly 10 letters and numbers. The host randomly selects and synchronizes the battlefield when a guest joins.</p>
+          <p id="connection-status" class="connection-status" aria-live="polite">Create a lobby or enter a lobby code to begin.</p>
           <button id="back-to-modes-button" class="menu-back" type="button">Back to mode selection</button>
         </section>
       </div>
@@ -202,6 +200,7 @@
       </section>
     </main>
 
+    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js" integrity="sha384-x0YgkOr/3UOZP2CRDxGW9e0Q+2Qjyr3uJrm4xU32Y7ZCNAo7Cc7bjhrZMi/dwczu" crossorigin="anonymous"></script>
     <script type="module" src="./src/game.js"></script>
   </body>
 </html>
