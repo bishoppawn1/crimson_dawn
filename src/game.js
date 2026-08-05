@@ -115,6 +115,8 @@ const camera = {
   y: simulation.height / 2,
   zoom: 1,
 };
+let renderViewBounds = null;
+let renderTeamPalettes = new Map();
 const cameraKeys = new Set();
 const cameraPanSpeed = 700;
 const minCameraZoom = 0.5;
@@ -148,6 +150,8 @@ const teamPalettes = Object.freeze([
 ]);
 
 function teamPalette(teamId) {
+  const cached = renderTeamPalettes.get(teamId);
+  if (cached) return cached;
   if (teamId === localTeam) return teamPalettes[0];
   const opponentIndex = simulation.teams
     .filter((team) => team.id !== localTeam)
@@ -813,6 +817,14 @@ function frame(now) {
 }
 
 function render() {
+  renderViewBounds = visibleWorldBounds();
+  renderTeamPalettes = new Map([[localTeam, teamPalettes[0]]]);
+  let opponentPaletteIndex = 1;
+  for (const team of simulation.teams) {
+    if (team.id === localTeam) continue;
+    renderTeamPalettes.set(team.id, teamPalettes[opponentPaletteIndex % teamPalettes.length]);
+    opponentPaletteIndex += 1;
+  }
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
   context.translate(canvas.width / 2, canvas.height / 2);
@@ -823,21 +835,58 @@ function render() {
   drawPowerNetwork();
   drawCommandIndicators();
 
-  for (const wreck of simulation.wrecks) drawWreck(wreck);
+  for (const wreck of simulation.wrecks) {
+    if (worldPointIsVisible(wreck.x, wreck.y, 80)) drawWreck(wreck);
+  }
   for (const structure of simulation.structures) {
-    if (structure.alive) drawStructure(structure);
+    if (!structure.alive) continue;
+    const footprint = structureFootprint(structure.type);
+    if (worldPointIsVisible(structure.x, structure.y, Math.max(footprint.width, footprint.height))) {
+      drawStructure(structure);
+    }
   }
   for (const drone of simulation.getDrones()) {
-    if (drone.alive) drawDrone(drone);
+    if (drone.alive && worldPointIsVisible(drone.x, drone.y, 70)) drawDrone(drone);
   }
   for (const unit of simulation.units) {
-    if (unit.alive) drawUnit(unit);
+    if (unit.alive && worldPointIsVisible(unit.x, unit.y, 100)) drawUnit(unit);
   }
   drawPlacementPreview();
   drawEvents();
   drawSelectionBox();
   context.restore();
   drawCameraHud();
+}
+
+function visibleWorldBounds(margin = 0) {
+  const halfWidth = canvas.width / (2 * camera.zoom) + margin;
+  const halfHeight = canvas.height / (2 * camera.zoom) + margin;
+  return {
+    left: Math.max(0, camera.x - halfWidth),
+    right: Math.min(simulation.width, camera.x + halfWidth),
+    top: Math.max(0, camera.y - halfHeight),
+    bottom: Math.min(simulation.height, camera.y + halfHeight),
+  };
+}
+
+function worldPointIsVisible(x, y, margin = 0) {
+  const bounds = renderViewBounds || visibleWorldBounds();
+  return (
+    x >= bounds.left - margin &&
+    x <= bounds.right + margin &&
+    y >= bounds.top - margin &&
+    y <= bounds.bottom + margin
+  );
+}
+
+function worldRectIsVisible(left, top, right, bottom, margin = 0) {
+  const bounds = renderViewBounds || visibleWorldBounds();
+  return (
+    right >= bounds.left - margin &&
+    left <= bounds.right + margin &&
+    bottom >= bounds.top - margin &&
+    top <= bounds.bottom + margin
+  );
 }
 
 function resetCamera() {
@@ -911,8 +960,11 @@ function drawTerrain() {
   // Small deterministic mottles keep the field organic without shimmering as
   // the camera moves or introducing simulation-side randomness.
   context.fillStyle = "#8a76512b";
-  for (let y = 80; y < simulation.height; y += 160) {
-    for (let x = 80; x < simulation.width; x += 160) {
+  const visibleBounds = visibleWorldBounds(80);
+  const firstMottleX = Math.max(80, Math.floor(visibleBounds.left / 160) * 160 + 80);
+  const firstMottleY = Math.max(80, Math.floor(visibleBounds.top / 160) * 160 + 80);
+  for (let y = firstMottleY; y <= visibleBounds.bottom; y += 160) {
+    for (let x = firstMottleX; x <= visibleBounds.right; x += 160) {
       if ((x / 160 + y / 160) % 3 === 0) continue;
       const offsetX = ((x * 7 + y * 3) % 41) - 20;
       const offsetY = ((x * 5 + y * 11) % 37) - 18;
@@ -924,7 +976,9 @@ function drawTerrain() {
 
   const gridSize = SIMULATION_RULES.buildingGridSize;
   context.lineWidth = placementStructureType ? 1.5 : 1;
-  for (let x = 0; x <= simulation.width; x += gridSize) {
+  const firstGridX = Math.floor(visibleBounds.left / gridSize) * gridSize;
+  const firstGridY = Math.floor(visibleBounds.top / gridSize) * gridSize;
+  for (let x = firstGridX; x <= visibleBounds.right; x += gridSize) {
     context.strokeStyle = placementStructureType
       ? x % (gridSize * 5) === 0
         ? "#b6c69a"
@@ -933,11 +987,11 @@ function drawTerrain() {
         ? colors.gridStrong
         : colors.gridFine;
     context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, simulation.height);
+    context.moveTo(x, visibleBounds.top);
+    context.lineTo(x, visibleBounds.bottom);
     context.stroke();
   }
-  for (let y = 0; y <= simulation.height; y += gridSize) {
+  for (let y = firstGridY; y <= visibleBounds.bottom; y += gridSize) {
     context.strokeStyle = placementStructureType
       ? y % (gridSize * 5) === 0
         ? "#b6c69a"
@@ -946,8 +1000,8 @@ function drawTerrain() {
         ? colors.gridStrong
         : colors.gridFine;
     context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(simulation.width, y);
+    context.moveTo(visibleBounds.left, y);
+    context.lineTo(visibleBounds.right, y);
     context.stroke();
   }
 
@@ -956,7 +1010,7 @@ function drawTerrain() {
   context.font = "700 12px ui-monospace, monospace";
   for (const team of simulation.teams) {
     const start = simulation.teamStarts[team.id];
-    if (!start) continue;
+    if (!start || !worldPointIsVisible(start.x, start.y - 300, 100)) continue;
     context.fillStyle = teamPalette(team.id).bright;
     context.textAlign = "center";
     context.fillText(team.id === localTeam ? "YOUR COMMAND" : team.name.toUpperCase(), start.x, start.y - 300);
@@ -968,6 +1022,7 @@ function drawImpassableTerrain() {
   for (const obstacle of simulation.terrain) {
     const left = obstacle.x - obstacle.width / 2;
     const top = obstacle.y - obstacle.height / 2;
+    if (!worldRectIsVisible(left, top, left + obstacle.width, top + obstacle.height, 40)) continue;
     const isStartingWall = obstacle.terrainType === "starting_wall";
     context.save();
     context.fillStyle = isStartingWall ? "#465451" : "#4b4234";
@@ -1089,6 +1144,7 @@ function drawMetalDeposits() {
       .map((structure) => structure.depositId),
   );
   for (const deposit of simulation.metalDeposits) {
+    if (!worldPointIsVisible(deposit.x, deposit.y, 100)) continue;
     const available = !occupiedIds.has(deposit.id);
     const remote = Boolean(deposit.remote);
     const emphasized = Boolean(
@@ -1156,13 +1212,22 @@ function drawPowerNetwork() {
       if (node.team !== localTeam || !node.connected) continue;
       const definition = STRUCTURE_DEFINITIONS[node.type];
       const reach = definition.powerRadius || definition.relayRadius;
-      if (reach) drawPowerCoverage(node.type, node.x, node.y, colors.energy);
+      if (reach && worldPointIsVisible(node.x, node.y, reach)) {
+        drawPowerCoverage(node.type, node.x, node.y, colors.energy);
+      }
     }
   }
   for (const link of simulation.powerLinks || []) {
     const from = simulation.getStructure(link.fromId);
     const to = simulation.getStructure(link.toId);
     if (!from?.alive || !to?.alive) continue;
+    if (!worldRectIsVisible(
+      Math.min(from.x, to.x),
+      Math.min(from.y, to.y),
+      Math.max(from.x, to.x),
+      Math.max(from.y, to.y),
+      20,
+    )) continue;
     context.save();
     context.strokeStyle = from.connected && to.connected ? `${colors.energy}4d` : `${colors.disconnected}55`;
     context.lineWidth = 2;
@@ -2425,157 +2490,349 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
 }
 
 function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
-  const outline = stasis ? "#24231f" : "#171d23";
-  const armor = stasis ? "#59544b" : "#9da7a9";
-  const armorLight = stasis ? "#777066" : "#d9ddda";
-  const armorDark = stasis ? "#39352f" : "#526064";
-  const accent = stasis ? `${teamColor}88` : teamColor;
-  const bomber = definition.role === "bomber";
-  const gunship = definition.role === "gunship";
-  const tender = definition.role === "energy_tender";
-  const wingSpan = bomber ? 1.08 : tender ? 1 : gunship ? 0.94 : 0.82;
+  const palette = {
+    outline: stasis ? "#24231f" : "#171d23",
+    armor: stasis ? "#59544b" : "#9da7a9",
+    armorLight: stasis ? "#777066" : "#d9ddda",
+    armorDark: stasis ? "#39352f" : "#526064",
+    accent: stasis ? `${teamColor}88` : teamColor,
+    glass: stasis ? "#6d6249" : "#183642",
+    energy: stasis ? "#625b49" : colors.energy,
+  };
   context.save();
   context.scale(definition.radius, definition.radius);
   context.lineJoin = "round";
-  context.strokeStyle = outline;
+  context.lineCap = "round";
+  context.strokeStyle = palette.outline;
   context.lineWidth = 0.09;
+  if (definition.role === "gunship") drawGunshipAircraft(definition, palette, stasis);
+  else if (definition.role === "bomber") drawBomberAircraft(definition, palette, stasis);
+  else if (definition.role === "energy_tender") drawEnergyTenderAircraft(definition, palette, stasis);
+  else drawInterceptorAircraft(definition, palette, stasis);
+  context.restore();
+}
 
-  context.fillStyle = unitSurfaceGradient(armorLight, armor, armorDark);
+function drawAircraftCanopy(x, y, radiusX, radiusY, palette) {
+  context.fillStyle = palette.glass;
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.055;
   context.beginPath();
-  context.moveTo(0, -1.08);
-  context.lineTo(0.2, -0.48);
-  context.lineTo(wingSpan, 0.18);
-  context.lineTo(0.38, 0.3);
-  context.lineTo(0.28, 0.82);
-  context.lineTo(0, 0.62);
-  context.lineTo(-0.28, 0.82);
-  context.lineTo(-0.38, 0.3);
-  context.lineTo(-wingSpan, 0.18);
-  context.lineTo(-0.2, -0.48);
-  context.closePath();
+  context.ellipse(x, y, radiusX, radiusY, 0, 0, Math.PI * 2);
   context.fill();
   context.stroke();
-
-  context.fillStyle = armorLight;
+  context.fillStyle = palette.armorLight;
+  context.globalAlpha = 0.58;
   context.beginPath();
-  context.moveTo(-0.05, -0.92);
-  context.lineTo(0.05, -0.92);
-  context.lineTo(0.16, 0.57);
-  context.lineTo(0, 0.48);
-  context.lineTo(-0.16, 0.57);
-  context.closePath();
+  context.ellipse(x - radiusX * 0.3, y - radiusY * 0.2, radiusX * 0.22, radiusY * 0.58, -0.18, 0, Math.PI * 2);
   context.fill();
+  context.globalAlpha = 1;
+}
 
-  context.strokeStyle = armorDark;
-  context.lineWidth = 0.05;
-  context.beginPath();
-  context.moveTo(-wingSpan * 0.82, 0.15);
-  context.lineTo(-0.26, 0.02);
-  context.lineTo(-0.15, 0.52);
-  context.moveTo(wingSpan * 0.82, 0.15);
-  context.lineTo(0.26, 0.02);
-  context.lineTo(0.15, 0.52);
-  context.moveTo(-0.13, -0.31);
-  context.lineTo(0.13, -0.31);
-  context.stroke();
-  context.fillStyle = armorDark;
-  for (const side of [-1, 1]) {
-    context.beginPath();
-    context.ellipse(side * wingSpan * 0.5, 0.2, 0.12, 0.2, 0, 0, Math.PI * 2);
-    context.fill();
-    context.strokeStyle = outline;
-    context.lineWidth = 0.045;
-    context.stroke();
-    context.fillStyle = outline;
-    context.beginPath();
-    context.ellipse(side * wingSpan * 0.5, 0.34, 0.075, 0.1, 0, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = armorDark;
-  }
-
-  context.fillStyle = stasis ? "#6d6249" : "#183642";
-  context.beginPath();
-  context.ellipse(0, -0.43, gunship ? 0.2 : 0.14, gunship ? 0.34 : 0.27, 0, 0, Math.PI * 2);
-  context.fill();
-  context.stroke();
-  context.fillStyle = armorLight;
-  context.beginPath();
-  context.ellipse(-0.055, -0.52, 0.04, gunship ? 0.2 : 0.15, -0.18, 0, Math.PI * 2);
-  context.fill();
-
-  context.strokeStyle = accent;
-  context.lineWidth = 0.1;
-  context.beginPath();
-  context.moveTo(-wingSpan * 0.74, 0.13);
-  context.lineTo(-wingSpan * 0.3, 0.18);
-  context.moveTo(wingSpan * 0.74, 0.13);
-  context.lineTo(wingSpan * 0.3, 0.18);
-  context.stroke();
-
-  // Conventional navigation lights, trailing control-surface hinges, and
-  // under-wing hardpoints make the aircraft feel built rather than symbolic.
+function drawAircraftNavigationLights(leftX, rightX, y, stasis) {
   context.fillStyle = stasis ? "#746c5d" : "#d94f4f";
   context.beginPath();
-  context.arc(-wingSpan * 0.93, 0.18, 0.055, 0, Math.PI * 2);
+  context.arc(leftX, y, 0.055, 0, Math.PI * 2);
   context.fill();
   context.fillStyle = stasis ? "#746c5d" : "#62d77c";
   context.beginPath();
-  context.arc(wingSpan * 0.93, 0.18, 0.055, 0, Math.PI * 2);
+  context.arc(rightX, y, 0.055, 0, Math.PI * 2);
   context.fill();
-  context.strokeStyle = armorDark;
-  context.lineWidth = 0.035;
+}
+
+function drawAircraftTierMarks(tier, y, palette) {
+  context.fillStyle = palette.accent;
+  const markCount = Math.max(1, tier - 1);
+  for (let mark = 0; mark < markCount; mark += 1) {
+    context.fillRect((mark - (markCount - 1) / 2) * 0.15 - 0.05, y, 0.1, 0.055);
+  }
+}
+
+function drawInterceptorAircraft(definition, palette, stasis) {
+  // A long nose, aggressively swept delta wings, and separated twin tails make
+  // the interceptor read as speed-first even at normal battlefield zoom.
+  context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.09;
+  context.beginPath();
+  context.moveTo(0, -1.2);
+  context.lineTo(0.2, -0.42);
+  context.lineTo(0.84, 0.42);
+  context.lineTo(0.27, 0.2);
+  context.lineTo(0.18, 0.87);
+  context.lineTo(0, 0.68);
+  context.lineTo(-0.18, 0.87);
+  context.lineTo(-0.27, 0.2);
+  context.lineTo(-0.84, 0.42);
+  context.lineTo(-0.2, -0.42);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = palette.armorLight;
+  context.beginPath();
+  context.moveTo(0, -1.08);
+  context.lineTo(0.08, -0.31);
+  context.lineTo(0.11, 0.57);
+  context.lineTo(0, 0.67);
+  context.lineTo(-0.11, 0.57);
+  context.lineTo(-0.08, -0.31);
+  context.closePath();
+  context.fill();
+  drawAircraftCanopy(0, -0.46, 0.12, 0.28, palette);
+
+  context.fillStyle = palette.armorDark;
+  context.strokeStyle = palette.outline;
   for (const side of [-1, 1]) {
     context.beginPath();
-    context.moveTo(side * 0.23, 0.34);
-    context.lineTo(side * (wingSpan * 0.72), 0.22);
+    context.moveTo(side * 0.11, 0.43);
+    context.lineTo(side * 0.39, 0.72);
+    context.lineTo(side * 0.22, 0.1);
+    context.closePath();
+    context.fill();
     context.stroke();
-    context.fillStyle = outline;
-    context.fillRect(side * wingSpan * 0.64 - 0.045, 0.2, 0.09, 0.17);
+    context.fillStyle = palette.outline;
+    context.beginPath();
+    context.ellipse(side * 0.13, 0.67, 0.07, 0.13, 0, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = palette.armorDark;
   }
 
-  if (gunship) {
-    context.fillStyle = armorDark;
+  context.strokeStyle = palette.accent;
+  context.lineWidth = 0.085;
+  context.beginPath();
+  context.moveTo(-0.68, 0.35);
+  context.lineTo(-0.3, 0.16);
+  context.moveTo(0.68, 0.35);
+  context.lineTo(0.3, 0.16);
+  context.stroke();
+  if (definition.tier >= 3) {
+    context.fillStyle = palette.armorDark;
     for (const side of [-1, 1]) {
       context.beginPath();
-      context.roundRect(side * 0.6 - 0.14, -0.02, 0.28, 0.42, 0.08);
+      context.moveTo(side * 0.15, -0.42);
+      context.lineTo(side * 0.43, -0.18);
+      context.lineTo(side * 0.17, -0.1);
+      context.closePath();
       context.fill();
-      context.strokeStyle = outline;
-      context.stroke();
-      context.strokeStyle = armorLight;
-      context.lineWidth = 0.055;
-      context.beginPath();
-      context.moveTo(side * 0.6, 0.02);
-      context.lineTo(side * 0.6, -0.32);
-      context.stroke();
-    }
-  } else if (bomber) {
-    context.fillStyle = armorDark;
-    context.fillRect(-0.32, 0.25, 0.64, 0.2);
-    context.strokeStyle = armorLight;
-    context.lineWidth = 0.035;
-    context.strokeRect(-0.28, 0.29, 0.56, 0.12);
-    context.fillStyle = accent;
-    context.fillRect(-0.28, 0.37, 0.56, 0.05);
-  } else if (tender) {
-    context.fillStyle = stasis ? "#403b32" : "#183642";
-    context.strokeStyle = accent;
-    context.lineWidth = 0.07;
-    for (const side of [-1, 1]) {
-      context.beginPath();
-      context.roundRect(side * 0.63 - 0.14, -0.02, 0.28, 0.58, 0.1);
-      context.fill();
-      context.stroke();
-      context.strokeStyle = armorLight;
-      context.lineWidth = 0.035;
-      context.beginPath();
-      context.moveTo(side * 0.55, 0.06);
-      context.lineTo(side * 0.71, 0.06);
-      context.moveTo(side * 0.55, 0.28);
-      context.lineTo(side * 0.71, 0.28);
       context.stroke();
     }
   }
-  context.restore();
+  drawAircraftNavigationLights(-0.79, 0.79, 0.41, stasis);
+  drawAircraftTierMarks(definition.tier, 0.49, palette);
+}
+
+function drawGunshipAircraft(definition, palette, stasis) {
+  // Gunships use a short armored fuselage, straight weapon wings, and two large
+  // engine nacelles, producing a blocky silhouette unlike the other aircraft.
+  context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.09;
+  context.beginPath();
+  context.moveTo(0, -0.94);
+  context.lineTo(0.31, -0.48);
+  context.lineTo(0.43, -0.2);
+  context.lineTo(1.03, -0.05);
+  context.lineTo(1.01, 0.43);
+  context.lineTo(0.42, 0.34);
+  context.lineTo(0.34, 0.84);
+  context.lineTo(0, 0.7);
+  context.lineTo(-0.34, 0.84);
+  context.lineTo(-0.42, 0.34);
+  context.lineTo(-1.01, 0.43);
+  context.lineTo(-1.03, -0.05);
+  context.lineTo(-0.43, -0.2);
+  context.lineTo(-0.31, -0.48);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = palette.armorDark;
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.roundRect(side * 0.66 - 0.17, -0.34, 0.34, 0.92, 0.12);
+    context.fill();
+    context.stroke();
+    context.fillStyle = palette.outline;
+    context.beginPath();
+    context.ellipse(side * 0.66, 0.46, 0.11, 0.14, 0, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = palette.armorDark;
+    context.strokeStyle = palette.armorLight;
+    context.lineWidth = 0.05;
+    context.beginPath();
+    context.moveTo(side * 0.66, -0.28);
+    context.lineTo(side * 0.66, -0.62);
+    context.stroke();
+    context.strokeStyle = palette.outline;
+  }
+  drawAircraftCanopy(0, -0.39, 0.22, 0.32, palette);
+  context.fillStyle = palette.armorDark;
+  context.fillRect(-0.23, 0.18, 0.46, 0.32);
+  context.strokeRect(-0.23, 0.18, 0.46, 0.32);
+  context.strokeStyle = palette.accent;
+  context.lineWidth = 0.09;
+  context.beginPath();
+  context.moveTo(-0.92, 0.03);
+  context.lineTo(-0.48, 0.01);
+  context.moveTo(0.92, 0.03);
+  context.lineTo(0.48, 0.01);
+  context.stroke();
+  // Visible chin cannon and paired wing guns reinforce its close-assault role.
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.1;
+  context.beginPath();
+  context.moveTo(0, -0.62);
+  context.lineTo(0, -1.16);
+  context.moveTo(-0.83, -0.08);
+  context.lineTo(-0.83, -0.46);
+  context.moveTo(0.83, -0.08);
+  context.lineTo(0.83, -0.46);
+  context.stroke();
+  if (definition.tier >= 3) {
+    context.fillStyle = palette.accent;
+    context.fillRect(-0.35, 0.62, 0.7, 0.07);
+  }
+  drawAircraftNavigationLights(-1, 1, 0.18, stasis);
+  drawAircraftTierMarks(definition.tier, 0.32, palette);
+}
+
+function drawBomberAircraft(definition, palette, stasis) {
+  // The bomber is a broad tailless flying wing with a recessed payload spine;
+  // its width and swept trailing edge remain obvious even in a dense formation.
+  context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.09;
+  context.beginPath();
+  context.moveTo(0, -0.91);
+  context.lineTo(0.76, -0.4);
+  context.lineTo(1.2, 0.08);
+  context.lineTo(0.72, 0.52);
+  context.lineTo(0.2, 0.31);
+  context.lineTo(0, 0.76);
+  context.lineTo(-0.2, 0.31);
+  context.lineTo(-0.72, 0.52);
+  context.lineTo(-1.2, 0.08);
+  context.lineTo(-0.76, -0.4);
+  context.closePath();
+  context.fill();
+  context.stroke();
+  context.fillStyle = palette.armorLight;
+  context.beginPath();
+  context.moveTo(0, -0.76);
+  context.lineTo(0.2, 0.14);
+  context.lineTo(0.12, 0.55);
+  context.lineTo(-0.12, 0.55);
+  context.lineTo(-0.2, 0.14);
+  context.closePath();
+  context.fill();
+  drawAircraftCanopy(0, -0.36, 0.16, 0.25, palette);
+
+  context.strokeStyle = palette.armorDark;
+  context.lineWidth = 0.055;
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.moveTo(side * 0.18, 0.14);
+    context.lineTo(side * 0.92, 0.18);
+    context.lineTo(side * 0.68, 0.43);
+    context.stroke();
+  }
+  context.fillStyle = palette.armorDark;
+  context.fillRect(-0.38, 0.13, 0.76, 0.25);
+  context.strokeStyle = palette.outline;
+  context.strokeRect(-0.38, 0.13, 0.76, 0.25);
+  context.strokeStyle = palette.accent;
+  context.lineWidth = 0.075;
+  context.beginPath();
+  context.moveTo(-0.91, 0.02);
+  context.lineTo(-0.35, 0.16);
+  context.moveTo(0.91, 0.02);
+  context.lineTo(0.35, 0.16);
+  context.stroke();
+  context.fillStyle = palette.outline;
+  const exhausts = definition.tier >= 3 ? [-0.38, -0.13, 0.13, 0.38] : [-0.25, 0.25];
+  for (const exhaustX of exhausts) {
+    context.beginPath();
+    context.ellipse(exhaustX, 0.4, 0.08, 0.11, 0, 0, Math.PI * 2);
+    context.fill();
+  }
+  drawAircraftNavigationLights(-1.13, 1.13, 0.09, stasis);
+  drawAircraftTierMarks(definition.tier, 0.22, palette);
+}
+
+function drawEnergyTenderAircraft(definition, palette, stasis) {
+  // Long external energy cylinders dominate the tender's silhouette, with a
+  // narrow transport fuselage and squared stabilizers identifying it as support.
+  context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.09;
+  context.beginPath();
+  context.moveTo(0, -1.08);
+  context.lineTo(0.3, -0.52);
+  context.lineTo(0.34, -0.2);
+  context.lineTo(0.84, 0.02);
+  context.lineTo(0.83, 0.31);
+  context.lineTo(0.31, 0.28);
+  context.lineTo(0.28, 0.82);
+  context.lineTo(0, 0.7);
+  context.lineTo(-0.28, 0.82);
+  context.lineTo(-0.31, 0.28);
+  context.lineTo(-0.83, 0.31);
+  context.lineTo(-0.84, 0.02);
+  context.lineTo(-0.34, -0.2);
+  context.lineTo(-0.3, -0.52);
+  context.closePath();
+  context.fill();
+  context.stroke();
+  drawAircraftCanopy(0, -0.55, 0.15, 0.26, palette);
+
+  for (const side of [-1, 1]) {
+    context.fillStyle = stasis ? "#403b32" : "#17343e";
+    context.strokeStyle = palette.accent;
+    context.lineWidth = 0.075;
+    context.beginPath();
+    context.roundRect(side * 0.66 - 0.17, -0.5, 0.34, 1.14, 0.16);
+    context.fill();
+    context.stroke();
+    context.strokeStyle = palette.armorLight;
+    context.lineWidth = 0.04;
+    for (const bandY of [-0.29, 0.04, 0.37]) {
+      context.beginPath();
+      context.moveTo(side * 0.51, bandY);
+      context.lineTo(side * 0.81, bandY);
+      context.stroke();
+    }
+    context.fillStyle = palette.energy;
+    context.beginPath();
+    context.arc(side * 0.66, -0.12, 0.07, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = palette.outline;
+    context.beginPath();
+    context.moveTo(side * 0.49, 0.56);
+    context.lineTo(side * 0.49, 0.87);
+    context.lineTo(side * 0.78, 0.62);
+    context.closePath();
+    context.stroke();
+  }
+  context.strokeStyle = palette.energy;
+  context.lineWidth = 0.055;
+  context.beginPath();
+  context.moveTo(-0.49, -0.11);
+  context.lineTo(-0.2, -0.11);
+  context.lineTo(0, 0.18);
+  context.lineTo(0.2, -0.11);
+  context.lineTo(0.49, -0.11);
+  context.stroke();
+  context.fillStyle = palette.armorDark;
+  context.fillRect(-0.21, 0.25, 0.42, 0.3);
+  context.strokeStyle = palette.outline;
+  context.strokeRect(-0.21, 0.25, 0.42, 0.3);
+  if (definition.tier >= 3) {
+    context.strokeStyle = palette.accent;
+    context.lineWidth = 0.06;
+    context.strokeRect(-0.16, 0.3, 0.32, 0.2);
+  }
+  drawAircraftNavigationLights(-0.84, 0.84, 0.17, stasis);
+  drawAircraftTierMarks(definition.tier, 0.37, palette);
 }
 
 function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
