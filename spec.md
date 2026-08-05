@@ -55,6 +55,12 @@ Every map preserves the standard starting package at every commander position.
 Map identities, terrain, starts, and deposits are data-driven and all current
 layouts remain provisional for balance testing.
 
+A tactical minimap occupies the top-right corner of the battlefield. It always
+shows the complete map at a fixed overview scale, including terrain, deposits,
+living structures, and every living mobile unit. Friendly and opposing units use
+their team colors as compact dots, while the current camera view appears as a white
+rectangle. Left-clicking the minimap recenters the battlefield camera.
+
 The battlefield ground uses muted olive vegetation and broad earthen-brown patches
 with a subtle fixed mottled texture. Construction-grid lines remain visible across
 both surfaces. This brighter natural palette separates neutral gray unit armor from

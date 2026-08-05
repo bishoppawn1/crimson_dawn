@@ -17,6 +17,13 @@ const { getMapsForPlayerCount, getMatchMap, getRandomMatchMap } = await import(
 );
 const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix}`);
 const {
+  calculateMinimapLayout,
+  minimapContains,
+  minimapPoint,
+  minimapViewport,
+  minimapWorldPoint,
+} = await import(`./minimap.js${versionSuffix}`);
+const {
   isValidLobbyCode,
   normalizeLobbyCode,
   PeerMultiplayerSession,
@@ -895,6 +902,7 @@ function render() {
   drawSelectionBox();
   context.restore();
   drawCameraHud();
+  drawMinimap();
 }
 
 function visibleWorldBounds(margin = 0) {
@@ -967,6 +975,100 @@ function drawCameraHud() {
   context.fillRect(14, canvas.height - 38, context.measureText(label).width + 20, 25);
   context.fillStyle = "#aeb8c2";
   context.fillText(label, 24, canvas.height - 21);
+}
+
+function currentMinimapLayout() {
+  return calculateMinimapLayout(
+    canvas.width,
+    canvas.height,
+    simulation.width,
+    simulation.height,
+  );
+}
+
+function drawMinimap() {
+  const layout = currentMinimapLayout();
+  context.save();
+  context.shadowColor = "#000b";
+  context.shadowBlur = 18;
+  context.fillStyle = "#080b10e8";
+  context.fillRect(layout.left, layout.top, layout.width, layout.height);
+  context.shadowBlur = 0;
+  context.strokeStyle = "#66747f";
+  context.lineWidth = 2;
+  context.strokeRect(layout.left, layout.top, layout.width, layout.height);
+
+  context.fillStyle = "#b7c4ce";
+  context.font = "700 12px ui-monospace, monospace";
+  context.textAlign = "left";
+  context.fillText("TACTICAL MAP · CLICK TO CENTER", layout.mapLeft, layout.top + 18);
+
+  context.beginPath();
+  context.rect(layout.mapLeft, layout.mapTop, layout.mapWidth, layout.mapHeight);
+  context.clip();
+  context.fillStyle = "#35412f";
+  context.fillRect(layout.mapLeft, layout.mapTop, layout.mapWidth, layout.mapHeight);
+
+  for (const obstacle of simulation.terrain) {
+    const point = minimapPoint(
+      layout,
+      obstacle.x - obstacle.width / 2,
+      obstacle.y - obstacle.height / 2,
+    );
+    context.fillStyle = obstacle.terrainType === "starting_wall"
+      ? "#718078"
+      : obstacle.terrainType === "ruins"
+        ? "#77736a"
+        : obstacle.terrainType === "fracture"
+          ? "#6e4e46"
+          : "#645844";
+    context.fillRect(
+      point.x,
+      point.y,
+      Math.max(1, obstacle.width * layout.scale),
+      Math.max(1, obstacle.height * layout.scale),
+    );
+  }
+
+  for (const deposit of simulation.metalDeposits) {
+    const point = minimapPoint(layout, deposit.x, deposit.y);
+    context.fillStyle = deposit.rich ? "#e6c94f" : "#aaa99e";
+    context.beginPath();
+    context.arc(point.x, point.y, deposit.rich ? 3 : 2, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  for (const structure of simulation.structures) {
+    if (!structure.alive) continue;
+    const point = minimapPoint(layout, structure.x, structure.y);
+    const palette = teamPalette(structure.team);
+    context.fillStyle = palette.dark;
+    context.strokeStyle = palette.bright;
+    context.lineWidth = 1;
+    context.fillRect(point.x - 3, point.y - 3, 6, 6);
+    context.strokeRect(point.x - 3, point.y - 3, 6, 6);
+  }
+
+  const drawUnitDot = (entity) => {
+    const point = minimapPoint(layout, entity.x, entity.y);
+    const palette = teamPalette(entity.team);
+    context.fillStyle = palette.bright;
+    context.beginPath();
+    context.arc(point.x, point.y, 3.25, 0, Math.PI * 2);
+    context.fill();
+  };
+  for (const unit of simulation.units) {
+    if (unit.alive) drawUnitDot(unit);
+  }
+  for (const drone of simulation.getDrones()) {
+    if (drone.alive) drawUnitDot(drone);
+  }
+
+  const viewport = minimapViewport(layout, visibleWorldBounds());
+  context.strokeStyle = "#f4f7ef";
+  context.lineWidth = 2;
+  context.strokeRect(viewport.left, viewport.top, viewport.width, viewport.height);
+  context.restore();
 }
 
 function drawTerrain() {
@@ -4570,6 +4672,18 @@ function findEnemyAt(point) {
 canvas.addEventListener("mousedown", (event) => {
   if (simulation.matchResult || event.button !== 0) return;
   pointerScreen = canvasScreenPoint(event);
+  const minimapLayout = currentMinimapLayout();
+  if (minimapContains(minimapLayout, pointerScreen)) {
+    const minimapTarget = minimapWorldPoint(minimapLayout, pointerScreen);
+    if (minimapTarget) {
+      camera.x = minimapTarget.x;
+      camera.y = minimapTarget.y;
+      clampCamera();
+      syncPointerToCamera();
+    }
+    selectionDrag = null;
+    return;
+  }
   const point = screenToWorld(pointerScreen);
   selectionDrag = {
     start: point,
@@ -4717,6 +4831,7 @@ canvas.addEventListener("mouseup", (event) => {
 canvas.addEventListener("contextmenu", (event) => {
   event.preventDefault();
   if (simulation.matchResult) return;
+  if (minimapContains(currentMinimapLayout(), canvasScreenPoint(event))) return;
   if (placementStructureType) {
     placementStructureType = null;
     placementMessage = null;

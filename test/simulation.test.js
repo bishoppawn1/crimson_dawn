@@ -31,11 +31,46 @@ import {
   getMatchMap,
   getRandomMatchMap,
 } from "../src/maps.js";
+import {
+  calculateMinimapLayout,
+  minimapContains,
+  minimapPoint,
+  minimapViewport,
+  minimapWorldPoint,
+} from "../src/minimap.js";
 
 function advance(simulation, seconds, step = 1 / 30) {
   const ticks = Math.ceil(seconds / step);
   for (let tick = 0; tick < ticks; tick += 1) simulation.tick(step);
 }
+
+test("the tactical minimap fits the whole battlefield and maps its viewport", () => {
+  const layout = calculateMinimapLayout(1600, 900, 8560, 6280);
+  const origin = minimapPoint(layout, 0, 0);
+  const farCorner = minimapPoint(layout, 8560, 6280);
+
+  assert.equal(origin.x, layout.mapLeft);
+  assert.equal(origin.y, layout.mapTop);
+  assert.ok(farCorner.x <= 1600 - 18);
+  assert.ok(farCorner.y <= 900 - 18);
+  assert.ok(layout.mapWidth <= 360);
+  assert.ok(layout.mapHeight <= 240);
+
+  const worldPoint = minimapWorldPoint(layout, minimapPoint(layout, 4280, 3140));
+  assert.ok(Math.abs(worldPoint.x - 4280) < 0.001);
+  assert.ok(Math.abs(worldPoint.y - 3140) < 0.001);
+  assert.equal(minimapWorldPoint(layout, { x: 0, y: 0 }), null);
+  assert.equal(minimapContains(layout, { x: layout.left + 1, y: layout.top + 1 }), true);
+
+  const viewport = minimapViewport(layout, {
+    left: 1000,
+    right: 2600,
+    top: 800,
+    bottom: 1700,
+  });
+  assert.ok(Math.abs(viewport.width - 1600 * layout.scale) < 0.001);
+  assert.ok(Math.abs(viewport.height - 900 * layout.scale) < 0.001);
+});
 
 test("worker tiers expose the requested inherited construction matrix", () => {
   for (const tier of [1, 2, 3]) {
