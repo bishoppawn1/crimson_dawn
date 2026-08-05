@@ -304,6 +304,7 @@ export class Simulation {
       attackTargetMode: null,
       buildTargetId: null,
       buildQueue: [],
+      repairTargetId: null,
       holdPosition: false,
       navigationObstacleId: null,
       navigationSide: null,
@@ -490,6 +491,7 @@ export class Simulation {
       unit.attackTargetMode = null;
       unit.buildTargetId = null;
       unit.buildQueue = [];
+      unit.repairTargetId = null;
       unit.holdPosition = false;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -564,6 +566,7 @@ export class Simulation {
       unit.moveMode = null;
       unit.buildTargetId = null;
       unit.buildQueue = [];
+      unit.repairTargetId = null;
       unit.holdPosition = false;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -584,6 +587,7 @@ export class Simulation {
       unit.attackTargetMode = null;
       unit.buildTargetId = null;
       unit.buildQueue = [];
+      unit.repairTargetId = null;
       unit.holdPosition = holdPosition;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -596,6 +600,7 @@ export class Simulation {
 
   assignActiveBuildTarget(worker, structureId) {
     worker.buildTargetId = structureId;
+    worker.repairTargetId = null;
     worker.attackTargetId = null;
     worker.attackTargetMode = null;
     worker.moveTarget = null;
@@ -604,6 +609,49 @@ export class Simulation {
     worker.navigationObstacleId = null;
     worker.navigationSide = null;
     this.resetUnitNavigation(worker);
+  }
+
+  commandRepair(unitIds, targetId) {
+    const target = this.getEntity(targetId);
+    const maximumHp = repairableEntityMaxHp(target);
+    if (
+      !target?.alive ||
+      maximumHp <= 0 ||
+      target.hp + EPSILON >= maximumHp ||
+      (target.kind === "structure" && !target.complete)
+    ) {
+      return 0;
+    }
+
+    let accepted = 0;
+    const orderedIds = [...unitIds];
+    for (const [orderIndex, id] of orderedIds.entries()) {
+      const worker = this.getUnit(id);
+      const definition = worker && UNIT_DEFINITIONS[worker.type];
+      if (
+        !worker?.alive ||
+        worker.state !== "active" ||
+        worker.id === target.id ||
+        worker.team !== target.team ||
+        !definition?.workerTier ||
+        !definition.repairRate
+      ) {
+        continue;
+      }
+      worker.repairTargetId = target.id;
+      worker.moveTarget = null;
+      worker.moveMode = null;
+      worker.attackTargetId = null;
+      worker.attackTargetMode = null;
+      worker.buildTargetId = null;
+      worker.buildQueue = [];
+      worker.holdPosition = false;
+      worker.navigationObstacleId = null;
+      worker.navigationSide = null;
+      this.resetUnitNavigation(worker, orderIndex, orderedIds.length);
+      accepted += 1;
+    }
+    return accepted;
   }
 
   resetUnitNavigation(unit, orderIndex = null, orderCount = 1) {
@@ -1800,11 +1848,17 @@ export class Simulation {
       const definition = UNIT_DEFINITIONS[unit.type];
       if (!unit.alive || unit.state !== "active" || definition.attackRange <= 0) continue;
       const buildTarget = this.getStructure(unit.buildTargetId);
+      const repairTarget = this.getEntity(unit.repairTargetId);
       if (
         definition.workerTier &&
-        buildTarget?.alive &&
-        !buildTarget.complete &&
-        buildTarget.team === unit.team
+        (
+          (
+            buildTarget?.alive &&
+            !buildTarget.complete &&
+            buildTarget.team === unit.team
+          ) ||
+          isValidRepairTarget(unit, repairTarget)
+        )
       ) {
         unit.attackTargetId = null;
         unit.attackTargetMode = null;
@@ -3074,6 +3128,17 @@ export class Simulation {
         if (nextBuildTarget) continue;
       }
 
+      const repairTarget = this.getEntity(unit.repairTargetId);
+      if (unit.repairTargetId && !isValidRepairTarget(unit, repairTarget)) {
+        unit.repairTargetId = null;
+      }
+      if (isValidRepairTarget(unit, repairTarget)) {
+        unit.attackTargetId = null;
+        unit.attackTargetMode = null;
+        this.updateUnitRepair(unit, repairTarget, definition, delta);
+        continue;
+      }
+
       const attackTarget = this.getEntity(unit.attackTargetId);
       if (
         unit.attackTargetId &&
@@ -3127,6 +3192,43 @@ export class Simulation {
         this.resolveUnitTerrainOverlap(unit);
       }
     }
+  }
+
+  updateUnitRepair(worker, target, definition, delta) {
+    const repairDistance = distanceToEntitySurface(worker, target);
+    if (repairDistance > definition.repairRange + EPSILON) {
+      this.moveUnitToward(
+        worker,
+        target,
+        delta,
+        target.kind === "unit" ? definition.repairRange + entityRadius(target) : 0,
+      );
+      return;
+    }
+
+    const maximumHp = repairableEntityMaxHp(target);
+    const missingHp = Math.max(0, maximumHp - target.hp);
+    const energyPerHp = definition.repairEnergyPerHp || 0;
+    const energyLimitedHp = energyPerHp > 0 ? worker.energy / energyPerHp : missingHp;
+    const repairedHp = Math.min(
+      missingHp,
+      definition.repairRate * delta,
+      energyLimitedHp,
+    );
+    if (repairedHp <= EPSILON) {
+      if (worker.energy <= EPSILON) this.enterStasis(worker);
+      return;
+    }
+
+    target.hp = Math.min(maximumHp, target.hp + repairedHp);
+    worker.energy = Math.max(0, worker.energy - repairedHp * energyPerHp);
+    this.emit("repair", target.x, target.y, {
+      sourceId: worker.id,
+      targetId: target.id,
+      amount: repairedHp,
+    });
+    if (target.hp + EPSILON >= maximumHp) worker.repairTargetId = null;
+    if (worker.energy <= EPSILON) this.enterStasis(worker);
   }
 
   resolveUnitOverlaps() {
@@ -3840,6 +3942,7 @@ export class Simulation {
       target.attackTargetId = null;
       target.attackTargetMode = null;
       target.buildTargetId = null;
+      target.repairTargetId = null;
       target.navigationObstacleId = null;
       target.navigationSide = null;
       const salvageMetal = Math.round(UNIT_DEFINITIONS[target.type].metalValue * 0.55);
@@ -3854,6 +3957,9 @@ export class Simulation {
     const buildTarget = target.kind === "unit"
       ? this.getStructure(target.buildTargetId)
       : null;
+    const repairTarget = target.kind === "unit"
+      ? this.getEntity(target.repairTargetId)
+      : null;
     if (
       target.kind !== "unit" ||
       target.state !== "active" ||
@@ -3864,9 +3970,14 @@ export class Simulation {
       !canUnitAttackTarget(definition, aggressor) ||
       (
         definition.workerTier &&
-        buildTarget?.alive &&
-        !buildTarget.complete &&
-        buildTarget.team === target.team
+        (
+          (
+            buildTarget?.alive &&
+            !buildTarget.complete &&
+            buildTarget.team === target.team
+          ) ||
+          isValidRepairTarget(target, repairTarget)
+        )
       ) ||
       ["force", "advance", "retreat"].includes(target.moveMode)
     ) {
@@ -3884,6 +3995,7 @@ export class Simulation {
       target.moveMode = null;
     }
     target.buildTargetId = null;
+    target.repairTargetId = null;
     target.holdPosition = false;
     target.navigationObstacleId = null;
     target.navigationSide = null;
@@ -3992,6 +4104,32 @@ function isStaticDefenseTargetInRange(definition, defense, target) {
     separation + EPSILON >= (definition.minimumAttackRange || 0) &&
     separation <= definition.attackRange + entityRadius(target)
   );
+}
+
+function repairableEntityMaxHp(entity) {
+  if (entity?.kind === "unit") return UNIT_DEFINITIONS[entity.type]?.maxHp || 0;
+  if (entity?.kind === "structure") return STRUCTURE_DEFINITIONS[entity.type]?.maxHp || 0;
+  return 0;
+}
+
+function isValidRepairTarget(worker, target) {
+  const definition = worker?.kind === "unit" ? UNIT_DEFINITIONS[worker.type] : null;
+  const maximumHp = repairableEntityMaxHp(target);
+  return Boolean(
+    worker?.alive &&
+    definition?.workerTier &&
+    definition.repairRate &&
+    target?.alive &&
+    target.id !== worker.id &&
+    target.team === worker.team &&
+    (target.kind !== "structure" || target.complete) &&
+    target.hp + EPSILON < maximumHp
+  );
+}
+
+function distanceToEntitySurface(origin, target) {
+  if (target.kind === "structure") return distanceToStructureFootprint(origin, target);
+  return Math.max(0, distance(origin, target) - entityRadius(target));
 }
 
 function entityRadius(entity) {

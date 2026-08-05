@@ -147,6 +147,7 @@ snapshots are replaced by the newest state instead of accumulating a stale backl
 - Press `G`, then right-click to force-move without engaging enemies en route.
 - Right-click a hostile unit to attack it.
 - Right-click an unfinished friendly building with selected workers to resume construction.
+- Right-click a damaged friendly unit or completed building with selected workers to repair it; workers can repair one another but not themselves.
 - Select an unfinished building and press `C` to cancel it for a partial refund.
 - Press `Q` to use Overdrive with selected Bulwark Mechs.
 - Select a worker to place buildings, or select a mech factory to queue units.

@@ -1468,6 +1468,69 @@ test("worker drones do not target or retaliate while constructing", () => {
   assert.ok(project.constructionProgress > 0);
 });
 
+test("worker drones repair damaged friendly units and completed buildings with energy", () => {
+  const simulation = new Simulation();
+  const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const ally = simulation.addUnit("scout_mech", "player", 120, 100, { hp: 80 });
+  const startingEnergy = worker.energy;
+  const definition = UNIT_DEFINITIONS.worker_drone_t1;
+
+  assert.equal(simulation.commandRepair([worker.id], ally.id), 1);
+  simulation.tick(0.25);
+
+  const firstRepair = definition.repairRate * 0.25;
+  assert.ok(Math.abs(ally.hp - (80 + firstRepair)) < 0.0001);
+  assert.ok(
+    Math.abs(worker.energy - (startingEnergy - firstRepair * definition.repairEnergyPerHp)) <
+      0.0001,
+  );
+  assert.equal(worker.repairTargetId, ally.id);
+
+  const building = simulation.addStructure("generator", "player", 140, 100, { hp: 100 });
+  assert.equal(simulation.commandRepair([worker.id], building.id), 1);
+  const buildingStartingHp = building.hp;
+  simulation.tick(0.25);
+
+  assert.ok(building.hp > buildingStartingHp);
+  assert.ok(building.hp <= STRUCTURE_DEFINITIONS.generator.maxHp);
+});
+
+test("worker drones can repair one another but can never repair themselves", () => {
+  const simulation = new Simulation();
+  const repairer = simulation.addUnit("worker_drone_t1", "player", 100, 100, { hp: 50 });
+  const damagedWorker = simulation.addUnit("worker_drone_t1", "player", 120, 100, { hp: 40 });
+  const enemyWorker = simulation.addUnit("worker_drone_t1", "enemy", 500, 500, { hp: 40 });
+  const combatUnit = simulation.addUnit("scout_mech", "player", 80, 100);
+
+  assert.equal(simulation.commandRepair([repairer.id], repairer.id), 0);
+  assert.equal(simulation.commandRepair([repairer.id], enemyWorker.id), 0);
+  assert.equal(simulation.commandRepair([combatUnit.id], damagedWorker.id), 0);
+  assert.equal(simulation.commandRepair([repairer.id], damagedWorker.id), 1);
+
+  simulation.tick(0.25);
+
+  assert.equal(repairer.hp, 50);
+  assert.ok(damagedWorker.hp > 40);
+  assert.equal(enemyWorker.hp, 40);
+});
+
+test("an active repair assignment takes priority over worker combat", () => {
+  const simulation = new Simulation();
+  const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const ally = simulation.addStructure("generator", "player", 140, 100, { hp: 80 });
+  const enemy = simulation.addUnit("worker_drone_t1", "enemy", 100, 145);
+  const enemyStartingHp = enemy.hp;
+
+  assert.equal(simulation.commandRepair([worker.id], ally.id), 1);
+  simulation.applyDamage(worker, 1, enemy);
+  simulation.tick(0.25);
+
+  assert.equal(worker.attackTargetId, null);
+  assert.equal(worker.repairTargetId, ally.id);
+  assert.equal(enemy.hp, enemyStartingHp);
+  assert.ok(ally.hp > 80);
+});
+
 test("combat units automatically attack hostile structures in weapon range", () => {
   const simulation = new Simulation();
   const playerUnit = simulation.addUnit("scout_mech", "player", 100, 100);

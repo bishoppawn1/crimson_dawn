@@ -700,6 +700,14 @@ function applyAuthorizedCommand(command, team) {
         { queue: Boolean(command.queue) },
       ) > 0;
     }
+    case "repair": {
+      const target = simulation.getEntity(command.targetId);
+      if (!target?.alive || target.team !== team) return false;
+      return simulation.commandRepair(
+        ownedUnitIds(command.unitIds, team),
+        target.id,
+      ) > 0;
+    }
     case "construct": {
       if (!STRUCTURE_DEFINITIONS[command.structureType]) return false;
       if (!Number.isFinite(command.x) || !Number.isFinite(command.y)) return false;
@@ -1385,6 +1393,18 @@ function drawCommandIndicators() {
       context.beginPath();
       context.moveTo(unit.x, unit.y);
       context.lineTo(buildTarget.x, buildTarget.y);
+      context.stroke();
+      context.restore();
+    }
+    const repairTarget = simulation.getEntity(unit.repairTargetId);
+    if (repairTarget?.alive) {
+      context.save();
+      context.strokeStyle = `${colors.health}90`;
+      context.lineWidth = 2;
+      context.setLineDash([4, 5]);
+      context.beginPath();
+      context.moveTo(unit.x, unit.y);
+      context.lineTo(repairTarget.x, repairTarget.y);
       context.stroke();
       context.restore();
     }
@@ -2119,6 +2139,7 @@ function drawUnit(unit) {
   const lowEnergy = energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio;
   const overdrive = unit.abilityActiveUntil.overdrive > simulation.time;
   const activeBuildTarget = getActiveConstructionTarget(unit);
+  const activeRepairTarget = getActiveRepairTarget(unit);
 
   if (definition.transferRate && selected) {
     context.save();
@@ -2164,7 +2185,7 @@ function drawUnit(unit) {
   }
 
   drawUnitGroundShadow(definition);
-  const pose = getUnitRenderPose(unit, activeBuildTarget);
+  const pose = getUnitRenderPose(unit, activeBuildTarget, activeRepairTarget);
   context.rotate(pose.facing);
   context.translate(0, pose.recoil * definition.radius);
   drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis", pose);
@@ -2172,6 +2193,8 @@ function drawUnit(unit) {
 
   if (activeBuildTarget) {
     drawWorkerConstructionEffect(unit, activeBuildTarget, pose, teamColor);
+  } else if (activeRepairTarget) {
+    drawWorkerRepairEffect(unit, activeRepairTarget, pose, teamColor);
   }
 
   const barWidth = Math.max(24, definition.radius * 2.3);
@@ -2204,15 +2227,50 @@ function getActiveConstructionTarget(unit) {
   return Math.hypot(deltaX, deltaY) <= 24.001 ? buildTarget : null;
 }
 
-function getUnitRenderPose(unit, activeBuildTarget = null) {
+function getActiveRepairTarget(unit) {
+  const definition = UNIT_DEFINITIONS[unit.type];
+  const repairTarget = simulation.getEntity(unit.repairTargetId);
+  if (
+    !definition.workerTier ||
+    unit.state !== "active" ||
+    !repairTarget?.alive ||
+    !["unit", "structure"].includes(repairTarget.kind) ||
+    repairTarget.id === unit.id ||
+    repairTarget.team !== unit.team ||
+    (repairTarget.kind === "structure" && !repairTarget.complete) ||
+    repairTarget.hp >= maximumEntityHp(repairTarget)
+  ) {
+    return null;
+  }
+  if (repairTarget.kind === "structure") {
+    const footprint = structureFootprint(repairTarget.type);
+    const deltaX = Math.max(Math.abs(unit.x - repairTarget.x) - footprint.halfWidth, 0);
+    const deltaY = Math.max(Math.abs(unit.y - repairTarget.y) - footprint.halfHeight, 0);
+    return Math.hypot(deltaX, deltaY) <= definition.repairRange + 0.001
+      ? repairTarget
+      : null;
+  }
+  const separation = Math.max(
+    0,
+    Math.hypot(unit.x - repairTarget.x, unit.y - repairTarget.y) -
+      UNIT_DEFINITIONS[repairTarget.type].radius,
+  );
+  return separation <= definition.repairRange + 0.001 ? repairTarget : null;
+}
+
+function getUnitRenderPose(unit, activeBuildTarget = null, activeRepairTarget = null) {
   const attackTarget = simulation.getEntity(unit.attackTargetId);
   const buildTarget = simulation.getStructure(unit.buildTargetId);
+  const repairTarget = simulation.getEntity(unit.repairTargetId);
   const transferTarget = unit.energyTransferTargetIds?.length
     ? simulation.getUnit(unit.energyTransferTargetIds[0])
     : null;
   const target = attackTarget?.alive
     ? attackTarget
-    : unit.moveTarget || (buildTarget?.alive ? buildTarget : null) || (transferTarget?.alive ? transferTarget : null);
+    : unit.moveTarget ||
+      (buildTarget?.alive ? buildTarget : null) ||
+      (repairTarget?.alive ? repairTarget : null) ||
+      (transferTarget?.alive ? transferTarget : null);
   const start = simulation.teamStarts[unit.team];
   const fallbackFacing = start
     ? Math.atan2(start.inwardY, start.inwardX) + Math.PI / 2
@@ -2222,19 +2280,68 @@ function getUnitRenderPose(unit, activeBuildTarget = null) {
     : fallbackFacing;
   const moving =
     unit.state === "active" &&
-    Boolean(unit.moveTarget) &&
+    Boolean(unit.moveTarget || (repairTarget?.alive && !activeRepairTarget)) &&
     !simulation.isUnitStoppedToAttack(unit);
   const phase = [...unit.id].reduce((total, character) => total + character.charCodeAt(0), 0) * 0.31;
   const firingAge = recentAttackAge(unit.id);
   return {
     facing,
     moving,
-    building: Boolean(activeBuildTarget),
+    building: Boolean(activeBuildTarget || activeRepairTarget),
     workCycle: Math.sin(simulation.time * 13 + phase),
     phase,
     stride: moving ? Math.sin(simulation.time * 9 + phase) : 0,
     recoil: firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * 0.12,
   };
+}
+
+function drawWorkerRepairEffect(unit, target, pose, teamColor) {
+  const definition = UNIT_DEFINITIONS[unit.type];
+  const deltaX = target.x - unit.x;
+  const deltaY = target.y - unit.y;
+  const length = Math.hypot(deltaX, deltaY);
+  const directionX = length > 0.0001 ? deltaX / length : 0;
+  const directionY = length > 0.0001 ? deltaY / length : -1;
+  let targetBoundaryDistance = target.kind === "unit"
+    ? UNIT_DEFINITIONS[target.type].radius
+    : 0;
+  if (target.kind === "structure") {
+    const footprint = structureFootprint(target.type);
+    targetBoundaryDistance = Math.min(
+      Math.abs(directionX) > 0.0001 ? footprint.halfWidth / Math.abs(directionX) : Infinity,
+      Math.abs(directionY) > 0.0001 ? footprint.halfHeight / Math.abs(directionY) : Infinity,
+    );
+  }
+  const start = {
+    x: unit.x + directionX * definition.radius * 0.75,
+    y: unit.y + directionY * definition.radius * 0.75,
+  };
+  const impact = {
+    x: target.x - directionX * targetBoundaryDistance,
+    y: target.y - directionY * targetBoundaryDistance,
+  };
+  const pulse = 0.5 + Math.sin(simulation.time * 15 + pose.phase) * 0.5;
+
+  context.save();
+  const beam = context.createLinearGradient(start.x, start.y, impact.x, impact.y);
+  beam.addColorStop(0, `${teamColor}75`);
+  beam.addColorStop(0.65, `${colors.health}d0`);
+  beam.addColorStop(1, "#d9ffe8f0");
+  context.strokeStyle = beam;
+  context.lineWidth = 1.4 + pulse;
+  context.setLineDash([3, 2]);
+  context.lineDashOffset = -simulation.time * 20;
+  context.beginPath();
+  context.moveTo(start.x, start.y);
+  context.lineTo(impact.x, impact.y);
+  context.stroke();
+  context.setLineDash([]);
+  context.fillStyle = colors.health;
+  context.globalAlpha = 0.65 + pulse * 0.35;
+  context.beginPath();
+  context.arc(impact.x, impact.y, 2 + pulse * 1.4, 0, Math.PI * 2);
+  context.fill();
+  context.restore();
 }
 
 function drawWorkerConstructionEffect(unit, structure, pose, teamColor) {
@@ -4166,6 +4273,15 @@ function updateInterface() {
     const orderText = buildTarget?.alive && !buildTarget.complete
       ? ` · BUILDING ${STRUCTURE_DEFINITIONS[buildTarget.type].name.toUpperCase()}`
       : "";
+    const repairTarget = simulation.getEntity(unit.repairTargetId);
+    const repairDefinition = repairTarget?.kind === "unit"
+      ? UNIT_DEFINITIONS[repairTarget.type]
+      : repairTarget?.kind === "structure"
+        ? STRUCTURE_DEFINITIONS[repairTarget.type]
+        : null;
+    const repairText = repairTarget?.alive && repairDefinition
+      ? ` · REPAIRING ${repairDefinition.name.toUpperCase()}`
+      : "";
     const buildQueueText = unit.buildQueue?.length
       ? ` · ${unit.buildQueue.length} BUILD${unit.buildQueue.length === 1 ? "" : "S"} QUEUED`
       : "";
@@ -4179,7 +4295,7 @@ function updateInterface() {
       ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed`
       : "";
     selectionName.textContent = definition.name;
-    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${combatText}${emergencyRecoveryText}${supplyText}${orderText}${buildQueueText}`;
+    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${combatText}${emergencyRecoveryText}${supplyText}${orderText}${repairText}${buildQueueText}`;
   } else {
     const activeCount = selectedUnits.filter((unit) => unit.state === "active").length;
     selectionName.textContent = `${selectedUnits.length} units selected`;
@@ -4413,6 +4529,12 @@ function findStructureAt(point, team = null) {
   return candidates.at(-1) || null;
 }
 
+function maximumEntityHp(entity) {
+  if (entity?.kind === "unit") return UNIT_DEFINITIONS[entity.type]?.maxHp || 0;
+  if (entity?.kind === "structure") return STRUCTURE_DEFINITIONS[entity.type]?.maxHp || 0;
+  return 0;
+}
+
 function matchingFactoryGroup(factories) {
   const groups = new Map();
   for (const factory of factories) {
@@ -4621,6 +4743,7 @@ canvas.addEventListener("contextmenu", (event) => {
   if (selectedUnitIds.size === 0) return;
   const forceMove = forceMoveArmed;
   if (!forceMove) {
+    const friendlyUnit = findUnitAt(point, localTeam);
     const friendlyStructure = findStructureAt(point, localTeam);
     if (
       friendlyStructure &&
@@ -4632,6 +4755,24 @@ canvas.addEventListener("contextmenu", (event) => {
         queue: false,
       })
     ) {
+      updateInterface();
+      return;
+    }
+    const repairTarget = friendlyUnit || friendlyStructure;
+    const hasSelectedWorker = [...selectedUnitIds].some((id) => {
+      const unit = simulation.getUnit(id);
+      return unit?.alive && UNIT_DEFINITIONS[unit.type].workerTier;
+    });
+    if (
+      hasSelectedWorker &&
+      repairTarget?.alive &&
+      repairTarget.hp < maximumEntityHp(repairTarget)
+    ) {
+      issueGameCommand({
+        type: "repair",
+        unitIds: [...selectedUnitIds],
+        targetId: repairTarget.id,
+      });
       updateInterface();
       return;
     }

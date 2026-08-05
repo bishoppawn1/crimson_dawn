@@ -572,6 +572,17 @@ contributing progress. The effect stops while the worker is traveling, paused, i
 stasis, or after the foundation completes, so the animation communicates actual
 construction state rather than merely the presence of a build order.
 
+Worker Drones also repair damaged friendly mobile units and completed buildings.
+Right-clicking a damaged friendly target with workers selected replaces their
+current orders, sends them into repair range, and suppresses automatic combat until
+the repair finishes or receives a replacement command. Workers are valid repair
+targets for other workers, but a worker can never repair itself. Multiple workers
+may repair the same target. Repairs consume no metal and provisionally restore
+8/13/20 integrity per second at Tiers 1/2/3, spending 0.5 worker energy per point of
+integrity restored; a worker that exhausts its battery enters ordinary stasis and
+keeps the repair assignment for when it reactivates. Active repair uses a green
+tool beam distinct from construction.
+
 Completed units deploy to the nearest valid factory exit that does not overlap a
 living structure, another living unit, or the battlefield boundary. If all factory exits are blocked,
 the completed production order waits inside the factory until an exit becomes
