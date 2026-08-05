@@ -138,7 +138,7 @@ export class PeerMultiplayerSession {
         if (!envelope.acknowledged) this.announceLocalPresence(true);
         return;
       }
-      if (envelope.type === "message" && this.localConnected) {
+      if (envelope.type === "message" && this.localReady) {
         const message = envelope.message;
         if (message && typeof message.type === "string") this.handlers.onMessage?.(message);
       }
@@ -163,7 +163,7 @@ export class PeerMultiplayerSession {
   }
 
   send(message) {
-    if (!this.closed && this.localConnected && this.localChannel) {
+    if (!this.closed && this.localReady && this.localChannel) {
       this.localChannel.postMessage({
         type: "message",
         role: this.role,
