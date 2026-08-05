@@ -1872,13 +1872,69 @@ export class Simulation {
     return candidates;
   }
 
+  getNearbyAutomaticRepairTargets(worker, range) {
+    const searchRadius = range + MAX_COMBAT_TARGET_RADIUS;
+    const minimumCellX = Math.floor((worker.x - searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
+    const maximumCellX = Math.floor((worker.x + searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
+    const minimumCellY = Math.floor((worker.y - searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
+    const maximumCellY = Math.floor((worker.y + searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
+    const candidates = [];
+    for (let cellY = minimumCellY; cellY <= maximumCellY; cellY += 1) {
+      for (let cellX = minimumCellX; cellX <= maximumCellX; cellX += 1) {
+        const occupants = this.combatSpatialIndex.get(`${cellX},${cellY}`);
+        if (!occupants) continue;
+        for (const target of occupants) {
+          if (
+            isValidRepairTarget(worker, target) &&
+            distanceToEntitySurface(worker, target) <= range + EPSILON
+          ) {
+            candidates.push(target);
+          }
+        }
+      }
+    }
+    return candidates;
+  }
+
   assignAutomaticTargets() {
     this.rebuildCombatSpatialIndex();
     for (const unit of this.units) {
       const definition = UNIT_DEFINITIONS[unit.type];
-      if (!unit.alive || unit.state !== "active" || definition.attackRange <= 0) continue;
+      if (!unit.alive || unit.state !== "active") continue;
       const buildTarget = this.getStructure(unit.buildTargetId);
-      const repairTarget = this.getEntity(unit.repairTargetId);
+      let repairTarget = this.getEntity(unit.repairTargetId);
+      if (unit.repairTargetId && !isValidRepairTarget(unit, repairTarget)) {
+        unit.repairTargetId = null;
+        repairTarget = null;
+      }
+      const existingTarget = this.getEntity(unit.attackTargetId);
+      const hasPriorityWorkerOrder = Boolean(
+        unit.buildTargetId ||
+        unit.buildQueue?.length ||
+        unit.moveTarget ||
+        unit.holdPosition ||
+        (
+          existingTarget?.alive &&
+          ["explicit", "retaliation"].includes(unit.attackTargetMode)
+        )
+      );
+      if (
+        definition.workerTier &&
+        definition.automaticRepairRange > 0 &&
+        !isValidRepairTarget(unit, repairTarget) &&
+        !hasPriorityWorkerOrder
+      ) {
+        repairTarget = nearestBySurfaceDistance(
+          unit,
+          this.getNearbyAutomaticRepairTargets(unit, definition.automaticRepairRange),
+        );
+        if (repairTarget) {
+          unit.repairTargetId = repairTarget.id;
+          unit.attackTargetId = null;
+          unit.attackTargetMode = null;
+          this.resetUnitNavigation(unit);
+        }
+      }
       if (
         definition.workerTier &&
         (
@@ -1894,12 +1950,12 @@ export class Simulation {
         unit.attackTargetMode = null;
         continue;
       }
+      if (definition.attackRange <= 0) continue;
       if (unit.moveTarget && unit.moveMode === "force") {
         unit.attackTargetId = null;
         unit.attackTargetMode = null;
         continue;
       }
-      const existingTarget = this.getEntity(unit.attackTargetId);
       if (
         existingTarget?.alive &&
         existingTarget.team !== unit.team &&
@@ -4386,6 +4442,19 @@ function nearest(origin, candidates) {
   let bestDistance = Infinity;
   for (const candidate of candidates) {
     const candidateDistance = distance(origin, candidate);
+    if (candidateDistance < bestDistance) {
+      bestDistance = candidateDistance;
+      result = candidate;
+    }
+  }
+  return result;
+}
+
+function nearestBySurfaceDistance(origin, candidates) {
+  let result = null;
+  let bestDistance = Infinity;
+  for (const candidate of candidates) {
+    const candidateDistance = distanceToEntitySurface(origin, candidate);
     if (candidateDistance < bestDistance) {
       bestDistance = candidateDistance;
       result = candidate;

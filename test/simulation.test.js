@@ -850,7 +850,7 @@ test("aircraft fly directly over terrain, starting walls, and structures", () =>
   const aircraft = simulation.addUnit("interceptor_t2", "player", 100, 100);
 
   simulation.commandMove([aircraft.id], 400, 100);
-  advance(simulation, 3);
+  advance(simulation, 2.5);
 
   assert.ok(aircraft.x > 390);
   assert.ok(Math.abs(aircraft.y - 100) < 0.001);
@@ -1640,7 +1640,7 @@ test("multiple reclamation drones can harvest the same scrap pile", () => {
   assert.equal(yard.drones.length, 3);
   assert.ok(yard.drones.every((drone) => drone.targetWreckId === wreck.id));
 
-  advance(simulation, 2.5);
+  advance(simulation, 3);
 
   assert.ok(yard.drones.every((drone) => drone.carry > 0));
   assert.ok(wreck.metal >= 0);
@@ -1780,12 +1780,77 @@ test("worker drones repair damaged friendly units and completed buildings with e
   assert.ok(building.hp <= STRUCTURE_DEFINITIONS.generator.maxHp);
 });
 
+test("idle worker drones automatically repair the nearest damaged friendly target", () => {
+  const simulation = new Simulation();
+  const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const nearerBuilding = simulation.addStructure("generator", "player", 140, 100, { hp: 100 });
+  const fartherUnit = simulation.addUnit("scout_mech", "player", 280, 100, { hp: 80 });
+  const enemy = simulation.addUnit("worker_drone_t1", "enemy", 45, 100);
+  const enemyStartingHp = enemy.hp;
+
+  simulation.tick(0.25);
+
+  assert.equal(worker.repairTargetId, nearerBuilding.id);
+  assert.ok(nearerBuilding.hp > 100);
+  assert.equal(fartherUnit.hp, 80);
+  assert.equal(enemy.hp, enemyStartingHp);
+  assert.equal(worker.attackTargetId, null);
+
+  nearerBuilding.hp = STRUCTURE_DEFINITIONS.generator.maxHp;
+  advance(simulation, 3);
+
+  assert.equal(worker.repairTargetId, fartherUnit.id);
+  assert.ok(fartherUnit.hp > 80);
+});
+
+test("automatic worker repair respects its service radius and higher-priority orders", () => {
+  const simulation = new Simulation();
+  const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const nearbyAlly = simulation.addUnit("scout_mech", "player", 180, 100, { hp: 80 });
+  const distantAlly = simulation.addUnit("scout_mech", "player", 500, 100, { hp: 80 });
+
+  simulation.commandMove([worker.id], 100, 300);
+  simulation.tick(0.25);
+  assert.equal(worker.repairTargetId, null);
+  assert.equal(nearbyAlly.hp, 80);
+
+  simulation.commandStop([worker.id], true);
+  simulation.tick(0.25);
+  assert.equal(worker.repairTargetId, null);
+  assert.equal(nearbyAlly.hp, 80);
+
+  simulation.commandStop([worker.id]);
+  nearbyAlly.hp = UNIT_DEFINITIONS.scout_mech.maxHp;
+  simulation.tick(0.25);
+  assert.equal(worker.repairTargetId, null);
+  assert.equal(distantAlly.hp, 80);
+});
+
+test("active construction takes priority over automatic worker repair", () => {
+  const simulation = new Simulation();
+  const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const damagedAlly = simulation.addUnit("scout_mech", "player", 120, 100, { hp: 80 });
+  const project = simulation.addStructure("battery", "player", 100, 140, {
+    complete: false,
+    constructionProgress: 0,
+  });
+
+  simulation.commandBuild([worker.id], project.id);
+  simulation.tick(0.25);
+
+  assert.equal(worker.buildTargetId, project.id);
+  assert.equal(worker.repairTargetId, null);
+  assert.equal(damagedAlly.hp, 80);
+  assert.ok(project.constructionProgress > 0);
+});
+
 test("worker drones can repair one another but can never repair themselves", () => {
   const simulation = new Simulation();
   const repairer = simulation.addUnit("worker_drone_t1", "player", 100, 100, { hp: 50 });
   const damagedWorker = simulation.addUnit("worker_drone_t1", "player", 120, 100, { hp: 40 });
   const enemyWorker = simulation.addUnit("worker_drone_t1", "enemy", 500, 500, { hp: 40 });
   const combatUnit = simulation.addUnit("scout_mech", "player", 80, 100);
+  simulation.commandStop([damagedWorker.id], true);
 
   assert.equal(simulation.commandRepair([repairer.id], repairer.id), 0);
   assert.equal(simulation.commandRepair([repairer.id], enemyWorker.id), 0);
