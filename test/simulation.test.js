@@ -2145,12 +2145,27 @@ test("workers can construct from a corner of a rectangular building footprint", 
     complete: false,
     constructionProgress: 0,
   });
-  const worker = simulation.addUnit("worker_drone_t1", "player", 890, 530);
+  const worker = simulation.addUnit("worker_drone_t2", "player", 890, 530);
   simulation.commandBuild([worker.id], project.id);
 
   simulation.tick(1 / 30);
 
   assert.ok(project.constructionProgress > 0);
+});
+
+test("a lower-tier worker cannot resume an advanced foundation", () => {
+  const simulation = new Simulation();
+  const project = simulation.addStructure("mech_factory_t3", "player", 800, 450, {
+    complete: false,
+    constructionProgress: 2,
+  });
+  const tierOneWorker = simulation.addUnit("worker_drone_t1", "player", 890, 530);
+  const tierTwoWorker = simulation.addUnit("worker_drone_t2", "player", 910, 530);
+
+  assert.equal(simulation.commandBuild([tierOneWorker.id], project.id), 0);
+  assert.equal(simulation.commandBuild([tierTwoWorker.id], project.id), 1);
+  assert.equal(tierOneWorker.buildTargetId, null);
+  assert.equal(tierTwoWorker.buildTargetId, project.id);
 });
 
 test("right-click build commands can resume an unfinished friendly structure", () => {
@@ -2395,6 +2410,71 @@ test("enemy AI chooses buildings from current strategic needs instead of a build
 
   assert.equal(defensiveRequest.type, "sentry_turret");
   assert.ok(defensiveRequest.x < anchor.x, "the defense should face the nearby threat");
+});
+
+test("a mature enemy economy deliberately progresses through Tier 2 and Tier 3 factories", () => {
+  const createMatureAi = ({ tierTwo = false } = {}) => {
+    const simulation = new Simulation();
+    simulation.resources.enemy.metal = 5000;
+    simulation.aiThinkRemaining = 0;
+    const anchor = simulation.addStructure("generator", "enemy", 1000, 1000);
+    for (const [x, y] of [[1160, 920], [1160, 1080], [1320, 920], [1320, 1080]]) {
+      simulation.addStructure("generator", "enemy", x, y);
+    }
+    simulation.addStructure("mech_factory_t1", "enemy", 880, 1160);
+    simulation.addStructure("battery", "enemy", 920, 920);
+    simulation.addStructure("sentry_turret", "enemy", 920, 1080);
+    simulation.addStructure("charger", "enemy", 1040, 1160);
+    const mineCount = tierTwo ? 3 : 2;
+    for (let index = 0; index < mineCount; index += 1) {
+      simulation.addStructure("metal_mine", "enemy", 760 + index * 80, 760);
+    }
+    for (let index = 0; index < 3; index += 1) {
+      simulation.addUnit("scout_mech", "enemy", 880 + index * 40, 1240);
+    }
+    simulation.addUnit("worker_drone_t1", "enemy", 1000, 1080);
+    let advancedWorker = null;
+    if (tierTwo) {
+      simulation.addStructure("mech_factory_t2", "enemy", 1440, 1160);
+      advancedWorker = simulation.addUnit("worker_drone_t2", "enemy", 1040, 1080);
+    }
+    return { simulation, anchor, advancedWorker };
+  };
+
+  const tierTwoMatch = createMatureAi();
+  tierTwoMatch.simulation.tick(1 / 30);
+  const tierTwoProject = tierTwoMatch.simulation.structures.find(
+    (structure) => structure.team === "enemy" && structure.type === "mech_factory_t2",
+  );
+  assert.ok(tierTwoProject && !tierTwoProject.complete);
+
+  const tierThreeMatch = createMatureAi({ tierTwo: true });
+  tierThreeMatch.simulation.tick(1 / 30);
+  const tierThreeProject = tierThreeMatch.simulation.structures.find(
+    (structure) => structure.team === "enemy" && structure.type === "mech_factory_t3",
+  );
+  assert.ok(tierThreeProject && !tierThreeProject.complete);
+  assert.equal(tierThreeMatch.advancedWorker.buildTargetId, tierThreeProject.id);
+});
+
+test("advanced enemy mech factories produce the worker generation needed for the next tier", () => {
+  const simulation = new Simulation();
+  simulation.resources.enemy.metal = 5000;
+  simulation.addUnit("worker_drone_t1", "enemy", 900, 900);
+  simulation.addUnit("worker_drone_t1", "enemy", 940, 900);
+  simulation.addUnit("worker_drone_t1", "enemy", 980, 900);
+  const tierTwoFactory = simulation.addStructure("mech_factory_t2", "enemy", 1100, 1000);
+
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+  assert.equal(tierTwoFactory.productionQueue[0]?.unitType, "worker_drone_t2");
+
+  tierTwoFactory.productionQueue = [];
+  simulation.addUnit("worker_drone_t2", "enemy", 1020, 900);
+  const tierThreeFactory = simulation.addStructure("mech_factory_t3", "enemy", 1400, 1000);
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+  assert.equal(tierThreeFactory.productionQueue[0]?.unitType, "worker_drone_t3");
 });
 
 test("the standard enemy opening establishes defenses and launches promptly", () => {

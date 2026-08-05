@@ -725,6 +725,19 @@ batteries, relays, defenses, chargers, salvage capacity, and factories. The
 decision counter varies valid placement lanes but never dictates the next
 structure type. These relative priorities are provisional tuning values.
 
+Once its opening battery, sentry, charger, first combat wave, and paid expansion
+are established, an AI with metal above its low-economy recovery threshold
+deliberately constructs a Tier 2 Mech Factory. It then produces a Tier 2 Worker
+Drone before adding Tier 2 generators, batteries, defenses, chargers, mines, and
+vehicle or aerospace production. After reaching three mines, the same stable
+economy reserves for a Tier 3 Mech Factory, produces a Tier 3 Worker Drone, and
+begins making Tier 3 infrastructure. Immediate defense and low-metal expansion may
+temporarily outrank technology, but ordinary Tier 1 growth must not permanently
+crowd Tier 2 or Tier 3 out of the strategy scorer. All advanced factories, workers,
+and structures use the same prerequisites, metal costs, build times, power
+requirements, and vulnerable construction process as the player's equivalents.
+The two- and three-mine technology thresholds are provisional.
+
 The AI still maintains a battery, local static defense, charger support, and a
 three-unit combat reserve before committing to ordinary expansion. The Strategic
 Supply Complex is constructed only when remaining supply falls to 10 percent of

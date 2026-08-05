@@ -10,6 +10,8 @@ The current build is the first playable field test. It includes:
 
 - A start menu for two- through eight-player single-player matches and hosted
   multiplayer lobbies with a shared player roster and host-managed AI slots.
+- AI commanders that expand their economy, progress through Tier 2 and Tier 3 Mech
+  Factories, produce advanced workers, and construct higher-tier infrastructure.
 - Host-authoritative WebRTC multiplayer with one 10-character lobby code,
   explicit host start, two-player map selection, automatic larger maps,
   team-validated commands, and no gameplay server or account.

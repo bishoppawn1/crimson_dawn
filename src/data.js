@@ -1047,6 +1047,8 @@ export const SIMULATION_RULES = Object.freeze({
   enemySupplyLowRatio: 0.1,
   enemyLowMetalThreshold: 400,
   enemyExpansionSurplusMetal: 900,
+  enemyTierTwoMineCount: 2,
+  enemyTierThreeMineCount: 3,
   enemyHeavyDefenseCount: 3,
   enemyHeavyDefenseRadius: 420,
   enemyHeavyDefenseWaveBonus: 2,

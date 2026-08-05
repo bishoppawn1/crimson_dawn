@@ -50,6 +50,11 @@ implementation decision establishes or changes player-facing behavior.
 - The enemy AI must establish and replenish a basic combat force before reserving
   metal for expensive infrastructure, and available defenders must respond
   immediately to player units or structures rushed near enemy infrastructure.
+- A stable AI economy must deliberately progress through Tier 2 and Tier 3 Mech
+  Factories, produce the matching advanced workers, and use those workers to add
+  higher-tier economy, defense, support, and parallel-branch production buildings.
+  Low-metal recovery and immediate defense may delay, but not permanently replace,
+  this technology path.
 - Worker drones construct the player's buildings. Mech factories produce the
   worker generation matching the factory tier.
 - Holding Shift while placing foundations appends them to each selected worker's
