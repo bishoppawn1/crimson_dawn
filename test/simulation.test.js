@@ -199,7 +199,7 @@ test("experimental factory exposes three distinct strategic units", () => {
   assert.equal(doughnut.groundAttackOnly, true);
   assert.equal(doughnut.attackRange, 0);
   assert.ok(doughnut.underbellyBeamRadius > 0);
-  assert.equal(doughnut.speed, 120);
+  assert.equal(doughnut.speed, 200);
   assert.equal(doughnut.roleDescription, "Mmm, tasty!");
 
   for (const unitType of roster) {
@@ -967,7 +967,7 @@ test("Zenith Doughnuts are enormous and fast strategic aircraft", () => {
   const doughnut = UNIT_DEFINITIONS.zenith_doughnut;
 
   assert.ok(doughnut.radius >= 70);
-  assert.ok(doughnut.speed >= 120);
+  assert.equal(doughnut.speed, 200);
   assert.ok(doughnut.underbellyBeamRadius >= 48);
 });
 

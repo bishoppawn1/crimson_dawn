@@ -520,7 +520,7 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
     name: "Zenith Doughnut", role: "zenith_doughnut",
     roleDescription: "Mmm, tasty!",
     unitDomain: "air", tier: 3, radius: 72, maxHp: 2100, maxEnergy: 7200,
-    speed: 120, movementEnergyPerUnit: 0.14, attackRange: 0, attackDamage: 0,
+    speed: 200, movementEnergyPerUnit: 0.14, attackRange: 0, attackDamage: 0,
     attackEnergy: 0, attackCooldown: 0, metalCost: 2500, productionTime: 62,
     supplyCost: 95, groundAttackOnly: true, underbellyBeamRadius: 48,
     underbellyBeamDamagePerSecond: 90, underbellyBeamEnergyPerSecond: 38,

@@ -373,7 +373,7 @@ ground formations without displacing them. Aircraft emphasize speed over
 survivability: the standard air roster moves
 at 105–200 world units per second and has lower provisional integrity than its
 previous profiles. The experimental Zenith Doughnut is a much larger 72-radius
-aircraft with a provisional movement speed of 120 world units per second.
+aircraft with a provisional movement speed of 200 world units per second.
 
 Ordinary weapons deal a provisional 0.55× damage multiplier against aircraft.
 Dedicated anti-air weapons instead deal 2× damage and automatically prefer an
@@ -526,7 +526,7 @@ interpreted as movement to the target position. The laser cannot damage aircraft
 and consumes energy continuously while it is damaging at least one target. All
 three use ordinary paid production, supply, movement-energy, weapon-energy, damage,
 destruction, and salvage rules. The Zenith's current provisional size is 72 radius
-and its movement speed is 120 world units per second. All experimental balance
+and its movement speed is 200 world units per second. All experimental balance
 values remain provisional.
 
 ### 5.3 Worker Drones and Construction
