@@ -3077,15 +3077,22 @@ export class Simulation {
       }
 
       if (unit.moveTarget) {
-        if (
-          unit.moveMode !== "force" &&
+        const stoppedToAttack = this.isUnitStoppedToAttack(unit, attackTarget, definition);
+        if (stoppedToAttack) {
+          this.tryAttack(unit, attackTarget, definition);
+        } else if (
           attackTarget?.alive &&
           attackTarget.team !== unit.team &&
-          distance(unit, attackTarget) <= definition.attackRange + entityRadius(attackTarget)
+          unit.attackTargetMode === "retaliation"
         ) {
-          this.tryAttack(unit, attackTarget, definition);
-        }
-        if (unit.state === "active" && unit.moveTarget) {
+          this.moveUnitToward(
+            unit,
+            attackTarget,
+            delta,
+            definition.attackRange + entityRadius(attackTarget) * 0.75,
+            { preserveMoveOrder: true },
+          );
+        } else if (unit.state === "active" && unit.moveTarget) {
           this.moveUnitToward(unit, unit.moveTarget, delta, 4);
         }
       } else if (attackTarget?.alive && attackTarget.team !== unit.team) {
@@ -3202,11 +3209,34 @@ export class Simulation {
     return true;
   }
 
-  moveUnitToward(unit, target, delta, stopDistance = 0) {
+  isUnitStoppedToAttack(
+    unit,
+    target = this.getEntity(unit?.attackTargetId),
+    definition = unit ? UNIT_DEFINITIONS[unit.type] : null,
+  ) {
+    return Boolean(
+      unit?.alive &&
+      unit.state === "active" &&
+      unit.moveTarget &&
+      unit.moveMode !== "force" &&
+      definition?.attackRange > 0 &&
+      target?.alive &&
+      target.team !== unit.team &&
+      distance(unit, target) <= definition.attackRange + entityRadius(target)
+    );
+  }
+
+  moveUnitToward(
+    unit,
+    target,
+    delta,
+    stopDistance = 0,
+    { preserveMoveOrder = false } = {},
+  ) {
     const definition = UNIT_DEFINITIONS[unit.type];
     const targetSeparation = distance(unit, target);
     if (targetSeparation <= stopDistance + EPSILON) {
-      if (unit.moveTarget) {
+      if (unit.moveTarget && !preserveMoveOrder) {
         unit.moveTarget = null;
         unit.moveMode = null;
       }
@@ -3247,7 +3277,11 @@ export class Simulation {
       unit.energy = Math.max(0, unit.energy - traveled * energyCostPerUnit);
     }
 
-    if (unit.moveTarget && distance(unit, target) <= stopDistance + EPSILON) {
+    if (
+      unit.moveTarget &&
+      !preserveMoveOrder &&
+      distance(unit, target) <= stopDistance + EPSILON
+    ) {
       unit.moveTarget = null;
       unit.moveMode = null;
     }
@@ -3832,10 +3866,13 @@ export class Simulation {
     const explicitTarget = this.getEntity(target.attackTargetId);
     if (target.attackTargetMode === "explicit" && explicitTarget?.alive) return false;
 
+    const preserveMoveOrder = Boolean(target.moveTarget);
     target.attackTargetId = aggressor.id;
     target.attackTargetMode = "retaliation";
-    target.moveTarget = null;
-    target.moveMode = null;
+    if (!preserveMoveOrder) {
+      target.moveTarget = null;
+      target.moveMode = null;
+    }
     target.buildTargetId = null;
     target.holdPosition = false;
     target.navigationObstacleId = null;

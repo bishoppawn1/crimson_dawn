@@ -313,14 +313,20 @@ positions; they do not stretch from a shooter or target that moves after the sho
 and they do not change deterministic hit resolution or established damage timing.
 Surviving combat units on either team retaliate when damaged: unless they are
 force-moving or already following an explicit attack order, they abandon their
-current automatic target or ordinary movement and pursue the aggressor. Retaliation
-may carry them beyond their normal automatic-acquisition range.
+current automatic target and pursue the aggressor. Retaliation may carry them beyond
+their normal automatic-acquisition range. If the unit was following an ordinary
+movement route, that destination remains saved while it retaliates and resumes after
+the aggressor is destroyed or is no longer a valid target.
 Explicit movement, attack, stop, and hold-position commands remain available.
 Commands are contextual rather than limited to special-ability buttons.
-An explicit terrain move takes priority over an automatically acquired target:
-units continue toward the destination while firing at enemies within range. A
-force move, armed with `G` before right-clicking, ignores enemies until the units
-reach their destination. Direct attack commands still pursue their chosen target.
+An explicit terrain move remains as a resumable route when a unit acquires a hostile
+in weapon range. The unit stops in place, attacks while stationary—including between
+shots during its weapon cooldown—and continues toward the saved destination after
+the enemy is destroyed or leaves the engagement. A unit never fires and translates
+under its own movement in the same simulation tick. A force move, armed with `G`
+before right-clicking, ignores enemies until the units reach their destination.
+Direct attack commands still pursue their chosen target, stopping once they enter
+weapon range before firing.
 
 Raiders are fast, long-endurance harassment units rather than line fighters. Their
 provisional profile uses 108 movement speed, 105 integrity, efficient movement, and
@@ -579,9 +585,8 @@ are not mixed into that group. Right-clicking terrain then assigns one shared ra
 point atomically to every selected factory. Their formation slots are interleaved so
 combined production does not assign duplicate rally destinations. The interface
 displays the rally point and a path from every selected factory. Newly completed
-units automatically attack-move toward that point,
-engaging hostile units they encounter along the way before continuing toward the
-rally destination.
+units automatically move toward that point, stopping to engage hostile units they
+encounter along the way before continuing toward the rally destination.
 
 A new ordinary foundation snaps to footprint-aware centers on the visible 40-unit
 construction grid, with every footprint edge aligned to a grid line, and must fit
@@ -833,8 +838,9 @@ decision thresholds are provisional.
 
 Enemy combat units stage until three active attackers are ready, then launch as a
 coordinated wave toward one target. Advancing formations retain that strategic
-destination while automatically firing at any hostile unit or structure that enters
-weapon range; nearby targets do not pull the formation into a chase. Newly produced
+destination while stopping to fire at any hostile unit or structure that enters
+weapon range; they resume the advance after the local target is gone, and nearby
+targets do not pull the formation into a chase. Newly produced
 attackers wait for a later wave instead of crossing the map individually. Automatic
 attacks within weapon range still allow staged units to defend themselves locally.
 If a player unit or structure appears within 800 world units of enemy infrastructure,
@@ -844,10 +850,10 @@ one another, ordinary assault waves grow from three to five units. An assault fo
 more than 800 world units from its generator fallback retreats toward that generator
 when hostile combat strength
 within 520 world units exceeds its nearby strength by a factor of 1.5. Retreat uses
-a strategic fallback move: units continue toward their regroup point while firing at
-hostiles in range, without abandoning the retreat to pursue them. The cadence,
-response radius, strength estimate, defense cluster, retreat, and wave-size values
-are provisional.
+a strategic fallback move: units stop to fire at hostiles in range, then continue
+toward their regroup point without abandoning the retreat to pursue them. The
+cadence, response radius, strength estimate, defense cluster, retreat, and wave-size
+values are provisional.
 
 Every completed AI mine at least 480 world units from its starting command point is
 treated as an outpost rather than an unprotected income structure. The building AI

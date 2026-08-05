@@ -2158,7 +2158,10 @@ function getUnitRenderPose(unit, activeBuildTarget = null) {
   const facing = target
     ? Math.atan2(target.y - unit.y, target.x - unit.x) + Math.PI / 2
     : fallbackFacing;
-  const moving = unit.state === "active" && Boolean(unit.moveTarget);
+  const moving =
+    unit.state === "active" &&
+    Boolean(unit.moveTarget) &&
+    !simulation.isUnitStoppedToAttack(unit);
   const phase = [...unit.id].reduce((total, character) => total + character.charCodeAt(0), 0) * 0.31;
   const firingAge = recentAttackAge(unit.id);
   return {

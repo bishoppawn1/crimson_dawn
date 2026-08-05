@@ -1455,7 +1455,7 @@ test("force-moving units do not abandon their order to retaliate", () => {
   assert.deepEqual(defender.moveTarget, { x: 100, y: 500 });
 });
 
-test("a normal move order overrides target lock while firing at enemies in range", () => {
+test("a moving unit stops to attack and resumes its route after the target is destroyed", () => {
   const simulation = new Simulation();
   const unit = simulation.addUnit("scout_mech", "player", 100, 100);
   const enemy = simulation.addUnit("worker_drone_t1", "enemy", 140, 100);
@@ -1469,8 +1469,17 @@ test("a normal move order overrides target lock while firing at enemies in range
   simulation.commandMove([unit.id], 300, 100);
   simulation.tick(1 / 30);
 
-  assert.ok(unit.x > commandStartX, "the move order should not be blocked by the reacquired target");
-  assert.ok(enemy.hp < hpBeforeMove, "a normal move should still engage enemies in range");
+  assert.equal(unit.x, commandStartX, "the unit should stop before firing");
+  assert.ok(enemy.hp < hpBeforeMove, "the stopped unit should engage enemies in range");
+  assert.deepEqual(unit.moveTarget, { x: 300, y: 100 });
+
+  simulation.tick(1 / 30);
+  assert.equal(unit.x, commandStartX, "the unit should remain stopped during its weapon cooldown");
+
+  simulation.applyDamage(enemy, enemy.hp, unit);
+  simulation.tick(1 / 30);
+
+  assert.ok(unit.x > commandStartX, "the unit should resume its saved route after the fight");
   assert.deepEqual(unit.moveTarget, { x: 300, y: 100 });
 });
 
@@ -2030,10 +2039,16 @@ test("newly produced combat units engage threats while rallying", () => {
 
   const unit = simulation.units.find((candidate) => candidate.type === "scout_mech");
   assert.ok(unit);
-  assert.equal(unit.moveTarget, null);
+  assert.ok(unit.moveTarget, "retaliation should preserve the rally route");
   assert.equal(unit.attackTargetId, enemy.id);
   assert.equal(unit.attackTargetMode, "retaliation");
   assert.ok(enemy.hp < enemyStartingHp, "the unit should engage an enemy along its rally path");
+
+  const stoppedX = unit.x;
+  simulation.applyDamage(enemy, enemy.hp, unit);
+  simulation.tick(1 / 30);
+
+  assert.ok(unit.x > stoppedX, "the unit should continue toward its rally point after the fight");
 });
 
 test("workers spend metal and complete new structures", () => {
@@ -3260,15 +3275,30 @@ test("enemy combat units fire at nearby workers while advancing", () => {
   simulation.tick(1 / 30);
 
   const destination = { ...attackers[0].moveTarget };
+  const firingPosition = { x: attackers[0].x, y: attackers[0].y };
   const worker = simulation.addUnit("worker_drone_t1", "player", 930, 440);
   const startingHp = worker.hp;
   simulation.tick(1 / 30);
 
   assert.ok(worker.hp < startingHp);
+  assert.deepEqual(
+    { x: attackers[0].x, y: attackers[0].y },
+    firingPosition,
+    "an advancing unit should stop before firing",
+  );
   assert.equal(attackers[0].attackTargetId, worker.id);
   assert.equal(attackers[0].attackTargetMode, "automatic");
   assert.equal(attackers[0].moveMode, "advance");
   assert.deepEqual(attackers[0].moveTarget, destination);
+
+  simulation.applyDamage(worker, worker.hp, attackers[0]);
+  simulation.tick(1 / 30);
+
+  assert.ok(
+    Math.hypot(attackers[0].x - destination.x, attackers[0].y - destination.y) <
+      Math.hypot(firingPosition.x - destination.x, firingPosition.y - destination.y),
+    "the advancing unit should resume its strategic route after the target is destroyed",
+  );
 });
 
 test("enemy combat units form a larger wave against clustered static defenses", () => {
