@@ -1,4 +1,7 @@
-import {
+const moduleVersion = new URL(import.meta.url).searchParams.get("v");
+const versionSuffix = moduleVersion ? `?v=${encodeURIComponent(moduleVersion)}` : "";
+
+const {
   canWorkerTierBuildStructure,
   DEFAULT_MAP_ID,
   DRONE_DEFINITION,
@@ -13,8 +16,8 @@ import {
   pointInGridCoverage,
   powerCoverageBounds,
   structureFootprint,
-} from "./data.js";
-import { createMatchTeams, getMatchMap } from "./maps.js";
+} = await import(`./data.js${versionSuffix}`);
+const { createMatchTeams, getMatchMap } = await import(`./maps.js${versionSuffix}`);
 
 const EPSILON = 0.0001;
 const NAVIGATION_CORNER_MARGIN = 1;

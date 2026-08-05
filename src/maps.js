@@ -1,7 +1,10 @@
-import {
+const moduleVersion = new URL(import.meta.url).searchParams.get("v");
+const versionSuffix = moduleVersion ? `?v=${encodeURIComponent(moduleVersion)}` : "";
+
+const {
   DEFAULT_MAP_ID,
   MAP_DEFINITIONS,
-} from "./data.js";
+} = await import(`./data.js${versionSuffix}`);
 
 export const MIN_MATCH_PLAYERS = 2;
 export const MAX_MATCH_PLAYERS = 8;

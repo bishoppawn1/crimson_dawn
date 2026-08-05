@@ -221,6 +221,13 @@
     </main>
 
     <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js" integrity="sha384-x0YgkOr/3UOZP2CRDxGW9e0Q+2Qjyr3uJrm4xU32Y7ZCNAo7Cc7bjhrZMi/dwczu" crossorigin="anonymous"></script>
-    <script type="module" src="./src/game.js"></script>
+    <script type="module">
+      const version = Date.now().toString(36);
+      import(`./src/game.js?v=${version}`).catch((error) => {
+        console.error("Crimson Dawn failed to load.", error);
+        const status = document.querySelector("#connection-status");
+        if (status) status.textContent = "The latest game files could not be loaded. Reload to try again.";
+      });
+    </script>
   </body>
 </html>

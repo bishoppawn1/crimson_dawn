@@ -853,6 +853,9 @@ The battlefield uses Canvas rendering. Menus, command panels, accessibility
 features, and other interface elements may use HTML and CSS where appropriate.
 Canvas passes cull off-screen units, structures, deposits, terrain details, and grid
 segments so match cost scales primarily with what the camera can actually show.
+The static-page bootstrap gives every local JavaScript module in a page load the
+same fresh version token. This prevents the hosting cache from mixing an older map
+or simulation module with a newly deployed menu after reload.
 
 Battlefields currently range from 5,200 by 3,200 world units for two commanders to
 8,560 by 6,280 for eight. The 1,600-by-900 Canvas is a movable viewport rather than

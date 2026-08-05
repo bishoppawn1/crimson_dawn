@@ -1,4 +1,7 @@
-import {
+const moduleVersion = new URL(import.meta.url).searchParams.get("v");
+const versionSuffix = moduleVersion ? `?v=${encodeURIComponent(moduleVersion)}` : "";
+
+const {
   BUILD_MENU_BY_TIER,
   canWorkerTierBuildStructure,
   DEFAULT_MAP_ID,
@@ -8,14 +11,16 @@ import {
   UNIT_DEFINITIONS,
   powerCoverageBounds,
   structureFootprint,
-} from "./data.js";
-import { getMapsForPlayerCount, getMatchMap, getRandomMatchMap } from "./maps.js";
-import { energyRatio, Simulation } from "./simulation.js";
-import {
+} = await import(`./data.js${versionSuffix}`);
+const { getMapsForPlayerCount, getMatchMap, getRandomMatchMap } = await import(
+  `./maps.js${versionSuffix}`
+);
+const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix}`);
+const {
   isValidLobbyCode,
   normalizeLobbyCode,
   PeerMultiplayerSession,
-} from "./multiplayer.js";
+} = await import(`./multiplayer.js${versionSuffix}`);
 
 const canvas = document.querySelector("#battlefield");
 const context = canvas.getContext("2d");
