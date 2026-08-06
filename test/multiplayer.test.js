@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { MatchStartHandshake, PeerMultiplayerSession } from "../src/multiplayer.js";
+import { Simulation } from "../src/simulation.js";
+
+const FAKE_JSON_CHANNEL_LIMIT = 16 * 1024;
 
 class FakeEmitter {
   constructor() {
@@ -27,14 +30,19 @@ class FakeEmitter {
 }
 
 class FakeConnection extends FakeEmitter {
-  constructor() {
+  constructor(serialization = "binary") {
     super();
     this.open = false;
     this.dataChannel = { bufferedAmount: 0 };
     this.remote = null;
+    this.serialization = serialization;
   }
 
   send(message) {
+    const messageBytes = new TextEncoder().encode(JSON.stringify(message)).byteLength;
+    if (this.serialization === "json" && messageBytes > FAKE_JSON_CHANNEL_LIMIT) {
+      throw new Error("Message too big for JSON channel");
+    }
     queueMicrotask(() => this.remote.emit("data", message));
   }
 
@@ -59,9 +67,10 @@ class FakePeer extends FakeEmitter {
     queueMicrotask(() => this.emit("open", this.id));
   }
 
-  connect(id) {
-    const local = new FakeConnection();
-    const remote = new FakeConnection();
+  connect(id, options = {}) {
+    const serialization = options.serialization || "binary";
+    const local = new FakeConnection(serialization);
+    const remote = new FakeConnection(serialization);
     local.remote = remote;
     remote.remote = local;
     const target = FakePeer.peers.get(id);
@@ -214,6 +223,63 @@ test("host state backpressure keeps only the newest unsent snapshot", async () =
   host.session.connection.dataChannel.bufferedAmount = 0;
   await new Promise((resolve) => setTimeout(resolve, 60));
   assert.deepEqual(guestMessages, [{ type: "state", sequence: 2 }]);
+
+  host.session.close();
+  guest.session.close();
+});
+
+test("a large four-player match setup is chunkable and acknowledged without a retry delay", async () => {
+  FakePeer.peers.clear();
+  const snapshot = Simulation.createFieldTest({
+    enemyAiEnabled: true,
+    playerCount: 4,
+  }).createSnapshot();
+  const hostHandshake = new MatchStartHandshake("host", {
+    idFactory: () => "large-match-start",
+  });
+  const guestHandshake = new MatchStartHandshake("guest");
+  let hostAcknowledged = false;
+  let guestLoaded = false;
+  let guestSession;
+
+  const host = await PeerMultiplayerSession.createHost(
+    {
+      onMessage: (message) => {
+        if (hostHandshake.inspect(message)?.kind === "acknowledged") {
+          hostAcknowledged = true;
+        }
+      },
+    },
+    { PeerConstructor: FakePeer, codeFactory: () => "UV12WX34YZ" },
+  );
+  const guest = await PeerMultiplayerSession.createGuest(
+    "UV12WX34YZ",
+    {
+      onMessage: (message) => {
+        const event = guestHandshake.inspect(message);
+        if (event?.kind !== "offered") return;
+        const restored = Simulation.fromSnapshot(event.snapshot);
+        guestLoaded = restored.teams.length === 4;
+        guestSession.send(guestHandshake.accept(event.startId));
+      },
+    },
+    { PeerConstructor: FakePeer },
+  );
+  guestSession = guest.session;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const startMessage = hostHandshake.begin(snapshot);
+  const startBytes = new TextEncoder().encode(JSON.stringify(startMessage)).byteLength;
+  assert.ok(startBytes > FAKE_JSON_CHANNEL_LIMIT);
+  assert.equal(host.session.connection.serialization, "binary");
+  assert.equal(host.session.send(startMessage), true);
+  assert.equal(hostAcknowledged, false);
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(guestLoaded, true);
+  assert.equal(hostAcknowledged, true);
+  assert.equal(hostHandshake.waiting, false);
 
   host.session.close();
   guest.session.close();

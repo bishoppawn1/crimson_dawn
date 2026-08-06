@@ -1059,7 +1059,11 @@ to the guest.
 When a guest is present, starting uses an acknowledged handshake rather than
 allowing the host to enter immediately after queuing one network message. The guest
 must load the authoritative initial snapshot and return its matching start
-identifier before the host enters the battlefield. The host retries an
+identifier before the host enters the battlefield. This acknowledgement is
+automatic and is returned immediately after loading; it does not require a second
+player action or an artificial confirmation delay. Match setup and state objects use
+PeerJS's chunk-capable binary serialization so larger commander rosters cannot
+exceed the unfragmented JSON-channel message limit. The host retries an
 unacknowledged setup for a short bounded period. A rejection, timeout, or disconnect
 keeps the host in the lobby and explains why the start failed, preventing a match
 from beginning with only one player admitted.

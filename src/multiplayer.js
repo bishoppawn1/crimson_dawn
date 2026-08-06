@@ -221,7 +221,10 @@ export class PeerMultiplayerSession {
       label: "crimson-dawn",
       metadata: { game: "crimson-dawn", protocol: 1 },
       reliable: true,
-      serialization: "json",
+      // PeerJS cannot fragment oversized JSON-channel messages. Match snapshots
+      // exceed that limit once a lobby contains several commanders, while the
+      // binary serializer transparently chunks and reconstructs the same objects.
+      serialization: "binary",
     });
     session.attachConnection(connection);
     session.connectionTimeout = setTimeout(() => {

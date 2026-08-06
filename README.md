@@ -140,6 +140,9 @@ initial handshake, with no account or dedicated gameplay server required. The ho
 owns the match state; guest commands appear immediately as predictions and are then
 confirmed or corrected by ordered host updates. If a connection stalls, delayed
 snapshots are replaced by the newest state instead of accumulating a stale backlog.
+When the host starts, the guest loads and acknowledges the setup automatically;
+larger match snapshots are split across the direct connection and reassembled before
+either player enters the battlefield.
 
 ## Controls
 
