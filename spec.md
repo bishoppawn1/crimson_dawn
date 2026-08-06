@@ -370,10 +370,10 @@ terrain, completed structures, and foundations, but remain constrained by the ma
 boundary, their movement-energy cost, and physical separation from other aircraft.
 Air and ground units do not push one another apart, allowing aircraft to pass over
 ground formations without displacing them. Aircraft emphasize speed over
-survivability: the standard air roster moves
-at 105–200 world units per second and has lower provisional integrity than its
-previous profiles. The experimental Zenith Doughnut is a much larger 72-radius
-aircraft with a provisional movement speed of 200 world units per second.
+survivability: the standard air roster moves at 105–155 world units per second and
+has lower provisional integrity than its previous profiles. The experimental
+Zenith Doughnut is a much larger 72-radius aircraft with a provisional movement
+speed of 250 world units per second.
 
 Ordinary weapons deal a provisional 0.55× damage multiplier against aircraft.
 Dedicated anti-air weapons instead deal 2× damage and automatically prefer an
@@ -508,7 +508,7 @@ The Tier 3 Experimental Factory produces exactly three enormous strategic units:
 | --- | --- |
 | Arsenal Colossus | Huge assault mech carrying eight visible weapon systems and firing a converging multi-projectile salvo |
 | Hexapod Landship | Six-legged walking battleship with three independently targeting siege cannons, extreme durability, and the ability to stride across living building footprints |
-| Zenith Doughnut | Giant circular toroidal aircraft whose central aperture projects a sustained high-energy laser straight down; its player-facing description is “Mmm, tasty!” |
+| Zenith Doughnut | Giant circular toroidal aircraft that automatically hunts ground targets and projects a sustained high-energy laser straight down |
 
 The Arsenal Colossus follows the same overhead leg language as conventional mechs:
 its hull hides the walking assembly while stationary, leaving only compact rear hip
@@ -523,17 +523,21 @@ Shell damage resolves when each visible projectile reaches its target, not when 
 firing order begins. Its six legs retain their deliberate pull-step gait, but the
 two sides use offset phases and shortened travel lanes so neighboring feet do not
 cross. Solid armored foot pads replace the former protruding toe rods. The Zenith
-Doughnut ignores terrain, structures, and ground-unit separation. Its laser has no horizontal
-firing range, remains centered beneath the aircraft, and automatically damages
+Doughnut ignores terrain, structures, and ground-unit separation. When idle, it
+automatically selects the nearest hostile ground target anywhere on the battlefield,
+flies into beam range, tracks moving targets, and continues to the next target after
+a kill. Explicit attack, movement, force-movement, and hold-position orders retain
+priority over autonomous pursuit. Its laser has no horizontal firing range, remains
+centered beneath the aircraft, and automatically damages
 every hostile ground unit or structure inside its 48-unit-radius footprint without
-stopping movement. Players attack
-by routing the aircraft over enemy assets; attack commands on ground targets are
-interpreted as movement to the target position. The laser cannot damage aircraft
+stopping movement. Players can also attack by routing the aircraft over enemy
+assets; attack commands on ground targets track and pursue the chosen target. The
+laser cannot damage aircraft
 and consumes energy continuously while it is damaging at least one target. All
 three use ordinary paid production, supply, movement-energy, weapon-energy, damage,
 destruction, and salvage rules. The Zenith's current provisional size is 72 radius
-and its movement speed is 200 world units per second. All experimental balance
-values remain provisional.
+and its movement speed is 250 world units per second. Its beam deals a provisional
+150 damage per second. All experimental balance values remain provisional.
 
 ### 5.3 Worker Drones and Construction
 

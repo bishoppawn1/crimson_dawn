@@ -207,7 +207,7 @@ test("experimental factory exposes three distinct strategic units", () => {
   assert.equal(doughnut.groundAttackOnly, true);
   assert.equal(doughnut.attackRange, 0);
   assert.ok(doughnut.underbellyBeamRadius > 0);
-  assert.equal(doughnut.speed, 200);
+  assert.equal(doughnut.speed, 250);
   assert.equal(doughnut.roleDescription, "Mmm, tasty!");
 
   for (const unitType of roster) {
@@ -343,7 +343,8 @@ test("Zenith Doughnut burns ground targets directly beneath it while moving", ()
 
   const definition = UNIT_DEFINITIONS.zenith_doughnut;
   assert.ok(doughnut.x > 300, "the aircraft should keep moving while its beam fires");
-  assert.equal(doughnut.attackTargetId, null);
+  assert.equal(doughnut.attackTargetId, enemyStructure.id);
+  assert.equal(doughnut.attackTargetMode, "explicit");
   assert.equal(doughnut.underbellyBeamActive, true);
   assert.deepEqual(
     new Set(doughnut.underbellyBeamTargetIds),
@@ -383,6 +384,60 @@ test("Zenith Doughnut burns ground targets directly beneath it while moving", ()
   assert.equal(secondDoughnut.underbellyBeamActive, true);
   assert.ok(enemyUnit.hp < unitStartingHp);
   assert.equal(aircraftUnderBeam.hp, aircraftUnderBeamStartingHp);
+});
+
+test("Zenith Doughnuts automatically hunt and burn ground targets", () => {
+  const simulation = new Simulation({ width: 1600, height: 1000, enemyAiEnabled: false });
+  const doughnut = simulation.addUnit("zenith_doughnut", "player", 200, 500);
+  const nearbyAircraft = simulation.addUnit("interceptor_t2", "enemy", 260, 500, {
+    holdPosition: true,
+  });
+  const firstTarget = simulation.addStructure("generator", "enemy", 900, 500, { hp: 10 });
+  const secondTarget = simulation.addStructure("generator", "enemy", 1300, 500);
+  const aircraftStartingHp = nearbyAircraft.hp;
+
+  simulation.tick(1 / 30);
+
+  assert.equal(doughnut.attackTargetId, firstTarget.id);
+  assert.equal(doughnut.attackTargetMode, "automatic");
+  assert.equal(doughnut.moveMode, "pursuit");
+  assert.ok(doughnut.x > 200, "the idle aircraft should begin hunting immediately");
+  assert.equal(nearbyAircraft.hp, aircraftStartingHp, "the ground beam must ignore aircraft");
+
+  advance(simulation, 4);
+
+  assert.equal(firstTarget.alive, false, "the aircraft should fly into beam range and attack");
+  assert.equal(doughnut.attackTargetId, secondTarget.id);
+  assert.equal(doughnut.attackTargetMode, "automatic");
+});
+
+test("explicit orders take priority over automatic Zenith pursuit", () => {
+  const simulation = new Simulation({ width: 1600, height: 1000, enemyAiEnabled: false });
+  const doughnut = simulation.addUnit("zenith_doughnut", "player", 200, 500);
+  const nearerTarget = simulation.addStructure("generator", "enemy", 700, 500);
+  const explicitTarget = simulation.addStructure("generator", "enemy", 1200, 500);
+
+  assert.equal(simulation.commandAttack([doughnut.id], explicitTarget.id), 1);
+  simulation.tick(1 / 30);
+  assert.equal(doughnut.attackTargetId, explicitTarget.id);
+  assert.equal(doughnut.attackTargetMode, "explicit");
+  assert.ok(doughnut.x > 200);
+
+  assert.equal(simulation.commandMove([doughnut.id], 200, 200), 1);
+  simulation.tick(1 / 30);
+  assert.equal(doughnut.attackTargetId, null);
+  assert.equal(doughnut.moveMode, "normal");
+  assert.notEqual(nearerTarget.id, doughnut.attackTargetId);
+
+  assert.equal(simulation.commandMove([doughnut.id], 400, 800, { force: true }), 1);
+  simulation.tick(1 / 30);
+  assert.equal(doughnut.attackTargetId, null);
+  assert.equal(doughnut.moveMode, "force");
+
+  assert.equal(simulation.commandStop([doughnut.id], true), 1);
+  simulation.tick(1 / 30);
+  assert.equal(doughnut.attackTargetId, null);
+  assert.equal(doughnut.moveTarget, null);
 });
 
 test("airborne Zenith Doughnuts do not push ground units out of their beam", () => {
@@ -1020,8 +1075,10 @@ test("Zenith Doughnuts are enormous and fast strategic aircraft", () => {
   const doughnut = UNIT_DEFINITIONS.zenith_doughnut;
 
   assert.ok(doughnut.radius >= 70);
-  assert.equal(doughnut.speed, 200);
+  assert.equal(doughnut.speed, 250);
   assert.ok(doughnut.underbellyBeamRadius >= 48);
+  assert.equal(doughnut.underbellyBeamDamagePerSecond, 150);
+  assert.equal(doughnut.automaticallyPursuesBeamTargets, true);
 });
 
 test("overlapping friendly and enemy units physically separate", () => {

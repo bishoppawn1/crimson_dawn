@@ -70,7 +70,8 @@ The current build is the first playable field test. It includes:
   Gunships, Bombers, and Energy Tenders. Aircraft fly over terrain and structures.
 - A Tier 3 Experimental Factory producing the multi-weapon Arsenal Colossus,
   structure-striding six-legged Hexapod Landship with three independently targeting
-  cannons, and the laser-firing Zenith Doughnut.
+  cannons, and an ultra-fast Zenith Doughnut that automatically hunts ground targets
+  with its stronger underbelly laser.
 - Tier 1–3 worker construction inheritance and a three-category build menu;
   Tier 1 and Tier 2 workers can construct the next Mech Factory to advance.
 - Tiered generator, storage, relay, charger, mine, sentry, and salvage-yard

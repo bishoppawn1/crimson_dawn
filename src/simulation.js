@@ -602,7 +602,18 @@ export class Simulation {
         continue;
       }
       if (definition.underbellyBeamRadius) {
-        accepted += this.commandMove([unit.id], target.x, target.y);
+        unit.attackTargetId = targetId;
+        unit.attackTargetMode = "explicit";
+        unit.moveTarget = { x: target.x, y: target.y };
+        unit.moveMode = "pursuit";
+        unit.buildTargetId = null;
+        unit.buildQueue = [];
+        unit.repairTargetId = null;
+        unit.holdPosition = false;
+        unit.navigationObstacleId = null;
+        unit.navigationSide = null;
+        this.resetUnitNavigation(unit, orderIndex, orderedIds.length);
+        accepted += 1;
         continue;
       }
       if (definition.attackRange <= 0) continue;
@@ -2120,6 +2131,10 @@ export class Simulation {
         unit.attackTargetMode = null;
         continue;
       }
+      if (definition.automaticallyPursuesBeamTargets) {
+        this.assignAutomaticBeamPursuit(unit, definition, existingTarget);
+        continue;
+      }
       if (definition.attackRange <= 0) continue;
       if (unit.moveTarget && unit.moveMode === "force") {
         unit.attackTargetId = null;
@@ -2150,6 +2165,39 @@ export class Simulation {
       unit.attackTargetId = target?.id || null;
       unit.attackTargetMode = target ? "automatic" : null;
     }
+  }
+
+  assignAutomaticBeamPursuit(unit, definition, existingTarget) {
+    const validTarget = (target) => Boolean(
+      target?.alive &&
+      target.team !== unit.team &&
+      canUnitAttackTarget(definition, target)
+    );
+    const followingPlayerRoute = Boolean(
+      unit.moveTarget && unit.moveMode !== "pursuit"
+    );
+    if (unit.holdPosition || followingPlayerRoute) return false;
+
+    let target = validTarget(existingTarget) ? existingTarget : null;
+    if (!target) {
+      const candidates = [...this.units, ...this.droneCache, ...this.structures]
+        .filter((candidate) => validTarget(candidate));
+      target = nearest(unit, preferredTargets(definition, candidates));
+      unit.attackTargetId = target?.id || null;
+      unit.attackTargetMode = target ? "automatic" : null;
+    }
+    if (!target) {
+      if (unit.moveMode === "pursuit") {
+        unit.moveTarget = null;
+        unit.moveMode = null;
+      }
+      return false;
+    }
+
+    if (unit.attackTargetMode !== "explicit") unit.attackTargetMode = "automatic";
+    unit.moveTarget = { x: target.x, y: target.y };
+    unit.moveMode = "pursuit";
+    return true;
   }
 
   updateEnemyAi(delta) {
@@ -3538,6 +3586,10 @@ export class Simulation {
           attackTarget.team === unit.team ||
           !canUnitAttackTarget(definition, attackTarget))
       ) {
+        if (unit.moveMode === "pursuit") {
+          unit.moveTarget = null;
+          unit.moveMode = null;
+        }
         unit.attackTargetId = null;
         unit.attackTargetMode = null;
         attackTarget = null;
@@ -3550,6 +3602,22 @@ export class Simulation {
       }
 
       if (unit.moveTarget) {
+        const pursuingBeamTarget = Boolean(
+          definition.underbellyBeamRadius &&
+          unit.moveMode === "pursuit" &&
+          attackTarget?.alive &&
+          attackTarget.team !== unit.team
+        );
+        if (pursuingBeamTarget) {
+          this.moveUnitToward(
+            unit,
+            attackTarget,
+            delta,
+            4,
+            { preserveMoveOrder: true },
+          );
+          continue;
+        }
         const stoppedToAttack = this.isUnitStoppedToAttack(unit, attackTarget, definition);
         if (stoppedToAttack) {
           if (!hasIndependentWeapons) this.tryAttack(unit, attackTarget, definition);
@@ -3801,8 +3869,6 @@ export class Simulation {
   }
 
   updateUnderbellyBeam(unit, definition, delta) {
-    unit.attackTargetId = null;
-    unit.attackTargetMode = null;
     for (const weaponSystem of unit.weaponSystems || []) weaponSystem.targetId = null;
     unit.underbellyBeamActive = false;
     unit.underbellyBeamTargetIds = [];
