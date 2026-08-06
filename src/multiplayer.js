@@ -150,10 +150,14 @@ export class PeerMultiplayerSession {
     this.lobbyCode = null;
     this.connectionTimeout = null;
     this.pendingState = null;
+    this.stateInFlightSequence = null;
     this.stateFlushTimer = null;
 
     peer.on("error", (error) => {
       if (this.closed) return;
+      // PeerJS Cloud is only the signaling broker. Once the direct WebRTC data
+      // channel is open, a broker/socket interruption must not end the match.
+      if (this.connection?.open) return;
       this.handlers.onError?.(friendlyPeerError(error));
       if (this.opened || error?.type === "network" || error?.type === "webrtc") {
         this.handlers.onClose?.(error?.type || "error");
@@ -241,6 +245,7 @@ export class PeerMultiplayerSession {
     connection.on("close", () => {
       clearTimeout(this.stateFlushTimer);
       this.pendingState = null;
+      this.stateInFlightSequence = null;
       this.stateFlushTimer = null;
       if (this.closed) return;
       if (this.role === "host" && this.connection === connection) {
@@ -254,6 +259,10 @@ export class PeerMultiplayerSession {
     });
     connection.on("data", (message) => {
       if (!message || typeof message.type !== "string") return;
+      if (this.role === "host" && message.type === "state_ack") {
+        this.acknowledgeState(message.sequence);
+        return;
+      }
       let serialized;
       try {
         serialized = JSON.stringify(message);
@@ -289,13 +298,19 @@ export class PeerMultiplayerSession {
   }
 
   sendState(message) {
-    if (this.closed || !this.connection?.open) return false;
-    if (this.pendingState || this.stateChannelBusy()) {
+    if (
+      this.closed ||
+      !this.connection?.open ||
+      !Number.isSafeInteger(message?.sequence)
+    ) return false;
+    if (this.stateInFlightSequence !== null || this.pendingState || this.stateChannelBusy()) {
       this.pendingState = message;
       this.scheduleStateFlush();
       return true;
     }
-    return this.sendNow(message);
+    const sent = this.sendNow(message);
+    if (sent) this.stateInFlightSequence = message.sequence;
+    return sent;
   }
 
   bufferedAmount() {
@@ -323,19 +338,33 @@ export class PeerMultiplayerSession {
     if (this.stateFlushTimer || this.closed) return;
     this.stateFlushTimer = setTimeout(() => {
       this.stateFlushTimer = null;
-      if (this.closed || !this.pendingState) return;
-      if (!this.connection?.open) {
-        this.pendingState = null;
-        return;
-      }
-      if (this.stateChannelBusy()) {
-        this.scheduleStateFlush();
-        return;
-      }
-      const state = this.pendingState;
-      this.pendingState = null;
-      this.sendNow(state);
+      this.flushPendingState();
     }, STATE_FLUSH_RETRY_MS);
+  }
+
+  acknowledgeState(sequence) {
+    if (
+      this.stateInFlightSequence === null ||
+      sequence !== this.stateInFlightSequence
+    ) return false;
+    this.stateInFlightSequence = null;
+    this.flushPendingState();
+    return true;
+  }
+
+  flushPendingState() {
+    if (this.closed || !this.pendingState || this.stateInFlightSequence !== null) return;
+    if (!this.connection?.open) {
+      this.pendingState = null;
+      return;
+    }
+    if (this.stateChannelBusy()) {
+      this.scheduleStateFlush();
+      return;
+    }
+    const state = this.pendingState;
+    this.pendingState = null;
+    if (this.sendNow(state)) this.stateInFlightSequence = state.sequence;
   }
 
   close() {
@@ -344,6 +373,7 @@ export class PeerMultiplayerSession {
     clearTimeout(this.connectionTimeout);
     clearTimeout(this.stateFlushTimer);
     this.pendingState = null;
+    this.stateInFlightSequence = null;
     this.stateFlushTimer = null;
     this.connection?.close?.();
     this.peer?.destroy?.();

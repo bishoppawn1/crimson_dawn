@@ -1091,8 +1091,9 @@ assists peer discovery, so both players need internet access and some highly
 restricted or symmetric-NAT networks may still prevent a direct connection.
 
 The host owns the canonical simulation, validates incoming commands against the
-guest's team, applies the lobby's randomized map and AI configuration, and sends versioned
-simulation snapshots to the guest ten times per second. Every host state carries a
+guest's team, applies the lobby's randomized map and AI configuration, and offers
+versioned simulation snapshots to the guest up to ten times per second. Every host
+state carries a
 monotonically increasing sequence number, and the guest ignores older state. The
 guest never advances a second canonical simulation between snapshots. Instead, it
 predicts its own submitted commands against the latest host state, replays still-unacknowledged
@@ -1100,8 +1101,14 @@ commands when a newer state arrives, and removes or corrects them when the host
 acknowledges the result. This keeps placement and other commands responsive without
 allowing the peers to become split-brained. When the outgoing channel is congested,
 the host retains only the newest waiting snapshot; stale snapshots may not build an
-ever-older delivery backlog. Transport send failures are contained and surfaced to
-the player rather than escaping the animation loop and stopping the game.
+ever-older delivery backlog. Only one full snapshot may be in flight at once. The
+guest acknowledges a sequence after it has received and loaded that state, allowing
+the host to send the newest waiting state at the actual connection's sustainable
+rate. PeerJS Cloud remains only a signaling broker: losing its socket after the
+direct WebRTC data channel opens does not end an active match. An actual data-channel
+close still pauses the match and reports the lost player connection. Transport send
+failures are contained and surfaced to the player rather than escaping the animation
+loop and stopping the game.
 Movement, attack, construction, production, rally, stop, ability, cancellation,
 and upgrade commands all use the same simulation APIs as single player. Pausing and
 match resets are disabled during multiplayer; either player may leave the match and

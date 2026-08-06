@@ -572,7 +572,10 @@ function multiplayerHandlers(role) {
         const sequence = Number.isSafeInteger(message.sequence)
           ? message.sequence
           : lastHostStateSequence + 1;
-        if (sequence <= lastHostStateSequence) return;
+        if (sequence <= lastHostStateSequence) {
+          peerSession?.send({ type: "state_ack", sequence });
+          return;
+        }
         try {
           simulation = Simulation.fromSnapshot(message.snapshot);
           lastHostStateSequence = sequence;
@@ -591,6 +594,7 @@ function multiplayerHandlers(role) {
           activeMapId = simulation.mapId;
           matchModeLabel.textContent = `MULTIPLAYER GUEST · ${simulation.mapName.toUpperCase()} · EASTERN COMMAND`;
           pruneSelection();
+          peerSession?.send({ type: "state_ack", sequence });
         } catch {
           setConnectionStatus("The host sent an incompatible match state.", true);
         }

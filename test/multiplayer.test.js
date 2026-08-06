@@ -228,6 +228,73 @@ test("host state backpressure keeps only the newest unsent snapshot", async () =
   guest.session.close();
 });
 
+test("host state delivery keeps one snapshot in flight until the guest acknowledges it", async () => {
+  FakePeer.peers.clear();
+  const guestStates = [];
+  const host = await PeerMultiplayerSession.createHost(
+    {},
+    { PeerConstructor: FakePeer, codeFactory: () => "ZA12BC34DE" },
+  );
+  const guest = await PeerMultiplayerSession.createGuest(
+    "ZA12BC34DE",
+    {
+      onMessage: (message) => {
+        if (message.type === "state") guestStates.push(message.sequence);
+      },
+    },
+    { PeerConstructor: FakePeer },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(host.session.sendState({ type: "state", sequence: 1 }), true);
+  for (let sequence = 2; sequence <= 300; sequence += 1) {
+    assert.equal(host.session.sendState({ type: "state", sequence }), true);
+  }
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepEqual(guestStates, [1]);
+  assert.equal(host.session.stateInFlightSequence, 1);
+  assert.equal(host.session.pendingState.sequence, 300);
+
+  assert.equal(guest.session.send({ type: "state_ack", sequence: 1 }), true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepEqual(guestStates, [1, 300]);
+  assert.equal(host.session.stateInFlightSequence, 300);
+  assert.equal(host.session.pendingState, null);
+
+  guest.session.send({ type: "state_ack", sequence: 300 });
+  host.session.close();
+  guest.session.close();
+});
+
+test("a signaling broker error does not close an established direct match", async () => {
+  FakePeer.peers.clear();
+  let hostClosed = false;
+  let guestMessage = null;
+  const host = await PeerMultiplayerSession.createHost(
+    { onClose: () => { hostClosed = true; } },
+    { PeerConstructor: FakePeer, codeFactory: () => "FG12HJ34KL" },
+  );
+  const guest = await PeerMultiplayerSession.createGuest(
+    "FG12HJ34KL",
+    { onMessage: (message) => { guestMessage = message; } },
+    { PeerConstructor: FakePeer },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  host.session.peer.emit("error", { type: "socket-closed" });
+
+  assert.equal(hostClosed, false);
+  assert.equal(host.session.opened, true);
+  assert.equal(host.session.send({ type: "command_result", commandId: 9 }), true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(guestMessage, { type: "command_result", commandId: 9 });
+
+  host.session.close();
+  guest.session.close();
+});
+
 test("a large four-player match setup is chunkable and acknowledged without a retry delay", async () => {
   FakePeer.peers.clear();
   const snapshot = Simulation.createFieldTest({
