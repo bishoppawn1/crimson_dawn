@@ -3322,6 +3322,96 @@ test("enemy AI searches nearby grid cells when its preferred site is occupied", 
   );
 });
 
+test("enemy AI construction avoids sites controlled by a superior hostile force", () => {
+  const simulation = new Simulation({ width: 1400, height: 900 });
+  simulation.aiThinkRemaining = 0;
+  simulation.aiBuildIndex = 1;
+  simulation.resources.enemy.metal = 1000;
+  simulation.addStructure("generator", "enemy", 1050, 450);
+  simulation.addStructure("mech_factory_t1", "enemy", 1130, 610);
+  simulation.addUnit("worker_drone_t1", "enemy", 1100, 450);
+  for (const [x, y] of [[790, 390], [790, 450], [790, 510]]) {
+    simulation.addUnit("assault_mech", "player", x, y);
+  }
+
+  simulation.tick(1 / 30);
+
+  const project = simulation.structures.find(
+    (structure) => structure.alive && !structure.complete && structure.team === "enemy",
+  );
+  if (project) {
+    assert.equal(
+      simulation.isAiConstructionSiteSafe("enemy", project.type, project.x, project.y),
+      true,
+    );
+    assert.ok(project.x > 1000, "the AI should place behind its base instead of beside the force");
+  } else {
+    assert.equal(
+      simulation.resources.enemy.metal,
+      1000,
+      "the AI should retain its metal when no safe powered site exists",
+    );
+  }
+});
+
+test("enemy AI remembers recently destroyed construction sites", () => {
+  const simulation = new Simulation({ width: 1400, height: 900 });
+  const attacker = simulation.addUnit("assault_mech", "player", 500, 450);
+  const project = simulation.addStructure("generator", "enemy", 520, 450, {
+    complete: false,
+    constructionProgress: 1,
+    constructionStartedAt: simulation.time,
+    hp: 1,
+  });
+
+  simulation.applyDamage(project, 100, attacker);
+  attacker.alive = false;
+
+  assert.equal(project.alive, false);
+  assert.equal(simulation.aiStates.enemy.constructionLosses.length, 1);
+  assert.equal(simulation.isAiConstructionSiteSafe("enemy", "generator", 520, 450), false);
+  const replacementSite = simulation.findNearestValidBuildSite(
+    "generator",
+    520,
+    450,
+    8,
+    "enemy",
+    { avoidHostileThreats: true },
+  );
+  assert.equal(replacementSite.valid, true);
+  assert.ok(
+    Math.hypot(replacementSite.x - project.x, replacementSite.y - project.y) >
+      SIMULATION_RULES.enemyConstructionLossRadius,
+    "a replacement project should move outside the remembered kill zone",
+  );
+
+  simulation.time += SIMULATION_RULES.enemyConstructionLossMemoryDuration + 1;
+  assert.equal(simulation.isAiConstructionSiteSafe("enemy", "generator", 520, 450), true);
+});
+
+test("enemy AI skips a contested deposit for a safer expansion", () => {
+  const simulation = new Simulation({ width: 2400, height: 1400 });
+  simulation.teamStarts.enemy = { x: 2000, y: 700 };
+  const anchor = simulation.addStructure("generator", "enemy", 2000, 700);
+  const contestedDeposit = simulation.addMetalDeposit(1400, 700);
+  const safeDeposit = simulation.addMetalDeposit(700, 700);
+  for (const [x, y] of [[1340, 660], [1360, 700], [1340, 740]]) {
+    simulation.addUnit("assault_mech", "player", x, y);
+  }
+
+  const request = simulation.getEnemyExpansionRequest(anchor, "enemy");
+
+  assert.ok(request);
+  assert.ok(
+    Math.hypot(request.x - safeDeposit.x, request.y - safeDeposit.y) <=
+      STRUCTURE_DEFINITIONS.generator.powerRadius,
+  );
+  assert.ok(
+    Math.hypot(request.x - contestedDeposit.x, request.y - contestedDeposit.y) >
+      STRUCTURE_DEFINITIONS.generator.powerRadius,
+  );
+});
+
 test("enemy AI replaces battery requests with generation while grid energy is low", () => {
   const simulation = new Simulation();
   const anchor = simulation.addStructure("generator", "enemy", 2600, 900);

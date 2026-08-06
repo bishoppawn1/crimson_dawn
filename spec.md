@@ -863,7 +863,14 @@ The AI reassigns an available worker to an unfinished enemy foundation when its
 original builder is destroyed or otherwise lost. If a preferred ordinary build
 cell is blocked, it searches nearby valid grid cells; if a planned Metal Mine
 deposit is unavailable, it searches the remaining deposits rather than abandoning
-its construction plan.
+its construction plan. AI construction also compares friendly and hostile combat
+strength around every proposed foundation. It avoids locally outmatched sites and
+skips contested deposits in favor of safer expansions instead of knowingly placing
+an undefended project beside a superior hostile force. Losing an unfinished or
+freshly completed project creates a temporary no-build zone around that site, so
+the AI cannot repeatedly spend metal rebuilding into the same active kill zone.
+The current threat radius, strength ratio, loss radius, and 60-second memory are
+provisional.
 
 Before spending metal on a consumer, battery, or relay, the AI verifies that the
 finished building can attach to an existing energized power node. A relay whose

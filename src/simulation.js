@@ -102,6 +102,7 @@ export class Simulation {
           decisionIndex: 0,
           regroupUntil: 0,
           regroupRequiredFieldCount: 0,
+          constructionLosses: [],
         }]),
     );
     Object.defineProperties(this, {
@@ -191,6 +192,7 @@ export class Simulation {
         decisionIndex: 0,
         regroupUntil: 0,
         regroupRequiredFieldCount: 0,
+        constructionLosses: [],
       };
     }
   }
@@ -259,6 +261,9 @@ export class Simulation {
         decisionIndex: state.decisionIndex ?? state.buildIndex ?? 0,
         regroupUntil: state.regroupUntil || 0,
         regroupRequiredFieldCount: state.regroupRequiredFieldCount || 0,
+        constructionLosses: Array.isArray(state.constructionLosses)
+          ? state.constructionLosses.map((loss) => ({ ...loss }))
+          : [],
       }]))
       : simulation.aiStates;
     if (!snapshot.aiStates) {
@@ -1229,6 +1234,7 @@ export class Simulation {
       constructionProgress: 0,
       depositId: placement.depositId,
       weaponEnergy: definition.capacitorCapacity ? 0 : null,
+      constructionStartedAt: this.time,
     });
     this.clearFriendlyUnitsFromConstructionSite(structure);
     this.commandBuild(workers.map((worker) => worker.id), structure.id, { queue });
@@ -1337,9 +1343,24 @@ export class Simulation {
     }
   }
 
-  findNearestValidBuildSite(structureType, preferredX, preferredY, maxRings = 8, team = null) {
+  findNearestValidBuildSite(
+    structureType,
+    preferredX,
+    preferredY,
+    maxRings = 8,
+    team = null,
+    { avoidHostileThreats = false } = {},
+  ) {
+    const acceptable = (candidate) =>
+      candidate.valid &&
+      (!avoidHostileThreats || this.isAiConstructionSiteSafe(
+        team,
+        structureType,
+        candidate.x,
+        candidate.y,
+      ));
     const preferred = this.evaluatePlacement(structureType, preferredX, preferredY, team);
-    if (preferred.valid) return preferred;
+    if (acceptable(preferred)) return preferred;
     if (STRUCTURE_DEFINITIONS[structureType]?.metalRate) {
       const deposits = [...this.metalDeposits].sort(
         (left, right) =>
@@ -1348,9 +1369,11 @@ export class Simulation {
       );
       for (const deposit of deposits) {
         const candidate = this.evaluatePlacement(structureType, deposit.x, deposit.y, team);
-        if (candidate.valid) return candidate;
+        if (acceptable(candidate)) return candidate;
       }
-      return preferred;
+      return avoidHostileThreats && preferred.valid
+        ? { ...preferred, valid: false, reason: "No safe metal deposit is available." }
+        : preferred;
     }
 
     const gridSize = SIMULATION_RULES.buildingGridSize;
@@ -1365,7 +1388,7 @@ export class Simulation {
             centerY + offsetY * gridSize,
             team,
           );
-          if (candidate.valid) return candidate;
+          if (acceptable(candidate)) return candidate;
         }
       }
       for (let offsetY = -ring + 1; offsetY < ring; offsetY += 1) {
@@ -1376,22 +1399,43 @@ export class Simulation {
             centerY + offsetY * gridSize,
             team,
           );
-          if (candidate.valid) return candidate;
+          if (acceptable(candidate)) return candidate;
         }
       }
     }
-    return preferred;
+    return avoidHostileThreats && preferred.valid
+      ? { ...preferred, valid: false, reason: "No safe construction cell is available." }
+      : preferred;
   }
 
-  findNearestValidPoweredBuildSite(structureType, team, preferredX, preferredY) {
+  findNearestValidPoweredBuildSite(
+    structureType,
+    team,
+    preferredX,
+    preferredY,
+    { avoidHostileThreats = false } = {},
+  ) {
     if (STRUCTURE_DEFINITIONS[structureType]?.generationRate) {
-      return this.findNearestValidBuildSite(structureType, preferredX, preferredY, 8, team);
+      return this.findNearestValidBuildSite(
+        structureType,
+        preferredX,
+        preferredY,
+        8,
+        team,
+        { avoidHostileThreats },
+      );
     }
 
     const preferred = this.evaluatePlacement(structureType, preferredX, preferredY, team);
     if (
       preferred.valid &&
-      this.isBuildSiteConnectedToPower(structureType, team, preferred.x, preferred.y)
+      this.isBuildSiteConnectedToPower(structureType, team, preferred.x, preferred.y) &&
+      (!avoidHostileThreats || this.isAiConstructionSiteSafe(
+        team,
+        structureType,
+        preferred.x,
+        preferred.y,
+      ))
     ) {
       return preferred;
     }
@@ -1406,7 +1450,13 @@ export class Simulation {
         const candidate = this.evaluatePlacement(structureType, deposit.x, deposit.y, team);
         if (
           candidate.valid &&
-          this.isBuildSiteConnectedToPower(structureType, team, candidate.x, candidate.y)
+          this.isBuildSiteConnectedToPower(structureType, team, candidate.x, candidate.y) &&
+          (!avoidHostileThreats || this.isAiConstructionSiteSafe(
+            team,
+            structureType,
+            candidate.x,
+            candidate.y,
+          ))
         ) {
           return candidate;
         }
@@ -1454,6 +1504,10 @@ export class Simulation {
           if (!this.isBuildSiteConnectedToPower(structureType, team, x, y)) continue;
           const candidate = this.evaluatePlacement(structureType, x, y, team);
           if (!candidate.valid) continue;
+          if (
+            avoidHostileThreats &&
+            !this.isAiConstructionSiteSafe(team, structureType, candidate.x, candidate.y)
+          ) continue;
           const candidateDistance = distance(candidate, { x: preferredX, y: preferredY });
           if (candidateDistance + EPSILON >= bestDistance) continue;
           bestCandidate = candidate;
@@ -1465,8 +1519,57 @@ export class Simulation {
     return bestCandidate || {
       ...preferred,
       valid: false,
-      reason: "No valid construction cell is connected to the energized grid.",
+      reason: avoidHostileThreats
+        ? "No safe construction cell is connected to the energized grid."
+        : "No valid construction cell is connected to the energized grid.",
     };
+  }
+
+  isAiConstructionSiteSafe(teamId, structureType, x, y) {
+    if (!teamId || !STRUCTURE_DEFINITIONS[structureType]) return true;
+    const aiState = this.aiStates[teamId];
+    if (!aiState) return true;
+    const lossCutoff = this.time - SIMULATION_RULES.enemyConstructionLossMemoryDuration;
+    aiState.constructionLosses = (aiState.constructionLosses || []).filter(
+      (loss) => loss.time + EPSILON >= lossCutoff,
+    );
+    if (aiState.constructionLosses.some(
+      (loss) => distance(loss, { x, y }) <= SIMULATION_RULES.enemyConstructionLossRadius,
+    )) return false;
+
+    const footprint = structureFootprint(structureType);
+    const threatRadius = SIMULATION_RULES.enemyConstructionThreatRadius +
+      Math.hypot(footprint.halfWidth, footprint.halfHeight);
+    const nearbyCombatants = [...this.units, ...this.structures].filter((entity) => {
+      if (!entity.alive || distance(entity, { x, y }) > threatRadius) return false;
+      if (entity.kind === "unit") {
+        return entity.state === "active" && isCombatUnitDefinition(UNIT_DEFINITIONS[entity.type]);
+      }
+      return entity.complete && combatStrength(entity) > EPSILON;
+    });
+    const hostileStrength = nearbyCombatants
+      .filter((entity) => entity.team !== teamId)
+      .reduce((total, entity) => total + combatStrength(entity), 0);
+    if (hostileStrength <= EPSILON) return true;
+    const friendlyStrength = nearbyCombatants
+      .filter((entity) => entity.team === teamId)
+      .reduce((total, entity) => total + combatStrength(entity), 0);
+    return hostileStrength <=
+      friendlyStrength * SIMULATION_RULES.enemyConstructionSafetyStrengthRatio + EPSILON;
+  }
+
+  recordAiConstructionLoss(structure) {
+    const aiState = structure?.kind === "structure" ? this.aiStates[structure.team] : null;
+    if (!aiState) return;
+    const recentlyStarted = Number.isFinite(structure.constructionStartedAt) &&
+      this.time - structure.constructionStartedAt <=
+        SIMULATION_RULES.enemyConstructionRecentBuildWindow + EPSILON;
+    if (structure.complete && !recentlyStarted) return;
+    const lossCutoff = this.time - SIMULATION_RULES.enemyConstructionLossMemoryDuration;
+    aiState.constructionLosses = [
+      ...(aiState.constructionLosses || []).filter((loss) => loss.time + EPSILON >= lossCutoff),
+      { x: structure.x, y: structure.y, time: this.time },
+    ].slice(-SIMULATION_RULES.enemyConstructionLossMemoryLimit);
   }
 
   isBuildSiteConnectedToPower(structureType, team, x, y) {
@@ -2058,6 +2161,10 @@ export class Simulation {
   updateAiTeam(teamId, delta) {
     const aiState = this.aiStates[teamId];
     if (!aiState) return;
+    const lossCutoff = this.time - SIMULATION_RULES.enemyConstructionLossMemoryDuration;
+    aiState.constructionLosses = (aiState.constructionLosses || []).filter(
+      (loss) => loss.time + EPSILON >= lossCutoff,
+    );
     aiState.thinkRemaining -= delta;
     if (aiState.thinkRemaining > 0) return;
     aiState.thinkRemaining = SIMULATION_RULES.enemyThinkInterval;
@@ -2188,12 +2295,14 @@ export class Simulation {
           constructionRequest.y,
           8,
           teamId,
+          { avoidHostileThreats: true },
         )
         : this.findNearestValidPoweredBuildSite(
           constructionRequest.type,
           teamId,
           constructionRequest.x,
           constructionRequest.y,
+          { avoidHostileThreats: true },
         );
       const construction = site.valid
         ? this.startConstruction(
@@ -2750,7 +2859,8 @@ export class Simulation {
       .filter(
         (deposit) =>
           !occupiedDepositIds.has(deposit.id) &&
-          this.evaluatePlacement(mineType, deposit.x, deposit.y, teamId).valid,
+          this.evaluatePlacement(mineType, deposit.x, deposit.y, teamId).valid &&
+          this.isAiConstructionSiteSafe(teamId, mineType, deposit.x, deposit.y),
       )
       .sort(
         (left, right) =>
@@ -4448,6 +4558,7 @@ export class Simulation {
       return;
     }
 
+    if (target.kind === "structure") this.recordAiConstructionLoss(target);
     target.alive = false;
     if (target.kind === "unit") {
       target.state = "destroyed";
