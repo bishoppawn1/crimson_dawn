@@ -976,12 +976,17 @@ within 520 world units exceeds its nearby strength by a factor of 1.5. Retreat u
 a strategic fallback move: units stop to fire at hostiles in range, then continue
 toward their regroup point without abandoning the retreat to pursue them. A
 retreated field force then regroups for at least 15 seconds and waits for two
-additional non-garrison combat units before it may launch another ordinary wave.
-This recovery state prevents the same outmatched force from immediately repeating
-an energy-wasting advance after reaching home. A player rush inside the normal base
-response radius still overrides regrouping so available units defend immediately.
-The cadence, response radius, strength estimate, defense cluster, retreat, regroup,
-reinforcement, and wave-size values are provisional.
+additional non-garrison combat units. When that recovery completes, every active
+non-garrison unit in the regrouped force launches together rather than being split
+into ordinary three-unit waves. Regrouping is capped at 30 seconds: if production
+cannot supply the requested reinforcements by then, all active survivors launch the
+same mass charge with whatever energy they have recovered. Units still in stasis
+remain home until they reactivate. This prevents an outmatched force from repeating
+an immediate energy-wasting advance without allowing partially charged survivors
+to remain parked indefinitely. A player rush inside the normal base response radius
+still overrides regrouping so available units defend immediately. The cadence,
+response radius, strength estimate, defense cluster, retreat, regroup, reinforcement,
+maximum hold, and wave-size values are provisional.
 
 Every completed AI mine at least 480 world units from its starting command point is
 treated as an outpost rather than an unprotected income structure. The building AI

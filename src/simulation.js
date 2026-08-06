@@ -101,6 +101,7 @@ export class Simulation {
             (index / Math.max(1, aiTeams.length)) * SIMULATION_RULES.enemyThinkInterval,
           decisionIndex: 0,
           regroupUntil: 0,
+          regroupForceAttackAt: 0,
           regroupRequiredFieldCount: 0,
           constructionLosses: [],
         }]),
@@ -191,6 +192,7 @@ export class Simulation {
           deterministicPhase(teamId, SIMULATION_RULES.enemyThinkInterval),
         decisionIndex: 0,
         regroupUntil: 0,
+        regroupForceAttackAt: 0,
         regroupRequiredFieldCount: 0,
         constructionLosses: [],
       };
@@ -260,6 +262,7 @@ export class Simulation {
         thinkRemaining: state.thinkRemaining,
         decisionIndex: state.decisionIndex ?? state.buildIndex ?? 0,
         regroupUntil: state.regroupUntil || 0,
+        regroupForceAttackAt: state.regroupForceAttackAt || 0,
         regroupRequiredFieldCount: state.regroupRequiredFieldCount || 0,
         constructionLosses: Array.isArray(state.constructionLosses)
           ? state.constructionLosses.map((loss) => ({ ...loss }))
@@ -2209,6 +2212,13 @@ export class Simulation {
   updateAiTeam(teamId, delta) {
     const aiState = this.aiStates[teamId];
     if (!aiState) return;
+    if (aiState.regroupRequiredFieldCount > 0 && !aiState.regroupForceAttackAt) {
+      aiState.regroupForceAttackAt = (aiState.regroupUntil || this.time) + Math.max(
+        0,
+        SIMULATION_RULES.enemyRetreatMaximumRegroupDuration -
+          SIMULATION_RULES.enemyRetreatRegroupDuration,
+      );
+    }
     const lossCutoff = this.time - SIMULATION_RULES.enemyConstructionLossMemoryDuration;
     aiState.constructionLosses = (aiState.constructionLosses || []).filter(
       (loss) => loss.time + EPSILON >= lossCutoff,
@@ -2419,8 +2429,14 @@ export class Simulation {
       0,
     );
     const regroupRequiredFieldCount = aiState.regroupRequiredFieldCount || 0;
+    const regroupDeadlineReached = Boolean(
+      regroupRequiredFieldCount > 0 &&
+      aiState.regroupForceAttackAt > 0 &&
+      this.time + EPSILON >= aiState.regroupForceAttackAt
+    );
     const rebuildingRetreatedForce =
       regroupRequiredFieldCount > 0 &&
+      !regroupDeadlineReached &&
       (
         this.time + EPSILON < (aiState.regroupUntil || 0) ||
         fieldCombatCount + queuedCombatCount < regroupRequiredFieldCount
@@ -2507,19 +2523,30 @@ export class Simulation {
 
     this.updateEnemyExpansionGarrisons(teamId, enemyAnchor, playerTargets);
     const regroupedFieldCombatCount = this.getEnemyFieldCombatUnits(teamId).length;
+    const hasPendingRegroup = aiState.regroupRequiredFieldCount > 0;
+    let regroupChargeReady = Boolean(
+      hasPendingRegroup &&
+      (
+        regroupDeadlineReached ||
+        (
+          this.time + EPSILON >= (aiState.regroupUntil || 0) &&
+          regroupedFieldCombatCount >= aiState.regroupRequiredFieldCount
+        )
+      )
+    );
     let regrouping = Boolean(
-      aiState.regroupRequiredFieldCount > 0 &&
+      hasPendingRegroup &&
+      !regroupChargeReady &&
       (
         this.time + EPSILON < (aiState.regroupUntil || 0) ||
         regroupedFieldCombatCount < aiState.regroupRequiredFieldCount
       )
     );
-    if (!regrouping && aiState.regroupRequiredFieldCount > 0) {
-      aiState.regroupUntil = 0;
-      aiState.regroupRequiredFieldCount = 0;
-    }
     const retreated = this.retreatOutmatchedEnemyAttackers(enemyAnchor, playerTargets, teamId);
-    if (retreated) regrouping = true;
+    if (retreated) {
+      regrouping = true;
+      regroupChargeReady = false;
+    }
     const stagedUnits = this.units.filter((unit) => {
       const definition = UNIT_DEFINITIONS[unit.type];
       const target = this.getEntity(unit.attackTargetId);
@@ -2541,7 +2568,9 @@ export class Simulation {
           distance(structure, target) <= SIMULATION_RULES.enemyRushResponseRadius,
       ),
     );
-    const requiredAttackers = rushTargets.length > 0 ? 1 : desiredWaveSize;
+    const requiredAttackers = rushTargets.length > 0 || regroupChargeReady
+      ? 1
+      : desiredWaveSize;
     if (
       !retreated &&
       (!regrouping || rushTargets.length > 0) &&
@@ -2550,7 +2579,9 @@ export class Simulation {
     ) {
       const wave = stagedUnits.slice(
         0,
-        rushTargets.length > 0 ? stagedUnits.length : desiredWaveSize,
+        rushTargets.length > 0 || regroupChargeReady
+          ? stagedUnits.length
+          : desiredWaveSize,
       );
       const waveCenter = {
         x: wave.reduce((total, unit) => total + unit.x, 0) / wave.length,
@@ -2568,7 +2599,13 @@ export class Simulation {
           team: teamId,
           unitIds: wave.map((unit) => unit.id),
           targetId: closest.id,
+          regroupCharge: regroupChargeReady,
         });
+        if (regroupChargeReady) {
+          aiState.regroupUntil = 0;
+          aiState.regroupForceAttackAt = 0;
+          aiState.regroupRequiredFieldCount = 0;
+        }
       }
     }
   }
@@ -3194,10 +3231,15 @@ export class Simulation {
       });
       const aiState = this.aiStates[teamId];
       if (aiState) {
+        const forceAttackAt = this.time +
+          SIMULATION_RULES.enemyRetreatMaximumRegroupDuration;
         aiState.regroupUntil = Math.max(
           aiState.regroupUntil || 0,
           this.time + SIMULATION_RULES.enemyRetreatRegroupDuration,
         );
+        aiState.regroupForceAttackAt = aiState.regroupForceAttackAt > this.time
+          ? Math.min(aiState.regroupForceAttackAt, forceAttackAt)
+          : forceAttackAt;
         aiState.regroupRequiredFieldCount = Math.max(
           aiState.regroupRequiredFieldCount || 0,
           this.getEnemyFieldCombatUnits(teamId).length +

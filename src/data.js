@@ -1396,6 +1396,7 @@ export const SIMULATION_RULES = Object.freeze({
   enemyRetreatEvaluationRadius: 520,
   enemyRetreatStrengthRatio: 1.5,
   enemyRetreatRegroupDuration: 15,
+  enemyRetreatMaximumRegroupDuration: 30,
   enemyRetreatReinforcementCount: 2,
 });
 
