@@ -96,6 +96,12 @@ const supplyUpgradeDetails = document.querySelector("#supply-upgrade-details");
 const buildingUpgradeButton = document.querySelector("#building-upgrade-button");
 const buildingUpgradeTitle = document.querySelector("#building-upgrade-title");
 const buildingUpgradeDetails = document.querySelector("#building-upgrade-details");
+const testerSpawnCommands = document.querySelector("#tester-spawn-commands");
+const testerSpawnTeam = document.querySelector("#tester-spawn-team");
+const testerSpawnStructure = document.querySelector("#tester-spawn-structure");
+const testerSpawnUnit = document.querySelector("#tester-spawn-unit");
+const testerPlaceStructureButton = document.querySelector("#tester-place-structure-button");
+const testerPlaceUnitButton = document.querySelector("#tester-place-unit-button");
 const pauseButton = document.querySelector("#pause-button");
 const resetButton = document.querySelector("#reset-button");
 const statusBanner = document.querySelector("#status-banner");
@@ -128,6 +134,7 @@ let selectedStructureIds = new Set();
 let selectionQueueSignature = null;
 let selectionDrag = null;
 let placementStructureType = null;
+let testerSpawnPlacement = null;
 let placementMessage = null;
 let placementCursor = null;
 let pointerScreen = null;
@@ -205,6 +212,48 @@ updateSinglePlayerMapDescription();
 populateMapSelect(unitTesterMap, 2, DEFAULT_MAP_ID);
 updateUnitTesterMapDescription();
 
+for (const [tier, definitions] of Object.entries(
+  Object.entries(STRUCTURE_DEFINITIONS).reduce((groups, entry) => {
+    const buildTier = entry[1].buildTier || entry[1].tier || 1;
+    (groups[buildTier] ||= []).push(entry);
+    return groups;
+  }, {}),
+)) {
+  const group = document.createElement("optgroup");
+  group.label = `Tier ${tier} buildings`;
+  for (const [structureType, definition] of definitions.sort((left, right) =>
+    left[1].name.localeCompare(right[1].name)
+  )) {
+    const option = document.createElement("option");
+    option.value = structureType;
+    option.textContent = definition.name;
+    group.append(option);
+  }
+  testerSpawnStructure.append(group);
+}
+
+for (const [groupName, definitions] of Object.entries(
+  Object.entries(UNIT_DEFINITIONS).reduce((groups, entry) => {
+    const definition = entry[1];
+    const domain = definition.unitDomain || (definition.workerTier ? "mech" : "other");
+    const label = `${domain} · Tier ${definition.tier || 1}`;
+    (groups[label] ||= []).push(entry);
+    return groups;
+  }, {}),
+).sort(([left], [right]) => left.localeCompare(right))) {
+  const group = document.createElement("optgroup");
+  group.label = groupName.replace(/^./, (letter) => letter.toUpperCase());
+  for (const [unitType, definition] of definitions.sort((left, right) =>
+    left[1].name.localeCompare(right[1].name)
+  )) {
+    const option = document.createElement("option");
+    option.value = unitType;
+    option.textContent = definition.name;
+    group.append(option);
+  }
+  testerSpawnUnit.append(group);
+}
+
 const buildButtons = new Map();
 for (const tier of [1, 2, 3]) {
   const tierGroup = document.createElement("section");
@@ -241,6 +290,7 @@ for (const tier of [1, 2, 3]) {
     const roleSummary = describeStructureRole(definition);
     button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · T${definition.minimumWorkerTier} worker${roleSummary ? ` · ${roleSummary}` : ""}</small>`;
     button.addEventListener("click", () => {
+      testerSpawnPlacement = null;
       placementStructureType = placementStructureType === structureType ? null : structureType;
       placementMessage = null;
       updateInterface();
@@ -289,10 +339,12 @@ function resetPresentation() {
   selectionQueueSignature = null;
   selectionDrag = null;
   placementStructureType = null;
+  testerSpawnPlacement = null;
   placementMessage = null;
   placementCursor = null;
   pointerScreen = null;
   forceMoveArmed = false;
+  refreshTesterSpawnTeams();
   cameraKeys.clear();
   resetCamera();
   paused = false;
@@ -311,6 +363,42 @@ function getSelectedStructures() {
 function selectStructures(structures) {
   selectedStructureIds = new Set(structures.map((structure) => structure.id));
   selectedStructureId = structures[0]?.id || null;
+}
+
+function refreshTesterSpawnTeams() {
+  const previousTeam = testerSpawnTeam.value;
+  const opposingTeams = simulation.teams.filter((team) => team.id !== localTeam);
+  testerSpawnTeam.replaceChildren(...opposingTeams.map((team) => {
+    const option = document.createElement("option");
+    option.value = team.id;
+    option.textContent = team.name;
+    return option;
+  }));
+  if (opposingTeams.some((team) => team.id === previousTeam)) {
+    testerSpawnTeam.value = previousTeam;
+  }
+  const unavailable = opposingTeams.length === 0;
+  testerSpawnTeam.disabled = unavailable;
+  testerPlaceStructureButton.disabled = unavailable;
+  testerPlaceUnitButton.disabled = unavailable;
+}
+
+function activeStructurePlacement() {
+  if (placementStructureType) {
+    return { structureType: placementStructureType, team: localTeam, testerSpawn: false };
+  }
+  if (testerSpawnPlacement?.kind === "structure") {
+    return {
+      structureType: testerSpawnPlacement.type,
+      team: testerSpawnPlacement.team,
+      testerSpawn: true,
+    };
+  }
+  return null;
+}
+
+function placementIsActive() {
+  return Boolean(placementStructureType || testerSpawnPlacement);
 }
 
 function resetGame() {
@@ -821,6 +909,28 @@ function applyAuthorizedCommand(command, team) {
         { queue: Boolean(command.queue) },
       );
     }
+    case "tester_spawn_structure": {
+      if (!STRUCTURE_DEFINITIONS[command.structureType]) return false;
+      if (!Number.isFinite(command.x) || !Number.isFinite(command.y)) return false;
+      return simulation.spawnTesterStructure(
+        team,
+        command.ownerTeam,
+        command.structureType,
+        command.x,
+        command.y,
+      );
+    }
+    case "tester_spawn_unit": {
+      if (!UNIT_DEFINITIONS[command.unitType]) return false;
+      if (!Number.isFinite(command.x) || !Number.isFinite(command.y)) return false;
+      return simulation.spawnTesterUnit(
+        team,
+        command.ownerTeam,
+        command.unitType,
+        command.x,
+        command.y,
+      );
+    }
     case "production": {
       const structureIds = Array.isArray(command.structureIds)
         ? [...new Set(command.structureIds)].slice(0, 200)
@@ -1232,11 +1342,11 @@ function drawTerrain() {
   }
 
   const gridSize = SIMULATION_RULES.buildingGridSize;
-  context.lineWidth = placementStructureType ? 1.5 : 1;
+  context.lineWidth = placementIsActive() ? 1.5 : 1;
   const firstGridX = Math.floor(visibleBounds.left / gridSize) * gridSize;
   const firstGridY = Math.floor(visibleBounds.top / gridSize) * gridSize;
   for (let x = firstGridX; x <= visibleBounds.right; x += gridSize) {
-    context.strokeStyle = placementStructureType
+    context.strokeStyle = placementIsActive()
       ? x % (gridSize * 5) === 0
         ? "#b6c69a"
         : "#81936f"
@@ -1249,7 +1359,7 @@ function drawTerrain() {
     context.stroke();
   }
   for (let y = firstGridY; y <= visibleBounds.bottom; y += gridSize) {
-    context.strokeStyle = placementStructureType
+    context.strokeStyle = placementIsActive()
       ? y % (gridSize * 5) === 0
         ? "#b6c69a"
         : "#81936f"
@@ -1345,27 +1455,65 @@ function drawImpassableTerrain() {
 }
 
 function drawPlacementPreview() {
-  if (!placementStructureType || !placementCursor) return;
-  const definition = STRUCTURE_DEFINITIONS[placementStructureType];
-  const footprint = structureFootprint(placementStructureType);
+  if (!placementCursor) return;
+  if (testerSpawnPlacement?.kind === "unit") {
+    const definition = UNIT_DEFINITIONS[testerSpawnPlacement.type];
+    const placement = simulation.evaluateUnitPlacement(
+      testerSpawnPlacement.type,
+      placementCursor.x,
+      placementCursor.y,
+    );
+    const previewColor = placement.valid
+      ? teamPalette(testerSpawnPlacement.team).bright
+      : colors.disconnected;
+    context.save();
+    context.translate(placement.x, placement.y);
+    context.fillStyle = `${previewColor}32`;
+    context.strokeStyle = previewColor;
+    context.lineWidth = 3;
+    context.beginPath();
+    context.arc(0, 0, definition.radius, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.restore();
+    const teamName = simulation.teams.find((team) => team.id === testerSpawnPlacement.team)?.name;
+    drawLabel(
+      placement.x,
+      placement.y + definition.radius + 22,
+      placement.valid
+        ? `${teamName} · ${definition.name}`
+        : placement.reason,
+      true,
+      previewColor,
+    );
+    return;
+  }
+
+  const activePlacement = activeStructurePlacement();
+  if (!activePlacement) return;
+  const { structureType, team } = activePlacement;
+  const definition = STRUCTURE_DEFINITIONS[structureType];
+  const footprint = structureFootprint(structureType);
   const placement = simulation.evaluatePlacement(
-    placementStructureType,
+    structureType,
     placementCursor.x,
     placementCursor.y,
-    localTeam,
+    team,
   );
-  const previewColor = placement.valid ? colors.health : colors.disconnected;
+  const previewColor = placement.valid
+    ? activePlacement.testerSpawn ? teamPalette(team).bright : colors.health
+    : colors.disconnected;
   const powerCoverageRadius = definition.powerRadius || definition.relayRadius || 0;
 
   if (powerCoverageRadius > 0) {
     drawPowerCoverage(
-      placementStructureType,
+      structureType,
       placement.x,
       placement.y,
       placement.valid ? colors.energy : colors.disconnected,
       true,
     );
-    const coverage = powerCoverageBounds(placementStructureType, placement.x, placement.y);
+    const coverage = powerCoverageBounds(structureType, placement.x, placement.y);
     drawLabel(
       placement.x,
       Math.max(18, coverage.top - 12),
@@ -1402,8 +1550,8 @@ function drawPlacementPreview() {
 
   const createsGrid = Boolean(definition.generationRate);
   const gridConnected = simulation.isBuildSiteConnectedToPower(
-    placementStructureType,
-    localTeam,
+    structureType,
+    team,
     placement.x,
     placement.y,
   );
@@ -1427,6 +1575,7 @@ function drawPlacementPreview() {
 }
 
 function drawMetalDeposits() {
+  const placement = activeStructurePlacement();
   const occupiedIds = new Set(
     simulation.structures
       .filter(
@@ -1440,8 +1589,8 @@ function drawMetalDeposits() {
     const available = !occupiedIds.has(deposit.id);
     const rich = Boolean(deposit.rich);
     const emphasized = Boolean(
-      placementStructureType &&
-      STRUCTURE_DEFINITIONS[placementStructureType].metalRate &&
+      placement &&
+      STRUCTURE_DEFINITIONS[placement.structureType].metalRate &&
       available,
     );
     context.save();
@@ -1503,9 +1652,10 @@ function drawPowerNetwork() {
       );
     },
   );
-  if (placementStructureType) {
+  const placement = activeStructurePlacement();
+  if (placement) {
     for (const node of nodes) {
-      if (node.team !== localTeam || !node.connected) continue;
+      if (node.team !== placement.team || !node.connected) continue;
       const definition = STRUCTURE_DEFINITIONS[node.type];
       const reach = definition.powerRadius || definition.relayRadius;
       if (reach && worldPointIsVisible(node.x, node.y, reach)) {
@@ -4753,6 +4903,7 @@ function updateInterface() {
 
   const localResources = simulation.resources[localTeam];
   const unitTesterActive = simulation.isTesterTeam(localTeam);
+  testerSpawnCommands.hidden = matchEnded || !unitTesterActive;
   metalValue.textContent = unitTesterActive
     ? "∞"
     : Math.floor(localResources.metal).toLocaleString();
@@ -5040,6 +5191,13 @@ function updateInterface() {
   } else if (forceMoveArmed) {
     statusBanner.hidden = false;
     statusBanner.textContent = "FORCE MOVE ARMED · RIGHT-CLICK DESTINATION · ESC TO CANCEL";
+  } else if (testerSpawnPlacement) {
+    const definition = testerSpawnPlacement.kind === "structure"
+      ? STRUCTURE_DEFINITIONS[testerSpawnPlacement.type]
+      : UNIT_DEFINITIONS[testerSpawnPlacement.type];
+    const teamName = simulation.teams.find((team) => team.id === testerSpawnPlacement.team)?.name;
+    statusBanner.hidden = false;
+    statusBanner.textContent = placementMessage || `PLACE ${teamName?.toUpperCase()} ${definition.name.toUpperCase()} · HOLD SHIFT FOR MORE · RIGHT-CLICK TO CANCEL`;
   } else if (placementStructureType) {
     statusBanner.hidden = false;
     statusBanner.textContent = placementMessage || `PLACE ${STRUCTURE_DEFINITIONS[placementStructureType].name.toUpperCase()} · HOLD SHIFT TO QUEUE · RIGHT-CLICK TO CANCEL`;
@@ -5092,14 +5250,24 @@ function canvasPoint(event) {
 function syncPointerToCamera() {
   if (!pointerScreen) return;
   placementCursor = screenToWorld(pointerScreen);
-  if (placementStructureType) {
-    const placement = simulation.evaluatePlacement(
-      placementStructureType,
+  if (testerSpawnPlacement?.kind === "unit") {
+    const placement = simulation.evaluateUnitPlacement(
+      testerSpawnPlacement.type,
       placementCursor.x,
       placementCursor.y,
-      localTeam,
     );
     placementMessage = placement.valid ? null : placement.reason.toUpperCase();
+  } else {
+    const activePlacement = activeStructurePlacement();
+    if (activePlacement) {
+      const placement = simulation.evaluatePlacement(
+        activePlacement.structureType,
+        placementCursor.x,
+        placementCursor.y,
+        activePlacement.team,
+      );
+      placementMessage = placement.valid ? null : placement.reason.toUpperCase();
+    }
   }
   if (!selectionDrag) return;
   selectionDrag.current = placementCursor;
@@ -5257,10 +5425,46 @@ function placeConstruction(point, queue = false) {
   return Boolean(accepted);
 }
 
+function placeTesterSpawn(point, keepActive = false) {
+  if (!testerSpawnPlacement) return false;
+  const command = testerSpawnPlacement.kind === "structure"
+    ? {
+      type: "tester_spawn_structure",
+      ownerTeam: testerSpawnPlacement.team,
+      structureType: testerSpawnPlacement.type,
+      x: point.x,
+      y: point.y,
+    }
+    : {
+      type: "tester_spawn_unit",
+      ownerTeam: testerSpawnPlacement.team,
+      unitType: testerSpawnPlacement.type,
+      x: point.x,
+      y: point.y,
+    };
+  const accepted = issueGameCommand(command);
+  if (accepted) {
+    placementMessage = null;
+    if (!keepActive) {
+      testerSpawnPlacement = null;
+      placementCursor = null;
+    }
+  } else {
+    placementMessage = (simulation.lastPlacementError || "Invalid tester spawn location.").toUpperCase();
+  }
+  updateInterface();
+  return Boolean(accepted);
+}
+
 canvas.addEventListener("mouseup", (event) => {
   if (event.button !== 0 || !selectionDrag) return;
   const drag = selectionDrag;
   selectionDrag = null;
+
+  if (testerSpawnPlacement) {
+    placeTesterSpawn(drag.current, drag.shift);
+    return;
+  }
 
   if (placementStructureType) {
     placeConstruction(drag.current, drag.shift);
@@ -5335,7 +5539,8 @@ canvas.addEventListener("contextmenu", (event) => {
   event.preventDefault();
   if (simulation.matchResult) return;
   if (minimapContains(currentMinimapLayout(), canvasScreenPoint(event))) return;
-  if (placementStructureType) {
+  if (testerSpawnPlacement || placementStructureType) {
+    testerSpawnPlacement = null;
     placementStructureType = null;
     placementMessage = null;
     placementCursor = null;
@@ -5454,6 +5659,40 @@ buildingUpgradeButton.addEventListener("click", () => {
   }
   updateInterface();
 });
+function armTesterSpawn(kind) {
+  if (!simulation.isTesterTeam(localTeam) || !testerSpawnTeam.value) return;
+  placementStructureType = null;
+  testerSpawnPlacement = {
+    kind,
+    team: testerSpawnTeam.value,
+    type: kind === "structure" ? testerSpawnStructure.value : testerSpawnUnit.value,
+  };
+  placementMessage = null;
+  placementCursor = pointerScreen ? screenToWorld(pointerScreen) : null;
+  forceMoveArmed = false;
+  updateInterface();
+}
+testerPlaceStructureButton.addEventListener("click", () => armTesterSpawn("structure"));
+testerPlaceUnitButton.addEventListener("click", () => armTesterSpawn("unit"));
+testerSpawnTeam.addEventListener("change", () => {
+  if (testerSpawnPlacement) testerSpawnPlacement.team = testerSpawnTeam.value;
+  syncPointerToCamera();
+  updateInterface();
+});
+testerSpawnStructure.addEventListener("change", () => {
+  if (testerSpawnPlacement?.kind === "structure") {
+    testerSpawnPlacement.type = testerSpawnStructure.value;
+    syncPointerToCamera();
+    updateInterface();
+  }
+});
+testerSpawnUnit.addEventListener("change", () => {
+  if (testerSpawnPlacement?.kind === "unit") {
+    testerSpawnPlacement.type = testerSpawnUnit.value;
+    syncPointerToCamera();
+    updateInterface();
+  }
+});
 stopButton.addEventListener("click", () => issueGameCommand({
   type: "stop",
   unitIds: [...selectedUnitIds],
@@ -5537,6 +5776,7 @@ window.addEventListener("keydown", (event) => {
   if (key === "c" && !event.repeat) cancelSelectedConstruction();
   if (key === "g" && !event.repeat) {
     forceMoveArmed = true;
+    testerSpawnPlacement = null;
     placementStructureType = null;
     placementMessage = null;
     placementCursor = null;
@@ -5544,6 +5784,7 @@ window.addEventListener("keydown", (event) => {
   }
   if (event.key === "Escape") {
     forceMoveArmed = false;
+    testerSpawnPlacement = null;
     placementStructureType = null;
     placementMessage = null;
     placementCursor = null;

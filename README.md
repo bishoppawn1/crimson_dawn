@@ -12,8 +12,9 @@ The current build is the first playable field test. It includes:
   Tester, and hosted multiplayer lobbies with a shared player roster and
   host-managed AI slots.
 - A Unit Tester mode with Tier 3 workers, unlimited player resources, energy, and
-  supply, instant player construction and factory output, and normal unassisted AI
-  opponents.
+  supply, instant player construction and factory output, plus a collision-safe
+  Enemy Spawner for placing any building or unit under a chosen AI commander's
+  ordinary control.
 - AI commanders that expand their economy, progress through Tier 2 and Tier 3 Mech
   Factories, produce advanced workers, and construct higher-tier infrastructure.
 - Host-authoritative WebRTC multiplayer with one 10-character lobby code,

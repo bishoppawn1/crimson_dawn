@@ -689,6 +689,46 @@ canvas {
   margin-top: 12px;
 }
 
+.tester-spawn-commands {
+  padding: 11px;
+  border: 1px solid #56343d;
+  border-radius: 7px;
+  background: #1c1317;
+}
+
+.tester-spawn-commands label {
+  display: block;
+  margin: 9px 0 5px;
+  color: #aaa0aa;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tester-spawn-commands select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #513b44;
+  border-radius: 5px;
+  background: #0e0b0f;
+  color: #eee7eb;
+  font: inherit;
+  font-size: 11px;
+}
+
+.tester-spawn-commands .command-button {
+  margin-top: 7px;
+}
+
+.tester-spawn-help {
+  display: block;
+  margin-top: 9px;
+  color: #8f858f;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
 .sub-label {
   margin: 10px 0 7px;
   color: #8e858f;

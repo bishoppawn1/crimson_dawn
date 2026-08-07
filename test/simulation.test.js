@@ -201,6 +201,79 @@ test("unit tester team rules survive simulation snapshots", () => {
   assert.equal(restored.isTesterTeam("enemy"), false);
 });
 
+test("unit tester can instantly place completed buildings for an AI without funding it", () => {
+  const simulation = new Simulation({ testerTeams: ["player"], enemyAiEnabled: false });
+  const enemyMetalBefore = simulation.resources.enemy.metal;
+
+  const generator = simulation.spawnTesterStructure(
+    "player",
+    "enemy",
+    "generator_t3",
+    400,
+    400,
+  );
+  const remoteFactory = simulation.spawnTesterStructure(
+    "player",
+    "enemy",
+    "mech_factory_t1",
+    1200,
+    400,
+  );
+
+  assert.ok(generator);
+  assert.equal(generator.team, "enemy");
+  assert.equal(generator.complete, true);
+  assert.equal(generator.powered, true);
+  assert.ok(remoteFactory);
+  assert.equal(remoteFactory.team, "enemy");
+  assert.equal(remoteFactory.complete, true);
+  assert.equal(remoteFactory.powered, false, "spawned AI consumers still require normal power");
+  assert.equal(simulation.resources.enemy.metal, enemyMetalBefore);
+});
+
+test("unit tester can place collision-safe AI units that retain ordinary ownership", () => {
+  const simulation = new Simulation({ testerTeams: ["player"], enemyAiEnabled: false });
+  const enemyMetalBefore = simulation.resources.enemy.metal;
+
+  const unit = simulation.spawnTesterUnit("player", "enemy", "assault_mech", 600, 600);
+  const overlappingUnit = simulation.spawnTesterUnit(
+    "player",
+    "enemy",
+    "scout_mech",
+    600,
+    600,
+  );
+
+  assert.ok(unit);
+  assert.equal(unit.team, "enemy");
+  assert.equal(unit.energy, UNIT_DEFINITIONS.assault_mech.maxEnergy);
+  assert.equal(overlappingUnit, null);
+  assert.match(simulation.lastPlacementError, /cannot spawn/i);
+  assert.equal(simulation.resources.enemy.metal, enemyMetalBefore);
+});
+
+test("enemy spawning is unavailable outside Unit Tester and cannot target the tester team", () => {
+  const ordinary = new Simulation({ enemyAiEnabled: false });
+  const tester = new Simulation({ testerTeams: ["player"], enemyAiEnabled: false });
+
+  assert.equal(
+    ordinary.spawnTesterStructure("player", "enemy", "generator", 400, 400),
+    null,
+  );
+  assert.equal(
+    ordinary.spawnTesterUnit("player", "enemy", "scout_mech", 500, 500),
+    null,
+  );
+  assert.equal(
+    tester.spawnTesterStructure("player", "player", "generator", 400, 400),
+    null,
+  );
+  assert.equal(
+    tester.spawnTesterUnit("player", "player", "scout_mech", 500, 500),
+    null,
+  );
+});
+
 test("construction authorization is enforced by the simulation", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;

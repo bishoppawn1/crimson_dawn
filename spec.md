@@ -1066,7 +1066,15 @@ so the tester exercises real gameplay definitions instead of bypassing them with
 synthetic entities. Every AI commander in a Unit Tester match retains its ordinary
 resource balance, power networks, construction time, production time, supply use,
 technology progression, and combat behavior; tester advantages never apply to AI
-teams. Tester-team state is included in simulation snapshots so resetting or
+teams. A dedicated Enemy Spawner lets the tester choose any AI commander, select
+any building or unit definition, and place that asset directly on a valid battlefield
+position for free. Spawned buildings are completed immediately, while spawned units
+must pass the ordinary terrain, map-edge, structure, and unit collision checks.
+Metal Mines still require an unused deposit and every building still uses its normal
+grid footprint. Once placed, enemy assets belong to the selected AI and receive no
+tester advantages: consumers require a normal powered grid, units use ordinary
+energy and supply behavior, and the AI may command the assets through its usual
+logic. Tester-team state is included in simulation snapshots so resetting or
 restoring the field preserves the mode's rules.
 
 Multiplayer uses a visible pre-match roster shared by the host and guest. The roster

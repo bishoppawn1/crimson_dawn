@@ -208,6 +208,23 @@
               </button>
             </div>
 
+            <div id="tester-spawn-commands" class="command-group tester-spawn-commands" hidden>
+              <p class="sub-label">UNIT TESTER · ENEMY SPAWNER</p>
+              <label for="tester-spawn-team">Enemy commander</label>
+              <select id="tester-spawn-team"></select>
+              <label for="tester-spawn-structure">Enemy building</label>
+              <select id="tester-spawn-structure"></select>
+              <button id="tester-place-structure-button" class="command-button" type="button">
+                Place enemy building
+              </button>
+              <label for="tester-spawn-unit">Enemy unit</label>
+              <select id="tester-spawn-unit"></select>
+              <button id="tester-place-unit-button" class="command-button" type="button">
+                Place enemy unit
+              </button>
+              <small class="tester-spawn-help">Place with left-click. Hold Shift to place more. Right-click or Escape cancels.</small>
+            </div>
+
             <button id="pause-button" class="secondary">Pause simulation</button>
             <button id="reset-button" class="secondary">Reset field test</button>
           </section>
@@ -221,7 +238,7 @@
             <p>Combat units pursue enemies that damage them unless a force-move or explicit attack order takes priority.</p>
             <p><b>Q</b> activates Overdrive on selected assault mechs.</p>
             <p><b>C</b> cancels a selected unfinished building and refunds part of its unbuilt metal.</p>
-            <p><b>Unit Tester</b> gives the human commander Tier 3 workers, unlimited resources and energy, instant completed buildings, and instant factory production. AI commanders keep their normal economy, construction, power, and production rules.</p>
+            <p><b>Unit Tester</b> gives the human commander Tier 3 workers, unlimited resources and energy, instant completed buildings, and instant factory production. Its Enemy Spawner can place buildings and units for any AI commander; those assets then follow normal AI, power, energy, and combat rules.</p>
             <p>Buildings block ground movement. Workers automatically slide around them; aircraft fly over terrain, structures, and ground units without pushing them aside.</p>
             <p>Units are compact but physical: dense groups spread out instead of stacking in one spot.</p>
             <p>Workers construct buildings and repair damaged friendly units or completed structures when you right-click the target. A worker can be repaired by another worker, but cannot repair itself. Hold Shift while placing to queue multiple foundations in order. Select a factory to queue units; box-select matching factories to share production controls and automatically route each new unit to the shortest powered queue, then right-click terrain to set their shared attack-move rally point. Selected workers and factories show the active job, live progress, and every next item in queue order.</p>

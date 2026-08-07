@@ -300,6 +300,86 @@ export class Simulation {
     return this.testerTeams.has(teamId);
   }
 
+  canTesterSpawnFor(requesterTeam, ownerTeam) {
+    return Boolean(
+      this.isTesterTeam(requesterTeam) &&
+      requesterTeam !== ownerTeam &&
+      this.teams.some((team) => team.id === ownerTeam),
+    );
+  }
+
+  spawnTesterStructure(requesterTeam, ownerTeam, structureType, x, y) {
+    this.lastPlacementError = null;
+    if (!this.canTesterSpawnFor(requesterTeam, ownerTeam)) {
+      this.lastPlacementError = "Unit Tester can only spawn assets for an opposing commander.";
+      return null;
+    }
+    const definition = STRUCTURE_DEFINITIONS[structureType];
+    if (!definition || !Number.isFinite(x) || !Number.isFinite(y)) {
+      this.lastPlacementError = "Unknown building type.";
+      return null;
+    }
+    const placement = this.evaluatePlacement(structureType, x, y, ownerTeam);
+    if (!placement.valid) {
+      this.lastPlacementError = placement.reason;
+      return null;
+    }
+
+    const structure = this.addStructure(
+      structureType,
+      ownerTeam,
+      placement.x,
+      placement.y,
+      { depositId: placement.depositId },
+    );
+    this.clearFriendlyUnitsFromConstructionSite(structure);
+    this.refreshPowerState(0);
+    this.applyTesterTeamAdvantages();
+    this.emit("construction_complete", structure.x, structure.y, {
+      structureId: structure.id,
+      testerSpawned: true,
+    });
+    return structure;
+  }
+
+  evaluateUnitPlacement(unitType, x, y) {
+    if (!UNIT_DEFINITIONS[unitType]) {
+      return { valid: false, x, y, reason: "Unknown unit type." };
+    }
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return { valid: false, x, y, reason: "Choose a point inside the battlefield." };
+    }
+    if (!this.isUnitPositionClear({ x, y }, unitType)) {
+      return {
+        valid: false,
+        x,
+        y,
+        reason: "Units cannot spawn on blocked terrain, buildings, other units, or map edges.",
+      };
+    }
+    return { valid: true, x, y, reason: null };
+  }
+
+  spawnTesterUnit(requesterTeam, ownerTeam, unitType, x, y) {
+    this.lastPlacementError = null;
+    if (!this.canTesterSpawnFor(requesterTeam, ownerTeam)) {
+      this.lastPlacementError = "Unit Tester can only spawn assets for an opposing commander.";
+      return null;
+    }
+    const placement = this.evaluateUnitPlacement(unitType, x, y);
+    if (!placement.valid) {
+      this.lastPlacementError = placement.reason;
+      return null;
+    }
+
+    const unit = this.addUnit(unitType, ownerTeam, placement.x, placement.y);
+    this.emit("unit_complete", unit.x, unit.y, {
+      unitId: unit.id,
+      testerSpawned: true,
+    });
+    return unit;
+  }
+
   addMetalDeposit(x, y, {
     remote = false,
     cluster = null,
