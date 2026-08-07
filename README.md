@@ -8,8 +8,12 @@ units moving, attacking, and using selected special abilities.
 
 The current build is the first playable field test. It includes:
 
-- A start menu for two- through eight-player single-player matches and hosted
-  multiplayer lobbies with a shared player roster and host-managed AI slots.
+- A start menu for two- through eight-player single-player matches, a custom Unit
+  Tester, and hosted multiplayer lobbies with a shared player roster and
+  host-managed AI slots.
+- A Unit Tester mode with Tier 3 workers, unlimited player resources, energy, and
+  supply, instant player construction and factory output, and normal unassisted AI
+  opponents.
 - AI commanders that expand their economy, progress through Tier 2 and Tier 3 Mech
   Factories, produce advanced workers, and construct higher-tier infrastructure.
 - Host-authoritative WebRTC multiplayer with one 10-character lobby code,

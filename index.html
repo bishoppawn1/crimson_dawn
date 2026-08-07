@@ -12,7 +12,7 @@
       <div class="start-menu-card">
         <p class="eyebrow">CRIMSON DAWN // COMMAND LINK</p>
         <h1 id="start-menu-title">Choose a battle mode</h1>
-        <p class="start-menu-intro">Fight up to seven independent AI commanders alone or in a hosted lobby.</p>
+        <p class="start-menu-intro">Fight up to seven independent AI commanders, test the full arsenal instantly, or join a hosted lobby.</p>
 
         <div id="mode-choices" class="mode-choices">
           <button id="single-player-button" class="mode-card" type="button">
@@ -22,6 +22,10 @@
           <button id="multiplayer-button" class="mode-card" type="button">
             <strong>Multiplayer</strong>
             <span>Host or join a shared lobby, add AI bots, and play with up to eight commanders.</span>
+          </button>
+          <button id="unit-tester-button" class="mode-card" type="button">
+            <strong>Unit Tester</strong>
+            <span>Instantly build structures and units with unlimited resources while the AI plays normally.</span>
           </button>
         </div>
 
@@ -44,6 +48,29 @@
           <div class="menu-action-row">
             <button id="start-single-player-button" class="menu-action" type="button">Start single-player match</button>
             <button id="back-from-single-player-button" class="menu-back" type="button">Back</button>
+          </div>
+        </section>
+
+        <section id="unit-tester-setup" class="single-player-setup unit-tester-setup" hidden>
+          <p class="panel-label">UNIT TESTER · CUSTOM SETUP</p>
+          <h2>Configure the test field</h2>
+          <p class="map-description">Your Tier 3 workers build every structure instantly. Your factories produce units instantly, and your resources, power, energy, and supply never run out.</p>
+          <label for="unit-tester-count">Total players (you + normal AI)</label>
+          <select id="unit-tester-count">
+            <option value="2">2 players · 1 AI</option>
+            <option value="3">3 players · 2 AI</option>
+            <option value="4">4 players · 3 AI</option>
+            <option value="5">5 players · 4 AI</option>
+            <option value="6">6 players · 5 AI</option>
+            <option value="7">7 players · 6 AI</option>
+            <option value="8">8 players · 7 AI</option>
+          </select>
+          <label for="unit-tester-map">Map</label>
+          <select id="unit-tester-map"></select>
+          <p id="unit-tester-map-description" class="map-description"></p>
+          <div class="menu-action-row">
+            <button id="start-unit-tester-button" class="menu-action" type="button">Launch unit tester</button>
+            <button id="back-from-unit-tester-button" class="menu-back" type="button">Back</button>
           </div>
         </section>
 
@@ -194,6 +221,7 @@
             <p>Combat units pursue enemies that damage them unless a force-move or explicit attack order takes priority.</p>
             <p><b>Q</b> activates Overdrive on selected assault mechs.</p>
             <p><b>C</b> cancels a selected unfinished building and refunds part of its unbuilt metal.</p>
+            <p><b>Unit Tester</b> gives the human commander Tier 3 workers, unlimited resources and energy, instant completed buildings, and instant factory production. AI commanders keep their normal economy, construction, power, and production rules.</p>
             <p>Buildings block ground movement. Workers automatically slide around them; aircraft fly over terrain, structures, and ground units without pushing them aside.</p>
             <p>Units are compact but physical: dense groups spread out instead of stacking in one spot.</p>
             <p>Workers construct buildings and repair damaged friendly units or completed structures when you right-click the target. A worker can be repaired by another worker, but cannot repair itself. Hold Shift while placing to queue multiple foundations in order. Select a factory to queue units; box-select matching factories to share production controls and automatically route each new unit to the shortest powered queue, then right-click terrain to set their shared attack-move rally point. Selected workers and factories show the active job, live progress, and every next item in queue order.</p>

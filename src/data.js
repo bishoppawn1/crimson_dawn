@@ -1356,6 +1356,7 @@ export const DRONE_DEFINITION = Object.freeze({
 
 export const SIMULATION_RULES = Object.freeze({
   baseSupplyCapacity: 1000,
+  unitTesterResourceAmount: 1_000_000_000,
   normalAirDamageMultiplier: 0.55,
   stasisRegenerationRate: 2.5,
   lowEnergyRegenerationRate: 1.5,

@@ -52,6 +52,7 @@ export class Simulation {
     teams = createMatchTeams(2),
     mapId = null,
     mapName = null,
+    testerTeams = [],
   } = {}) {
     this.width = width;
     this.height = height;
@@ -87,6 +88,7 @@ export class Simulation {
     this.matchWinnerTeamId = null;
     this.mapId = mapId;
     this.mapName = mapName;
+    this.testerTeams = new Set(testerTeams);
     this.teams = teams.map((team) => ({ ...team }));
     this.teamStarts = {};
     this.structureTechTier = Object.fromEntries(this.teams.map((team) => [team.id, 1]));
@@ -143,6 +145,7 @@ export class Simulation {
       teams,
       mapId: map.id,
       mapName: map.name,
+      testerTeams: normalizedOptions.testerTeams || [],
     });
 
     const startingDeposits = {};
@@ -167,12 +170,16 @@ export class Simulation {
         { depositId: startingDeposits[team.id].id },
       );
       for (const worker of start.workers) {
-        simulation.addUnit("worker_drone_t1", team.id, worker.x, worker.y);
+        const workerType = simulation.isTesterTeam(team.id)
+          ? "worker_drone_t3"
+          : "worker_drone_t1";
+        simulation.addUnit(workerType, team.id, worker.x, worker.y);
       }
       if (team.kind === "ai") simulation.aiStates[team.id].decisionIndex = 1;
     }
 
     simulation.refreshPowerState(0);
+    simulation.applyTesterTeamAdvantages();
     simulation.matchRulesEnabled = true;
     simulation.updateMatchResult();
     return simulation;
@@ -227,6 +234,7 @@ export class Simulation {
       matchWinnerTeamId: this.matchWinnerTeamId,
       structureTechTier: this.structureTechTier,
       resources: this.resources,
+      testerTeams: [...this.testerTeams],
     };
   }
 
@@ -243,6 +251,7 @@ export class Simulation {
       teams: snapshot.teams || createMatchTeams(2),
       mapId: snapshot.mapId || DEFAULT_MAP_ID,
       mapName: snapshot.mapName || MAP_DEFINITIONS[snapshot.mapId || DEFAULT_MAP_ID]?.name,
+      testerTeams: snapshot.testerTeams || [],
     });
     simulation.mapId = snapshot.mapId || DEFAULT_MAP_ID;
     simulation.mapName = snapshot.mapName || MAP_DEFINITIONS[simulation.mapId]?.name || "Unknown Map";
@@ -285,6 +294,10 @@ export class Simulation {
     const id = `${prefix}-${this.nextEntityNumber}`;
     this.nextEntityNumber += 1;
     return id;
+  }
+
+  isTesterTeam(teamId) {
+    return this.testerTeams.has(teamId);
   }
 
   addMetalDeposit(x, y, {
@@ -838,17 +851,21 @@ export class Simulation {
       return false;
     }
     const account = this.resources[factory.team];
-    if (account.metal + EPSILON < unitDefinition.metalCost) {
+    const instant = this.isTesterTeam(factory.team);
+    if (!instant && account.metal + EPSILON < unitDefinition.metalCost) {
       this.lastProductionError = "Not enough metal.";
       return false;
     }
     const supply = this.getSupplyState(factory.team);
-    if (supply.remaining + EPSILON < unitDefinition.supplyCost) {
+    if (!instant && supply.remaining + EPSILON < unitDefinition.supplyCost) {
       this.lastProductionError = "Supply limit reached.";
       return false;
     }
-    account.metal -= unitDefinition.metalCost;
-    factory.productionQueue.push({ unitType, progress: 0 });
+    if (!instant) account.metal -= unitDefinition.metalCost;
+    factory.productionQueue.push({
+      unitType,
+      progress: instant ? unitDefinition.productionTime : 0,
+    });
     return true;
   }
 
@@ -927,7 +944,9 @@ export class Simulation {
         const level = clamp(structure.supplyLevel || 1, 1, levels.length);
         return total + levels[level - 1].capacity;
       }, 0);
-    const capacity = SIMULATION_RULES.baseSupplyCapacity + structureCapacity;
+    const capacity = this.isTesterTeam(team)
+      ? SIMULATION_RULES.unitTesterResourceAmount
+      : SIMULATION_RULES.baseSupplyCapacity + structureCapacity;
     const used = unitSupply + reservedSupply;
     return {
       used,
@@ -1224,12 +1243,13 @@ export class Simulation {
     const highestWorkerTier = Math.max(
       ...workers.map((worker) => UNIT_DEFINITIONS[worker.type].workerTier),
     );
-    if (!canWorkerTierBuildStructure(highestWorkerTier, structureType)) {
+    const instant = this.isTesterTeam(team);
+    if (!instant && !canWorkerTierBuildStructure(highestWorkerTier, structureType)) {
       this.lastPlacementError = `Requires a Tier ${definition.minimumWorkerTier || definition.buildTier} Worker Drone.`;
       return null;
     }
     const account = this.resources[team];
-    if (account.metal + EPSILON < definition.metalCost) {
+    if (!instant && account.metal + EPSILON < definition.metalCost) {
       this.lastPlacementError = "Not enough metal.";
       return null;
     }
@@ -1240,17 +1260,31 @@ export class Simulation {
       return null;
     }
 
-    account.metal -= definition.metalCost;
+    if (!instant) account.metal -= definition.metalCost;
     const structure = this.addStructure(structureType, team, placement.x, placement.y, {
-      hp: Math.max(1, definition.maxHp * 0.1),
-      complete: false,
-      powered: false,
-      constructionProgress: 0,
+      hp: instant ? definition.maxHp : Math.max(1, definition.maxHp * 0.1),
+      complete: instant,
+      powered: instant,
+      connected: instant,
+      powerStatus: instant
+        ? definition.generationRate ? "generating" : "online"
+        : "constructing",
+      constructionProgress: instant ? definition.buildTime : 0,
       depositId: placement.depositId,
-      weaponEnergy: definition.capacitorCapacity ? 0 : null,
+      ...(definition.storageCapacity && instant
+        ? { storedEnergy: definition.storageCapacity }
+        : {}),
+      weaponEnergy: definition.capacitorCapacity
+        ? instant ? definition.capacitorCapacity : 0
+        : null,
       constructionStartedAt: this.time,
     });
     this.clearFriendlyUnitsFromConstructionSite(structure);
+    if (instant) {
+      this.emit("construction_complete", structure.x, structure.y, { structureId: structure.id });
+      this.applyTesterTeamAdvantages();
+      return structure;
+    }
     this.commandBuild(workers.map((worker) => worker.id), structure.id, { queue });
     return structure;
   }
@@ -1651,6 +1685,7 @@ export class Simulation {
 
     this.updatePendingImpacts();
     this.refreshPowerState(delta);
+    this.applyTesterTeamAdvantages();
     if (this.enemyAiEnabled) this.updateEnemyAi(delta);
     this.assignAutomaticTargets();
     this.updateUnits(delta);
@@ -1663,6 +1698,7 @@ export class Simulation {
     this.updateDrones(delta);
     this.finalizePowerStorage(delta);
     this.syncStoredEnergy();
+    this.applyTesterTeamAdvantages();
     this.events = this.events.filter((event) => {
       const retention = event.type === "attack"
         ? Math.max(1.2, (event.impactDelay || 0) + 1.2)
@@ -1952,6 +1988,32 @@ export class Simulation {
         (total, structure) => total + STRUCTURE_DEFINITIONS[structure.type].storageCapacity,
         0,
       );
+    }
+  }
+
+  applyTesterTeamAdvantages() {
+    for (const teamId of this.testerTeams) {
+      const account = this.resources[teamId];
+      if (!account) continue;
+      account.metal = SIMULATION_RULES.unitTesterResourceAmount;
+      account.energy = SIMULATION_RULES.unitTesterResourceAmount;
+      account.energyCapacity = SIMULATION_RULES.unitTesterResourceAmount;
+
+      for (const unit of this.units) {
+        if (!unit.alive || unit.team !== teamId) continue;
+        unit.energy = UNIT_DEFINITIONS[unit.type].maxEnergy;
+        if (unit.state === "stasis") unit.state = "active";
+      }
+
+      for (const structure of this.structures) {
+        if (!structure.alive || !structure.complete || structure.team !== teamId) continue;
+        const definition = STRUCTURE_DEFINITIONS[structure.type];
+        structure.powered = true;
+        structure.connected = true;
+        structure.powerStatus = definition.generationRate ? "generating" : "online";
+        if (definition.storageCapacity) structure.storedEnergy = definition.storageCapacity;
+        if (definition.capacitorCapacity) structure.weaponEnergy = definition.capacitorCapacity;
+      }
     }
   }
 

@@ -113,6 +113,94 @@ test("worker tiers expose the requested inherited construction matrix", () => {
   }
 });
 
+test("unit tester advantages apply only to the designated human team", () => {
+  const simulation = Simulation.createFieldTest({
+    enemyAiEnabled: true,
+    playerCount: 2,
+    testerTeams: ["player"],
+  });
+  const playerWorkers = simulation.units.filter(
+    (unit) => unit.team === "player" && UNIT_DEFINITIONS[unit.type].workerTier,
+  );
+  const enemyWorkers = simulation.units.filter(
+    (unit) => unit.team === "enemy" && UNIT_DEFINITIONS[unit.type].workerTier,
+  );
+
+  assert.equal(simulation.isTesterTeam("player"), true);
+  assert.equal(simulation.isTesterTeam("enemy"), false);
+  assert.ok(playerWorkers.every((worker) => worker.type === "worker_drone_t3"));
+  assert.ok(enemyWorkers.every((worker) => worker.type === "worker_drone_t1"));
+  assert.equal(simulation.resources.player.metal, SIMULATION_RULES.unitTesterResourceAmount);
+  assert.equal(simulation.resources.enemy.metal, 520);
+  assert.equal(simulation.getSupplyState("player").capacity, SIMULATION_RULES.unitTesterResourceAmount);
+  assert.equal(simulation.getSupplyState("enemy").capacity, SIMULATION_RULES.baseSupplyCapacity);
+});
+
+test("unit tester construction completes immediately while AI construction stays normal", () => {
+  const simulation = new Simulation({ testerTeams: ["player"], enemyAiEnabled: false });
+  const playerWorker = simulation.addUnit("worker_drone_t1", "player", 120, 120);
+  const enemyWorker = simulation.addUnit("worker_drone_t1", "enemy", 720, 120);
+  const enemyMetalBefore = simulation.resources.enemy.metal;
+
+  const playerStructure = simulation.startConstruction(
+    [playerWorker.id],
+    "generator_t3",
+    320,
+    320,
+  );
+  const enemyStructure = simulation.startConstruction(
+    [enemyWorker.id],
+    "generator",
+    720,
+    320,
+  );
+
+  assert.ok(playerStructure);
+  assert.equal(playerStructure.complete, true);
+  assert.equal(playerStructure.hp, STRUCTURE_DEFINITIONS.generator_t3.maxHp);
+  assert.equal(playerStructure.powered, true);
+  assert.equal(playerWorker.buildTargetId, null);
+  assert.equal(simulation.resources.player.metal, SIMULATION_RULES.unitTesterResourceAmount);
+  assert.ok(enemyStructure);
+  assert.equal(enemyStructure.complete, false);
+  assert.equal(enemyStructure.powered, false);
+  assert.equal(
+    simulation.resources.enemy.metal,
+    enemyMetalBefore - STRUCTURE_DEFINITIONS.generator.metalCost,
+  );
+  assert.equal(enemyWorker.buildTargetId, enemyStructure.id);
+});
+
+test("unit tester factory orders deploy on the next simulation step without spending metal", () => {
+  const simulation = new Simulation({ testerTeams: ["player"], enemyAiEnabled: false });
+  const factory = simulation.addStructure("mech_factory_t1", "player", 400, 400);
+  const startingMetal = simulation.resources.player.metal;
+
+  assert.equal(simulation.queueProduction(factory.id, "assault_mech"), true);
+  assert.equal(factory.productionQueue.length, 1);
+  assert.equal(
+    factory.productionQueue[0].progress,
+    UNIT_DEFINITIONS.assault_mech.productionTime,
+  );
+  assert.equal(simulation.resources.player.metal, startingMetal);
+
+  simulation.tick(1 / 60);
+
+  assert.equal(factory.productionQueue.length, 0);
+  assert.equal(
+    simulation.units.filter((unit) => unit.type === "assault_mech").length,
+    1,
+  );
+});
+
+test("unit tester team rules survive simulation snapshots", () => {
+  const original = Simulation.createFieldTest({ testerTeams: ["player"] });
+  const restored = Simulation.fromSnapshot(original.createSnapshot());
+
+  assert.equal(restored.isTesterTeam("player"), true);
+  assert.equal(restored.isTesterTeam("enemy"), false);
+});
+
 test("construction authorization is enforced by the simulation", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;

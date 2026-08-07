@@ -1045,13 +1045,26 @@ around the world position beneath the pointer. Camera movement remains available
 while the simulation is paused, and the camera is clamped to the active map's
 dimensions so it cannot expose space beyond the battlefield boundary.
 
-### 9.2 Match Menu and Multiplayer
+### 9.2 Match Menu, Unit Tester, and Multiplayer
 
 The game opens on a mode menu. Single Player lets the human choose two through eight
 total players and then choose among every map supporting that player count. All AI
 opponents run their full commander logic. The local human is blue,
 and up to seven opponents receive distinct red, orange, yellow, purple, green,
 magenta, and pale-gray accents so ownership remains readable.
+
+Unit Tester is a separate single-player setup with the same two-through-eight-player
+and compatible-map choices. The human commander starts with Tier 3 Worker Drones
+and has unlimited metal, grid energy, unit energy, and supply. Human foundations
+complete as soon as they are placed, and human factory orders finish on the next
+simulation step while retaining collision-safe factory exits. Normal placement,
+footprint, metal-deposit, factory-branch, and factory-tier restrictions still apply,
+so the tester exercises real gameplay definitions instead of bypassing them with
+synthetic entities. Every AI commander in a Unit Tester match retains its ordinary
+resource balance, power networks, construction time, production time, supply use,
+technology progression, and combat behavior; tester advantages never apply to AI
+teams. Tester-team state is included in simulation snapshots so resetting or
+restoring the field preserves the mode's rules.
 
 Multiplayer uses a visible pre-match roster shared by the host and guest. The roster
 always identifies the host and lists the connected guest and every AI bot. The host

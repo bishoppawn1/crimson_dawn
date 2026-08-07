@@ -69,6 +69,10 @@ button {
   gap: 14px;
 }
 
+.mode-choices {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .mode-card {
   min-height: 180px;
   padding: 24px;
@@ -97,6 +101,7 @@ button {
 
 .mode-choices[hidden],
 .single-player-setup[hidden],
+.unit-tester-setup[hidden],
 .multiplayer-setup[hidden] {
   display: none;
 }
@@ -824,6 +829,10 @@ button:not(:disabled):hover {
 }
 
 @media (max-width: 1120px) {
+  .mode-choices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .play-area {
     grid-template-columns: 1fr;
   }

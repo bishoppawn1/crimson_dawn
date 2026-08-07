@@ -46,6 +46,13 @@ const singlePlayerMap = document.querySelector("#single-player-map");
 const singlePlayerMapDescription = document.querySelector("#single-player-map-description");
 const startSinglePlayerButton = document.querySelector("#start-single-player-button");
 const backFromSinglePlayerButton = document.querySelector("#back-from-single-player-button");
+const unitTesterButton = document.querySelector("#unit-tester-button");
+const unitTesterSetup = document.querySelector("#unit-tester-setup");
+const unitTesterCount = document.querySelector("#unit-tester-count");
+const unitTesterMap = document.querySelector("#unit-tester-map");
+const unitTesterMapDescription = document.querySelector("#unit-tester-map-description");
+const startUnitTesterButton = document.querySelector("#start-unit-tester-button");
+const backFromUnitTesterButton = document.querySelector("#back-from-unit-tester-button");
 const multiplayerButton = document.querySelector("#multiplayer-button");
 const multiplayerSetup = document.querySelector("#multiplayer-setup");
 const createHostButton = document.querySelector("#create-host-button");
@@ -195,6 +202,8 @@ function populateMapSelect(select, playerCount, selectedMapId = null) {
 }
 populateMapSelect(singlePlayerMap, 2, DEFAULT_MAP_ID);
 updateSinglePlayerMapDescription();
+populateMapSelect(unitTesterMap, 2, DEFAULT_MAP_ID);
+updateUnitTesterMapDescription();
 
 const buildButtons = new Map();
 for (const tier of [1, 2, 3]) {
@@ -305,10 +314,12 @@ function selectStructures(structures) {
 }
 
 function resetGame() {
+  const isAiMatch = matchMode === "single_player" || matchMode === "unit_tester";
   simulation = Simulation.createFieldTest({
-    enemyAiEnabled: matchMode === "single_player",
+    enemyAiEnabled: isAiMatch,
     mapId: activeMapId,
-    playerCount: matchMode === "single_player" ? activePlayerCount : 2,
+    playerCount: isAiMatch ? activePlayerCount : 2,
+    testerTeams: matchMode === "unit_tester" ? [localTeam] : [],
   });
   resetPresentation();
 }
@@ -323,10 +334,28 @@ function updateSinglePlayerMapDescription() {
 function showSinglePlayerSetup() {
   modeChoices.hidden = true;
   multiplayerSetup.hidden = true;
+  unitTesterSetup.hidden = true;
   singlePlayerSetup.hidden = false;
   singlePlayerCount.value = String(activePlayerCount);
   populateMapSelect(singlePlayerMap, activePlayerCount, activeMapId);
   updateSinglePlayerMapDescription();
+}
+
+function updateUnitTesterMapDescription() {
+  const playerCount = Number(unitTesterCount.value);
+  const map = populateMapSelect(unitTesterMap, playerCount, unitTesterMap.value);
+  unitTesterMap.disabled = false;
+  unitTesterMapDescription.textContent = `${map.description} ${playerCount - 1} AI commander${playerCount === 2 ? "" : "s"} will use normal resources, power, construction, production, and combat logic.`;
+}
+
+function showUnitTesterSetup() {
+  modeChoices.hidden = true;
+  multiplayerSetup.hidden = true;
+  singlePlayerSetup.hidden = true;
+  unitTesterSetup.hidden = false;
+  unitTesterCount.value = String(activePlayerCount);
+  populateMapSelect(unitTesterMap, activePlayerCount, activeMapId);
+  updateUnitTesterMapDescription();
 }
 
 function isMultiplayer() {
@@ -416,6 +445,22 @@ function startSinglePlayer() {
   showGame();
 }
 
+function startUnitTester() {
+  peerSession?.close();
+  peerSession = null;
+  multiplayerConnected = false;
+  matchStartHandshake = null;
+  matchMode = "unit_tester";
+  localTeam = "player";
+  activePlayerCount = Number(unitTesterCount.value);
+  activeMapId = getMatchMap(activePlayerCount, unitTesterMap.value).id;
+  resetGame();
+  matchModeLabel.textContent = `UNIT TESTER · ${activePlayerCount} PLAYERS · ${simulation.mapName.toUpperCase()} · INSTANT PLAYER ASSETS`;
+  resetButton.textContent = "Reset unit tester";
+  restartMatchButton.textContent = "Restart unit tester";
+  showGame();
+}
+
 function configureGuestTeam(sim) {
   const guestTeam = sim.teams.find((team) => team.id === "enemy");
   if (!guestTeam) return;
@@ -496,6 +541,7 @@ function returnToMenu() {
   restartMatchButton.textContent = "Restart match";
   multiplayerSetup.hidden = true;
   singlePlayerSetup.hidden = true;
+  unitTesterSetup.hidden = true;
   modeChoices.hidden = false;
   startMenu.hidden = false;
   gameShell.setAttribute("aria-hidden", "true");
@@ -4706,12 +4752,19 @@ function updateInterface() {
   pauseButton.disabled = matchEnded || isMultiplayer();
 
   const localResources = simulation.resources[localTeam];
-  metalValue.textContent = Math.floor(localResources.metal).toLocaleString();
+  const unitTesterActive = simulation.isTesterTeam(localTeam);
+  metalValue.textContent = unitTesterActive
+    ? "∞"
+    : Math.floor(localResources.metal).toLocaleString();
   const netEnergyRate = simulation.getNetEnergyRate(localTeam);
   const netEnergyText = netEnergyRate.toLocaleString(undefined, { maximumFractionDigits: 1 });
-  energyValue.textContent = `${netEnergyRate >= 0 ? "+" : ""}${netEnergyText}/s · ${Math.floor(localResources.energy)}/${localResources.energyCapacity}`;
+  energyValue.textContent = unitTesterActive
+    ? "∞"
+    : `${netEnergyRate >= 0 ? "+" : ""}${netEnergyText}/s · ${Math.floor(localResources.energy)}/${localResources.energyCapacity}`;
   const playerSupply = simulation.getSupplyState(localTeam);
-  supplyValue.textContent = `${playerSupply.used.toLocaleString()}/${playerSupply.capacity.toLocaleString()}`;
+  supplyValue.textContent = unitTesterActive
+    ? `${playerSupply.used.toLocaleString()}/∞`
+    : `${playerSupply.used.toLocaleString()}/${playerSupply.capacity.toLocaleString()}`;
   supplyValue.title = `${playerSupply.unitSupply.toLocaleString()} active · ${playerSupply.reservedSupply.toLocaleString()} queued`;
 
   const selectedUnits = [...selectedUnitIds]
@@ -5433,9 +5486,18 @@ backFromSinglePlayerButton.addEventListener("click", () => {
   singlePlayerSetup.hidden = true;
   modeChoices.hidden = false;
 });
+unitTesterButton.addEventListener("click", showUnitTesterSetup);
+unitTesterCount.addEventListener("change", updateUnitTesterMapDescription);
+unitTesterMap.addEventListener("change", updateUnitTesterMapDescription);
+startUnitTesterButton.addEventListener("click", startUnitTester);
+backFromUnitTesterButton.addEventListener("click", () => {
+  unitTesterSetup.hidden = true;
+  modeChoices.hidden = false;
+});
 multiplayerButton.addEventListener("click", () => {
   modeChoices.hidden = true;
   singlePlayerSetup.hidden = true;
+  unitTesterSetup.hidden = true;
   multiplayerSetup.hidden = false;
   setConnectionStatus("Create a lobby or enter a lobby code to begin.");
 });
