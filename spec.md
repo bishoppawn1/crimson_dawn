@@ -1163,13 +1163,17 @@ predicts its own submitted commands against the latest host state, replays still
 commands when a newer state arrives, and removes or corrects them when the host
 acknowledges the result. This keeps placement and other commands responsive without
 allowing the peers to become split-brained. On the guest, mobile units and
-reclamation drones interpolate from their currently displayed position toward each
-new authoritative position over 320 milliseconds. This presentation-only transition
-slightly overlaps the normal 250-millisecond snapshot interval, matching the smooth
-network-motion technique used by Galactic Empires without advancing a second
-simulation. Selection, target hit-testing, and the tactical minimap use the same
-displayed positions so the visual and interactive surfaces remain aligned. When the
-outgoing channel is congested,
+reclamation drones receive compact, tick-numbered authoritative position updates up
+to 15 times per second in addition to the complete four-per-second state snapshots.
+The guest derives motion velocity from canonical tick differences and uses a
+120-millisecond cubic transition that preserves both displayed position and velocity
+when a correction arrives. It projects only the visual endpoint across that short
+transition; it does not advance gameplay, combat, resources, or any second canonical
+simulation. Older motion ticks are ignored. Transient motion updates are dropped
+rather than queued whenever a complete state is waiting or the outgoing channel is
+busy, so smoother rendering cannot delay authoritative synchronization. Selection,
+target hit-testing, and the tactical minimap use the same displayed positions so the
+visual and interactive surfaces remain aligned. When the outgoing channel is congested,
 the host retains only the newest waiting snapshot; stale snapshots may not build an
 ever-older delivery backlog. Only one full snapshot may be in flight at once. The
 guest acknowledges a sequence after it has received and loaded that state, allowing

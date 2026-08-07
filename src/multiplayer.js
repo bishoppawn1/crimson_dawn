@@ -313,6 +313,13 @@ export class PeerMultiplayerSession {
     return sent;
   }
 
+  sendMotion(message) {
+    if (message?.type !== "motion" || this.pendingState || this.stateChannelBusy()) {
+      return false;
+    }
+    return this.send(message);
+  }
+
   bufferedAmount() {
     return this.connection?.dataChannel?.bufferedAmount || 0;
   }

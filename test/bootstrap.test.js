@@ -28,6 +28,8 @@ test("the static bootstrap requests a fresh, consistent local module set", async
   assert.match(game, /`\.\/determinism\.js\$\{versionSuffix\}`/);
   assert.match(game, /`\.\/queue-status\.js\$\{versionSuffix\}`/);
   assert.match(game, /snapshotSendRemaining = MULTIPLAYER_STATE_INTERVAL_SECONDS/);
+  assert.match(game, /motionSendRemaining = MULTIPLAYER_MOTION_INTERVAL_SECONDS/);
+  assert.match(game, /createMultiplayerMotionUpdate\(/);
   assert.match(game, /guestPositionSmoother\.transitionTo/);
   assert.match(maps, /`\.\/data\.js\$\{versionSuffix\}`/);
   assert.match(simulation, /`\.\/maps\.js\$\{versionSuffix\}`/);

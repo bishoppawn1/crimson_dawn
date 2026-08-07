@@ -19,6 +19,9 @@ const { getMapsForPlayerCount, getMatchMap, getRandomMatchMap } = await import(
 const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix}`);
 const { FixedStepSimulationClock } = await import(`./simulation-clock.js${versionSuffix}`);
 const {
+  createMultiplayerMotionUpdate,
+  multiplayerMotionUpdateIsValid,
+  MULTIPLAYER_MOTION_INTERVAL_SECONDS,
   MULTIPLAYER_STATE_INTERVAL_SECONDS,
   SnapshotPositionSmoother,
 } = await import(`./network-presentation.js${versionSuffix}`);
@@ -132,6 +135,7 @@ let lobbyRole = null;
 let multiplayerLobby = null;
 let matchStartHandshake = null;
 let snapshotSendRemaining = 0;
+let motionSendRemaining = 0;
 let nextGuestCommandId = 1;
 let lastProcessedGuestCommandId = 0;
 let lastQueuedGuestCommandId = 0;
@@ -369,7 +373,11 @@ function resetPresentation() {
   paused = false;
   pauseButton.textContent = "Pause simulation";
   authoritativeSimulationClock.reset(performance.now());
-  guestPositionSmoother.reset(mobileSimulationEntities(), performance.now());
+  guestPositionSmoother.reset(
+    mobileSimulationEntities(),
+    performance.now(),
+    simulation.tickNumber,
+  );
   interfaceRefreshRemaining = 0;
   updateInterface();
 }
@@ -589,6 +597,7 @@ function enterMultiplayerMatch(role) {
   localTeam = role === "host" ? "player" : "enemy";
   multiplayerConnected = Boolean(peerSession?.opened);
   snapshotSendRemaining = 0;
+  motionSendRemaining = 0;
   nextGuestCommandId = 1;
   lastProcessedGuestCommandId = 0;
   resetAuthoritativeCommands();
@@ -733,6 +742,17 @@ function multiplayerHandlers(role) {
       } else if (role === "guest" && message.type === "lobby_state" && matchMode === "menu") {
         multiplayerLobby = { ...message.lobby };
         renderMultiplayerLobby();
+      } else if (
+        role === "guest" &&
+        message.type === "motion" &&
+        matchMode === "multiplayer_guest" &&
+        multiplayerMotionUpdateIsValid(message)
+      ) {
+        guestPositionSmoother.transitionTo(
+          message.entities,
+          performance.now(),
+          message.tick,
+        );
       } else if (role === "guest" && message.type === "state") {
         const sequence = Number.isSafeInteger(message.sequence)
           ? message.sequence
@@ -747,7 +767,11 @@ function multiplayerHandlers(role) {
           }
           const receivedAt = performance.now();
           const nextSimulation = Simulation.fromSnapshot(message.snapshot);
-          guestPositionSmoother.transitionTo(mobileSimulationEntities(nextSimulation), receivedAt);
+          guestPositionSmoother.transitionTo(
+            mobileSimulationEntities(nextSimulation),
+            receivedAt,
+            nextSimulation.tickNumber,
+          );
           simulation = nextSimulation;
           lastHostStateSequence = sequence;
           lastHostStateReceivedAt = receivedAt;
@@ -1110,6 +1134,16 @@ function sendMultiplayerSnapshot() {
   return sent;
 }
 
+function sendMultiplayerMotion() {
+  if (matchMode !== "multiplayer_host" || !multiplayerConnected) return false;
+  const sent = peerSession?.sendMotion(createMultiplayerMotionUpdate(
+    simulation.tickNumber,
+    mobileSimulationEntities(),
+  )) || false;
+  if (sent) motionSendRemaining = MULTIPLAYER_MOTION_INTERVAL_SECONDS;
+  return sent;
+}
+
 function runAuthoritativeSimulationHeartbeat(now = performance.now()) {
   const running = matchMode !== "menu" && matchMode !== "multiplayer_guest" && !paused;
   const { elapsedSeconds } = authoritativeSimulationClock.advance(
@@ -1128,6 +1162,10 @@ function runAuthoritativeSimulationHeartbeat(now = performance.now()) {
   snapshotSendRemaining -= elapsedSeconds;
   if (snapshotSendRemaining <= 0) {
     sendMultiplayerSnapshot();
+  }
+  motionSendRemaining -= elapsedSeconds;
+  if (motionSendRemaining <= 0) {
+    sendMultiplayerMotion();
   }
 }
 
