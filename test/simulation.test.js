@@ -3690,6 +3690,7 @@ test("enemy AI replaces battery requests with generation while grid energy is lo
   assert.equal(earlyRequest.type, "generator");
   assert.equal(laterLowEnergyRequest.type, "generator");
 
+  simulation.addStructure("generator", "enemy", 2680, 900);
   simulation.refreshPowerState(0);
   simulation.resources.enemy.energy = simulation.resources.enemy.energyCapacity;
   const recoveredRequest = simulation.getEnemyStrategicConstructionRequest(
@@ -3712,6 +3713,100 @@ test("enemy AI replaces battery requests with generation while grid energy is lo
 
   assert.equal(defensiveRequest.type, "sentry_turret");
   assert.ok(defensiveRequest.x < anchor.x, "the defense should face the nearby threat");
+});
+
+test("enemy AI proactively maintains multiple paid Pulse Generators", () => {
+  const simulation = Simulation.createFieldTest({ enemyAiEnabled: true });
+  simulation.aiThinkRemaining = 0;
+  simulation.resources.enemy.metal = 5000;
+
+  advance(simulation, 40);
+
+  const generators = simulation.structures.filter(
+    (structure) =>
+      structure.alive &&
+      structure.team === "enemy" &&
+      STRUCTURE_DEFINITIONS[structure.type].generationRate,
+  );
+  assert.ok(generators.filter((generator) => generator.complete).length >= 2);
+  assert.ok(simulation.resources.enemy.metal < 5000);
+});
+
+test("enemy AI scales generator count and output headroom with its consumers", () => {
+  const simulation = new Simulation();
+  const anchor = simulation.addStructure("generator", "enemy", 2600, 900);
+  simulation.addStructure("mech_factory_t1", "enemy", 2440, 1040);
+  simulation.addStructure("metal_mine", "enemy", 2520, 720);
+  simulation.addStructure("battery", "enemy", 2600, 820);
+  simulation.addStructure("sentry_turret", "enemy", 2480, 900);
+  simulation.addStructure("charger", "enemy", 2520, 980);
+  for (const x of [2360, 2400, 2440]) {
+    simulation.addUnit("scout_mech", "enemy", x, 1160);
+  }
+  const planPoint = (forward, side = 0) => ({ x: anchor.x - forward, y: anchor.y + side });
+
+  const redundancyRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    1,
+  );
+  assert.equal(redundancyRequest.type, "generator");
+
+  simulation.addStructure("generator", "enemy", 2680, 900);
+  const adequatelyPoweredRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    2,
+  );
+  assert.notEqual(adequatelyPoweredRequest?.type, "generator");
+
+  for (const [index, type] of [
+    "vehicle_factory_t1",
+    "vehicle_factory_t1",
+    "mech_factory_t1",
+  ].entries()) {
+    simulation.addStructure(type, "enemy", 2200 - index * 120, 760 + index * 120);
+  }
+  const capacityRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    3,
+  );
+  assert.equal(capacityRequest.type, "generator");
+  assert.ok(
+    simulation.getEnemyRequiredGenerationRate("enemy") > simulation.getGenerationRate("enemy"),
+  );
+});
+
+test("advanced AI economies add generators matching their operational tier", () => {
+  const simulation = new Simulation();
+  const anchor = simulation.addStructure("generator_t2", "enemy", 2600, 900);
+  simulation.addStructure("mech_factory_t2", "enemy", 2400, 1040);
+  simulation.addStructure("metal_mine_t2", "enemy", 2520, 720);
+  simulation.addStructure("battery_t2", "enemy", 2600, 820);
+  simulation.addStructure("sentry_turret_t2", "enemy", 2480, 900);
+  simulation.addStructure("charger_t2", "enemy", 2520, 980);
+  simulation.addUnit("worker_drone_t2", "enemy", 2520, 1080);
+  for (const x of [2360, 2400, 2440]) {
+    simulation.addUnit("scout_mech_t2", "enemy", x, 1160);
+  }
+  const planPoint = (forward, side = 0) => ({ x: anchor.x - forward, y: anchor.y + side });
+
+  const request = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    2,
+  );
+
+  assert.equal(request.type, "generator_t2");
 });
 
 test("enemy AI waits for its pending low-energy generator instead of adding a battery", () => {

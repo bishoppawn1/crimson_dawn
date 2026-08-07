@@ -1380,6 +1380,8 @@ export const SIMULATION_RULES = Object.freeze({
   enemyConstructionLossMemoryLimit: 12,
   enemySupplyLowRatio: 0.1,
   enemyLowGridEnergyRatio: 0.2,
+  enemyGenerationReserveRatio: 0.2,
+  enemyPowerConsumersPerGenerator: 4,
   enemyLowMetalThreshold: 400,
   enemyExpansionSurplusMetal: 900,
   enemyTierTwoMineCount: 2,

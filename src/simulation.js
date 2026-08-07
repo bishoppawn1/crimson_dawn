@@ -2141,6 +2141,11 @@ export class Simulation {
     return demand;
   }
 
+  getEnemyRequiredGenerationRate(team, additionalStructureType = null) {
+    return this.getPlannedPowerDemandRate(team, additionalStructureType) *
+      (1 + SIMULATION_RULES.enemyGenerationReserveRatio);
+  }
+
   needsAdditionalGeneration(team, additionalStructureType) {
     if (!additionalStructureType || STRUCTURE_DEFINITIONS[additionalStructureType]?.generationRate) return false;
     return (
@@ -2794,6 +2799,7 @@ export class Simulation {
     const factoryCount = structures.filter(
       (structure) => STRUCTURE_DEFINITIONS[structure.type].production,
     ).length;
+    const generatorCount = countFamily("generator");
     const batteryCount = countFamily("battery");
     const sentryCount = countFamily("sentry_turret");
     const flakCount = countFamily("flak_turret");
@@ -2872,6 +2878,36 @@ export class Simulation {
 
     if (factoryCount === 0) {
       addCandidate(130, "mech_factory_t1", planPoint(160, sideSign * 220));
+    }
+
+    const committedGenerationRate = structures
+      .filter((structure) => STRUCTURE_DEFINITIONS[structure.type].generationRate)
+      .reduce(
+        (total, structure) => total + STRUCTURE_DEFINITIONS[structure.type].generationRate,
+        0,
+      );
+    const desiredGeneratorCount = Math.max(
+      2,
+      Math.ceil(
+        powerConsumerCount / SIMULATION_RULES.enemyPowerConsumersPerGenerator,
+      ),
+    );
+    const generationCapacityShortfall =
+      committedGenerationRate + EPSILON < this.getEnemyRequiredGenerationRate(teamId);
+    if (
+      coreBaseReady &&
+      !generatorConstructionPending &&
+      (generatorCount < desiredGeneratorCount || generationCapacityShortfall)
+    ) {
+      const generatorRing = Math.floor(generatorCount / 3);
+      addCandidate(
+        90,
+        tieredType("generator", operationalTier),
+        planPoint(
+          -80 + (generatorCount % 3) * 80,
+          sideSign * (220 + generatorRing * 100),
+        ),
+      );
     }
 
     const canInvestInTechnology =

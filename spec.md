@@ -889,6 +889,15 @@ finishes another generator beside that expansion before resuming the original
 plan. It does not knowingly place disconnected consumers or expand demand beyond
 its steady generation capacity.
 
+After its opening battery, sentry, charger, and first combat force are established,
+the AI deliberately maintains redundant generation instead of waiting for an
+immediate shortage. It targets at least two Pulse Generators, adds roughly one
+generator for every four non-generator structures, and plans for 20% generation
+headroom above projected maximum demand. These routine generator requests remain
+below urgent defense and technology or production-branch progression, use the
+highest generator tier supported by the AI's completed Mech Factory and available
+worker, and still pay normal construction costs.
+
 The AI makes its first decision after one second and reevaluates every second. It
 does not follow a fixed or map-specific building sequence. Instead, it scores its
 current strategic needs, including nearby threats, missing production, grid
