@@ -19,6 +19,7 @@ const {
   structureFootprint,
 } = await import(`./data.js${versionSuffix}`);
 const { createMatchTeams, getMatchMap } = await import(`./maps.js${versionSuffix}`);
+const { SIMULATION_STEP_SECONDS } = await import(`./determinism.js${versionSuffix}`);
 
 const EPSILON = 0.0001;
 const NAVIGATION_CORNER_MARGIN = 1;
@@ -57,6 +58,7 @@ export class Simulation {
     this.width = width;
     this.height = height;
     this.time = 0;
+    this.tickNumber = 0;
     this.nextEntityNumber = 1;
     this.units = [];
     this.structures = [];
@@ -208,12 +210,13 @@ export class Simulation {
 
   createSnapshot() {
     return {
-      version: 1,
+      version: 2,
       mapId: this.mapId || DEFAULT_MAP_ID,
       mapName: this.mapName || MAP_DEFINITIONS[DEFAULT_MAP_ID].name,
       width: this.width,
       height: this.height,
       time: this.time,
+      tickNumber: this.tickNumber,
       nextEntityNumber: this.nextEntityNumber,
       units: this.units,
       structures: this.structures,
@@ -239,7 +242,7 @@ export class Simulation {
   }
 
   static fromSnapshot(snapshot) {
-    if (!snapshot || snapshot.version !== 1) {
+    if (!snapshot || ![1, 2].includes(snapshot.version)) {
       throw new Error("Unsupported multiplayer simulation snapshot.");
     }
     const simulation = new Simulation({
@@ -256,6 +259,9 @@ export class Simulation {
     simulation.mapId = snapshot.mapId || DEFAULT_MAP_ID;
     simulation.mapName = snapshot.mapName || MAP_DEFINITIONS[simulation.mapId]?.name || "Unknown Map";
     simulation.time = snapshot.time;
+    simulation.tickNumber = Number.isSafeInteger(snapshot.tickNumber)
+      ? snapshot.tickNumber
+      : Math.max(0, Math.round(snapshot.time / SIMULATION_STEP_SECONDS));
     simulation.nextEntityNumber = snapshot.nextEntityNumber;
     simulation.units = snapshot.units || [];
     simulation.structures = snapshot.structures || [];
@@ -1790,6 +1796,14 @@ export class Simulation {
     }
     this.wrecks = this.wrecks.filter((wreck) => wreck.metal > EPSILON);
     this.updateMatchResult();
+  }
+
+  fixedTick() {
+    if (this.matchResult) return false;
+    this.tickNumber += 1;
+    this.tick(SIMULATION_STEP_SECONDS);
+    this.time = this.tickNumber * SIMULATION_STEP_SECONDS;
+    return true;
   }
 
   updateMatchResult() {

@@ -25,11 +25,16 @@ test("the static bootstrap requests a fresh, consistent local module set", async
   assert.match(game, /`\.\/simulation\.js\$\{versionSuffix\}`/);
   assert.match(game, /`\.\/simulation-clock\.js\$\{versionSuffix\}`/);
   assert.match(game, /`\.\/network-presentation\.js\$\{versionSuffix\}`/);
+  assert.match(game, /`\.\/determinism\.js\$\{versionSuffix\}`/);
   assert.match(game, /`\.\/queue-status\.js\$\{versionSuffix\}`/);
   assert.match(game, /snapshotSendRemaining = MULTIPLAYER_STATE_INTERVAL_SECONDS/);
   assert.match(game, /guestPositionSmoother\.transitionTo/);
   assert.match(maps, /`\.\/data\.js\$\{versionSuffix\}`/);
   assert.match(simulation, /`\.\/maps\.js\$\{versionSuffix\}`/);
+  assert.match(simulation, /`\.\/determinism\.js\$\{versionSuffix\}`/);
+  assert.match(game, /processAuthoritativeCommands\(simulation\.tickNumber \+ 1\)/);
+  assert.match(game, /simulation\.fixedTick\(\)/);
+  assert.match(game, /createDeterministicStateMessage\(\{/);
 });
 
 test("the tactical minimap routes right-clicks into selected-unit move orders", async () => {

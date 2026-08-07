@@ -1037,6 +1037,14 @@ The browser game is the production foundation, not a temporary prototype for a
 future dedicated-engine port. Simulation rules remain separate from rendering and
 input to enable deterministic tests, replay recording, future multiplayer
 synchronization, and rendering optimizations within the web platform.
+The canonical simulation advances at exactly 30 numbered ticks per second. Its
+elapsed gameplay time is derived from that integer tick count rather than renderer
+frame timing. Authoritative human commands are queued for a numbered tick and
+resolved in stable tick, commander-slot, and per-commander sequence order before
+that tick advances. Identical initial snapshots and tick-scheduled command streams
+must therefore produce the same canonical state hash. This is practical
+determinism for testing, prediction, and future replays; multiplayer remains
+host-authoritative rather than relying on cross-browser lockstep.
 
 The battlefield uses Canvas rendering. Menus, command panels, accessibility
 features, and other interface elements may use HTML and CSS where appropriate.
@@ -1050,8 +1058,8 @@ separation stops as soon as a solver pass finds no overlap and is capped at four
 passes per tick, allowing unusually dense formations to finish spreading over
 successive ticks instead of monopolizing one frame. The HTML status interface
 refreshes at ten updates per second, while Canvas motion still renders every frame.
-After an interrupted frame, the main loop runs at most two fixed simulation steps
-before yielding to rendering, then catches up over following frames.
+The independent authoritative heartbeat can catch up as many as 30 fixed steps
+after an interruption, then publishes only its newest state.
 
 Battlefields currently range from 5,200 by 3,200 world units for two commanders to
 8,560 by 6,280 for eight. The 1,600-by-900 Canvas is a movable viewport rather than
@@ -1129,9 +1137,13 @@ restricted or symmetric-NAT networks may still prevent a direct connection.
 The host owns the canonical simulation, validates incoming commands against the
 guest's team, applies the lobby's randomized map and AI configuration, and offers
 versioned simulation snapshots to the guest up to four times per second. Every host
-state carries a
-monotonically increasing sequence number, and the guest ignores older state. The
-host advances the entire canonical battlefield from a fixed-step heartbeat that is
+state carries a monotonically increasing sequence number, canonical tick number,
+and deterministic hash of the complete snapshot. The guest ignores older state and
+refuses a snapshot whose tick or hash does not match its payload. Host and guest
+commands are applied only at tick boundaries in stable commander and command
+sequence order; the host reports the assigned execution tick when acknowledging a
+guest command. The host advances the entire canonical battlefield from a fixed-step
+heartbeat that is
 independent of rendering, camera position, and visible-entity culling. Remote and
 off-screen units, construction, production, combat, economy, and AI therefore keep
 advancing when the host looks elsewhere, and a delayed browser heartbeat catches up

@@ -144,8 +144,10 @@ No package installation or external runtime is required.
 The host commands the western base and the guest commands the eastern base. The
 game connection is direct and requires internet access; PeerJS Cloud brokers the
 initial handshake, with no account or dedicated gameplay server required. The host
-owns the match state; guest commands appear immediately as predictions and are then
-confirmed or corrected by ordered host updates. If a connection stalls, delayed
+owns the match state. It applies commands on numbered 30 Hz simulation ticks in
+stable player-and-command order, and every snapshot includes its canonical tick and
+state hash. Guest commands appear immediately as predictions and are then confirmed
+or corrected by verified host updates. If a connection stalls, delayed
 snapshots are replaced by the newest state instead of accumulating a stale backlog.
 The guest acknowledges each loaded state so only one large snapshot crosses the
 connection at a time, and a later interruption to the lobby broker does not close an

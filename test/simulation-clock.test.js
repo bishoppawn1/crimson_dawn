@@ -13,10 +13,11 @@ test("the authoritative clock moves remote units without animation frames or cam
   const clock = new FixedStepSimulationClock();
   clock.reset(0);
   for (let now = 1000 / 30; now <= 1000 + 0.001; now += 1000 / 30) {
-    clock.advance(now, true, (step) => simulation.tick(step));
+    clock.advance(now, true, () => simulation.fixedTick());
   }
 
   assert.ok(remoteUnit.x > startingX + 50);
+  assert.equal(simulation.tickNumber, 30);
   assert.ok(simulation.time >= 0.99);
 });
 

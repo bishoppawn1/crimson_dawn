@@ -22,6 +22,12 @@ const {
   MULTIPLAYER_STATE_INTERVAL_SECONDS,
   SnapshotPositionSmoother,
 } = await import(`./network-presentation.js${versionSuffix}`);
+const {
+  createDeterministicStateMessage,
+  deterministicStateMessageIsValid,
+  DeterministicCommandScheduler,
+  SIMULATION_STEP_SECONDS,
+} = await import(`./determinism.js${versionSuffix}`);
 const { describeConstructionQueue, describeProductionQueue } = await import(
   `./queue-status.js${versionSuffix}`
 );
@@ -128,11 +134,14 @@ let matchStartHandshake = null;
 let snapshotSendRemaining = 0;
 let nextGuestCommandId = 1;
 let lastProcessedGuestCommandId = 0;
+let lastQueuedGuestCommandId = 0;
+let nextLocalCommandSequence = 1;
 let nextHostStateSequence = 1;
 let lastHostStateSequence = 0;
 let lastHostStateReceivedAt = 0;
 let pendingGuestCommands = new Map();
 let multiplayerSyncMessage = null;
+const authoritativeCommands = new DeterministicCommandScheduler();
 let selectedUnitIds = new Set();
 let selectedStructureId = null;
 let selectedStructureIds = new Set();
@@ -145,7 +154,7 @@ let placementCursor = null;
 let pointerScreen = null;
 let forceMoveArmed = false;
 let paused = false;
-const fixedStep = 1 / 30;
+const fixedStep = SIMULATION_STEP_SECONDS;
 const authoritativeSimulationClock = new FixedStepSimulationClock({
   stepSeconds: fixedStep,
   maximumElapsedSeconds: 1,
@@ -420,7 +429,14 @@ function resetGame() {
     playerCount: isAiMatch ? activePlayerCount : 2,
     testerTeams: matchMode === "unit_tester" ? [localTeam] : [],
   });
+  resetAuthoritativeCommands();
   resetPresentation();
+}
+
+function resetAuthoritativeCommands() {
+  authoritativeCommands.clear();
+  nextLocalCommandSequence = 1;
+  lastQueuedGuestCommandId = 0;
 }
 
 function updateSinglePlayerMapDescription() {
@@ -575,6 +591,7 @@ function enterMultiplayerMatch(role) {
   snapshotSendRemaining = 0;
   nextGuestCommandId = 1;
   lastProcessedGuestCommandId = 0;
+  resetAuthoritativeCommands();
   nextHostStateSequence = 1;
   lastHostStateSequence = 0;
   lastHostStateReceivedAt = role === "guest" ? performance.now() : 0;
@@ -628,6 +645,7 @@ function returnToMenu() {
   multiplayerConnected = false;
   matchStartHandshake = null;
   pendingGuestCommands.clear();
+  resetAuthoritativeCommands();
   multiplayerSyncMessage = null;
   lobbyRole = null;
   multiplayerLobby = null;
@@ -697,19 +715,21 @@ function multiplayerHandlers(role) {
       } else if (role === "host" && message.type === "command") {
         const commandId = Number.isSafeInteger(message.commandId) && message.commandId > 0
           ? message.commandId
-          : lastProcessedGuestCommandId + 1;
-        if (commandId <= lastProcessedGuestCommandId) return;
-        const accepted = Boolean(applyAuthorizedCommand(message.command, "enemy"));
-        lastProcessedGuestCommandId = commandId;
-        peerSession?.send({
-          type: "command_result",
-          commandId,
-          accepted,
-          reason: accepted
-            ? null
-            : simulation.lastPlacementError || "The host rejected that command.",
+          : lastQueuedGuestCommandId + 1;
+        if (commandId <= lastQueuedGuestCommandId) return;
+        const queued = queueAuthoritativeCommand(message.command, "enemy", {
+          sequence: commandId,
+          metadata: { guestCommandId: commandId },
         });
-        sendMultiplayerSnapshot();
+        if (queued) lastQueuedGuestCommandId = commandId;
+        else {
+          peerSession?.send({
+            type: "command_result",
+            commandId,
+            accepted: false,
+            reason: "The host rejected that malformed command.",
+          });
+        }
       } else if (role === "guest" && message.type === "lobby_state" && matchMode === "menu") {
         multiplayerLobby = { ...message.lobby };
         renderMultiplayerLobby();
@@ -722,6 +742,9 @@ function multiplayerHandlers(role) {
           return;
         }
         try {
+          if (!deterministicStateMessageIsValid(message)) {
+            throw new Error("Deterministic state verification failed.");
+          }
           const receivedAt = performance.now();
           const nextSimulation = Simulation.fromSnapshot(message.snapshot);
           guestPositionSmoother.transitionTo(mobileSimulationEntities(nextSimulation), receivedAt);
@@ -744,6 +767,8 @@ function multiplayerHandlers(role) {
           pruneSelection();
           peerSession?.send({ type: "state_ack", sequence });
         } catch {
+          multiplayerSyncMessage = "HOST STATE VERIFICATION FAILED · WAITING FOR A NEW SNAPSHOT";
+          peerSession?.send({ type: "state_ack", sequence });
           setConnectionStatus("The host sent an incompatible match state.", true);
         }
       } else if (role === "guest" && message.type === "command_result") {
@@ -1001,7 +1026,12 @@ function applyAuthorizedCommand(command, team) {
 function issueGameCommand(command) {
   if (matchMode === "multiplayer_guest") {
     const commandId = nextGuestCommandId;
-    const sent = peerSession?.send({ type: "command", commandId, command }) || false;
+    const sent = peerSession?.send({
+      type: "command",
+      commandId,
+      requestedTick: simulation.tickNumber + 1,
+      command,
+    }) || false;
     if (!sent) {
       multiplayerSyncMessage = "COMMAND NOT SENT · CHECK THE MULTIPLAYER CONNECTION";
       return false;
@@ -1012,19 +1042,67 @@ function issueGameCommand(command) {
     applyAuthorizedCommand(command, localTeam);
     return true;
   }
-  return applyAuthorizedCommand(command, localTeam);
+  return queueAuthoritativeCommand(command, localTeam);
+}
+
+function queueAuthoritativeCommand(command, team, { sequence = null, metadata = null } = {}) {
+  const playerSlot = simulation.teams.find((candidate) => candidate.id === team)?.slot;
+  if (!Number.isSafeInteger(playerSlot)) return false;
+  const commandSequence = Number.isSafeInteger(sequence)
+    ? sequence
+    : nextLocalCommandSequence;
+  const queued = authoritativeCommands.enqueue({
+    executeTick: simulation.tickNumber + 1,
+    playerSlot,
+    sequence: commandSequence,
+    team,
+    command,
+    metadata,
+  });
+  if (queued && sequence === null) nextLocalCommandSequence += 1;
+  return queued;
+}
+
+function processAuthoritativeCommands(executeTick) {
+  let processedGuestCommand = false;
+  const results = authoritativeCommands.drain(executeTick, (entry) => {
+    const accepted = Boolean(applyAuthorizedCommand(entry.command, entry.team));
+    return {
+      accepted,
+      reason: accepted
+        ? null
+        : simulation.lastPlacementError ||
+          simulation.lastProductionError ||
+          simulation.lastUpgradeError ||
+          "The host rejected that command.",
+    };
+  });
+  for (const { entry, result } of results) {
+    const commandId = entry.metadata?.guestCommandId;
+    if (!Number.isSafeInteger(commandId)) continue;
+    lastProcessedGuestCommandId = Math.max(lastProcessedGuestCommandId, commandId);
+    processedGuestCommand = true;
+    peerSession?.send({
+      type: "command_result",
+      commandId,
+      executeTick: entry.executeTick,
+      accepted: result.accepted,
+      reason: result.reason,
+    });
+  }
+  return processedGuestCommand;
 }
 
 function sendMultiplayerSnapshot() {
   if (matchMode !== "multiplayer_host" || !multiplayerConnected) return false;
   const sequence = nextHostStateSequence;
   nextHostStateSequence += 1;
-  const sent = peerSession?.sendState({
-    type: "state",
+  const snapshot = simulation.createSnapshot();
+  const sent = peerSession?.sendState(createDeterministicStateMessage({
     sequence,
     lastGuestCommandId: lastProcessedGuestCommandId,
-    snapshot: simulation.createSnapshot(),
-  }) || false;
+    snapshot,
+  })) || false;
   if (sent) {
     multiplayerSyncMessage = null;
     snapshotSendRemaining = MULTIPLAYER_STATE_INTERVAL_SECONDS;
@@ -1037,7 +1115,13 @@ function runAuthoritativeSimulationHeartbeat(now = performance.now()) {
   const { elapsedSeconds } = authoritativeSimulationClock.advance(
     now,
     running,
-    (step) => simulation.tick(step),
+    () => {
+      const processedGuestCommand = processAuthoritativeCommands(simulation.tickNumber + 1);
+      simulation.fixedTick();
+      if (processedGuestCommand && matchMode === "multiplayer_host") {
+        sendMultiplayerSnapshot();
+      }
+    },
   );
   if (!running || matchMode !== "multiplayer_host") return;
 
