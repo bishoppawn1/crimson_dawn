@@ -912,6 +912,16 @@ batteries, relays, defenses, chargers, salvage capacity, and factories. The
 decision counter varies valid placement lanes but never dictates the next
 structure type. These relative priorities are provisional tuning values.
 
+Once a completed Mech Factory unlocks a higher structure tier, the AI also upgrades
+its existing completed buildings through the same immediate, paid structure-upgrade
+command available to the player. It upgrades one tier at a time, prefers bringing
+lower-tier buildings up before applying final-tier upgrades, and prioritizes power
+generation, metal income, production, charging, and defense. It retains at least
+400 metal plus any metal reserved for its next strategic building or supply plan
+after current unit-production choices, and it does not upgrade a consumer when the
+resulting maximum demand would exceed its generation headroom. Normal
+footprint-clearance rules can postpone an upgrade.
+
 After establishing its first Grid Battery, an AI whose stored grid energy falls to
 20% or less of live storage capacity treats the condition as a generation shortage
 rather than a storage shortage. It suppresses requests for additional Grid

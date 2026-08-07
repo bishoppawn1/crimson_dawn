@@ -883,6 +883,56 @@ test("structure upgrade unlocks are team-specific and expanded footprints need c
   assert.equal(simulation.resources.enemy.metal, startingMetal);
 });
 
+test("enemy AI structure upgrades keep its strategic metal reserve", () => {
+  const simulation = new Simulation();
+  const generator = simulation.addStructure("generator", "enemy", 300, 300);
+  simulation.addStructure("mech_factory_t2", "enemy", 700, 700);
+  const upgradeCost = STRUCTURE_DEFINITIONS.generator_t2.metalCost -
+    STRUCTURE_DEFINITIONS.generator.metalCost;
+  const strategicReserve = 175;
+
+  simulation.resources.enemy.metal =
+    upgradeCost + SIMULATION_RULES.enemyStructureUpgradeMetalReserve + strategicReserve - 1;
+  assert.equal(
+    simulation.getEnemyStructureUpgradeRequest("enemy", strategicReserve),
+    null,
+  );
+
+  simulation.resources.enemy.metal += 1;
+  const request = simulation.getEnemyStructureUpgradeRequest("enemy", strategicReserve);
+  assert.equal(request.structureId, generator.id);
+  assert.equal(request.targetType, "generator_t2");
+  assert.equal(simulation.upgradeStructure(request.structureId, "enemy"), true);
+  assert.equal(
+    simulation.resources.enemy.metal,
+    SIMULATION_RULES.enemyStructureUpgradeMetalReserve + strategicReserve,
+  );
+});
+
+test("enemy AI upgrades existing economy buildings after unlocking their tier", () => {
+  const simulation = new Simulation();
+  simulation.resources.enemy.metal = 5000;
+  const generator = simulation.addStructure("generator", "enemy", 300, 300);
+  const mine = simulation.addStructure("metal_mine", "enemy", 500, 300);
+  simulation.addStructure("generator_t3", "enemy", 300, 700);
+  simulation.addStructure("generator_t3", "enemy", 600, 700);
+  simulation.addStructure("mech_factory_t3", "enemy", 900, 900);
+  simulation.refreshPowerState(0);
+
+  simulation.aiThinkRemaining = 0;
+  simulation.updateAiTeam("enemy", 0);
+  assert.equal(generator.type, "generator_t2");
+  assert.equal(mine.type, "metal_mine");
+
+  simulation.aiThinkRemaining = 0;
+  simulation.updateAiTeam("enemy", 0);
+  assert.equal(mine.type, "metal_mine_t2");
+
+  simulation.aiThinkRemaining = 0;
+  simulation.updateAiTeam("enemy", 0);
+  assert.equal(generator.type, "generator_t3");
+});
+
 test("higher-tier Metal Mines still snap to deposits", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;

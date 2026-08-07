@@ -42,6 +42,18 @@ const UNIT_SEPARATION_CELL_SIZE = Math.max(
   ),
 );
 const STORAGE_PRIORITY = Object.freeze({ battery: 0, power_tower: 1, generator: 2 });
+const AI_STRUCTURE_UPGRADE_PRIORITY = Object.freeze({
+  generator: 100,
+  metal_mine: 95,
+  factory: 90,
+  charger: 85,
+  sentry_turret: 80,
+  flak_turret: 80,
+  mortar_turret: 78,
+  battery: 75,
+  power_tower: 70,
+  salvage_yard: 65,
+});
 
 export class Simulation {
   constructor({
@@ -2168,6 +2180,51 @@ export class Simulation {
     );
   }
 
+  getEnemyStructureUpgradeRequest(teamId, reservedMetal = 0) {
+    const unlockedTier = this.getUnlockedStructureTier(teamId);
+    if (unlockedTier <= 1) return null;
+
+    const account = this.resources[teamId];
+    const minimumReserve = reservedMetal + SIMULATION_RULES.enemyStructureUpgradeMetalReserve;
+    const plannedDemand = this.getPlannedPowerDemandRate(teamId);
+    const generationRate = this.getGenerationRate(teamId);
+    const candidates = this.structures
+      .filter((structure) => structure.alive && structure.complete && structure.team === teamId)
+      .map((structure) => {
+        const currentDefinition = STRUCTURE_DEFINITIONS[structure.type];
+        const upgrade = this.getStructureUpgradeInfo(structure.id);
+        if (!upgrade.valid || upgrade.targetTier > unlockedTier) return null;
+        if (account.metal + EPSILON < upgrade.metalCost + minimumReserve) return null;
+
+        const targetDefinition = STRUCTURE_DEFINITIONS[upgrade.targetType];
+        if (!targetDefinition.generationRate) {
+          const demandIncrease = Math.max(
+            0,
+            plannedStructurePowerDemand(upgrade.targetType) -
+              plannedStructurePowerDemand(structure.type),
+          );
+          const requiredGeneration = (plannedDemand + demandIncrease) *
+            (1 + SIMULATION_RULES.enemyGenerationReserveRatio);
+          if (requiredGeneration > generationRate + EPSILON) return null;
+        }
+
+        return {
+          structureId: structure.id,
+          currentType: structure.type,
+          ...upgrade,
+          priority: AI_STRUCTURE_UPGRADE_PRIORITY[currentDefinition.family] || 0,
+        };
+      })
+      .filter(Boolean)
+      .sort(
+        (left, right) =>
+          left.targetTier - right.targetTier ||
+          right.priority - left.priority ||
+          left.structureId.localeCompare(right.structureId),
+      );
+    return candidates[0] || null;
+  }
+
   getEnergyDemandRate(team) {
     return this.structures
       .filter(
@@ -2686,6 +2743,9 @@ export class Simulation {
       if (this.resources[teamId].metal + EPSILON < productionCost + requiredReserve) continue;
       this.queueProduction(factory.id, choice);
     }
+
+    const structureUpgrade = this.getEnemyStructureUpgradeRequest(teamId, reservedMetal);
+    if (structureUpgrade) this.upgradeStructure(structureUpgrade.structureId, teamId);
 
     this.updateEnemyExpansionGarrisons(teamId, enemyAnchor, playerTargets);
     const regroupedFieldCombatCount = this.getEnemyFieldCombatUnits(teamId).length;
