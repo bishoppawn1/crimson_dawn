@@ -1128,7 +1128,7 @@ restricted or symmetric-NAT networks may still prevent a direct connection.
 
 The host owns the canonical simulation, validates incoming commands against the
 guest's team, applies the lobby's randomized map and AI configuration, and offers
-versioned simulation snapshots to the guest up to ten times per second. Every host
+versioned simulation snapshots to the guest up to four times per second. Every host
 state carries a
 monotonically increasing sequence number, and the guest ignores older state. The
 host advances the entire canonical battlefield from a fixed-step heartbeat that is
@@ -1140,7 +1140,14 @@ guest never advances a second canonical simulation between snapshots. Instead, i
 predicts its own submitted commands against the latest host state, replays still-unacknowledged
 commands when a newer state arrives, and removes or corrects them when the host
 acknowledges the result. This keeps placement and other commands responsive without
-allowing the peers to become split-brained. When the outgoing channel is congested,
+allowing the peers to become split-brained. On the guest, mobile units and
+reclamation drones interpolate from their currently displayed position toward each
+new authoritative position over 320 milliseconds. This presentation-only transition
+slightly overlaps the normal 250-millisecond snapshot interval, matching the smooth
+network-motion technique used by Galactic Empires without advancing a second
+simulation. Selection, target hit-testing, and the tactical minimap use the same
+displayed positions so the visual and interactive surfaces remain aligned. When the
+outgoing channel is congested,
 the host retains only the newest waiting snapshot; stale snapshots may not build an
 ever-older delivery backlog. Only one full snapshot may be in flight at once. The
 guest acknowledges a sequence after it has received and loaded that state, allowing

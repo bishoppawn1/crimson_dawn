@@ -18,6 +18,10 @@ const { getMapsForPlayerCount, getMatchMap, getRandomMatchMap } = await import(
 );
 const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix}`);
 const { FixedStepSimulationClock } = await import(`./simulation-clock.js${versionSuffix}`);
+const {
+  MULTIPLAYER_STATE_INTERVAL_SECONDS,
+  SnapshotPositionSmoother,
+} = await import(`./network-presentation.js${versionSuffix}`);
 const { describeConstructionQueue, describeProductionQueue } = await import(
   `./queue-status.js${versionSuffix}`
 );
@@ -157,6 +161,8 @@ const camera = {
 };
 let renderViewBounds = null;
 let renderTeamPalettes = new Map();
+let renderTimestamp = performance.now();
+const guestPositionSmoother = new SnapshotPositionSmoother();
 const cameraKeys = new Set();
 const cameraPanSpeed = 700;
 const minCameraZoom = 0.5;
@@ -354,6 +360,7 @@ function resetPresentation() {
   paused = false;
   pauseButton.textContent = "Pause simulation";
   authoritativeSimulationClock.reset(performance.now());
+  guestPositionSmoother.reset(mobileSimulationEntities(), performance.now());
   interfaceRefreshRemaining = 0;
   updateInterface();
 }
@@ -715,9 +722,12 @@ function multiplayerHandlers(role) {
           return;
         }
         try {
-          simulation = Simulation.fromSnapshot(message.snapshot);
+          const receivedAt = performance.now();
+          const nextSimulation = Simulation.fromSnapshot(message.snapshot);
+          guestPositionSmoother.transitionTo(mobileSimulationEntities(nextSimulation), receivedAt);
+          simulation = nextSimulation;
           lastHostStateSequence = sequence;
-          lastHostStateReceivedAt = performance.now();
+          lastHostStateReceivedAt = receivedAt;
           multiplayerSyncMessage = null;
           if (Number.isSafeInteger(message.lastGuestCommandId)) {
             for (const commandId of pendingGuestCommands.keys()) {
@@ -1015,7 +1025,10 @@ function sendMultiplayerSnapshot() {
     lastGuestCommandId: lastProcessedGuestCommandId,
     snapshot: simulation.createSnapshot(),
   }) || false;
-  if (sent) multiplayerSyncMessage = null;
+  if (sent) {
+    multiplayerSyncMessage = null;
+    snapshotSendRemaining = MULTIPLAYER_STATE_INTERVAL_SECONDS;
+  }
   return sent;
 }
 
@@ -1031,7 +1044,6 @@ function runAuthoritativeSimulationHeartbeat(now = performance.now()) {
   snapshotSendRemaining -= elapsedSeconds;
   if (snapshotSendRemaining <= 0) {
     sendMultiplayerSnapshot();
-    snapshotSendRemaining = 0.1;
   }
 }
 
@@ -1082,7 +1094,7 @@ function frame(now) {
     }
   }
   pruneSelection();
-  render();
+  render(now);
   interfaceRefreshRemaining -= elapsed;
   if (interfaceRefreshRemaining <= 0) {
     updateInterface();
@@ -1091,7 +1103,8 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-function render() {
+function render(now = performance.now()) {
+  renderTimestamp = now;
   renderViewBounds = visibleWorldBounds();
   renderTeamPalettes = new Map([[localTeam, teamPalettes[0]]]);
   let opponentPaletteIndex = 1;
@@ -1121,10 +1134,14 @@ function render() {
     }
   }
   for (const drone of simulation.getDrones()) {
-    if (drone.alive && worldPointIsVisible(drone.x, drone.y, 70)) drawDrone(drone);
+    if (!drone.alive) continue;
+    const displayedDrone = presentedEntity(drone);
+    if (worldPointIsVisible(displayedDrone.x, displayedDrone.y, 70)) drawDrone(displayedDrone);
   }
   for (const unit of simulation.units) {
-    if (unit.alive && worldPointIsVisible(unit.x, unit.y, 100)) drawUnit(unit);
+    if (!unit.alive) continue;
+    const displayedUnit = presentedEntity(unit);
+    if (worldPointIsVisible(displayedUnit.x, displayedUnit.y, 100)) drawUnit(displayedUnit);
   }
   drawPlacementPreview();
   drawEvents();
@@ -1132,6 +1149,24 @@ function render() {
   context.restore();
   drawCameraHud();
   drawMinimap();
+}
+
+function mobileSimulationEntities(source = simulation) {
+  return [...source.units, ...source.getDrones()];
+}
+
+function presentedPosition(entity) {
+  if (matchMode !== "multiplayer_guest" || !entity?.id) {
+    return { x: entity.x, y: entity.y };
+  }
+  return guestPositionSmoother.positionFor(entity, renderTimestamp);
+}
+
+function presentedEntity(entity) {
+  if (!entity?.id || !Number.isFinite(entity.x) || !Number.isFinite(entity.y)) return entity;
+  const position = presentedPosition(entity);
+  if (position.x === entity.x && position.y === entity.y) return entity;
+  return { ...entity, ...position };
 }
 
 function visibleWorldBounds(margin = 0) {
@@ -1279,7 +1314,8 @@ function drawMinimap() {
   }
 
   const drawUnitDot = (entity) => {
-    const point = minimapPoint(layout, entity.x, entity.y);
+    const position = presentedPosition(entity);
+    const point = minimapPoint(layout, position.x, position.y);
     const palette = teamPalette(entity.team);
     context.fillStyle = palette.bright;
     context.beginPath();
@@ -1755,6 +1791,7 @@ function drawCommandIndicators() {
 
   for (const unit of simulation.units) {
     if (!selectedUnitIds.has(unit.id) || !unit.alive) continue;
+    const unitPosition = presentedPosition(unit);
     const buildTarget = simulation.getStructure(unit.buildTargetId);
     if (buildTarget?.alive && !buildTarget.complete) {
       context.save();
@@ -1762,20 +1799,21 @@ function drawCommandIndicators() {
       context.lineWidth = 2;
       context.setLineDash([5, 6]);
       context.beginPath();
-      context.moveTo(unit.x, unit.y);
+      context.moveTo(unitPosition.x, unitPosition.y);
       context.lineTo(buildTarget.x, buildTarget.y);
       context.stroke();
       context.restore();
     }
     const repairTarget = simulation.getEntity(unit.repairTargetId);
     if (repairTarget?.alive) {
+      const repairPosition = presentedPosition(repairTarget);
       context.save();
       context.strokeStyle = `${colors.health}90`;
       context.lineWidth = 2;
       context.setLineDash([4, 5]);
       context.beginPath();
-      context.moveTo(unit.x, unit.y);
-      context.lineTo(repairTarget.x, repairTarget.y);
+      context.moveTo(unitPosition.x, unitPosition.y);
+      context.lineTo(repairPosition.x, repairPosition.y);
       context.stroke();
       context.restore();
     }
@@ -1783,7 +1821,7 @@ function drawCommandIndicators() {
       context.strokeStyle = `${colors.selection}45`;
       context.lineWidth = 1;
       context.beginPath();
-      context.moveTo(unit.x, unit.y);
+      context.moveTo(unitPosition.x, unitPosition.y);
       context.lineTo(unit.moveTarget.x, unit.moveTarget.y);
       context.stroke();
       drawDestination(unit.moveTarget.x, unit.moveTarget.y, colors.selection);
@@ -1796,11 +1834,12 @@ function drawCommandIndicators() {
       if (target?.alive) indicatedTargets.set(target.id, target);
     }
     for (const target of indicatedTargets.values()) {
+      const targetPosition = presentedPosition(target);
       context.strokeStyle = "#ef596466";
       context.lineWidth = 1;
       context.beginPath();
-      context.moveTo(unit.x, unit.y);
-      context.lineTo(target.x, target.y);
+      context.moveTo(unitPosition.x, unitPosition.y);
+      context.lineTo(targetPosition.x, targetPosition.y);
       context.stroke();
     }
   }
@@ -2232,7 +2271,7 @@ function drawSentryBuilding(structure, definition, footprint, powered, teamColor
   context.beginPath();
   context.arc(0, 0, base * 0.72, 0, Math.PI * 2);
   context.stroke();
-  const target = simulation.getEntity(structure.defenseTargetId);
+  const target = presentedEntity(simulation.getEntity(structure.defenseTargetId));
   if (target?.alive) context.rotate(Math.atan2(target.y - structure.y, target.x - structure.x));
   context.fillStyle = "#273236";
   context.strokeStyle = "#10171a";
@@ -2270,7 +2309,7 @@ function drawMortarBuilding(structure, definition, footprint, powered, teamColor
   context.arc(0, 0, base * 0.72, 0, Math.PI * 2);
   context.stroke();
 
-  const target = simulation.getEntity(structure.defenseTargetId);
+  const target = presentedEntity(simulation.getEntity(structure.defenseTargetId));
   if (target?.alive) context.rotate(Math.atan2(target.y - structure.y, target.x - structure.x));
   const firingAge = recentAttackAge(structure.id);
   const recoil = firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * size * 0.06;
@@ -2316,7 +2355,7 @@ function drawFlakBuilding(structure, definition, footprint, powered, teamColor) 
   context.arc(0, 0, base * 0.72, 0, Math.PI * 2);
   context.stroke();
 
-  const target = simulation.getEntity(structure.defenseTargetId);
+  const target = presentedEntity(simulation.getEntity(structure.defenseTargetId));
   if (target?.alive) context.rotate(Math.atan2(target.y - structure.y, target.x - structure.x));
   context.fillStyle = "#273236";
   context.strokeStyle = "#10171a";
@@ -2564,6 +2603,7 @@ function drawUnit(unit) {
   const overdrive = unit.abilityActiveUntil.overdrive > simulation.time;
   const activeBuildTarget = getActiveConstructionTarget(unit);
   const activeRepairTarget = getActiveRepairTarget(unit);
+  const displayedRepairTarget = presentedEntity(activeRepairTarget);
 
   if (definition.underbellyBeamRadius) {
     drawZenithUnderbellyBeam(unit, definition, selected);
@@ -2587,9 +2627,10 @@ function drawUnit(unit) {
     for (const targetId of unit.energyTransferTargetIds) {
       const target = simulation.getUnit(targetId);
       if (!target?.alive) continue;
+      const targetPosition = presentedPosition(target);
       context.beginPath();
       context.moveTo(unit.x, unit.y);
-      context.lineTo(target.x, target.y);
+      context.lineTo(targetPosition.x, targetPosition.y);
       context.stroke();
     }
     context.restore();
@@ -2613,7 +2654,7 @@ function drawUnit(unit) {
   }
 
   drawUnitGroundShadow(definition);
-  const pose = getUnitRenderPose(unit, activeBuildTarget, activeRepairTarget);
+  const pose = getUnitRenderPose(unit, activeBuildTarget, displayedRepairTarget);
   context.rotate(pose.facing);
   context.translate(0, pose.recoil * definition.radius);
   drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis", pose);
@@ -2621,8 +2662,8 @@ function drawUnit(unit) {
 
   if (activeBuildTarget) {
     drawWorkerConstructionEffect(unit, activeBuildTarget, pose, teamColor);
-  } else if (activeRepairTarget) {
-    drawWorkerRepairEffect(unit, activeRepairTarget, pose, teamColor);
+  } else if (displayedRepairTarget) {
+    drawWorkerRepairEffect(unit, displayedRepairTarget, pose, teamColor);
   }
 
   const barWidth = Math.max(24, definition.radius * 2.3);
@@ -2687,11 +2728,11 @@ function getActiveRepairTarget(unit) {
 }
 
 function getUnitRenderPose(unit, activeBuildTarget = null, activeRepairTarget = null) {
-  const attackTarget = simulation.getEntity(unit.attackTargetId);
+  const attackTarget = presentedEntity(simulation.getEntity(unit.attackTargetId));
   const buildTarget = simulation.getStructure(unit.buildTargetId);
-  const repairTarget = simulation.getEntity(unit.repairTargetId);
+  const repairTarget = presentedEntity(simulation.getEntity(unit.repairTargetId));
   const transferTarget = unit.energyTransferTargetIds?.length
-    ? simulation.getUnit(unit.energyTransferTargetIds[0])
+    ? presentedEntity(simulation.getUnit(unit.energyTransferTargetIds[0]))
     : null;
   const target = attackTarget?.alive
     ? attackTarget
@@ -2713,7 +2754,7 @@ function getUnitRenderPose(unit, activeBuildTarget = null, activeRepairTarget = 
   const phase = [...unit.id].reduce((total, character) => total + character.charCodeAt(0), 0) * 0.31;
   const firingAge = recentAttackAge(unit.id);
   const weaponSystemFacings = (unit.weaponSystems || []).map((weaponSystem) => {
-    const weaponTarget = simulation.getEntity(weaponSystem.targetId);
+    const weaponTarget = presentedEntity(simulation.getEntity(weaponSystem.targetId));
     if (!weaponTarget?.alive) return 0;
     const targetFacing = Math.atan2(weaponTarget.y - unit.y, weaponTarget.x - unit.x) + Math.PI / 2;
     return Math.atan2(Math.sin(targetFacing - facing), Math.cos(targetFacing - facing));
@@ -5288,7 +5329,9 @@ function clampValue(value, minimum, maximum) {
 function findUnitAt(point, team = null) {
   const candidates = simulation.units.filter((unit) => {
     if (!unit.alive || (team && unit.team !== team)) return false;
-    return Math.hypot(unit.x - point.x, unit.y - point.y) <= UNIT_DEFINITIONS[unit.type].radius + 8;
+    const position = presentedPosition(unit);
+    return Math.hypot(position.x - point.x, position.y - point.y) <=
+      UNIT_DEFINITIONS[unit.type].radius + 8;
   });
   return candidates.at(-1) || null;
 }
@@ -5338,7 +5381,8 @@ function findEnemyAt(point) {
           : entity.kind === "structure"
             ? STRUCTURE_DEFINITIONS[entity.type].radius
             : DRONE_DEFINITION.radius;
-      return Math.hypot(entity.x - point.x, entity.y - point.y) <= radius + 10;
+      const position = presentedPosition(entity);
+      return Math.hypot(position.x - point.x, position.y - point.y) <= radius + 10;
     }) || null
   );
 }
@@ -5479,15 +5523,11 @@ canvas.addEventListener("mouseup", (event) => {
     const right = Math.max(drag.start.x, drag.current.x);
     const top = Math.min(drag.start.y, drag.current.y);
     const bottom = Math.max(drag.start.y, drag.current.y);
-    const boxedUnits = simulation.units.filter(
-      (unit) =>
-        unit.alive &&
-        unit.team === localTeam &&
-        unit.x >= left &&
-        unit.x <= right &&
-        unit.y >= top &&
-        unit.y <= bottom,
-    );
+    const boxedUnits = simulation.units.filter((unit) => {
+      if (!unit.alive || unit.team !== localTeam) return false;
+      const position = presentedPosition(unit);
+      return position.x >= left && position.x <= right && position.y >= top && position.y <= bottom;
+    });
     const boxedFactories = simulation.structures.filter((structure) => {
       const definition = STRUCTURE_DEFINITIONS[structure.type];
       return (
