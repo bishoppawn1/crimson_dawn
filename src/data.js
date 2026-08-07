@@ -529,7 +529,7 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
     attackEnergy: 0, attackCooldown: 0, metalCost: 2500, productionTime: 62,
     supplyCost: 95, groundAttackOnly: true, underbellyBeamRadius: 48,
     underbellyBeamDamagePerSecond: 150, underbellyBeamEnergyPerSecond: 38,
-    automaticallyPursuesBeamTargets: true,
+    automaticallyPursuesBeamTargets: true, automaticTargetAcquisitionRange: 400,
   }),
 });
 

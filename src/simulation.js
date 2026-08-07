@@ -2245,8 +2245,13 @@ export class Simulation {
 
     let target = validTarget(existingTarget) ? existingTarget : null;
     if (!target) {
-      const candidates = [...this.units, ...this.droneCache, ...this.structures]
-        .filter((candidate) => validTarget(candidate));
+      const acquisitionRange = definition.automaticTargetAcquisitionRange || 0;
+      const candidates = this.getNearbyHostileTargets(unit, acquisitionRange)
+        .filter(
+          (candidate) =>
+            validTarget(candidate) &&
+            distance(unit, candidate) <= acquisitionRange + entityRadius(candidate),
+        );
       target = nearest(unit, preferredTargets(definition, candidates));
       unit.attackTargetId = target?.id || null;
       unit.attackTargetMode = target ? "automatic" : null;

@@ -262,7 +262,7 @@ for (const unitType of producibleUnitTypes) {
   button.className = "command-button";
   const roleSummary = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
   const combatSummary = definition.underbellyBeamRadius
-    ? ` · ${definition.underbellyBeamDamagePerSecond}/s underbelly beam · ${definition.underbellyBeamRadius} radius${definition.automaticallyPursuesBeamTargets ? " · automatically hunts ground targets" : ""}`
+    ? ` · ${definition.underbellyBeamDamagePerSecond}/s underbelly beam · ${definition.underbellyBeamRadius} radius${definition.automaticTargetAcquisitionRange ? ` · seeks ground targets within ${definition.automaticTargetAcquisitionRange}` : ""}`
     : definition.attackRange
       ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× vs air` : ""}`
       : "";
@@ -4881,7 +4881,7 @@ function updateInterface() {
       : "";
     const roleText = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
     const combatText = definition.underbellyBeamRadius
-      ? ` · ${definition.underbellyBeamDamagePerSecond} damage/s underbelly beam · ${definition.underbellyBeamRadius} radius · ${definition.speed} speed${definition.automaticallyPursuesBeamTargets ? " · AUTOMATIC GROUND HUNT" : ""}`
+      ? ` · ${definition.underbellyBeamDamagePerSecond} damage/s underbelly beam · ${definition.underbellyBeamRadius} radius · ${definition.speed} speed${definition.automaticTargetAcquisitionRange ? ` · ${definition.automaticTargetAcquisitionRange} LOCAL ACQUISITION` : ""}`
       : definition.weaponSystems?.length
         ? ` · ${definition.weaponSystems.length} independent cannons · ${definition.attackDamage} combined damage · ${definition.attackRange} maximum range · ${definition.speed} speed`
       : definition.attackRange

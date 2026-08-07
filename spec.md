@@ -508,7 +508,7 @@ The Tier 3 Experimental Factory produces exactly three enormous strategic units:
 | --- | --- |
 | Arsenal Colossus | Huge assault mech carrying eight visible weapon systems and firing a converging multi-projectile salvo |
 | Hexapod Landship | Six-legged walking battleship with three independently targeting siege cannons, extreme durability, and the ability to stride across living building footprints |
-| Zenith Doughnut | Giant circular toroidal aircraft that automatically hunts ground targets and projects a sustained high-energy laser straight down |
+| Zenith Doughnut | Giant circular toroidal aircraft that locally seeks nearby ground targets, hovers over them, and projects a sustained high-energy laser straight down |
 
 The Arsenal Colossus follows the same overhead leg language as conventional mechs:
 its hull hides the walking assembly while stationary, leaving only compact rear hip
@@ -524,10 +524,13 @@ firing order begins. Its six legs retain their deliberate pull-step gait, but th
 two sides use offset phases and shortened travel lanes so neighboring feet do not
 cross. Solid armored foot pads replace the former protruding toe rods. The Zenith
 Doughnut ignores terrain, structures, and ground-unit separation. When idle, it
-automatically selects the nearest hostile ground target anywhere on the battlefield,
-flies into beam range, tracks moving targets, and continues to the next target after
-a kill. Explicit attack, movement, force-movement, and hold-position orders retain
-priority over autonomous pursuit. Its laser has no horizontal firing range, remains
+automatically selects the nearest hostile ground target within a provisional
+400-world-unit local acquisition radius, flies directly over it, hovers while the
+beam fires, tracks moving targets, and only selects another target after a kill when
+that target is locally detectable from its new position. It never scans the whole
+battlefield or begins a cross-map pursuit without an explicit attack order. Explicit
+attack, movement, force-movement, and hold-position orders retain priority over
+autonomous pursuit. Its laser has no horizontal firing range, remains
 centered beneath the aircraft, and automatically damages
 every hostile ground unit or structure inside its 48-unit-radius footprint without
 stopping movement. Players can also attack by routing the aircraft over enemy

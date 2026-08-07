@@ -474,14 +474,15 @@ test("Zenith Doughnut burns ground targets directly beneath it while moving", ()
   assert.equal(aircraftUnderBeam.hp, aircraftUnderBeamStartingHp);
 });
 
-test("Zenith Doughnuts automatically hunt and burn ground targets", () => {
+test("Zenith Doughnuts only auto-acquire nearby ground targets", () => {
   const simulation = new Simulation({ width: 1600, height: 1000, enemyAiEnabled: false });
   const doughnut = simulation.addUnit("zenith_doughnut", "player", 200, 500);
+  const acquisitionRange = UNIT_DEFINITIONS.zenith_doughnut.automaticTargetAcquisitionRange;
   const nearbyAircraft = simulation.addUnit("interceptor_t2", "enemy", 260, 500, {
     holdPosition: true,
   });
-  const firstTarget = simulation.addStructure("generator", "enemy", 900, 500, { hp: 10 });
-  const secondTarget = simulation.addStructure("generator", "enemy", 1300, 500);
+  const firstTarget = simulation.addStructure("generator", "enemy", 560, 500, { hp: 10 });
+  const secondTarget = simulation.addStructure("generator", "enemy", 900, 500);
   const aircraftStartingHp = nearbyAircraft.hp;
 
   simulation.tick(1 / 30);
@@ -489,14 +490,44 @@ test("Zenith Doughnuts automatically hunt and burn ground targets", () => {
   assert.equal(doughnut.attackTargetId, firstTarget.id);
   assert.equal(doughnut.attackTargetMode, "automatic");
   assert.equal(doughnut.moveMode, "pursuit");
-  assert.ok(doughnut.x > 200, "the idle aircraft should begin hunting immediately");
+  assert.ok(doughnut.x > 200, "the idle aircraft should approach a locally detected target");
   assert.equal(nearbyAircraft.hp, aircraftStartingHp, "the ground beam must ignore aircraft");
 
-  advance(simulation, 4);
+  advance(simulation, 3);
 
   assert.equal(firstTarget.alive, false, "the aircraft should fly into beam range and attack");
   assert.equal(doughnut.attackTargetId, secondTarget.id);
   assert.equal(doughnut.attackTargetMode, "automatic");
+
+  const distantSimulation = new Simulation({ width: 1600, height: 1000, enemyAiEnabled: false });
+  const idleDoughnut = distantSimulation.addUnit("zenith_doughnut", "player", 200, 500);
+  const distantTarget = distantSimulation.addStructure(
+    "generator",
+    "enemy",
+    200 + acquisitionRange + STRUCTURE_DEFINITIONS.generator.radius + 40,
+    500,
+  );
+
+  distantSimulation.tick(1 / 30);
+
+  assert.equal(idleDoughnut.attackTargetId, null);
+  assert.equal(idleDoughnut.moveTarget, null);
+  assert.equal(idleDoughnut.x, 200, "a distant enemy must not trigger cross-map pursuit");
+  assert.equal(distantTarget.hp, STRUCTURE_DEFINITIONS.generator.maxHp);
+});
+
+test("Zenith Doughnuts hover directly over a locally acquired target", () => {
+  const simulation = new Simulation({ width: 1200, height: 800, enemyAiEnabled: false });
+  const doughnut = simulation.addUnit("zenith_doughnut", "player", 200, 400);
+  const target = simulation.addStructure("generator", "enemy", 500, 400);
+
+  advance(simulation, 1.5);
+
+  assert.equal(doughnut.attackTargetId, target.id);
+  assert.equal(doughnut.moveMode, "pursuit");
+  assert.ok(Math.hypot(doughnut.x - target.x, doughnut.y - target.y) <= 4.01);
+  assert.equal(doughnut.underbellyBeamActive, true);
+  assert.ok(target.hp < STRUCTURE_DEFINITIONS.generator.maxHp);
 });
 
 test("explicit orders take priority over automatic Zenith pursuit", () => {
@@ -1165,6 +1196,7 @@ test("Zenith Doughnuts are enormous and fast strategic aircraft", () => {
   assert.ok(doughnut.radius >= 70);
   assert.equal(doughnut.speed, 250);
   assert.ok(doughnut.underbellyBeamRadius >= 48);
+  assert.equal(doughnut.automaticTargetAcquisitionRange, 400);
   assert.equal(doughnut.underbellyBeamDamagePerSecond, 150);
   assert.equal(doughnut.automaticallyPursuesBeamTargets, true);
 });
