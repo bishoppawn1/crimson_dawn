@@ -1131,6 +1131,11 @@ guest's team, applies the lobby's randomized map and AI configuration, and offer
 versioned simulation snapshots to the guest up to ten times per second. Every host
 state carries a
 monotonically increasing sequence number, and the guest ignores older state. The
+host advances the entire canonical battlefield from a fixed-step heartbeat that is
+independent of rendering, camera position, and visible-entity culling. Remote and
+off-screen units, construction, production, combat, economy, and AI therefore keep
+advancing when the host looks elsewhere, and a delayed browser heartbeat catches up
+a bounded amount of elapsed simulation time before publishing its newest state. The
 guest never advances a second canonical simulation between snapshots. Instead, it
 predicts its own submitted commands against the latest host state, replays still-unacknowledged
 commands when a newer state arrives, and removes or corrects them when the host

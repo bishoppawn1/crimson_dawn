@@ -23,6 +23,7 @@ test("the static bootstrap requests a fresh, consistent local module set", async
   assert.match(game, /`\.\/maps\.js\$\{versionSuffix\}`/);
   assert.match(game, /`\.\/minimap\.js\$\{versionSuffix\}`/);
   assert.match(game, /`\.\/simulation\.js\$\{versionSuffix\}`/);
+  assert.match(game, /`\.\/simulation-clock\.js\$\{versionSuffix\}`/);
   assert.match(game, /`\.\/queue-status\.js\$\{versionSuffix\}`/);
   assert.match(maps, /`\.\/data\.js\$\{versionSuffix\}`/);
   assert.match(simulation, /`\.\/maps\.js\$\{versionSuffix\}`/);

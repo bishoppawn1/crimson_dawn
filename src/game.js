@@ -17,6 +17,7 @@ const { getMapsForPlayerCount, getMatchMap, getRandomMatchMap } = await import(
   `./maps.js${versionSuffix}`
 );
 const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix}`);
+const { FixedStepSimulationClock } = await import(`./simulation-clock.js${versionSuffix}`);
 const { describeConstructionQueue, describeProductionQueue } = await import(
   `./queue-status.js${versionSuffix}`
 );
@@ -140,10 +141,13 @@ let placementCursor = null;
 let pointerScreen = null;
 let forceMoveArmed = false;
 let paused = false;
-let lastFrameTime = performance.now();
-let accumulator = 0;
 const fixedStep = 1 / 30;
-const maxSimulationStepsPerFrame = 2;
+const authoritativeSimulationClock = new FixedStepSimulationClock({
+  stepSeconds: fixedStep,
+  maximumElapsedSeconds: 1,
+});
+let lastFrameTime = performance.now();
+authoritativeSimulationClock.reset(lastFrameTime);
 const interfaceRefreshInterval = 0.1;
 let interfaceRefreshRemaining = 0;
 const camera = {
@@ -349,7 +353,7 @@ function resetPresentation() {
   resetCamera();
   paused = false;
   pauseButton.textContent = "Pause simulation";
-  accumulator = 0;
+  authoritativeSimulationClock.reset(performance.now());
   interfaceRefreshRemaining = 0;
   updateInterface();
 }
@@ -1015,6 +1019,22 @@ function sendMultiplayerSnapshot() {
   return sent;
 }
 
+function runAuthoritativeSimulationHeartbeat(now = performance.now()) {
+  const running = matchMode !== "menu" && matchMode !== "multiplayer_guest" && !paused;
+  const { elapsedSeconds } = authoritativeSimulationClock.advance(
+    now,
+    running,
+    (step) => simulation.tick(step),
+  );
+  if (!running || matchMode !== "multiplayer_host") return;
+
+  snapshotSendRemaining -= elapsedSeconds;
+  if (snapshotSendRemaining <= 0) {
+    sendMultiplayerSnapshot();
+    snapshotSendRemaining = 0.1;
+  }
+}
+
 function describeStructureRole(definition) {
   if (definition.capacitorCapacity) {
     const damagePerSecond = definition.attackDamage / definition.attackCooldown;
@@ -1061,23 +1081,6 @@ function frame(now) {
       renderMultiplayerLobby();
     }
   }
-  if (matchMode !== "menu" && matchMode !== "multiplayer_guest" && !paused) {
-    accumulator += elapsed;
-    let simulationSteps = 0;
-    while (accumulator >= fixedStep && simulationSteps < maxSimulationStepsPerFrame) {
-      simulation.tick(fixedStep);
-      accumulator -= fixedStep;
-      simulationSteps += 1;
-    }
-    if (matchMode === "multiplayer_host") {
-      snapshotSendRemaining -= elapsed;
-      if (snapshotSendRemaining <= 0) {
-        sendMultiplayerSnapshot();
-        snapshotSendRemaining = 0.1;
-      }
-    }
-  }
-
   pruneSelection();
   render();
   interfaceRefreshRemaining -= elapsed;
@@ -5843,4 +5846,5 @@ window.crimsonDawn = {
 
 gameShell.setAttribute("inert", "");
 updateInterface();
+setInterval(runAuthoritativeSimulationHeartbeat, fixedStep * 1000);
 requestAnimationFrame(frame);
