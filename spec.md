@@ -60,6 +60,9 @@ always shows the complete map at a fixed overview scale, including terrain,
 deposits, living structures, and every living mobile unit. Friendly and opposing
 units use their team colors as compact dots, while the current camera view appears
 as a white rectangle. Left-clicking the minimap recenters the battlefield camera.
+Right-clicking a point inside the map area with units selected issues the same
+formation move command at the corresponding world position without moving the
+camera; an armed force-move modifier is preserved for this command.
 On desktop displays, the battlefield expands across the available browser width;
 outer padding and the command column remain narrow enough to prioritize the play
 surface.

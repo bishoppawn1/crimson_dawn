@@ -1227,7 +1227,7 @@ function drawMinimap() {
   context.fillStyle = "#b7c4ce";
   context.font = "700 12px ui-monospace, monospace";
   context.textAlign = "left";
-  context.fillText("TACTICAL MAP · CLICK TO CENTER", layout.mapLeft, layout.top + 18);
+  context.fillText("TACTICAL MAP · L:CENTER · R:MOVE", layout.mapLeft, layout.top + 18);
 
   context.beginPath();
   context.rect(layout.mapLeft, layout.mapTop, layout.mapWidth, layout.mapHeight);
@@ -5538,7 +5538,20 @@ canvas.addEventListener("mouseup", (event) => {
 canvas.addEventListener("contextmenu", (event) => {
   event.preventDefault();
   if (simulation.matchResult) return;
-  if (minimapContains(currentMinimapLayout(), canvasScreenPoint(event))) return;
+  const screenPoint = canvasScreenPoint(event);
+  const minimapLayout = currentMinimapLayout();
+  if (minimapContains(minimapLayout, screenPoint)) {
+    const minimapTarget = minimapWorldPoint(minimapLayout, screenPoint);
+    if (
+      minimapTarget &&
+      selectedUnitIds.size > 0 &&
+      !testerSpawnPlacement &&
+      !placementStructureType
+    ) {
+      issueSelectedUnitMove(minimapTarget);
+    }
+    return;
+  }
   if (testerSpawnPlacement || placementStructureType) {
     testerSpawnPlacement = null;
     placementStructureType = null;
@@ -5610,7 +5623,13 @@ canvas.addEventListener("contextmenu", (event) => {
     }
   }
 
+  issueSelectedUnitMove(point);
+});
+
+function issueSelectedUnitMove(point) {
   const selected = [...selectedUnitIds];
+  if (selected.length === 0) return false;
+  const forceMove = forceMoveArmed;
   const columns = Math.ceil(Math.sqrt(selected.length));
   const orders = selected.map((id, index) => {
     const row = Math.floor(index / columns);
@@ -5619,10 +5638,11 @@ canvas.addEventListener("contextmenu", (event) => {
     const offsetY = (row - (Math.ceil(selected.length / columns) - 1) / 2) * 44;
     return { unitId: id, x: point.x + offsetX, y: point.y + offsetY };
   });
-  issueGameCommand({ type: "move", orders, force: forceMove });
+  const accepted = issueGameCommand({ type: "move", orders, force: forceMove });
   forceMoveArmed = false;
   updateInterface();
-});
+  return Boolean(accepted);
+}
 
 function activateOverdrive() {
   issueGameCommand({

@@ -27,3 +27,15 @@ test("the static bootstrap requests a fresh, consistent local module set", async
   assert.match(maps, /`\.\/data\.js\$\{versionSuffix\}`/);
   assert.match(simulation, /`\.\/maps\.js\$\{versionSuffix\}`/);
 });
+
+test("the tactical minimap routes right-clicks into selected-unit move orders", async () => {
+  const [index, game] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+  ]);
+
+  assert.match(game, /minimapWorldPoint\(minimapLayout, screenPoint\)/);
+  assert.match(game, /issueSelectedUnitMove\(minimapTarget\)/);
+  assert.match(game, /TACTICAL MAP · L:CENTER · R:MOVE/);
+  assert.match(index, /right-click it with units selected to move them/);
+});

@@ -67,7 +67,8 @@ The current build is the first playable field test. It includes:
 - Visible impassable ridges, shelves, crags, and broken starting walls that block
   ground movement and construction for both players and AI while leaving open gates.
 - A top-right tactical minimap showing the entire battlefield, all living units in
-  team colors, structures, terrain, deposits, and the current camera view.
+  team colors, structures, terrain, deposits, and the current camera view, with
+  left-click camera centering and right-click selected-unit movement.
 - Tier 1–3 mech factories, each offering matching-tier Worker, Vanguard, Bulwark,
   and Arc Energy Carrier production lines.
 - Tier 1–3 Vehicle Factories producing Scout Vehicles, Battle Tanks, Mobile
