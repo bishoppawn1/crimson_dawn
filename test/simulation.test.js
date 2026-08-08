@@ -1568,19 +1568,40 @@ test("emergency regeneration lets an energy-starved unit resume firing", () => {
   assert.ok(target.hp < startingHp, "the unit should regenerate enough energy to fire again");
 });
 
-test("active emergency regeneration stops at its narrow recovery threshold", () => {
-  const simulation = new Simulation();
-  const threshold = SIMULATION_RULES.lowEnergyRegenerationThreshold;
-  const unit = simulation.addUnit("scout_mech", "player", 100, 100, { energy: threshold - 1 });
+test("every active unit slowly regenerates to 20 percent energy", () => {
+  const simulation = new Simulation({ width: 4000, height: 4000, enemyAiEnabled: false });
+  const units = Object.entries(UNIT_DEFINITIONS).map(([type, definition], index) => {
+    const threshold = definition.maxEnergy * SIMULATION_RULES.lowEnergyRatio;
+    return simulation.addUnit(
+      type,
+      "player",
+      100 + (index % 10) * 200,
+      100 + Math.floor(index / 10) * 200,
+      { energy: threshold - 1 },
+    );
+  });
 
-  advance(simulation, 5);
+  simulation.updateUnits(1);
 
-  assert.ok(Math.abs(unit.energy - threshold) < 0.0001);
+  for (const unit of units) {
+    const threshold = UNIT_DEFINITIONS[unit.type].maxEnergy * SIMULATION_RULES.lowEnergyRatio;
+    assert.ok(Math.abs(unit.energy - threshold) < 0.0001, unit.type);
+  }
+
+  simulation.updateUnits(1);
+
+  for (const unit of units) {
+    const threshold = UNIT_DEFINITIONS[unit.type].maxEnergy * SIMULATION_RULES.lowEnergyRatio;
+    assert.ok(Math.abs(unit.energy - threshold) < 0.0001, unit.type);
+  }
 });
 
 test("attacking damages the target and spends the attacker's energy", () => {
   const simulation = new Simulation();
-  const attacker = simulation.addUnit("scout_mech", "player", 100, 100, { energy: 20 });
+  const startingEnergy = UNIT_DEFINITIONS.scout_mech.maxEnergy * SIMULATION_RULES.lowEnergyRatio;
+  const attacker = simulation.addUnit("scout_mech", "player", 100, 100, {
+    energy: startingEnergy,
+  });
   const target = simulation.addUnit("raider", "enemy", 150, 100);
   const startingHp = target.hp;
 
@@ -1588,7 +1609,7 @@ test("attacking damages the target and spends the attacker's energy", () => {
   simulation.tick(1 / 30);
 
   assert.equal(target.hp, startingHp);
-  assert.equal(attacker.energy, 20 - UNIT_DEFINITIONS.scout_mech.attackEnergy);
+  assert.equal(attacker.energy, startingEnergy - UNIT_DEFINITIONS.scout_mech.attackEnergy);
   const firingEvent = simulation.events.find((event) => event.type === "attack");
   assert.ok(firingEvent.impactDelay > 0);
   assert.ok(simulation.pendingImpacts.some(
@@ -1805,46 +1826,59 @@ test("a linked charger draws stored energy from a grid battery", () => {
 
 test("the faster Induction Charger transfers its provisional maximum rate", () => {
   const simulation = new Simulation();
+  const startingEnergy = UNIT_DEFINITIONS.scout_mech.maxEnergy * SIMULATION_RULES.lowEnergyRatio;
   simulation.addStructure("generator", "player", 100, 100);
   simulation.addStructure("battery", "player", 175, 100, { storedEnergy: 100 });
   const charger = simulation.addStructure("charger", "player", 250, 100);
-  const unit = simulation.addUnit("scout_mech", "player", 260, 100, { energy: 20 });
+  const unit = simulation.addUnit("scout_mech", "player", 260, 100, {
+    energy: startingEnergy,
+  });
 
   simulation.tick(0.25);
 
   assert.equal(charger.powered, true);
-  assert.ok(Math.abs(unit.energy - (20 + STRUCTURE_DEFINITIONS.charger.chargeRate * 0.25)) < 0.001);
+  assert.ok(
+    Math.abs(
+      unit.energy - (startingEnergy + STRUCTURE_DEFINITIONS.charger.chargeRate * 0.25),
+    ) < 0.001,
+  );
   assert.equal(STRUCTURE_DEFINITIONS.charger.chargeRate, 112);
 });
 
 test("the enlarged Induction Charger field reaches 260 world units", () => {
   const simulation = new Simulation();
+  const startingEnergy = UNIT_DEFINITIONS.scout_mech.maxEnergy * SIMULATION_RULES.lowEnergyRatio;
   simulation.addStructure("generator", "player", 100, 100);
   simulation.addStructure("battery", "player", 175, 100, { storedEnergy: 100 });
   const charger = simulation.addStructure("charger", "player", 250, 100);
-  const edgeUnit = simulation.addUnit("scout_mech", "player", 510, 100, { energy: 20 });
-  const outsideUnit = simulation.addUnit("scout_mech", "player", 250, 361, { energy: 20 });
+  const edgeUnit = simulation.addUnit("scout_mech", "player", 510, 100, {
+    energy: startingEnergy,
+  });
+  const outsideUnit = simulation.addUnit("scout_mech", "player", 250, 361, {
+    energy: startingEnergy,
+  });
 
   simulation.tick(0.25);
 
   assert.equal(STRUCTURE_DEFINITIONS.charger.chargeRadius, 260);
-  assert.ok(edgeUnit.energy > 20);
-  assert.equal(outsideUnit.energy, 20);
+  assert.ok(edgeUnit.energy > startingEnergy);
+  assert.equal(outsideUnit.energy, startingEnergy);
 });
 
 test("an Induction Charger charges every unit in its field simultaneously", () => {
   const simulation = new Simulation();
+  const startingEnergy = UNIT_DEFINITIONS.scout_mech.maxEnergy * SIMULATION_RULES.lowEnergyRatio;
   simulation.addStructure("generator", "player", 100, 100);
   const charger = simulation.addStructure("charger", "player", 250, 100);
   const units = [
-    simulation.addUnit("scout_mech", "player", 235, 100, { energy: 20 }),
-    simulation.addUnit("scout_mech", "player", 265, 100, { energy: 20 }),
-    simulation.addUnit("scout_mech", "player", 250, 125, { energy: 20 }),
+    simulation.addUnit("scout_mech", "player", 235, 100, { energy: startingEnergy }),
+    simulation.addUnit("scout_mech", "player", 265, 100, { energy: startingEnergy }),
+    simulation.addUnit("scout_mech", "player", 250, 125, { energy: startingEnergy }),
   ];
 
   simulation.tick(0.25);
 
-  const gains = units.map((unit) => unit.energy - 20);
+  const gains = units.map((unit) => unit.energy - startingEnergy);
   assert.ok(gains.every((gain) => gain > 0), "no in-range unit should be skipped");
   assert.ok(Math.max(...gains) - Math.min(...gains) < 0.0001, "scarce power should be shared evenly");
   assert.ok(
@@ -1856,20 +1890,21 @@ test("an Induction Charger charges every unit in its field simultaneously", () =
 
 test("all units receive the full charger rate when the grid can supply it", () => {
   const simulation = new Simulation();
+  const startingEnergy = UNIT_DEFINITIONS.scout_mech.maxEnergy * SIMULATION_RULES.lowEnergyRatio;
   simulation.addStructure("generator", "player", 100, 100);
   simulation.addStructure("battery", "player", 140, 100, { storedEnergy: 100 });
   simulation.addStructure("battery", "player", 175, 100, { storedEnergy: 100 });
   simulation.addStructure("battery", "player", 210, 100, { storedEnergy: 100 });
   simulation.addStructure("charger", "player", 250, 100);
   const units = [
-    simulation.addUnit("scout_mech", "player", 235, 100, { energy: 20 }),
-    simulation.addUnit("scout_mech", "player", 265, 100, { energy: 20 }),
-    simulation.addUnit("scout_mech", "player", 250, 125, { energy: 20 }),
+    simulation.addUnit("scout_mech", "player", 235, 100, { energy: startingEnergy }),
+    simulation.addUnit("scout_mech", "player", 265, 100, { energy: startingEnergy }),
+    simulation.addUnit("scout_mech", "player", 250, 125, { energy: startingEnergy }),
   ];
 
   simulation.tick(0.25);
 
-  const expectedEnergy = 20 + STRUCTURE_DEFINITIONS.charger.chargeRate * 0.25;
+  const expectedEnergy = startingEnergy + STRUCTURE_DEFINITIONS.charger.chargeRate * 0.25;
   assert.ok(units.every((unit) => Math.abs(unit.energy - expectedEnergy) < 0.0001));
 });
 
@@ -1930,16 +1965,19 @@ test("every unit type has the enlarged provisional energy capacity", () => {
 
 test("a charger outside the generator network cannot charge units", () => {
   const simulation = new Simulation();
+  const startingEnergy = UNIT_DEFINITIONS.scout_mech.maxEnergy * SIMULATION_RULES.lowEnergyRatio;
   simulation.addStructure("generator", "player", 50, 50);
   const charger = simulation.addStructure("charger", "player", 700, 700);
-  const unit = simulation.addUnit("scout_mech", "player", 700, 700, { energy: 20 });
+  const unit = simulation.addUnit("scout_mech", "player", 700, 700, {
+    energy: startingEnergy,
+  });
 
   simulation.tick(0.25);
 
   assert.equal(charger.powered, false);
   assert.equal(charger.connected, false);
   assert.equal(charger.powerStatus, "disconnected");
-  assert.equal(unit.energy, 20);
+  assert.equal(unit.energy, startingEnergy);
 });
 
 test("generators continuously produce and retain a capped internal reserve", () => {

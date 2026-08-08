@@ -1464,7 +1464,6 @@ export const SIMULATION_RULES = Object.freeze({
   normalAirDamageMultiplier: 0.55,
   stasisRegenerationRate: 2.5,
   lowEnergyRegenerationRate: 1.5,
-  lowEnergyRegenerationThreshold: 18,
   reactivationThreshold: 18,
   lowEnergyRatio: 0.2,
   structureCollisionPadding: 0,

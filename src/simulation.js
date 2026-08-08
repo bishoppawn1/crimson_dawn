@@ -4194,10 +4194,7 @@ export class Simulation {
         continue;
       }
 
-      const emergencyEnergyThreshold = Math.min(
-        definition.maxEnergy * SIMULATION_RULES.lowEnergyRatio,
-        SIMULATION_RULES.lowEnergyRegenerationThreshold,
-      );
+      const emergencyEnergyThreshold = definition.maxEnergy * SIMULATION_RULES.lowEnergyRatio;
       if (unit.energy + EPSILON < emergencyEnergyThreshold) {
         unit.energy = Math.min(
           emergencyEnergyThreshold,

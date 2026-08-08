@@ -5880,7 +5880,7 @@ function updateInterface() {
     const unit = selectedUnits[0];
     const definition = UNIT_DEFINITIONS[unit.type];
     const emergencyRecoveryText =
-      unit.state === "active" && unit.energy < SIMULATION_RULES.lowEnergyRegenerationThreshold
+      unit.state === "active" && energyRatio(unit) < SIMULATION_RULES.lowEnergyRatio
         ? ` · EMERGENCY REGEN +${SIMULATION_RULES.lowEnergyRegenerationRate}/s`
         : "";
     const buildTarget = simulation.getStructure(unit.buildTargetId);

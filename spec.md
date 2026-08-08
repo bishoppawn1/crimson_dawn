@@ -312,13 +312,13 @@ chance, not a free return to full combat readiness.
 The UI must warn players before units cross a dangerous reserve threshold and make
 low-energy, stasis, and reactivated states visually distinct.
 
-An active unit below the emergency-energy threshold passively regenerates a small
-reserve. This narrower threshold sits inside the broader low-energy warning band,
-is high enough to fund every basic weapon, and prevents a unit that cannot afford
-its next shot or movement from remaining permanently stalled. The regeneration is
-slower than stasis recovery and stops at the emergency threshold. Chargers and
-mobile suppliers are still required to restore normal combat endurance or a full
-reserve.
+Every active mobile unit, regardless of role, tier, or commander, passively
+regenerates energy whenever it is below 20% of its own maximum capacity. This slow
+recovery stops exactly at 20% and prevents a depleted unit from remaining
+permanently unable to move or fire. Stasis retains its faster emergency recovery to
+the reactivation threshold; after reactivation, the ordinary slow regeneration
+continues until the unit reaches 20%. Chargers and mobile suppliers are still
+required to restore normal combat endurance or a full reserve.
 
 ## 4. Units and Abilities
 
