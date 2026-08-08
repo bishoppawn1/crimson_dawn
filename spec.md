@@ -613,7 +613,7 @@ crystal income; reclamation yards field more drones with faster replacement; and
 factories gain provisional production-speed multipliers of 1.0×, 1.25×, and 1.5×.
 Sentry Turrets scale especially clearly: provisional Tier 1/Tier 2/Tier 3 weapon
 profiles are 18/34/60 damage, 185/265/360 range, and 0.75/0.68/0.55-second reloads.
-Shield Turrets scale from 520/1,050/1,900 shield capacity, 165/235/320 field radius,
+Shield Turrets scale from 520/1,050/1,900 shield capacity, 250/355/480 field radius,
 and 12/22/36 shield regeneration per second across the three tiers.
 Mortar Turrets provide slower indirect fire at 140–420, 160–550, and 180–700
 minimum-to-maximum range across the three tiers. A Mortar Turret never acquires or
@@ -647,7 +647,8 @@ When one or more workers with construction orders are selected, the interface sh
 each worker's active foundation and its shared live construction percentage, followed
 by the remaining foundations in placement order.
 All unit production times and building foundation construction times use a global
-provisional 2× duration multiplier. Worker build-rate improvements and higher-tier
+provisional 4× duration multiplier. This is twice as slow as the preceding 2×
+field-test timing. Worker build-rate improvements and higher-tier
 factory production-rate improvements still accelerate progress against those longer
 durations, so their relative advantages remain intact.
 Factories have an idle passive demand and add production
@@ -763,7 +764,7 @@ structures within range and stop functioning when disconnected from an energized
 network. These demand values remain provisional.
 
 Shield Turrets create a protective field around themselves. Their provisional Tier
-1/Tier 2/Tier 3 profiles provide 520/1,050/1,900 shield points, 165/235/320-world-unit
+1/Tier 2/Tier 3 profiles provide 520/1,050/1,900 shield points, 250/355/480-world-unit
 field radii, and 12/22/36 shield regeneration per second. They occupy 1×1, 2×2, and
 3×3 footprints, have 340/560/820 integrity, cost 160/310/560 crystal, and passively
 consume 2/4/7 energy per second respectively. A field intercepts damage aimed at

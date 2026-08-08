@@ -53,8 +53,8 @@ function advanceToScheduledImpacts(simulation, step = 1 / 120) {
   advance(simulation, Math.max(step, latestImpactAt - simulation.time + step), step);
 }
 
-test("unit production and building construction use the global 2x duration scale", () => {
-  assert.equal(BUILD_DURATION_MULTIPLIER, 2);
+test("unit production and building construction use the global 4x duration scale", () => {
+  assert.equal(BUILD_DURATION_MULTIPLIER, 4);
   assert.equal(UNIT_DEFINITIONS.worker_drone_t1.productionTime, 5 * BUILD_DURATION_MULTIPLIER);
   assert.equal(UNIT_DEFINITIONS.battle_tank.productionTime, 12 * BUILD_DURATION_MULTIPLIER);
   assert.equal(UNIT_DEFINITIONS.arsenal_colossus.productionTime, 48 * BUILD_DURATION_MULTIPLIER);
@@ -3296,6 +3296,15 @@ test("workers can build and upgrade every Shield Turret tier", () => {
   assert.equal(getNextStructureTierType("shield_turret_t3"), null);
 });
 
+test("Shield Turret protection radii use the expanded balance values", () => {
+  assert.deepEqual(
+    ["shield_turret", "shield_turret_t2", "shield_turret_t3"].map(
+      (type) => STRUCTURE_DEFINITIONS[type].shieldRadius,
+    ),
+    [250, 355, 480],
+  );
+});
+
 test("Shield Turret upgrades retain existing strength and regenerate the added capacity", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;
@@ -3319,7 +3328,7 @@ test("Shield Turret upgrades retain existing strength and regenerate the added c
 test("higher-tier Shield Turrets protect targets beyond the Tier 1 field", () => {
   const tierOneSimulation = new Simulation();
   tierOneSimulation.addStructure("shield_turret", "player", 300, 300, { powered: true });
-  const exposedUnit = tierOneSimulation.addUnit("raider", "player", 500, 300);
+  const exposedUnit = tierOneSimulation.addUnit("raider", "player", 600, 300);
   const exposedHp = exposedUnit.hp;
   tierOneSimulation.applyDamage(exposedUnit, 20);
   assert.equal(exposedUnit.hp, exposedHp - 20);
@@ -3332,7 +3341,7 @@ test("higher-tier Shield Turrets protect targets beyond the Tier 1 field", () =>
     300,
     { powered: true },
   );
-  const protectedUnit = tierTwoSimulation.addUnit("raider", "player", 500, 300);
+  const protectedUnit = tierTwoSimulation.addUnit("raider", "player", 600, 300);
   const protectedHp = protectedUnit.hp;
   tierTwoSimulation.applyDamage(protectedUnit, 20);
 
@@ -3961,7 +3970,7 @@ test("enemy AI proactively maintains multiple paid Pulse Generators", () => {
   simulation.aiThinkRemaining = 0;
   simulation.resources.enemy.metal = 5000;
 
-  advance(simulation, 40);
+  advance(simulation, 20 * BUILD_DURATION_MULTIPLIER);
 
   const generators = simulation.structures.filter(
     (structure) =>

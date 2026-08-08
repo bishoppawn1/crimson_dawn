@@ -327,7 +327,7 @@ function provisionalFactoryUnit({ name, role, roleDescription, unitDomain, tier,
   };
 }
 
-export const BUILD_DURATION_MULTIPLIER = 2;
+export const BUILD_DURATION_MULTIPLIER = 4;
 
 const DEFAULT_PROJECTILE_KINETICS = Object.freeze({
   speed: 980,
@@ -1114,7 +1114,7 @@ const structureDefinitions = {
     footprint: [1, 1],
     maxHp: 340,
     powerDemand: 2,
-    shieldRadius: 165,
+    shieldRadius: 250,
     shieldCapacity: 520,
     shieldRegenRate: 12,
     shieldEnergyPerPoint: 0.75,
@@ -1242,7 +1242,7 @@ Object.assign(structureDefinitions, {
   shield_turret_t2: {
     ...structureDefinitions.shield_turret, name: "Tier 2 Shield Turret", buildTier: 2,
     minimumWorkerTier: 2, radius: 28, footprint: [2, 2], maxHp: 560, powerDemand: 4,
-    shieldRadius: 235, shieldCapacity: 1050, shieldRegenRate: 22,
+    shieldRadius: 355, shieldCapacity: 1050, shieldRegenRate: 22,
     metalCost: 310, buildTime: 16, provisionalBalance: true,
   },
   mortar_turret_t2: {
@@ -1319,7 +1319,7 @@ Object.assign(structureDefinitions, {
   shield_turret_t3: {
     ...structureDefinitions.shield_turret, name: "Tier 3 Shield Turret", buildTier: 3,
     minimumWorkerTier: 3, radius: 38, footprint: [3, 3], maxHp: 820, powerDemand: 7,
-    shieldRadius: 320, shieldCapacity: 1900, shieldRegenRate: 36,
+    shieldRadius: 480, shieldCapacity: 1900, shieldRegenRate: 36,
     metalCost: 560, buildTime: 24, provisionalBalance: true,
   },
   mortar_turret_t3: {
