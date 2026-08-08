@@ -1194,6 +1194,26 @@ test("large formations cap visibility-path searches per simulation tick", () => 
   assert.ok(simulation.lastNavigationSearchCount <= 4);
 });
 
+test("dense expanded bases bound obstacle corners considered by each route search", () => {
+  const terrain = Array.from({ length: 80 }, (_, index) => ({
+    id: `dense-obstacle-${index}`,
+    x: 260 + (index % 10) * 65,
+    y: 90 + Math.floor(index / 10) * 70,
+    width: 40,
+    height: 40,
+  }));
+  const simulation = new Simulation({ width: 1200, height: 700, terrain });
+  const unit = simulation.addUnit("scout_mech", "player", 80, 350);
+
+  simulation.commandMove([unit.id], 1120, 350);
+  simulation.updateUnits(1 / 30);
+
+  assert.equal(simulation.terrain.length, 80);
+  assert.ok(simulation.lastNavigationSearchCount > 0);
+  assert.ok(simulation.lastNavigationNodeObstacleCount > 0);
+  assert.ok(simulation.lastNavigationNodeObstacleCount <= 32);
+});
+
 test("ground units escape U-shaped terrain instead of dead-ending against the back wall", () => {
   const terrain = [
     { id: "u-back", x: 300, y: 200, width: 40, height: 240 },

@@ -26,6 +26,7 @@ const NAVIGATION_CORNER_MARGIN = 1;
 const NAVIGATION_REPLAN_INTERVAL = 0.75;
 const NAVIGATION_SEARCH_MARGIN = 400;
 const NAVIGATION_TARGET_TOLERANCE = 24;
+const MAX_NAVIGATION_NODE_OBSTACLES = 32;
 const COMBAT_SPATIAL_CELL_SIZE = 160;
 const NAVIGATION_SEARCHES_PER_TICK = 4;
 const DRONE_NAVIGATION_SEARCHES_PER_TICK = 2;
@@ -84,6 +85,7 @@ export class Simulation {
     this.lastUnitSeparationPasses = 0;
     this.navigationSearchesRemaining = NAVIGATION_SEARCHES_PER_TICK;
     this.lastNavigationSearchCount = 0;
+    this.lastNavigationNodeObstacleCount = 0;
     this.droneNavigationSearchesRemaining = DRONE_NAVIGATION_SEARCHES_PER_TICK;
     this.lastDroneNavigationSearchCount = 0;
     this.droneNavigationObstacles = null;
@@ -3870,6 +3872,7 @@ export class Simulation {
   updateUnits(delta) {
     this.navigationSearchesRemaining = NAVIGATION_SEARCHES_PER_TICK;
     this.lastNavigationSearchCount = 0;
+    this.lastNavigationNodeObstacleCount = 0;
     for (const unit of this.units) {
       if (!unit.alive) continue;
       const definition = UNIT_DEFINITIONS[unit.type];
@@ -4388,6 +4391,7 @@ export class Simulation {
       if (this.navigationSearchesRemaining <= 0) return unit.navigationPath[0] || target;
       this.navigationSearchesRemaining -= 1;
       this.lastNavigationSearchCount += 1;
+      const navigationStatistics = { maximumNodeObstacleCount: 0 };
       const path = findNavigationPath(
         unit,
         target,
@@ -4395,6 +4399,11 @@ export class Simulation {
         definition.radius,
         this.width,
         this.height,
+        navigationStatistics,
+      );
+      this.lastNavigationNodeObstacleCount = Math.max(
+        this.lastNavigationNodeObstacleCount,
+        navigationStatistics.maximumNodeObstacleCount,
       );
       unit.navigationPath = path ? path.slice(1) : [];
       unit.navigationTarget = { x: target.x, y: target.y, excludedObstacleId };
@@ -5442,34 +5451,83 @@ function navigationSegmentIsClear(start, end, obstacles) {
   });
 }
 
-function findNavigationPath(start, goal, obstacles, radius, worldWidth, worldHeight) {
-  const searchBounds = {
-    minX: Math.min(start.x, goal.x) - NAVIGATION_SEARCH_MARGIN,
-    maxX: Math.max(start.x, goal.x) + NAVIGATION_SEARCH_MARGIN,
-    minY: Math.min(start.y, goal.y) - NAVIGATION_SEARCH_MARGIN,
-    maxY: Math.max(start.y, goal.y) + NAVIGATION_SEARCH_MARGIN,
-  };
-  const nearbyObstacles = obstacles.filter(({ bounds }) =>
-    boundsOverlap(bounds, searchBounds) && boundsNearSegment(bounds, start, goal),
-  );
-  const nearbyPath = findVisibilityPath(
-    start,
-    goal,
-    nearbyObstacles,
-    obstacles,
-    radius,
-    worldWidth,
-    worldHeight,
-  );
-  if (nearbyPath || nearbyObstacles.length === obstacles.length) return nearbyPath;
+function findNavigationPath(
+  start,
+  goal,
+  obstacles,
+  radius,
+  worldWidth,
+  worldHeight,
+  statistics = null,
+) {
+  let previousObstacleKey = null;
+  for (const marginMultiplier of [1, 2]) {
+    const routeObstacles = limitNavigationNodeObstacles(
+      navigationObstaclesNearRoute(
+        start,
+        goal,
+        obstacles,
+        NAVIGATION_SEARCH_MARGIN * marginMultiplier,
+      ),
+      start,
+      goal,
+    );
+    const obstacleKey = routeObstacles.map((obstacle) => obstacle.id).join("\0");
+    if (obstacleKey === previousObstacleKey) continue;
+    recordNavigationNodeObstacleCount(statistics, routeObstacles.length);
+    const routePath = findVisibilityPath(
+      start,
+      goal,
+      routeObstacles,
+      obstacles,
+      radius,
+      worldWidth,
+      worldHeight,
+    );
+    if (routePath || routeObstacles.length === obstacles.length) return routePath;
+    previousObstacleKey = obstacleKey;
+  }
+  const fallbackObstacles = limitNavigationNodeObstacles(obstacles, start, goal);
+  recordNavigationNodeObstacleCount(statistics, fallbackObstacles.length);
   return findVisibilityPath(
     start,
     goal,
-    obstacles,
+    fallbackObstacles,
     obstacles,
     radius,
     worldWidth,
     worldHeight,
+  );
+}
+
+function limitNavigationNodeObstacles(obstacles, start, goal) {
+  if (obstacles.length <= MAX_NAVIGATION_NODE_OBSTACLES) return obstacles;
+  return [...obstacles]
+    .sort((left, right) =>
+      boundsDistanceToSegment(left.bounds, start, goal) -
+        boundsDistanceToSegment(right.bounds, start, goal) ||
+      left.id.localeCompare(right.id)
+    )
+    .slice(0, MAX_NAVIGATION_NODE_OBSTACLES);
+}
+
+function recordNavigationNodeObstacleCount(statistics, count) {
+  if (!statistics) return;
+  statistics.maximumNodeObstacleCount = Math.max(
+    statistics.maximumNodeObstacleCount,
+    count,
+  );
+}
+
+function navigationObstaclesNearRoute(start, goal, obstacles, margin) {
+  const searchBounds = {
+    minX: Math.min(start.x, goal.x) - margin,
+    maxX: Math.max(start.x, goal.x) + margin,
+    minY: Math.min(start.y, goal.y) - margin,
+    maxY: Math.max(start.y, goal.y) + margin,
+  };
+  return obstacles.filter(({ bounds }) =>
+    boundsOverlap(bounds, searchBounds) && boundsNearSegment(bounds, start, goal, margin),
   );
 }
 
@@ -5561,7 +5619,15 @@ function boundsOverlap(first, second) {
   );
 }
 
-function boundsNearSegment(bounds, start, goal) {
+function boundsNearSegment(bounds, start, goal, margin = NAVIGATION_SEARCH_MARGIN) {
+  const obstacleRadius = Math.hypot(
+    bounds.maxX - bounds.minX,
+    bounds.maxY - bounds.minY,
+  ) / 2;
+  return boundsDistanceToSegment(bounds, start, goal) <= margin + obstacleRadius;
+}
+
+function boundsDistanceToSegment(bounds, start, goal) {
   const center = {
     x: (bounds.minX + bounds.maxX) / 2,
     y: (bounds.minY + bounds.maxY) / 2,
@@ -5579,12 +5645,7 @@ function boundsNearSegment(bounds, start, goal) {
     : 0;
   const closestX = start.x + segmentX * projection;
   const closestY = start.y + segmentY * projection;
-  const obstacleRadius = Math.hypot(
-    bounds.maxX - bounds.minX,
-    bounds.maxY - bounds.minY,
-  ) / 2;
-  return Math.hypot(center.x - closestX, center.y - closestY)
-    <= NAVIGATION_SEARCH_MARGIN + obstacleRadius;
+  return Math.hypot(center.x - closestX, center.y - closestY);
 }
 
 function sweepBounds(origin, movementX, movementY, bounds) {

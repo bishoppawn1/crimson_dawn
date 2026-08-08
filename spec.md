@@ -375,11 +375,14 @@ and are recomputed when a moving target shifts or a route becomes blocked. Group
 orders stagger those route computations across simulation ticks so large armies do
 not rebuild every visibility graph in the same frame. At most four full visibility
 searches run in one simulation tick; units waiting for a search continue using
-collision sliding until their deterministic turn. Route searches first use cached
-obstacle bounds near the movement corridor and deterministically fall back to the
-complete obstacle set when the local graph cannot find a valid path. Units
-cannot pass through buildings to reach a destination, and move orders placed inside
-a structure resolve to the nearest reachable edge of its visible footprint.
+collision sliding until their deterministic turn. Route searches widen a corridor
+around the movement line, while each visibility graph uses a deterministic bounded
+set of the nearest relevant obstacle corners. Every proposed route segment is still
+collision-tested against the complete obstacle set, so the bound cannot permit a
+unit to route through an omitted building or terrain obstacle. If no bounded
+visibility path is available, collision-time sliding and later staggered replanning
+remain the fallback. Move orders placed inside a structure resolve to the nearest
+reachable edge of its visible footprint.
 
 Aircraft use a separate air movement layer. They fly directly over impassable
 terrain, completed structures, and foundations, but remain constrained by the map
