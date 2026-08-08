@@ -3073,7 +3073,48 @@ test("workers spend crystal and complete new structures", () => {
   advance(simulation, STRUCTURE_DEFINITIONS.power_tower.buildTime + 2);
 
   assert.equal(structure.complete, true);
+  assert.equal(structure.hp, STRUCTURE_DEFINITIONS.power_tower.maxHp);
   assert.equal(worker.buildTargetId, null);
+});
+
+test("damage to an unfinished building persists through construction and completion", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  const definition = STRUCTURE_DEFINITIONS.power_tower;
+  const startingProgress = definition.buildTime / 2;
+  const startingHp = definition.maxHp * (
+    SIMULATION_RULES.constructionStartingHpRatio +
+    (1 - SIMULATION_RULES.constructionStartingHpRatio) *
+      (startingProgress / definition.buildTime)
+  );
+  const worker = simulation.addUnit("worker_drone_t1", "player", 180, 100);
+  const foundation = simulation.addStructure("power_tower", "player", 200, 100, {
+    complete: false,
+    constructionProgress: startingProgress,
+    hp: startingHp,
+  });
+  const incomingDamage = 30;
+  simulation.commandBuild([worker.id], foundation.id);
+
+  simulation.applyDamage(foundation, incomingDamage);
+  const hpAfterHit = foundation.hp;
+  const progressBeforeTick = foundation.constructionProgress;
+  simulation.tick(1 / 30);
+  const progressAdded = foundation.constructionProgress - progressBeforeTick;
+  const expectedDurabilityAdded = definition.maxHp *
+    (1 - SIMULATION_RULES.constructionStartingHpRatio) *
+    (progressAdded / definition.buildTime);
+
+  assert.ok(Math.abs(foundation.hp - (hpAfterHit + expectedDurabilityAdded)) < 0.0001);
+
+  let safetyTicks = 1000;
+  while (!foundation.complete && safetyTicks > 0) {
+    simulation.tick(1 / 30);
+    safetyTicks -= 1;
+  }
+
+  assert.equal(foundation.complete, true);
+  assert.ok(safetyTicks > 0);
+  assert.ok(Math.abs(foundation.hp - (definition.maxHp - incomingDamage)) < 0.0001);
 });
 
 test("Shift-queued construction completes foundations in placement order", () => {

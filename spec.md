@@ -642,7 +642,14 @@ keeps placement mode active for further orders. Workers advance through valid
 foundations in placement order. Ordinary non-Shift placement replaces the current
 construction order and clears its queue, as do explicit move, attack, stop, and
 hold-position commands. A cancelled queued foundation is skipped. Crystal is spent
-when each placement is confirmed. Incomplete buildings remain visible and vulnerable.
+when each placement is confirmed. A new foundation starts with 10% of the finished
+building's integrity. Newly completed construction progress adds its corresponding
+share of the remaining integrity, but incoming damage is never erased by later
+construction or by completion; only ordinary repair after completion can restore
+it. Additional workers accelerate the finite progress and durability being added,
+but do not turn prior damage into free healing. Focused enemy fire can therefore
+destroy a foundation while workers are still building it. Incomplete buildings
+remain visible and vulnerable.
 When one or more workers with construction orders are selected, the interface shows
 each worker's active foundation and its shared live construction percentage, followed
 by the remaining foundations in placement order.

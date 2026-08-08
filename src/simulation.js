@@ -1385,7 +1385,9 @@ export class Simulation {
 
     if (!instant) account.metal -= definition.metalCost;
     const structure = this.addStructure(structureType, team, placement.x, placement.y, {
-      hp: instant ? definition.maxHp : Math.max(1, definition.maxHp * 0.1),
+      hp: instant
+        ? definition.maxHp
+        : Math.max(1, definition.maxHp * SIMULATION_RULES.constructionStartingHpRatio),
       complete: instant,
       powered: instant,
       connected: instant,
@@ -3593,17 +3595,21 @@ export class Simulation {
       }
 
       const definition = STRUCTURE_DEFINITIONS[structure.type];
+      const previousProgress = structure.constructionProgress;
       structure.constructionProgress = Math.min(
         definition.buildTime,
         structure.constructionProgress + workerDefinition.buildRate * delta,
       );
-      structure.hp = Math.max(
-        structure.hp,
-        definition.maxHp * (structure.constructionProgress / definition.buildTime),
+      const progressAdded = structure.constructionProgress - previousProgress;
+      const durabilityAdded = definition.maxHp *
+        (1 - SIMULATION_RULES.constructionStartingHpRatio) *
+        (progressAdded / definition.buildTime);
+      structure.hp = Math.min(
+        definition.maxHp,
+        structure.hp + durabilityAdded,
       );
       if (structure.constructionProgress + EPSILON >= definition.buildTime) {
         structure.complete = true;
-        structure.hp = definition.maxHp;
         this.recordStructureTierUnlock(structure);
         this.advanceBuildQueue(worker);
         if (STRUCTURE_DEFINITIONS[structure.type].droneCount && structure.drones.length === 0) {
