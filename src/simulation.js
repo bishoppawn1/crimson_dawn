@@ -66,6 +66,7 @@ export class Simulation {
     teams = createMatchTeams(2),
     mapId = null,
     mapName = null,
+    mapTheme = "apocalypse",
     testerTeams = [],
   } = {}) {
     this.width = width;
@@ -103,6 +104,7 @@ export class Simulation {
     this.matchWinnerTeamId = null;
     this.mapId = mapId;
     this.mapName = mapName;
+    this.mapTheme = mapTheme;
     this.testerTeams = new Set(testerTeams);
     this.teams = teams.map((team) => ({ ...team }));
     this.teamStarts = {};
@@ -160,6 +162,7 @@ export class Simulation {
       teams,
       mapId: map.id,
       mapName: map.name,
+      mapTheme: map.theme,
       testerTeams: normalizedOptions.testerTeams || [],
     });
 
@@ -226,6 +229,7 @@ export class Simulation {
       version: 2,
       mapId: this.mapId || DEFAULT_MAP_ID,
       mapName: this.mapName || MAP_DEFINITIONS[DEFAULT_MAP_ID].name,
+      mapTheme: this.mapTheme || "apocalypse",
       width: this.width,
       height: this.height,
       time: this.time,
@@ -267,10 +271,12 @@ export class Simulation {
       teams: snapshot.teams || createMatchTeams(2),
       mapId: snapshot.mapId || DEFAULT_MAP_ID,
       mapName: snapshot.mapName || MAP_DEFINITIONS[snapshot.mapId || DEFAULT_MAP_ID]?.name,
+      mapTheme: snapshot.mapTheme || MAP_DEFINITIONS[snapshot.mapId || DEFAULT_MAP_ID]?.theme || "apocalypse",
       testerTeams: snapshot.testerTeams || [],
     });
     simulation.mapId = snapshot.mapId || DEFAULT_MAP_ID;
     simulation.mapName = snapshot.mapName || MAP_DEFINITIONS[simulation.mapId]?.name || "Unknown Map";
+    simulation.mapTheme = snapshot.mapTheme || MAP_DEFINITIONS[simulation.mapId]?.theme || "apocalypse";
     simulation.time = snapshot.time;
     simulation.tickNumber = Number.isSafeInteger(snapshot.tickNumber)
       ? snapshot.tickNumber

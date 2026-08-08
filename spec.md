@@ -67,12 +67,18 @@ On desktop displays, the battlefield expands across the available browser width;
 outer padding and the command column remain narrow enough to prioritize the play
 surface.
 
-The battlefield ground uses rust-red earth, dusty rose clearings, and broad burgundy
-patches with a subtle fixed mottled texture. Small deterministic remnants of crimson
-crystal are scattered across ordinary terrain for atmosphere without representing
-harvestable resources or changing pathing. Construction-grid lines remain visible
-across both surfaces while preserving the readability of team markings, range
-overlays, and placement indicators.
+Each map has a data-defined environmental theme that is preserved in multiplayer
+snapshots. **Grassland** maps use green fields, varied olive clearings, and sparse
+deterministic grass tufts without ambient crystal remnants. **Apocalypse** maps retain
+the rust-red earth, dusty rose clearings, burgundy patches, and scattered decorative
+crimson crystal remnants. Harvestable deposits remain crimson and mechanically
+identical in both environments. Broken Frontier, Iron Crossings, and Ruined Meridian
+are grassland duel maps; Ashen Divide and Twin Calderas are apocalyptic duel maps.
+For three through eight players, crown and ancient-ruin layouts are grassland maps,
+while fracture layouts are apocalyptic. The single-player picker labels each map as
+`Green Grassland` or `Red Wasteland`, while multiplayer continues to select randomly
+from both themes. Construction-grid lines use theme-specific colors while preserving
+the readability of team markings, range overlays, and placement indicators.
 
 Buildings use a detailed top-down industrial style rather than abstract geometric
 icons. Cast foundations, roof bevels, shadows, vents, fasteners, access panels,
@@ -85,11 +91,16 @@ structures display foundation framing and construction rails instead of appearin
 as translucent copies of completed buildings.
 
 Grid-aligned ridges, shelves, and crags form impassable terrain. Their visible
-rectangular boundaries use the same 40-unit grid as construction. Buildings and
-upgrades cannot overlap them, and player units, enemy units, and reclamation drones
-must travel around them. A move or rally command issued inside impassable terrain
-resolves to its nearest reachable edge. Player construction and enemy AI placement
-use the same terrain validation.
+rectangular boundaries use the same 40-unit grid as construction. Rendering gives
+them raised top planes, directional drop shadows, beveled rock faces, face
+striations, deterministic surface facets, and strong upper lips. Grassland cliffs
+carry a moss-green rim; apocalyptic fractures expose bright fault cracks; ruins and
+starting walls use distinct masonry or panel details. These presentation layers do
+not change the exact collision rectangle. Buildings and upgrades cannot overlap
+terrain, and player units, enemy units, and reclamation drones must travel around
+it. A move or rally command issued inside impassable terrain resolves to its nearest
+reachable edge. Player construction and enemy AI placement use the same terrain
+validation.
 
 Each starting location also has four thin, grid-aligned wall segments arranged as
 a shallow defensive enclosure. Two broken forward segments leave a central gate,

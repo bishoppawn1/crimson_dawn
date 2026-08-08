@@ -244,7 +244,8 @@ export const MAP_DEFINITIONS = Object.freeze({
   broken_frontier: Object.freeze({
     id: "broken_frontier",
     name: "Broken Frontier",
-    description: "Fortified starting positions, central divides, and rich remote frontier clusters.",
+    description: "Green frontier grasslands, fortified starting positions, central divides, and rich remote clusters.",
+    theme: "grassland",
     width: WORLD_WIDTH,
     height: WORLD_HEIGHT,
     terrain: TERRAIN_OBSTACLES,
@@ -254,7 +255,8 @@ export const MAP_DEFINITIONS = Object.freeze({
   ashen_divide: Object.freeze({
     id: "ashen_divide",
     name: "Ashen Divide",
-    description: "A broken central spine creates two major attack lanes and contested crossing fields.",
+    description: "A red apocalyptic ash field where a broken central spine creates two major attack lanes.",
+    theme: "apocalypse",
     width: WORLD_WIDTH,
     height: WORLD_HEIGHT,
     terrain: ASHEN_DIVIDE_TERRAIN,
@@ -264,7 +266,8 @@ export const MAP_DEFINITIONS = Object.freeze({
   iron_crossings: Object.freeze({
     id: "iron_crossings",
     name: "Iron Crossings",
-    description: "Four central iron masses form narrow horizontal and vertical crossroads.",
+    description: "Open green grasslands surround four rocky masses and their narrow crossroads.",
+    theme: "grassland",
     width: WORLD_WIDTH,
     height: WORLD_HEIGHT,
     terrain: IRON_CROSSINGS_TERRAIN,
@@ -274,7 +277,8 @@ export const MAP_DEFINITIONS = Object.freeze({
   ruined_meridian: Object.freeze({
     id: "ruined_meridian",
     name: "Ruined Meridian",
-    description: "Dense ancient walls, shattered arches, and a rich central vault create close, twisting lanes.",
+    description: "Overgrown green fields, dense ancient walls, and shattered arches create close, twisting lanes.",
+    theme: "grassland",
     width: WORLD_WIDTH,
     height: WORLD_HEIGHT,
     terrain: RUINED_MERIDIAN_TERRAIN,
@@ -284,7 +288,8 @@ export const MAP_DEFINITIONS = Object.freeze({
   twin_calderas: Object.freeze({
     id: "twin_calderas",
     name: "Twin Calderas",
-    description: "Two enclosed basins and a fractured central pass reward risky flanking routes.",
+    description: "A red apocalyptic badland of enclosed basins and a fractured central pass.",
+    theme: "apocalypse",
     width: WORLD_WIDTH,
     height: WORLD_HEIGHT,
     terrain: TWIN_CALDERAS_TERRAIN,

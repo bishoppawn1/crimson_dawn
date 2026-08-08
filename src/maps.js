@@ -38,9 +38,9 @@ const FRACTURE_MAP_NAMES = Object.freeze({
 });
 
 const GENERATED_VARIANTS = Object.freeze([
-  Object.freeze({ id: "crown", terrainType: "crags" }),
-  Object.freeze({ id: "ruins", terrainType: "ruins" }),
-  Object.freeze({ id: "fracture", terrainType: "fracture" }),
+  Object.freeze({ id: "crown", terrainType: "crags", theme: "grassland" }),
+  Object.freeze({ id: "ruins", terrainType: "ruins", theme: "grassland" }),
+  Object.freeze({ id: "fracture", terrainType: "fracture", theme: "apocalypse" }),
 ]);
 
 function roundToGrid(value) {
@@ -98,6 +98,7 @@ function createDuelMap(mapId = DEFAULT_MAP_ID) {
     id: definition.id,
     name: definition.name,
     description: definition.description,
+    theme: definition.theme,
     playerCount: 2,
     width: definition.width,
     height: definition.height,
@@ -392,21 +393,21 @@ function generatedMapIdentity(playerCount, variant) {
       id: `${playerCount}-player-ancient-ruins`,
       name: RUIN_MAP_NAMES[playerCount],
       description: playerCount === 3
-        ? "A dense three-way ruin complex stretches from a broken central sanctuary to ancient outer districts."
-        : "Ancient courtyards, collapsed arches, and outer ruin districts create twisting lanes across the whole map.",
+        ? "Overgrown green fields surround a dense three-way ruin complex stretching into ancient outer districts."
+        : "Green fields reclaim ancient courtyards, collapsed arches, and outer ruin districts across the whole map.",
     };
   }
   if (variant.id === "fracture") {
     return {
       id: `${playerCount}-player-fracture`,
       name: FRACTURE_MAP_NAMES[playerCount],
-      description: "Long inner and perimeter fault walls split the whole battlefield into spokes and risky shortcuts.",
+      description: "A red apocalyptic wasteland where long fault walls split the battlefield into spokes and risky shortcuts.",
     };
   }
   return {
     id: `${playerCount}-player-${MAP_NAMES[playerCount].toLowerCase().replaceAll(" ", "-")}`,
     name: MAP_NAMES[playerCount],
-    description: "Central crowns, mid-field outcrops, and frontier crags create fighting lanes from edge to edge.",
+    description: "Open green grasslands, central crowns, and frontier crags create fighting lanes from edge to edge.",
   };
 }
 
@@ -431,6 +432,7 @@ function createGeneratedMap(playerCount, variant) {
   const identity = generatedMapIdentity(playerCount, variant);
   return Object.freeze({
     ...identity,
+    theme: variant.theme,
     playerCount,
     width,
     height,

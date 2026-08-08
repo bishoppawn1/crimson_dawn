@@ -1017,7 +1017,10 @@ test("single-player map selection resolves every available battlefield", () => {
   ]);
 
   const terrainLayouts = new Set();
+  const themes = new Set();
   for (const map of Object.values(MAP_DEFINITIONS)) {
+    assert.ok(["grassland", "apocalypse"].includes(map.theme));
+    themes.add(map.theme);
     assert.equal(
       resolveMatchMapId({ matchMode: "singleplayer", selectedMapId: map.id }),
       map.id,
@@ -1025,6 +1028,7 @@ test("single-player map selection resolves every available battlefield", () => {
     const simulation = Simulation.createFieldTest({ mapId: map.id });
     assert.equal(simulation.mapId, map.id);
     assert.equal(simulation.mapName, map.name);
+    assert.equal(simulation.mapTheme, map.theme);
     assert.equal(simulation.width, map.width);
     assert.equal(simulation.height, map.height);
     assert.equal(simulation.units.filter((unit) => unit.team === "player").length, 3);
@@ -1041,6 +1045,7 @@ test("single-player map selection resolves every available battlefield", () => {
     terrainLayouts.add(map.terrain.map(({ x, y, width, height }) => `${x},${y},${width},${height}`).join("|"));
   }
   assert.equal(terrainLayouts.size, Object.keys(MAP_DEFINITIONS).length);
+  assert.deepEqual(themes, new Set(["grassland", "apocalypse"]));
 });
 
 test("multiplayer ignores a manual map choice and resolves a random shared map", () => {
@@ -1076,6 +1081,7 @@ test("multiplayer snapshots preserve the host-selected map", () => {
 
   assert.equal(guest.mapId, "iron_crossings");
   assert.equal(guest.mapName, MAP_DEFINITIONS.iron_crossings.name);
+  assert.equal(guest.mapTheme, "grassland");
   assert.deepEqual(guest.terrain, host.terrain);
   assert.deepEqual(guest.metalDeposits, host.metalDeposits);
 });
@@ -5136,6 +5142,11 @@ test("every player count offers multiple dense and selectable battlefield layout
   for (let playerCount = 2; playerCount <= 8; playerCount += 1) {
     const maps = getMapsForPlayerCount(playerCount);
     assert.ok(maps.length >= 3);
+    assert.deepEqual(
+      new Set(maps.map((map) => map.theme)),
+      new Set(["grassland", "apocalypse"]),
+      `${playerCount}-player maps should include green and red environments`,
+    );
     for (const map of maps) {
       assert.equal(map.playerCount, playerCount);
       assert.equal(map.starts.length, playerCount);

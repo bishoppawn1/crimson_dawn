@@ -182,9 +182,6 @@ const minCameraZoom = 0.5;
 const maxCameraZoom = 2;
 
 const colors = {
-  background: "#503537",
-  gridFine: "#493033",
-  gridStrong: "#70474b",
   player: "#7fd4ef",
   playerDark: "#24627c",
   enemy: "#e65a64",
@@ -197,6 +194,83 @@ const colors = {
   selection: "#f6ee8d",
   disconnected: "#ff6675",
 };
+
+const battlefieldThemePalettes = Object.freeze({
+  apocalypse: Object.freeze({
+    background: "#503537",
+    minimapGround: "#482f32",
+    groundPatches: Object.freeze([
+      Object.freeze({ x: 0.12, y: 0.5, radiusX: 0.11, radiusY: 0.26, rotation: 0.1, color: "#6b423d" }),
+      Object.freeze({ x: 0.29, y: 0.22, radiusX: 0.15, radiusY: 0.12, rotation: -0.18, color: "#59383b" }),
+      Object.freeze({ x: 0.4, y: 0.74, radiusX: 0.18, radiusY: 0.13, rotation: 0.14, color: "#733f42" }),
+      Object.freeze({ x: 0.56, y: 0.33, radiusX: 0.16, radiusY: 0.14, rotation: -0.08, color: "#5f383d" }),
+      Object.freeze({ x: 0.72, y: 0.77, radiusX: 0.15, radiusY: 0.13, rotation: 0.2, color: "#704044" }),
+      Object.freeze({ x: 0.88, y: 0.5, radiusX: 0.11, radiusY: 0.26, rotation: -0.1, color: "#63383b" }),
+    ]),
+    mottle: "#a4545728",
+    gridFine: "#493033",
+    gridStrong: "#70474b",
+    placementGridFine: "#9a6b70",
+    placementGridStrong: "#d2a1a5",
+    cliff: Object.freeze({
+      top: "#5a3c41", topLight: "#795058", face: "#38272b", edge: "#9d626d",
+      highlight: "#efadb84d", detail: "#241a1dcc", accent: "#b85868", minimap: "#674047",
+    }),
+    fracture: Object.freeze({
+      top: "#482a31", topLight: "#6c3944", face: "#2d1c22", edge: "#b74d60",
+      highlight: "#ff82924f", detail: "#211419dd", accent: "#ef5b72", minimap: "#763d48",
+    }),
+    ruins: Object.freeze({
+      top: "#5a484a", topLight: "#806467", face: "#382e30", edge: "#aa8588",
+      highlight: "#e3c2c354", detail: "#292526bb", accent: "#8f6e71", minimap: "#70565a",
+    }),
+  }),
+  grassland: Object.freeze({
+    background: "#526a43",
+    minimapGround: "#4b603b",
+    groundPatches: Object.freeze([
+      Object.freeze({ x: 0.12, y: 0.48, radiusX: 0.13, radiusY: 0.27, rotation: 0.08, color: "#61794c" }),
+      Object.freeze({ x: 0.28, y: 0.2, radiusX: 0.17, radiusY: 0.13, rotation: -0.16, color: "#465c3b" }),
+      Object.freeze({ x: 0.4, y: 0.76, radiusX: 0.2, radiusY: 0.14, rotation: 0.12, color: "#698050" }),
+      Object.freeze({ x: 0.58, y: 0.34, radiusX: 0.18, radiusY: 0.15, rotation: -0.1, color: "#5c7447" }),
+      Object.freeze({ x: 0.73, y: 0.78, radiusX: 0.17, radiusY: 0.14, rotation: 0.18, color: "#48603c" }),
+      Object.freeze({ x: 0.88, y: 0.5, radiusX: 0.12, radiusY: 0.28, rotation: -0.08, color: "#647b4b" }),
+    ]),
+    mottle: "#9bb77a26",
+    gridFine: "#45583b",
+    gridStrong: "#71845a",
+    placementGridFine: "#99ae78",
+    placementGridStrong: "#d5e6b4",
+    cliff: Object.freeze({
+      top: "#5c6152", topLight: "#7f8670", face: "#3d4338", edge: "#929b82",
+      highlight: "#dce6c45c", detail: "#293027c4", accent: "#779458", minimap: "#626957",
+    }),
+    fracture: Object.freeze({
+      top: "#555a4e", topLight: "#777e69", face: "#373d34", edge: "#8e9780",
+      highlight: "#d8e1c357", detail: "#282e27cc", accent: "#829b63", minimap: "#5c6353",
+    }),
+    ruins: Object.freeze({
+      top: "#65675c", topLight: "#898c7c", face: "#41443d", edge: "#9ea290",
+      highlight: "#e5e8d35c", detail: "#30342fbd", accent: "#718b55", minimap: "#6b6e60",
+    }),
+  }),
+});
+
+function battlefieldThemePalette() {
+  return battlefieldThemePalettes[simulation.mapTheme] || battlefieldThemePalettes.apocalypse;
+}
+
+function terrainVisualPalette(obstacle, theme = battlefieldThemePalette()) {
+  if (obstacle.terrainType === "starting_wall") {
+    return {
+      top: "#52615d", topLight: "#7f9189", face: "#323d3a", edge: "#9cad9f",
+      highlight: "#dce9df66", detail: "#26302dcc", accent: "#7f998b", minimap: "#718078",
+    };
+  }
+  if (obstacle.terrainType === "ruins") return theme.ruins;
+  if (obstacle.terrainType === "fracture") return theme.fracture;
+  return theme.cliff;
+}
 
 const teamPalettes = Object.freeze([
   Object.freeze({ bright: "#7fd4ef", dark: "#24627c" }),
@@ -225,7 +299,7 @@ function populateMapSelect(select, playerCount, selectedMapId = null) {
   select.replaceChildren(...maps.map((map) => {
     const option = document.createElement("option");
     option.value = map.id;
-    option.textContent = map.name;
+    option.textContent = `${map.name} · ${map.theme === "grassland" ? "Green Grassland" : "Red Wasteland"}`;
     return option;
   }));
   select.value = selectedMap.id;
@@ -534,7 +608,7 @@ function renderMultiplayerLobby() {
     ? "Waiting for Player 2 to load and acknowledge the match…"
     : playerCount < 2
     ? "Add an AI bot or wait for a guest before starting."
-    : `One of ${eligibleMaps.length} ${playerCount}-player battlefields will be selected randomly when the match starts.`;
+    : `One of ${eligibleMaps.length} ${playerCount}-player green grassland or red wasteland battlefields will be selected randomly when the match starts.`;
 }
 
 function sendLobbyState() {
@@ -1408,6 +1482,7 @@ function currentMinimapLayout() {
 
 function drawMinimap() {
   const layout = currentMinimapLayout();
+  const theme = battlefieldThemePalette();
   context.save();
   context.shadowColor = "#000b";
   context.shadowBlur = 18;
@@ -1426,7 +1501,7 @@ function drawMinimap() {
   context.beginPath();
   context.rect(layout.mapLeft, layout.mapTop, layout.mapWidth, layout.mapHeight);
   context.clip();
-  context.fillStyle = "#482f32";
+  context.fillStyle = theme.minimapGround;
   context.fillRect(layout.mapLeft, layout.mapTop, layout.mapWidth, layout.mapHeight);
 
   for (const obstacle of simulation.terrain) {
@@ -1435,13 +1510,7 @@ function drawMinimap() {
       obstacle.x - obstacle.width / 2,
       obstacle.y - obstacle.height / 2,
     );
-    context.fillStyle = obstacle.terrainType === "starting_wall"
-      ? "#718078"
-      : obstacle.terrainType === "ruins"
-        ? "#70565a"
-        : obstacle.terrainType === "fracture"
-          ? "#763d48"
-          : "#674047";
+    context.fillStyle = terrainVisualPalette(obstacle, theme).minimap;
     context.fillRect(
       point.x,
       point.y,
@@ -1496,18 +1565,11 @@ function drawMinimap() {
 }
 
 function drawTerrain() {
-  context.fillStyle = colors.background;
+  const theme = battlefieldThemePalette();
+  context.fillStyle = theme.background;
   context.fillRect(0, 0, simulation.width, simulation.height);
 
-  const groundPatches = [
-    { x: 0.12, y: 0.5, radiusX: 0.11, radiusY: 0.26, rotation: 0.1, color: "#6b423d" },
-    { x: 0.29, y: 0.22, radiusX: 0.15, radiusY: 0.12, rotation: -0.18, color: "#59383b" },
-    { x: 0.4, y: 0.74, radiusX: 0.18, radiusY: 0.13, rotation: 0.14, color: "#733f42" },
-    { x: 0.56, y: 0.33, radiusX: 0.16, radiusY: 0.14, rotation: -0.08, color: "#5f383d" },
-    { x: 0.72, y: 0.77, radiusX: 0.15, radiusY: 0.13, rotation: 0.2, color: "#704044" },
-    { x: 0.88, y: 0.5, radiusX: 0.11, radiusY: 0.26, rotation: -0.1, color: "#63383b" },
-  ];
-  for (const patch of groundPatches) {
+  for (const patch of theme.groundPatches) {
     context.fillStyle = patch.color;
     context.beginPath();
     context.ellipse(
@@ -1524,7 +1586,7 @@ function drawTerrain() {
 
   // Small deterministic mottles keep the field organic without shimmering as
   // the camera moves or introducing simulation-side randomness.
-  context.fillStyle = "#a4545728";
+  context.fillStyle = theme.mottle;
   const visibleBounds = visibleWorldBounds(80);
   const firstMottleX = Math.max(80, Math.floor(visibleBounds.left / 160) * 160 + 80);
   const firstMottleY = Math.max(80, Math.floor(visibleBounds.top / 160) * 160 + 80);
@@ -1539,7 +1601,8 @@ function drawTerrain() {
     }
   }
 
-  drawCrystalRemnants(visibleBounds);
+  if (simulation.mapTheme === "grassland") drawGrassTufts(visibleBounds);
+  else drawCrystalRemnants(visibleBounds);
 
   const gridSize = SIMULATION_RULES.buildingGridSize;
   context.lineWidth = placementIsActive() ? 1.5 : 1;
@@ -1548,11 +1611,11 @@ function drawTerrain() {
   for (let x = firstGridX; x <= visibleBounds.right; x += gridSize) {
     context.strokeStyle = placementIsActive()
       ? x % (gridSize * 5) === 0
-        ? "#d2a1a5"
-        : "#9a6b70"
+        ? theme.placementGridStrong
+        : theme.placementGridFine
       : x % (gridSize * 5) === 0
-        ? colors.gridStrong
-        : colors.gridFine;
+        ? theme.gridStrong
+        : theme.gridFine;
     context.beginPath();
     context.moveTo(x, visibleBounds.top);
     context.lineTo(x, visibleBounds.bottom);
@@ -1561,11 +1624,11 @@ function drawTerrain() {
   for (let y = firstGridY; y <= visibleBounds.bottom; y += gridSize) {
     context.strokeStyle = placementIsActive()
       ? y % (gridSize * 5) === 0
-        ? "#d2a1a5"
-        : "#9a6b70"
+        ? theme.placementGridStrong
+        : theme.placementGridFine
       : y % (gridSize * 5) === 0
-        ? colors.gridStrong
-        : colors.gridFine;
+        ? theme.gridStrong
+        : theme.gridFine;
     context.beginPath();
     context.moveTo(visibleBounds.left, y);
     context.lineTo(visibleBounds.right, y);
@@ -1586,6 +1649,7 @@ function drawTerrain() {
 }
 
 function drawImpassableTerrain() {
+  const theme = battlefieldThemePalette();
   for (const obstacle of simulation.terrain) {
     const left = obstacle.x - obstacle.width / 2;
     const top = obstacle.y - obstacle.height / 2;
@@ -1593,65 +1657,226 @@ function drawImpassableTerrain() {
     const isStartingWall = obstacle.terrainType === "starting_wall";
     const isRuins = obstacle.terrainType === "ruins";
     const isFracture = obstacle.terrainType === "fracture";
+    const palette = terrainVisualPalette(obstacle, theme);
+    const depth = isStartingWall
+      ? 5
+      : Math.max(8, Math.min(18, Math.min(obstacle.width, obstacle.height) * 0.16));
+    const surfaceWidth = Math.max(4, obstacle.width - depth);
+    const surfaceHeight = Math.max(4, obstacle.height - depth);
+    const surfaceRight = left + surfaceWidth;
+    const surfaceBottom = top + surfaceHeight;
     context.save();
-    context.fillStyle = isStartingWall
-      ? "#465451"
-      : isRuins
-        ? "#584447"
-        : isFracture
-          ? "#4b2d33"
-          : "#50363a";
-    context.strokeStyle = isStartingWall
-      ? "#879b92"
-      : isRuins
-        ? "#a77d81"
-        : isFracture
-          ? "#a85060"
-          : "#85535b";
-    context.lineWidth = 4;
+
+    // The shadow and two interior rock faces make the obstacle read as raised
+    // terrain without changing its exact rectangular collision footprint.
+    context.shadowColor = "#101612a8";
+    context.shadowBlur = 12;
+    context.shadowOffsetX = 7;
+    context.shadowOffsetY = 9;
+    context.fillStyle = palette.face;
     context.fillRect(left, top, obstacle.width, obstacle.height);
-    context.strokeRect(left, top, obstacle.width, obstacle.height);
+    context.shadowColor = "transparent";
+    context.shadowBlur = 0;
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
+
+    const topGradient = context.createLinearGradient(left, top, surfaceRight, surfaceBottom);
+    topGradient.addColorStop(0, palette.topLight);
+    topGradient.addColorStop(0.42, palette.top);
+    topGradient.addColorStop(1, palette.face);
+    context.fillStyle = topGradient;
+    context.fillRect(left, top, surfaceWidth, surfaceHeight);
+
+    context.fillStyle = palette.face;
     context.beginPath();
-    context.rect(left, top, obstacle.width, obstacle.height);
+    context.moveTo(surfaceRight, top);
+    context.lineTo(left + obstacle.width, top + depth);
+    context.lineTo(left + obstacle.width, top + obstacle.height);
+    context.lineTo(surfaceRight, surfaceBottom);
+    context.closePath();
+    context.fill();
+    context.beginPath();
+    context.moveTo(left, surfaceBottom);
+    context.lineTo(surfaceRight, surfaceBottom);
+    context.lineTo(left + obstacle.width, top + obstacle.height);
+    context.lineTo(left + depth, top + obstacle.height);
+    context.closePath();
+    context.fill();
+
+    context.strokeStyle = palette.highlight;
+    context.lineWidth = isStartingWall ? 2 : 3;
+    context.beginPath();
+    context.moveTo(left + 2, surfaceBottom - 1);
+    context.lineTo(left + 2, top + 2);
+    context.lineTo(surfaceRight - 1, top + 2);
+    context.stroke();
+    context.strokeStyle = palette.edge;
+    context.beginPath();
+    context.moveTo(surfaceRight, top);
+    context.lineTo(surfaceRight, surfaceBottom);
+    context.lineTo(left, surfaceBottom);
+    context.stroke();
+
+    context.beginPath();
+    context.rect(left, top, surfaceWidth, surfaceHeight);
     context.clip();
-    context.strokeStyle = isStartingWall
-      ? "#d1ded653"
-      : isRuins
-        ? "#dab4b84d"
-        : isFracture
-          ? "#ef617545"
-          : "#cd778340";
-    context.lineWidth = 2;
-    for (
-      let offset = -obstacle.height;
-      offset < obstacle.width + obstacle.height;
-      offset += SIMULATION_RULES.buildingGridSize
-    ) {
-      context.beginPath();
-      context.moveTo(left + offset, top + obstacle.height);
-      context.lineTo(left + offset + obstacle.height, top);
-      context.stroke();
-    }
-    if (isRuins) {
-      context.strokeStyle = "#24262280";
-      for (let x = left + 40; x < left + obstacle.width; x += 80) {
+
+    if (isStartingWall) {
+      context.strokeStyle = palette.detail;
+      context.lineWidth = 1.5;
+      const horizontal = obstacle.width >= obstacle.height;
+      const length = horizontal ? obstacle.width : obstacle.height;
+      for (let offset = 40; offset < length; offset += 40) {
         context.beginPath();
-        context.moveTo(x, top);
-        context.lineTo(x, top + obstacle.height);
+        if (horizontal) {
+          context.moveTo(left + offset, top + 3);
+          context.lineTo(left + offset, surfaceBottom - 3);
+        } else {
+          context.moveTo(left + 3, top + offset);
+          context.lineTo(surfaceRight - 3, top + offset);
+        }
         context.stroke();
       }
-      for (let y = top + 40; y < top + obstacle.height; y += 80) {
+      context.fillStyle = palette.highlight;
+      for (let offset = 20; offset < length; offset += 40) {
+        const boltX = horizontal ? left + offset : left + surfaceWidth / 2;
+        const boltY = horizontal ? top + surfaceHeight / 2 : top + offset;
+        context.beginPath();
+        context.arc(boltX, boltY, 1.7, 0, Math.PI * 2);
+        context.fill();
+      }
+    } else if (isRuins) {
+      context.strokeStyle = palette.detail;
+      context.lineWidth = 2;
+      for (let y = top + 28; y < surfaceBottom; y += 42) {
         context.beginPath();
         context.moveTo(left, y);
-        context.lineTo(left + obstacle.width, y);
+        context.lineTo(surfaceRight, y);
+        context.stroke();
+      }
+      for (let row = 0, y = top; y < surfaceBottom; row += 1, y += 42) {
+        const offset = row % 2 === 0 ? 0 : 32;
+        for (let x = left + offset; x < surfaceRight; x += 64) {
+          context.beginPath();
+          context.moveTo(x, y);
+          context.lineTo(x, Math.min(y + 28, surfaceBottom));
+          context.stroke();
+        }
+      }
+      context.strokeStyle = palette.accent;
+      context.lineWidth = 3;
+      context.beginPath();
+      context.moveTo(left + 8, top + 9);
+      context.lineTo(surfaceRight - 7, top + 9);
+      context.stroke();
+    } else {
+      const seed = stableVisualSeed(obstacle.id);
+      context.strokeStyle = palette.detail;
+      context.lineWidth = 2;
+      const facetCount = Math.max(2, Math.floor((surfaceWidth + surfaceHeight) / 115));
+      for (let facet = 0; facet < facetCount; facet += 1) {
+        const x = left + 12 + ((seed + facet * 67) % Math.max(20, surfaceWidth - 24));
+        const y = top + 12 + ((seed * 3 + facet * 43) % Math.max(20, surfaceHeight - 24));
+        const reach = 12 + ((seed + facet * 19) % 24);
+        context.fillStyle = facet % 2 === 0 ? palette.highlight : palette.detail;
+        context.globalAlpha = facet % 2 === 0 ? 0.22 : 0.13;
+        context.beginPath();
+        context.moveTo(x - reach, y - reach * 0.22);
+        context.lineTo(x, y);
+        context.lineTo(x + reach * 0.72, y - reach * 0.5);
+        context.lineTo(x + reach * 0.24, y + reach * 0.42);
+        context.closePath();
+        context.fill();
+        context.globalAlpha = 1;
+        context.beginPath();
+        context.moveTo(x - reach, y - reach * 0.22);
+        context.lineTo(x, y);
+        context.lineTo(x + reach * 0.72, y - reach * 0.5);
+        context.stroke();
+      }
+      context.strokeStyle = palette.highlight;
+      context.lineWidth = 1.5;
+      const inset = Math.min(15, surfaceWidth / 5, surfaceHeight / 5);
+      context.strokeRect(
+        left + inset,
+        top + inset,
+        Math.max(1, surfaceWidth - inset * 2),
+        Math.max(1, surfaceHeight - inset * 2),
+      );
+      if (isFracture) {
+        context.strokeStyle = palette.accent;
+        context.lineWidth = 2.5;
+        for (let crack = 0; crack < 3; crack += 1) {
+          const startX = left + surfaceWidth * (0.2 + crack * 0.28);
+          const startY = top + 3;
+          context.beginPath();
+          context.moveTo(startX, startY);
+          context.lineTo(startX - 9 + crack * 4, top + surfaceHeight * 0.35);
+          context.lineTo(startX + 8 - crack * 3, top + surfaceHeight * 0.68);
+          context.lineTo(startX - 4, surfaceBottom - 3);
+          context.stroke();
+        }
+      } else if (simulation.mapTheme === "grassland") {
+        context.strokeStyle = palette.accent;
+        context.lineWidth = 4;
+        context.beginPath();
+        context.moveTo(left + 4, top + 7);
+        context.lineTo(surfaceRight - 6, top + 7);
         context.stroke();
       }
     }
+    context.restore();
+
+    context.save();
+    context.strokeStyle = palette.detail;
+    context.lineWidth = 1.5;
+    for (let x = left + 18; x < surfaceRight; x += 34) {
+      context.beginPath();
+      context.moveTo(x, surfaceBottom + 2);
+      context.lineTo(x + 6, top + obstacle.height - 2);
+      context.stroke();
+    }
+    for (let y = top + 18; y < surfaceBottom; y += 34) {
+      context.beginPath();
+      context.moveTo(surfaceRight + 2, y);
+      context.lineTo(left + obstacle.width - 2, y + 6);
+      context.stroke();
+    }
+    context.strokeStyle = palette.edge;
+    context.lineWidth = 2.5;
+    context.strokeRect(left, top, obstacle.width, obstacle.height);
     context.restore();
     if (!isStartingWall && obstacle.showLabel !== false) {
       drawLabel(obstacle.x, obstacle.y, `${obstacle.name} · Impassable`, true, "#9aa3aa");
     }
   }
+}
+
+function drawGrassTufts(visibleBounds) {
+  const spacing = 150;
+  const firstX = Math.max(50, Math.floor(visibleBounds.left / spacing) * spacing + 60);
+  const firstY = Math.max(50, Math.floor(visibleBounds.top / spacing) * spacing + 60);
+  context.save();
+  context.lineWidth = 1.25;
+  for (let y = firstY; y <= visibleBounds.bottom; y += spacing) {
+    for (let x = firstX; x <= visibleBounds.right; x += spacing) {
+      const signature = Math.abs(Math.floor(x / spacing) * 43 + Math.floor(y / spacing) * 71);
+      if (signature % 3 === 0) continue;
+      const tuftX = x + (signature % 47) - 23;
+      const tuftY = y + ((signature * 5) % 39) - 19;
+      const height = 5 + signature % 5;
+      context.strokeStyle = signature % 2 === 0 ? "#263d2859" : "#92aa6e4d";
+      context.beginPath();
+      context.moveTo(tuftX, tuftY);
+      context.lineTo(tuftX - 3, tuftY - height);
+      context.moveTo(tuftX, tuftY);
+      context.lineTo(tuftX + 1, tuftY - height - 2);
+      context.moveTo(tuftX, tuftY);
+      context.lineTo(tuftX + 4, tuftY - height + 1);
+      context.stroke();
+    }
+  }
+  context.restore();
 }
 
 function drawCrystalRemnants(visibleBounds) {
