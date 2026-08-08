@@ -2809,7 +2809,7 @@ function drawStructure(structure) {
     structure.hp / definition.maxHp,
     colors.health,
   );
-  if (definition.shieldCapacity && structure.complete && selectedStructureIds.has(structure.id)) {
+  if (definition.shieldCapacity && structure.complete) {
     drawBar(
       structure.x,
       structure.y - footprint.halfHeight - 17,

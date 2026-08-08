@@ -759,9 +759,10 @@ overlapping fields do not stack on one hit. Damage beyond the field's remaining
 strength spills through to the original target. An unpowered field is inactive but
 retains its remaining strength. While powered, every tier draws another 0.75 grid
 energy per restored shield point. Regeneration pauses when no surplus grid energy
-is available. Selecting the turret shows its field radius, current behavior,
-numeric shield strength, and a cyan shield bar directly above the green integrity
-bar.
+is available. Every completed Shield Turret always displays a cyan shield-strength
+bar directly above its green integrity bar, whether selected or not. Selecting the
+turret additionally shows its field radius, current behavior, and numeric shield
+strength.
 
 Static defenses charge an internal weapon capacitor continuously from their local
 grid. A shot spends capacitor energy, allowing normal generator output to build up

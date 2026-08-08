@@ -51,6 +51,16 @@ test("the tactical minimap routes right-clicks into selected-unit move orders", 
   assert.match(index, /right-click it with units selected to move them/);
 });
 
+test("completed Shield Turrets always render their cyan shield-strength bar", async () => {
+  const game = await source("../src/game.js");
+  const shieldBarBlock = game.match(
+    /if \(definition\.shieldCapacity && structure\.complete\) \{[\s\S]*?colors\.shield,[\s\S]*?\n  \}/,
+  );
+
+  assert.ok(shieldBarBlock, "the renderer should draw a cyan bar for every completed shield");
+  assert.doesNotMatch(shieldBarBlock[0], /selectedStructureIds/);
+});
+
 test("the interface and battlefield present the economy as crimson crystal", async () => {
   const [index, game, data, styles] = await Promise.all([
     source("../index.html"),
