@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  BUILD_DURATION_MULTIPLIER,
   BUILD_MENU,
   BUILD_MENU_BY_TIER,
   canWorkerTierBuildStructure,
@@ -51,6 +52,17 @@ function advanceToScheduledImpacts(simulation, step = 1 / 120) {
   );
   advance(simulation, Math.max(step, latestImpactAt - simulation.time + step), step);
 }
+
+test("unit production and building construction use the global 2x duration scale", () => {
+  assert.equal(BUILD_DURATION_MULTIPLIER, 2);
+  assert.equal(UNIT_DEFINITIONS.worker_drone_t1.productionTime, 5 * BUILD_DURATION_MULTIPLIER);
+  assert.equal(UNIT_DEFINITIONS.battle_tank.productionTime, 12 * BUILD_DURATION_MULTIPLIER);
+  assert.equal(UNIT_DEFINITIONS.arsenal_colossus.productionTime, 48 * BUILD_DURATION_MULTIPLIER);
+  assert.equal(STRUCTURE_DEFINITIONS.generator.buildTime, 8 * BUILD_DURATION_MULTIPLIER);
+  assert.equal(STRUCTURE_DEFINITIONS.mech_factory_t1.buildTime, 12 * BUILD_DURATION_MULTIPLIER);
+  assert.equal(STRUCTURE_DEFINITIONS.supply_complex.buildTime, 40 * BUILD_DURATION_MULTIPLIER);
+  assert.equal(STRUCTURE_DEFINITIONS.experimental_factory.buildTime, 36 * BUILD_DURATION_MULTIPLIER);
+});
 
 test("the tactical minimap fits the whole battlefield and maps its viewport", () => {
   const layout = calculateMinimapLayout(1600, 900, 8560, 6280);
@@ -3359,7 +3371,7 @@ test("a worker can leave the lane after completing a building beside another str
   const worker = simulation.addUnit("worker_drone_t1", "player", 235, 515);
   const project = simulation.startConstruction([worker.id], "generator", 320, 400);
 
-  advance(simulation, 12);
+  advance(simulation, STRUCTURE_DEFINITIONS.generator.buildTime + 4);
 
   assert.equal(project.complete, true);
   assert.equal(worker.buildTargetId, null);
@@ -3449,7 +3461,7 @@ test("a worker keeps its construction assignment through stasis and resumes afte
   assert.equal(worker.state, "stasis");
   assert.equal(worker.buildTargetId, structure.id);
 
-  advance(simulation, 18);
+  advance(simulation, STRUCTURE_DEFINITIONS.power_tower.buildTime + 14);
   assert.equal(worker.state, "active");
   assert.equal(structure.complete, true);
   assert.equal(worker.buildTargetId, null);
@@ -4046,7 +4058,7 @@ test("advanced enemy mech factories produce the worker generation needed for the
 test("the standard enemy opening establishes defenses and launches promptly", () => {
   const simulation = Simulation.createFieldTest();
 
-  advance(simulation, 30);
+  advance(simulation, 30 * BUILD_DURATION_MULTIPLIER);
 
   for (const structureType of ["battery", "sentry_turret", "charger"]) {
     assert.ok(
@@ -4151,7 +4163,7 @@ test("enemy AI places powered consumers inside its energized grid", () => {
     true,
   );
 
-  advance(simulation, 15);
+  advance(simulation, 15 * BUILD_DURATION_MULTIPLIER);
   assert.equal(charger.complete, true);
   assert.equal(charger.connected, true);
   assert.equal(charger.powered, true);
@@ -4187,7 +4199,7 @@ test("enemy AI completes extra generation before projected demand exceeds supply
   );
   assert.equal(simulation.aiBuildIndex, 4);
 
-  advance(simulation, 30);
+  advance(simulation, 30 * BUILD_DURATION_MULTIPLIER);
   const charger = simulation.structures.find(
     (structure) => structure.alive && structure.team === "enemy" && structure.type === "charger",
   );
@@ -4357,7 +4369,7 @@ test("enemy AI establishes a paid outpost and expands to another metal deposit",
     ),
   );
 
-  advance(simulation, 40);
+  advance(simulation, 40 * BUILD_DURATION_MULTIPLIER);
 
   const enemyMines = simulation.structures.filter(
     (structure) =>

@@ -626,6 +626,10 @@ when each placement is confirmed. Incomplete buildings remain visible and vulner
 When one or more workers with construction orders are selected, the interface shows
 each worker's active foundation and its shared live construction percentage, followed
 by the remaining foundations in placement order.
+All unit production times and building foundation construction times use a global
+provisional 2× duration multiplier. Worker build-rate improvements and higher-tier
+factory production-rate improvements still accelerate progress against those longer
+durations, so their relative advantages remain intact.
 Factories have an idle passive demand and add production
 demand while the first queued unit is actively building. Provisional production
 demands are 6 energy per second for Tier 1, 10 for Tier 2, and 16 for Tier 3, in
@@ -748,7 +752,7 @@ replace energy spent firing. Mortars launch a visibly arcing projectile and repo
 `TARGET TOO CLOSE` when hostile targets exist only inside their dead zone.
 
 The Strategic Supply Complex is an exceptionally large 8-by-6-grid-cell economic
-building. It costs 1,200 metal, takes 40 seconds to construct, and passively draws
+building. It costs 1,200 metal, takes 80 seconds to construct, and passively draws
 6 energy per second. Its Level 2 upgrade costs 800 metal and takes 25 powered
 seconds; its Level 3 upgrade costs 1,600 metal and takes 40 powered seconds. An
 upgrade adds another 6 energy per second of demand while progressing and pauses

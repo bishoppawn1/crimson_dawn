@@ -322,6 +322,8 @@ function provisionalFactoryUnit({ name, role, roleDescription, unitDomain, tier,
   };
 }
 
+export const BUILD_DURATION_MULTIPLIER = 2;
+
 const DEFAULT_PROJECTILE_KINETICS = Object.freeze({
   speed: 980,
   minimumTravelTime: 0.055,
@@ -533,7 +535,7 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
   }),
 });
 
-export const UNIT_DEFINITIONS = Object.freeze({
+const baseUnitDefinitions = {
   worker_drone_t1: {
     name: "Tier 1 Worker Drone",
     role: "worker",
@@ -916,7 +918,19 @@ export const UNIT_DEFINITIONS = Object.freeze({
     supplyCost: 4,
     provisionalBalance: true,
   },
-});
+};
+
+export const UNIT_DEFINITIONS = Object.freeze(
+  Object.fromEntries(
+    Object.entries(baseUnitDefinitions).map(([type, definition]) => [
+      type,
+      Object.freeze({
+        ...definition,
+        productionTime: definition.productionTime * BUILD_DURATION_MULTIPLIER,
+      }),
+    ]),
+  ),
+);
 
 const structureDefinitions = {
   generator: {
@@ -1302,6 +1316,13 @@ Object.assign(structureDefinitions, {
     metalCost: 1000, buildTime: 36, provisionalBalance: true,
   },
 });
+
+for (const [type, definition] of Object.entries(structureDefinitions)) {
+  structureDefinitions[type] = Object.freeze({
+    ...definition,
+    buildTime: definition.buildTime * BUILD_DURATION_MULTIPLIER,
+  });
+}
 
 export const STRUCTURE_DEFINITIONS = Object.freeze(structureDefinitions);
 
