@@ -47,6 +47,11 @@ const {
   normalizeLobbyCode,
   PeerMultiplayerSession,
 } = await import(`./multiplayer.js${versionSuffix}`);
+const {
+  strategicIconWorldSize,
+  strategicViewActive,
+  strategicZoomMinimum,
+} = await import(`./strategic-view.js${versionSuffix}`);
 
 const canvas = document.querySelector("#battlefield");
 const context = canvas.getContext("2d");
@@ -178,7 +183,6 @@ let renderTimestamp = performance.now();
 const guestPositionSmoother = new SnapshotPositionSmoother();
 const cameraKeys = new Set();
 const cameraPanSpeed = 700;
-const minCameraZoom = 0.5;
 const maxCameraZoom = 2;
 
 const colors = {
@@ -312,6 +316,7 @@ updateUnitTesterMapDescription();
 
 for (const [tier, definitions] of Object.entries(
   Object.entries(STRUCTURE_DEFINITIONS).reduce((groups, entry) => {
+    if (entry[1].testerSpawnable === false) return groups;
     const buildTier = entry[1].buildTier || entry[1].tier || 1;
     (groups[buildTier] ||= []).push(entry);
     return groups;
@@ -1326,38 +1331,108 @@ function render(now = performance.now()) {
   context.translate(canvas.width / 2, canvas.height / 2);
   context.scale(camera.zoom, camera.zoom);
   context.translate(-camera.x, -camera.y);
+  const strategicView = strategicViewActive(camera.zoom);
   drawTerrain();
   drawCrystalDeposits();
   drawPowerNetwork();
   drawShieldFields();
   drawCommandIndicators();
 
-  for (const wreck of simulation.wrecks) {
-    if (worldPointIsVisible(wreck.x, wreck.y, 80)) drawWreck(wreck);
-  }
-  for (const structure of simulation.structures) {
-    if (!structure.alive) continue;
-    const footprint = structureFootprint(structure.type);
-    if (worldPointIsVisible(structure.x, structure.y, Math.max(footprint.width, footprint.height))) {
-      drawStructure(structure);
+  if (strategicView) {
+    drawStrategicEntities();
+  } else {
+    for (const wreck of simulation.wrecks) {
+      if (worldPointIsVisible(wreck.x, wreck.y, 80)) drawWreck(wreck);
     }
-  }
-  for (const drone of simulation.getDrones()) {
-    if (!drone.alive) continue;
-    const displayedDrone = presentedEntity(drone);
-    if (worldPointIsVisible(displayedDrone.x, displayedDrone.y, 70)) drawDrone(displayedDrone);
-  }
-  for (const unit of simulation.units) {
-    if (!unit.alive) continue;
-    const displayedUnit = presentedEntity(unit);
-    if (worldPointIsVisible(displayedUnit.x, displayedUnit.y, 100)) drawUnit(displayedUnit);
+    for (const structure of simulation.structures) {
+      if (!structure.alive) continue;
+      const footprint = structureFootprint(structure.type);
+      if (worldPointIsVisible(structure.x, structure.y, Math.max(footprint.width, footprint.height))) {
+        drawStructure(structure);
+      }
+    }
+    for (const drone of simulation.getDrones()) {
+      if (!drone.alive) continue;
+      const displayedDrone = presentedEntity(drone);
+      if (worldPointIsVisible(displayedDrone.x, displayedDrone.y, 70)) drawDrone(displayedDrone);
+    }
+    for (const unit of simulation.units) {
+      if (!unit.alive) continue;
+      const displayedUnit = presentedEntity(unit);
+      if (worldPointIsVisible(displayedUnit.x, displayedUnit.y, 100)) drawUnit(displayedUnit);
+    }
+    drawEvents();
   }
   drawPlacementPreview();
-  drawEvents();
   drawSelectionBox();
   context.restore();
   drawCameraHud();
   drawMinimap();
+}
+
+function drawStrategicEntities() {
+  const lineWidth = strategicIconWorldSize(camera.zoom, 1.5);
+  for (const structure of simulation.structures) {
+    if (!structure.alive || !worldPointIsVisible(structure.x, structure.y, 100)) continue;
+    const definition = STRUCTURE_DEFINITIONS[structure.type];
+    const palette = teamPalette(structure.team);
+    const size = strategicIconWorldSize(camera.zoom, definition.headquarters ? 13 : 9);
+    context.save();
+    context.translate(structure.x, structure.y);
+    context.fillStyle = palette.dark;
+    context.strokeStyle = selectedStructureIds.has(structure.id) ? colors.selection : palette.bright;
+    context.lineWidth = lineWidth;
+    context.beginPath();
+    if (definition.headquarters) {
+      context.moveTo(0, -size);
+      context.lineTo(size, 0);
+      context.lineTo(0, size);
+      context.lineTo(-size, 0);
+      context.closePath();
+    } else {
+      context.rect(-size * 0.72, -size * 0.72, size * 1.44, size * 1.44);
+    }
+    context.fill();
+    context.stroke();
+    if (definition.headquarters) {
+      context.beginPath();
+      context.arc(0, 0, size * 1.35, 0, Math.PI * 2);
+      context.stroke();
+    }
+    context.restore();
+  }
+
+  const drawMobileIcon = (entity, drone = false) => {
+    const displayed = presentedEntity(entity);
+    if (!worldPointIsVisible(displayed.x, displayed.y, 80)) return;
+    const definition = entity.kind === "unit" ? UNIT_DEFINITIONS[entity.type] : DRONE_DEFINITION;
+    const palette = teamPalette(entity.team);
+    const selected = selectedUnitIds.has(entity.id);
+    const size = strategicIconWorldSize(camera.zoom, drone ? 4 : selected ? 8 : 6);
+    context.save();
+    context.translate(displayed.x, displayed.y);
+    context.fillStyle = palette.bright;
+    context.strokeStyle = selected ? colors.selection : palette.dark;
+    context.lineWidth = lineWidth;
+    context.beginPath();
+    if (definition.movementLayer === "air") {
+      context.moveTo(0, -size);
+      context.lineTo(size * 0.82, size * 0.78);
+      context.lineTo(-size * 0.82, size * 0.78);
+      context.closePath();
+    } else {
+      context.arc(0, 0, size, 0, Math.PI * 2);
+    }
+    context.fill();
+    context.stroke();
+    context.restore();
+  };
+  for (const drone of simulation.getDrones()) {
+    if (drone.alive) drawMobileIcon(drone, true);
+  }
+  for (const unit of simulation.units) {
+    if (unit.alive) drawMobileIcon(unit);
+  }
 }
 
 function drawShieldFields() {
@@ -1470,8 +1545,18 @@ function clampCamera() {
     : clampValue(camera.y, halfViewHeight, simulation.height - halfViewHeight);
 }
 
+function minimumCameraZoom() {
+  return strategicZoomMinimum(
+    canvas.width,
+    canvas.height,
+    simulation.width,
+    simulation.height,
+  );
+}
+
 function drawCameraHud() {
-  const label = `WASD PAN · WHEEL ZOOM · ${Math.round(camera.zoom * 100)}%`;
+  const viewMode = strategicViewActive(camera.zoom) ? " · STRATEGIC ICONS" : "";
+  const label = `WASD PAN · WHEEL ZOOM · ${Math.round(camera.zoom * 100)}%${viewMode}`;
   context.font = "700 12px ui-monospace, monospace";
   context.fillStyle = "#080a0dcc";
   context.fillRect(14, canvas.height - 38, context.measureText(label).width + 20, 25);
@@ -1574,6 +1659,7 @@ function drawMinimap() {
 
 function drawTerrain() {
   const theme = battlefieldThemePalette();
+  const strategicView = strategicViewActive(camera.zoom);
   context.fillStyle = theme.background;
   context.fillRect(0, 0, simulation.width, simulation.height);
 
@@ -1592,27 +1678,30 @@ function drawTerrain() {
     context.fill();
   }
 
-  // Small deterministic mottles keep the field organic without shimmering as
-  // the camera moves or introducing simulation-side randomness.
-  context.fillStyle = theme.mottle;
   const visibleBounds = visibleWorldBounds(80);
-  const firstMottleX = Math.max(80, Math.floor(visibleBounds.left / 160) * 160 + 80);
-  const firstMottleY = Math.max(80, Math.floor(visibleBounds.top / 160) * 160 + 80);
-  for (let y = firstMottleY; y <= visibleBounds.bottom; y += 160) {
-    for (let x = firstMottleX; x <= visibleBounds.right; x += 160) {
-      if ((x / 160 + y / 160) % 3 === 0) continue;
-      const offsetX = ((x * 7 + y * 3) % 41) - 20;
-      const offsetY = ((x * 5 + y * 11) % 37) - 18;
-      context.beginPath();
-      context.ellipse(x + offsetX, y + offsetY, 18, 8, (x + y) * 0.002, 0, Math.PI * 2);
-      context.fill();
+  if (!strategicView) {
+    // Small deterministic mottles keep the field organic without shimmering as
+    // the camera moves or introducing simulation-side randomness.
+    context.fillStyle = theme.mottle;
+    const firstMottleX = Math.max(80, Math.floor(visibleBounds.left / 160) * 160 + 80);
+    const firstMottleY = Math.max(80, Math.floor(visibleBounds.top / 160) * 160 + 80);
+    for (let y = firstMottleY; y <= visibleBounds.bottom; y += 160) {
+      for (let x = firstMottleX; x <= visibleBounds.right; x += 160) {
+        if ((x / 160 + y / 160) % 3 === 0) continue;
+        const offsetX = ((x * 7 + y * 3) % 41) - 20;
+        const offsetY = ((x * 5 + y * 11) % 37) - 18;
+        context.beginPath();
+        context.ellipse(x + offsetX, y + offsetY, 18, 8, (x + y) * 0.002, 0, Math.PI * 2);
+        context.fill();
+      }
     }
+    if (simulation.mapTheme === "grassland") drawGrassTufts(visibleBounds);
+    else drawCrystalRemnants(visibleBounds);
   }
 
-  if (simulation.mapTheme === "grassland") drawGrassTufts(visibleBounds);
-  else drawCrystalRemnants(visibleBounds);
-
-  const gridSize = SIMULATION_RULES.buildingGridSize;
+  const gridSize = strategicView && !placementIsActive()
+    ? SIMULATION_RULES.buildingGridSize * 5
+    : SIMULATION_RULES.buildingGridSize;
   context.lineWidth = placementIsActive() ? 1.5 : 1;
   const firstGridX = Math.floor(visibleBounds.left / gridSize) * gridSize;
   const firstGridY = Math.floor(visibleBounds.top / gridSize) * gridSize;
@@ -1643,7 +1732,7 @@ function drawTerrain() {
     context.stroke();
   }
 
-  drawImpassableTerrain();
+  drawImpassableTerrain(strategicView);
 
   context.font = "700 12px ui-monospace, monospace";
   for (const team of simulation.teams) {
@@ -1656,7 +1745,7 @@ function drawTerrain() {
   context.textAlign = "start";
 }
 
-function drawImpassableTerrain() {
+function drawImpassableTerrain(strategicView = false) {
   const theme = battlefieldThemePalette();
   for (const obstacle of simulation.terrain) {
     const left = obstacle.x - obstacle.width / 2;
@@ -1674,6 +1763,16 @@ function drawImpassableTerrain() {
     const surfaceRight = left + surfaceWidth;
     const surfaceBottom = top + surfaceHeight;
     context.save();
+
+    if (strategicView) {
+      context.fillStyle = palette.top;
+      context.strokeStyle = palette.highlight;
+      context.lineWidth = strategicIconWorldSize(camera.zoom, 1.5);
+      context.fillRect(left, top, obstacle.width, obstacle.height);
+      context.strokeRect(left, top, obstacle.width, obstacle.height);
+      context.restore();
+      continue;
+    }
 
     // The shadow and two interior rock faces make the obstacle read as raised
     // terrain without changing its exact rectangular collision footprint.
@@ -2081,6 +2180,22 @@ function drawCrystalDeposits() {
     );
     context.save();
     context.translate(deposit.x, deposit.y);
+    if (strategicViewActive(camera.zoom)) {
+      const size = strategicIconWorldSize(camera.zoom, rich ? 5 : 3.5);
+      context.fillStyle = rich ? "#ff7b8c" : "#d83452";
+      context.strokeStyle = rich ? "#ffd2d8" : "#8e2439";
+      context.lineWidth = strategicIconWorldSize(camera.zoom, 1);
+      context.beginPath();
+      context.moveTo(0, -size);
+      context.lineTo(size, 0);
+      context.lineTo(0, size);
+      context.lineTo(-size, 0);
+      context.closePath();
+      context.fill();
+      context.stroke();
+      context.restore();
+      continue;
+    }
     context.strokeStyle = emphasized
       ? colors.selection
       : rich && available
@@ -2946,8 +3061,47 @@ function drawSalvageYardBuilding(definition, footprint, powered, teamColor) {
   context.fill();
 }
 
+function drawHeadquartersBuilding(structure, footprint, powered, teamColor) {
+  const width = footprint.width * 0.78;
+  const height = footprint.height * 0.72;
+  context.fillStyle = structureMetalGradient();
+  context.strokeStyle = "#10171a";
+  context.lineWidth = 4;
+  context.beginPath();
+  context.roundRect(-width / 2, -height / 2, width, height, 12);
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = "#18252b";
+  context.strokeStyle = teamColor;
+  context.lineWidth = 3;
+  context.beginPath();
+  context.moveTo(0, -height * 0.36);
+  context.lineTo(width * 0.3, 0);
+  context.lineTo(0, height * 0.36);
+  context.lineTo(-width * 0.3, 0);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = powered ? colors.energy : "#6b5558";
+  context.shadowColor = powered ? colors.energy : "transparent";
+  context.shadowBlur = powered ? 14 : 0;
+  context.beginPath();
+  context.arc(0, 0, Math.min(width, height) * 0.13, 0, Math.PI * 2);
+  context.fill();
+  context.shadowBlur = 0;
+
+  context.fillStyle = teamColor;
+  for (const side of [-1, 1]) {
+    context.fillRect(side * width * 0.35 - 5, -height * 0.34, 10, height * 0.68);
+  }
+  drawFasteners(0, 0, width * 0.86, height * 0.78, powered ? colors.energy : "#70797b");
+}
+
 function drawCompletedBuilding(structure, definition, footprint, family, powered, teamColor) {
-  if (family === "generator") drawGeneratorBuilding(definition, footprint, powered, teamColor);
+  if (family === "headquarters") drawHeadquartersBuilding(structure, footprint, powered, teamColor);
+  else if (family === "generator") drawGeneratorBuilding(definition, footprint, powered, teamColor);
   else if (family === "battery") drawBatteryBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "power_tower") drawRelayBuilding(definition, footprint, powered, teamColor);
   else if (family === "charger") drawChargerBuilding(footprint, powered, teamColor);
@@ -5626,6 +5780,9 @@ function updateInterface() {
         ? ` · ${Math.round((definition.productionRate || 1) * 100)}% base production speed · ${productionAssist.workerCount} worker${productionAssist.workerCount === 1 ? "" : "s"} assisting · ${Math.round(((definition.productionRate || 1) + productionAssist.productionRate) * 100)}% current speed`
         : ` · ${Math.round((definition.productionRate || 1) * 100)}% production speed`
       : "";
+    const headquartersText = definition.headquarters
+      ? " · CRITICAL—LOSS ELIMINATES THIS COMMANDER · BUILDS TIER 1 WORKERS"
+      : "";
     const builderCount = selectedStructure.complete
       ? 0
       : simulation.units.filter((unit) => unit.alive && unit.buildTargetId === selectedStructure.id).length;
@@ -5642,7 +5799,7 @@ function updateInterface() {
         ? ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · UPGRADING TO ${selectedStructure.supplyUpgrade.targetLevel}`
         : ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · +${definition.supplyLevels[selectedStructure.supplyLevel - 1].capacity.toLocaleString()} capacity`
       : "";
-    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${chargerText}${mineText}${demandText}${defenseText}${shieldText}${salvageText}${factoryText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
+    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${chargerText}${mineText}${demandText}${defenseText}${shieldText}${salvageText}${factoryText}${headquartersText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
   } else if (selectedUnits.length === 0) {
     selectionName.textContent = "No units selected";
     selectionDetails.textContent = "Select friendly units or a structure on the battlefield.";
@@ -5934,8 +6091,11 @@ function findUnitAt(point, team = null) {
   const candidates = simulation.units.filter((unit) => {
     if (!unit.alive || (team && unit.team !== team)) return false;
     const position = presentedPosition(unit);
-    return Math.hypot(position.x - point.x, position.y - point.y) <=
-      UNIT_DEFINITIONS[unit.type].radius + 8;
+    const hitRadius = Math.max(
+      UNIT_DEFINITIONS[unit.type].radius + 8,
+      strategicIconWorldSize(camera.zoom, 10),
+    );
+    return Math.hypot(position.x - point.x, position.y - point.y) <= hitRadius;
   });
   return candidates.at(-1) || null;
 }
@@ -5944,9 +6104,10 @@ function findStructureAt(point, team = null) {
   const candidates = simulation.structures.filter((structure) => {
     if (!structure.alive || (team && structure.team !== team)) return false;
     const footprint = structureFootprint(structure.type);
+    const hitPadding = Math.max(7, strategicIconWorldSize(camera.zoom, 7));
     return (
-      Math.abs(structure.x - point.x) <= footprint.halfWidth + 7 &&
-      Math.abs(structure.y - point.y) <= footprint.halfHeight + 7
+      Math.abs(structure.x - point.x) <= footprint.halfWidth + hitPadding &&
+      Math.abs(structure.y - point.y) <= footprint.halfHeight + hitPadding
     );
   });
   return candidates.at(-1) || null;
@@ -5986,7 +6147,11 @@ function findEnemyAt(point) {
             ? STRUCTURE_DEFINITIONS[entity.type].radius
             : DRONE_DEFINITION.radius;
       const position = presentedPosition(entity);
-      return Math.hypot(position.x - point.x, position.y - point.y) <= radius + 10;
+      const hitRadius = Math.max(
+        radius + 10,
+        strategicIconWorldSize(camera.zoom, entity.kind === "structure" ? 11 : 9),
+      );
+      return Math.hypot(position.x - point.x, position.y - point.y) <= hitRadius;
     }) || null
   );
 }
@@ -6029,7 +6194,7 @@ canvas.addEventListener("wheel", (event) => {
   const boundedDelta = clampValue(event.deltaY, -100, 100);
   camera.zoom = clampValue(
     camera.zoom * Math.exp(-boundedDelta * 0.002),
-    minCameraZoom,
+    minimumCameraZoom(),
     maxCameraZoom,
   );
   camera.x = worldBeforeZoom.x - (pointerScreen.x - canvas.width / 2) / camera.zoom;

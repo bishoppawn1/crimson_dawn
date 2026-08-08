@@ -70,6 +70,7 @@ function createStart(x, y, centerX, centerY) {
     inwardY,
     tangentX,
     tangentY,
+    generator: Object.freeze(point(160, -80)),
     mine: Object.freeze(point(160)),
     factory: Object.freeze(point(160, 80)),
     workers: Object.freeze([
@@ -89,6 +90,10 @@ function createDuelMap(mapId = DEFAULT_MAP_ID) {
     const start = createStart(source.generator[0], source.generator[1], centerX, centerY);
     return Object.freeze({
       ...start,
+      generator: Object.freeze({
+        x: roundToGrid(start.x + start.inwardX * 160),
+        y: roundToGrid(start.y + start.inwardY * 160),
+      }),
       mine: Object.freeze({ x: source.mine[0], y: source.mine[1] }),
       factory: Object.freeze({ x: source.factory[0], y: source.factory[1] }),
       workers: Object.freeze(source.workers.map(([x, y]) => Object.freeze({ x, y }))),

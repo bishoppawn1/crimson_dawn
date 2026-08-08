@@ -177,7 +177,8 @@ export class Simulation {
 
     for (const team of teams) {
       const start = map.starts[team.slot];
-      simulation.addStructure("generator", team.id, start.x, start.y);
+      simulation.addStructure("headquarters", team.id, start.x, start.y);
+      simulation.addStructure("generator", team.id, start.generator.x, start.generator.y);
       simulation.addStructure("mech_factory_t1", team.id, start.factory.x, start.factory.y);
       simulation.addStructure(
         "metal_mine",
@@ -333,7 +334,12 @@ export class Simulation {
       return null;
     }
     const definition = STRUCTURE_DEFINITIONS[structureType];
-    if (!definition || !Number.isFinite(x) || !Number.isFinite(y)) {
+    if (
+      !definition ||
+      definition.testerSpawnable === false ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y)
+    ) {
       this.lastPlacementError = "Unknown building type.";
       return null;
     }
@@ -1265,7 +1271,7 @@ export class Simulation {
   findStructureUpgradePlacement(structure, targetType) {
     const targetDefinition = STRUCTURE_DEFINITIONS[targetType];
     const targetFootprint = structureFootprint(targetType);
-    const candidates = targetDefinition.metalRate
+    const candidates = targetDefinition.requiresDeposit
       ? [{ x: structure.x, y: structure.y }]
       : nearestGridCenters(structure.x, structure.y, targetFootprint);
     let firstFailure = null;
@@ -1472,7 +1478,7 @@ export class Simulation {
     }
 
     let depositId = null;
-    if (definition.metalRate) {
+    if (definition.requiresDeposit) {
       const deposit = this.findAvailableMetalDeposit(x, y);
       if (!deposit) {
         return {
@@ -1585,7 +1591,7 @@ export class Simulation {
       ));
     const preferred = this.evaluatePlacement(structureType, preferredX, preferredY, team);
     if (acceptable(preferred)) return preferred;
-    if (STRUCTURE_DEFINITIONS[structureType]?.metalRate) {
+    if (STRUCTURE_DEFINITIONS[structureType]?.requiresDeposit) {
       const deposits = [...this.metalDeposits].sort(
         (left, right) =>
           distance(left, { x: preferredX, y: preferredY }) -
@@ -1664,7 +1670,7 @@ export class Simulation {
       return preferred;
     }
 
-    if (STRUCTURE_DEFINITIONS[structureType]?.metalRate) {
+    if (STRUCTURE_DEFINITIONS[structureType]?.requiresDeposit) {
       const deposits = [...this.metalDeposits].sort(
         (left, right) =>
           distance(left, { x: preferredX, y: preferredY }) -
@@ -1823,7 +1829,7 @@ export class Simulation {
         .filter(
           (structure) =>
             structure.alive &&
-            STRUCTURE_DEFINITIONS[structure.type].metalRate &&
+            STRUCTURE_DEFINITIONS[structure.type].requiresDeposit &&
             structure.depositId,
         )
         .map((structure) => structure.depositId),
@@ -2048,7 +2054,9 @@ export class Simulation {
     const consumers = network.structures
       .filter((structure) => {
         const definition = STRUCTURE_DEFINITIONS[structure.type];
-        return !definition.generationRate && structureFamily(structure) !== "battery";
+        if (structureFamily(structure) === "battery") return false;
+        return !definition.generationRate ||
+          this.getStructurePowerDemandRate(structure) > EPSILON;
       })
       .sort(
         (left, right) =>
@@ -2312,8 +2320,7 @@ export class Simulation {
           structure.alive &&
           structure.complete &&
           structure.team === team &&
-          structure.powered &&
-          !STRUCTURE_DEFINITIONS[structure.type].generationRate,
+          structure.powered,
       )
       .reduce((total, structure) => total + this.getStructurePowerDemandRate(structure), 0);
   }
@@ -2742,6 +2749,12 @@ export class Simulation {
     const needsCombatForce =
       stagedCombatCount + queuedCombatCount < desiredWaveSize + desiredGarrisonCount ||
       assaultBlocked;
+    let queuedWorkerCount = enemyFactories.reduce(
+      (total, factory) => total + factory.productionQueue.filter(
+        (order) => UNIT_DEFINITIONS[order.unitType]?.workerTier,
+      ).length,
+      0,
+    );
     for (const factory of enemyFactories) {
       if (factory.productionQueue.length >= 2) continue;
       const factoryDefinition = STRUCTURE_DEFINITIONS[factory.type];
@@ -2786,7 +2799,7 @@ export class Simulation {
       const desiredCarrierCount = combatPopulation >= desiredWaveSize
         ? Math.max(1, Math.floor(combatPopulation / 4))
         : 0;
-      const replacingWorker = enemyWorkers.length < 3;
+      const replacingWorker = enemyWorkers.length + queuedWorkerCount < 3;
       const highestWorkerTier = Math.max(
         0,
         ...enemyWorkers.map((worker) => UNIT_DEFINITIONS[worker.type].workerTier),
@@ -2808,7 +2821,9 @@ export class Simulation {
         ? 0
         : reservedMetal;
       if (this.resources[teamId].metal + EPSILON < productionCost + requiredReserve) continue;
-      this.queueProduction(factory.id, choice);
+      if (this.queueProduction(factory.id, choice) && UNIT_DEFINITIONS[choice].workerTier) {
+        queuedWorkerCount += 1;
+      }
     }
 
     const structureUpgrade = this.getEnemyStructureUpgradeRequest(teamId, reservedMetal);
@@ -2880,14 +2895,15 @@ export class Simulation {
     );
     const combatStrength = combatUnits + queuedCombatUnits;
     const mineCount = structures.filter(
-      (structure) => STRUCTURE_DEFINITIONS[structure.type].metalRate,
+      (structure) => STRUCTURE_DEFINITIONS[structure.type].family === "metal_mine",
     ).length;
     const completedMineCount = structures.filter(
       (structure) =>
-        structure.complete && STRUCTURE_DEFINITIONS[structure.type].metalRate,
+        structure.complete &&
+        STRUCTURE_DEFINITIONS[structure.type].family === "metal_mine",
     ).length;
     const factoryCount = structures.filter(
-      (structure) => STRUCTURE_DEFINITIONS[structure.type].production,
+      (structure) => STRUCTURE_DEFINITIONS[structure.type].factoryBranch,
     ).length;
     const generatorCount = countFamily("generator");
     const batteryCount = countFamily("battery");
@@ -3187,7 +3203,7 @@ export class Simulation {
       (structure) =>
         structure.alive &&
         structure.team === teamId &&
-        STRUCTURE_DEFINITIONS[structure.type].metalRate,
+        STRUCTURE_DEFINITIONS[structure.type].family === "metal_mine",
     ).length;
     const metal = this.resources[teamId].metal;
     const fortifiedOpposition = this.hasEnemyHeavyDefenseCluster(teamId);
@@ -3206,7 +3222,7 @@ export class Simulation {
         .filter(
           (structure) =>
             structure.alive &&
-            STRUCTURE_DEFINITIONS[structure.type].metalRate &&
+            STRUCTURE_DEFINITIONS[structure.type].requiresDeposit &&
             structure.depositId,
         )
         .map((structure) => structure.depositId),
@@ -3275,7 +3291,7 @@ export class Simulation {
         structure.alive &&
         structure.complete &&
         structure.team === teamId &&
-        STRUCTURE_DEFINITIONS[structure.type].metalRate &&
+        STRUCTURE_DEFINITIONS[structure.type].family === "metal_mine" &&
         distance(structure, home) >= SIMULATION_RULES.enemyOutpostDistance,
     );
   }
@@ -4973,12 +4989,21 @@ export class Simulation {
       return;
     }
 
+    this.destroyEntity(target);
+  }
+
+  destroyEntity(target, { triggerHeadquartersLoss = true } = {}) {
+    if (!target?.alive) return false;
     if (target.kind === "drone") {
       this.destroyDrone(target);
-      return;
+      return true;
     }
 
+    const definition = target.kind === "structure"
+      ? STRUCTURE_DEFINITIONS[target.type]
+      : UNIT_DEFINITIONS[target.type];
     if (target.kind === "structure") this.recordAiConstructionLoss(target);
+    target.hp = 0;
     target.alive = false;
     if (target.kind === "unit") {
       target.state = "destroyed";
@@ -4988,15 +5013,47 @@ export class Simulation {
       target.attackTargetMode = null;
       for (const weaponSystem of target.weaponSystems || []) weaponSystem.targetId = null;
       target.buildTargetId = null;
+      target.buildQueue = [];
       target.repairTargetId = null;
       target.productionAssistTargetId = null;
       target.navigationObstacleId = null;
       target.navigationSide = null;
-      const salvageMetal = Math.round(UNIT_DEFINITIONS[target.type].metalValue * 0.55);
+      target.navigationPath = [];
+      target.navigationTarget = null;
+      const salvageMetal = Math.round(definition.metalValue * 0.55);
       this.addWreck(target.x, target.y, salvageMetal, target.team);
+    } else {
+      target.powered = false;
+      target.connected = false;
+      target.powerStatus = "destroyed";
     }
-    if (target.kind === "structure") target.powered = false;
     this.emit("destroyed", target.x, target.y, { targetId: target.id });
+
+    if (triggerHeadquartersLoss && definition.headquarters) {
+      this.eliminateTeamAfterHeadquartersLoss(target.team, target.id);
+    }
+    return true;
+  }
+
+  eliminateTeamAfterHeadquartersLoss(teamId, headquartersId) {
+    for (const drone of this.getDrones()) {
+      if (drone.alive && drone.team === teamId) this.destroyDrone(drone);
+    }
+    for (const unit of this.units) {
+      if (unit.alive && unit.team === teamId) {
+        this.destroyEntity(unit, { triggerHeadquartersLoss: false });
+      }
+    }
+    for (const structure of this.structures) {
+      if (structure.alive && structure.team === teamId) {
+        this.destroyEntity(structure, { triggerHeadquartersLoss: false });
+      }
+    }
+    this.emit("team_eliminated", this.width / 2, this.height / 2, {
+      team: teamId,
+      headquartersId,
+    });
+    this.updateMatchResult();
   }
 
   findProtectingShield(target) {

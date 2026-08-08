@@ -63,6 +63,14 @@ as a white rectangle. Left-clicking the minimap recenters the battlefield camera
 Right-clicking a point inside the map area with units selected issues the same
 formation move command at the corresponding world position without moving the
 camera; an armed force-move modifier is preserved for this command.
+The main battlefield camera also supports a seamless strategic zoom. Its dynamic
+minimum scale fits the complete active map inside the Canvas, while its maximum
+remains 200%. Zoom stays anchored beneath the mouse cursor. At 45% scale and below,
+fine terrain decoration, labels, health bars, and detailed sprites give way to
+fixed-screen-size tactical symbols: circles for ground units, triangles for aircraft,
+squares for ordinary structures, and a ringed diamond for each Headquarters. Team
+colors, selection highlighting, hit testing, movement orders, and combat targeting
+remain usable in this whole-map view.
 On desktop displays, the battlefield expands across the available browser width;
 outer padding and the command column remain narrow enough to prioritize the play
 surface.
@@ -777,6 +785,13 @@ progress. Crystal already represented by completed progress is not refundable. T
 
 ### 5.3 Economy and Static Defense Buildings
 
+Each commander owns one irreplaceable **Command Headquarters**. Its provisional
+3×3 profile has 1,800 integrity, generates 4 crystal and 20 energy per second,
+projects a 320-world-unit power grid, and stores 240 energy with 20/90 energy-per-second
+charge/discharge limits. It has a dedicated production queue containing only the
+Tier 1 Worker Drone; active Headquarters production draws 6 energy per second. A
+Headquarters cannot be constructed, upgraded, or replaced.
+
 Crystal Harvesters provide continuous income while connected to a functioning power
 network and passively consume 2 energy per second while operating. Other powered
 economic buildings likewise apply their data-defined passive demand continuously.
@@ -828,14 +843,16 @@ constructed on any otherwise valid terrain.
 
 Every human or AI commander begins with exactly:
 
+- One completed Command Headquarters.
 - Three Tier 1 Worker Drones.
 - One Tier 1 Mech Factory.
 - One power generator.
 - One completed Crystal Harvester on a nearby map-defined crystal deposit, within the
   starting generator's power network.
 
-The starting harvester provides a guaranteed crystal income so spending the initial crystal
-cannot leave a commander unable to construct anything. No battery, relay, charger,
+The Headquarters and starting harvester provide guaranteed crystal income so spending
+the initial crystal cannot leave a commander unable to construct anything. The
+Headquarters and starting generator both contribute energy to the initial grid. No battery, relay, charger,
 reclamation yard, static defense, energy carrier, or combat unit is pre-built. Both
 commanders use their workers and starting crystal income to expand their economy and
 military.
@@ -846,7 +863,10 @@ A player wins when every AI opponent has no living units and no living buildings
 The same elimination rule causes defeat when the player has no living units and no
 living buildings, even if multiple AI commanders remain. Active, stasis, and
 unfinished entities count while they remain alive; wrecks and reclamation drones do
-not postpone elimination. If the human and final AI opponent are eliminated by the
+not postpone elimination. Destroying a commander's Headquarters immediately destroys
+all of that commander's remaining units, reclamation drones, completed structures,
+and foundations; normal match resolution then checks the surviving commanders without
+waiting for another simulation tick. If the human and final AI opponent are eliminated by the
 same resolution, the player receives a defeat.
 
 The simulation stops advancing once the result is decided. The battlefield displays
@@ -1130,9 +1150,10 @@ The independent authoritative heartbeat can catch up as many as 30 fixed steps
 after an interruption, then publishes only its newest state.
 
 Battlefields currently range from 5,200 by 3,200 world units for two commanders to
-8,560 by 6,280 for eight. The 1,600-by-900 Canvas is a movable viewport rather than
-the full map. `WASD` pans the camera, and the mouse wheel zooms from 50% to 200%
-around the world position beneath the pointer. Camera movement remains available
+8,560 by 6,280 for eight. `WASD` pans the camera, and the mouse wheel zooms from a
+dynamic whole-map fit to 200% around the world position beneath the pointer. The
+renderer switches to fixed-size tactical icons at 45% and below so all armies and
+bases remain readable at strategic scale. Camera movement remains available
 while the simulation is paused, and the camera is clamped to the active map's
 dimensions so it cannot expose space beyond the battlefield boundary.
 
@@ -1155,7 +1176,7 @@ synthetic entities. Every AI commander in a Unit Tester match retains its ordina
 resource balance, power networks, construction time, production time, supply use,
 technology progression, and combat behavior; tester advantages never apply to AI
 teams. A dedicated Enemy Spawner lets the tester choose any AI commander, select
-any building or unit definition, and place that asset directly on a valid battlefield
+any ordinary field building or unit definition, and place that asset directly on a valid battlefield
 position for free. Spawned buildings are completed immediately, while spawned units
 must pass the ordinary terrain, map-edge, structure, and unit collision checks.
 Crystal Harvesters still require an unused deposit and every building still uses its normal

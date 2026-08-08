@@ -64,6 +64,37 @@ test("unit production and building construction use the global 4x duration scale
   assert.equal(STRUCTURE_DEFINITIONS.experimental_factory.buildTime, 36 * BUILD_DURATION_MULTIPLIER);
 });
 
+test("the irreplaceable Command Headquarters provides economy and only Tier 1 workers", () => {
+  const definition = STRUCTURE_DEFINITIONS.headquarters;
+  assert.equal(definition.buildable, false);
+  assert.equal(definition.headquarters, true);
+  assert.equal(definition.metalRate, 4);
+  assert.equal(definition.generationRate, 20);
+  assert.deepEqual(definition.production, ["worker_drone_t1"]);
+  assert.equal(canWorkerTierBuildStructure(3, "headquarters"), false);
+
+  const simulation = new Simulation();
+  const headquarters = simulation.addStructure("headquarters", "player", 200, 200);
+  const startingMetal = simulation.resources.player.metal;
+  simulation.refreshPowerState(1);
+
+  assert.equal(simulation.resources.player.metal, startingMetal + definition.metalRate);
+  assert.equal(simulation.getGenerationRate("player"), definition.generationRate);
+  assert.equal(simulation.queueProduction(headquarters.id, "worker_drone_t1"), true);
+  assert.equal(simulation.queueProduction(headquarters.id, "scout_mech"), false);
+  simulation.refreshPowerState(1);
+  assert.equal(
+    simulation.getNetEnergyRate("player"),
+    definition.generationRate - definition.productionPowerDemand,
+  );
+  advance(simulation, UNIT_DEFINITIONS.worker_drone_t1.productionTime + 0.2);
+  assert.equal(headquarters.productionQueue.length, 0);
+  assert.equal(
+    simulation.units.filter((unit) => unit.type === "worker_drone_t1").length,
+    1,
+  );
+});
+
 test("the tactical minimap fits the whole battlefield and maps its viewport", () => {
   const layout = calculateMinimapLayout(1600, 900, 8560, 6280);
   const origin = minimapPoint(layout, 0, 0);
@@ -1102,11 +1133,11 @@ test("single-player map selection resolves every available battlefield", () => {
     assert.equal(simulation.units.filter((unit) => unit.team === "enemy").length, 3);
     assert.equal(
       simulation.structures.filter((structure) => structure.team === "player").length,
-      3,
+      4,
     );
     assert.equal(
       simulation.structures.filter((structure) => structure.team === "enemy").length,
-      3,
+      4,
     );
     assert.ok(simulation.metalDeposits.length >= 19);
     terrainLayouts.add(map.terrain.map(({ x, y, width, height }) => `${x},${y},${width},${height}`).join("|"));
@@ -3577,7 +3608,7 @@ test("destroyed reclamation drones drop their carried crystal scrap at the death
   assert.equal(drone.carry, 0);
 });
 
-test("both sides start with three workers, a Tier 1 factory, a generator, and a powered Crystal Harvester", () => {
+test("both sides start with a Headquarters, three workers, a Tier 1 factory, a generator, and a powered Crystal Harvester", () => {
   const simulation = Simulation.createFieldTest();
 
   for (const team of ["player", "enemy"]) {
@@ -3585,14 +3616,16 @@ test("both sides start with three workers, a Tier 1 factory, a generator, and a 
     const structures = simulation.structures.filter(
       (structure) => structure.alive && structure.team === team,
     );
+    const headquarters = structures.find((structure) => structure.type === "headquarters");
     const generator = structures.find((structure) => structure.type === "generator");
     const mine = structures.find((structure) => structure.type === "metal_mine");
     assert.equal(units.length, 3);
     assert.ok(units.every((unit) => unit.type === "worker_drone_t1"));
     assert.deepEqual(
       structures.map((structure) => structure.type).sort(),
-      ["generator", "mech_factory_t1", "metal_mine"],
+      ["generator", "headquarters", "mech_factory_t1", "metal_mine"],
     );
+    assert.ok(headquarters);
     assert.ok(generator);
     assert.ok(mine);
     assert.equal(mine.complete, true);
@@ -3601,6 +3634,10 @@ test("both sides start with three workers, a Tier 1 factory, a generator, and a 
     assert.ok(
       Math.hypot(mine.x - generator.x, mine.y - generator.y) <=
         STRUCTURE_DEFINITIONS.generator.powerRadius,
+    );
+    assert.deepEqual(
+      STRUCTURE_DEFINITIONS[headquarters.type].production,
+      ["worker_drone_t1"],
     );
   }
 
@@ -4681,7 +4718,7 @@ test("enemy AI establishes a paid outpost and expands to another crystal deposit
       structure.alive &&
       structure.complete &&
       structure.team === "enemy" &&
-      STRUCTURE_DEFINITIONS[structure.type].metalRate,
+      STRUCTURE_DEFINITIONS[structure.type].family === "metal_mine",
   );
   assert.ok(enemyMines.length >= 2);
 });
@@ -5102,6 +5139,28 @@ test("losing every player unit and building ends the match in defeat", () => {
   assert.equal(simulation.events.at(-1).winner, "enemy");
 });
 
+test("destroying a Headquarters instantly eliminates all of that commander's assets", () => {
+  const simulation = new Simulation({ matchRulesEnabled: true });
+  const headquarters = simulation.addStructure("headquarters", "player", 180, 180);
+  simulation.addStructure("generator", "player", 340, 180);
+  simulation.addStructure("mech_factory_t1", "player", 500, 180);
+  simulation.addUnit("worker_drone_t1", "player", 260, 300);
+  simulation.addUnit("scout_mech", "enemy", 900, 500);
+  simulation.addStructure("headquarters", "enemy", 1040, 500);
+
+  simulation.applyDamage(headquarters, headquarters.hp);
+
+  assert.ok(simulation.units.filter((unit) => unit.team === "player").every((unit) => !unit.alive));
+  assert.ok(
+    simulation.structures
+      .filter((structure) => structure.team === "player")
+      .every((structure) => !structure.alive),
+  );
+  assert.equal(simulation.matchResult, "defeat");
+  assert.equal(simulation.matchWinnerTeamId, "enemy");
+  assert.equal(simulation.events.at(-1).type, "match_complete");
+});
+
 test("field tests enable elimination while isolated simulations remain opt-in", () => {
   const isolated = new Simulation();
   isolated.addUnit("worker_drone_t1", "player", 100, 100);
@@ -5215,7 +5274,7 @@ test("every player count offers multiple dense and selectable battlefield layout
       assert.ok(map.starts.every((start) =>
         start.x >= 0 && start.x <= map.width && start.y >= 0 && start.y <= map.height));
       for (const start of map.starts) {
-        const startingPoints = [start, start.mine, start.factory, ...start.workers];
+        const startingPoints = [start, start.generator, start.mine, start.factory, ...start.workers];
         for (const point of startingPoints) {
           assert.equal(map.terrain.some((obstacle) =>
             Math.abs(point.x - obstacle.x) <= obstacle.width / 2 + 40 &&
@@ -5267,7 +5326,7 @@ test("an eight-player match gives every commander the standard starting package"
     assert.equal(units.filter((unit) => unit.type === "worker_drone_t1").length, 3);
     assert.deepEqual(
       structures.map((structure) => structure.type).sort(),
-      ["generator", "mech_factory_t1", "metal_mine"],
+      ["generator", "headquarters", "mech_factory_t1", "metal_mine"],
     );
     assert.equal(structures.find((structure) => structure.type === "metal_mine").powered, true);
   }

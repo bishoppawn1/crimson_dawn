@@ -938,6 +938,29 @@ export const UNIT_DEFINITIONS = Object.freeze(
 );
 
 const structureDefinitions = {
+  headquarters: {
+    name: "Command Headquarters",
+    family: "headquarters",
+    headquarters: true,
+    buildable: false,
+    testerSpawnable: false,
+    tier: 1,
+    radius: 52,
+    footprint: [3, 3],
+    maxHp: 1800,
+    powerRadius: 320,
+    generationRate: 20,
+    storageCapacity: 240,
+    chargeRate: 20,
+    dischargeRate: 90,
+    metalRate: 4,
+    productionPowerDemand: 6,
+    productionRate: 1,
+    production: ["worker_drone_t1"],
+    metalCost: 0,
+    buildTime: 0,
+    provisionalBalance: true,
+  },
   generator: {
     name: "Pulse Generator",
     family: "generator",
@@ -1013,6 +1036,7 @@ const structureDefinitions = {
     maxHp: 410,
     powerDemand: 2,
     metalRate: 5,
+    requiresDeposit: true,
     metalCost: 110,
     buildTime: 8,
   },
@@ -1383,7 +1407,11 @@ export const BUILD_MENU = Object.freeze(Object.values(BUILD_MENU_BY_TIER).flat()
 
 export function canWorkerTierBuildStructure(workerTier, structureType) {
   const definition = STRUCTURE_DEFINITIONS[structureType];
-  return Boolean(definition && workerTier >= (definition.minimumWorkerTier || definition.buildTier || 1));
+  return Boolean(
+    definition &&
+    definition.buildable !== false &&
+    workerTier >= (definition.minimumWorkerTier || definition.buildTier || 1),
+  );
 }
 
 export function getNextStructureTierType(structureType) {
