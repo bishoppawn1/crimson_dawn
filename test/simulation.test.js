@@ -694,6 +694,7 @@ test("every higher-tier infrastructure building improves its defining function",
     charger: ["chargeRadius", "chargeRate"],
     metal_mine: ["metalRate"],
     sentry_turret: ["attackRange", "attackDamage", "capacitorCapacity", "capacitorChargeRate"],
+    shield_turret: ["shieldRadius", "shieldCapacity", "shieldRegenRate"],
     mortar_turret: ["attackRange", "attackDamage", "capacitorCapacity", "capacitorChargeRate"],
     flak_turret: ["attackRange", "attackDamage", "capacitorCapacity", "capacitorChargeRate"],
     salvage_yard: ["droneCount"],
@@ -3256,11 +3257,64 @@ test("full idle sentries do not prevent a new sentry from charging", () => {
   assert.ok(newTurret.weaponEnergy >= 2.9, "the grid's remaining output should charge the new turret");
 });
 
-test("Tier 1 workers can construct the provisional Shield Turret", () => {
+test("workers can build and upgrade every Shield Turret tier", () => {
   assert.ok(BUILD_MENU_BY_TIER[1].includes("shield_turret"));
+  assert.ok(BUILD_MENU_BY_TIER[2].includes("shield_turret_t2"));
+  assert.ok(BUILD_MENU_BY_TIER[3].includes("shield_turret_t3"));
   assert.equal(canWorkerTierBuildStructure(1, "shield_turret"), true);
-  assert.equal(STRUCTURE_DEFINITIONS.shield_turret.family, "shield_turret");
-  assert.ok(STRUCTURE_DEFINITIONS.shield_turret.shieldCapacity > 0);
+  assert.equal(canWorkerTierBuildStructure(1, "shield_turret_t2"), false);
+  assert.equal(canWorkerTierBuildStructure(2, "shield_turret_t2"), true);
+  assert.equal(canWorkerTierBuildStructure(3, "shield_turret_t3"), true);
+  assert.equal(getNextStructureTierType("shield_turret"), "shield_turret_t2");
+  assert.equal(getNextStructureTierType("shield_turret_t2"), "shield_turret_t3");
+  assert.equal(getNextStructureTierType("shield_turret_t3"), null);
+});
+
+test("Shield Turret upgrades retain existing strength and regenerate the added capacity", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  simulation.addStructure("mech_factory_t3", "player", 900, 700);
+  const shield = simulation.addStructure("shield_turret", "player", 300, 300, {
+    shieldStrength: 200,
+    powered: true,
+  });
+
+  assert.equal(simulation.upgradeStructure(shield.id, "player"), true);
+  assert.equal(shield.type, "shield_turret_t2");
+  assert.equal(shield.shieldStrength, 200);
+  assert.equal(shield.shieldStatus, "regenerating");
+
+  assert.equal(simulation.upgradeStructure(shield.id, "player"), true);
+  assert.equal(shield.type, "shield_turret_t3");
+  assert.equal(shield.shieldStrength, 200);
+  assert.equal(shield.shieldStatus, "regenerating");
+});
+
+test("higher-tier Shield Turrets protect targets beyond the Tier 1 field", () => {
+  const tierOneSimulation = new Simulation();
+  tierOneSimulation.addStructure("shield_turret", "player", 300, 300, { powered: true });
+  const exposedUnit = tierOneSimulation.addUnit("raider", "player", 500, 300);
+  const exposedHp = exposedUnit.hp;
+  tierOneSimulation.applyDamage(exposedUnit, 20);
+  assert.equal(exposedUnit.hp, exposedHp - 20);
+
+  const tierTwoSimulation = new Simulation();
+  const tierTwoShield = tierTwoSimulation.addStructure(
+    "shield_turret_t2",
+    "player",
+    300,
+    300,
+    { powered: true },
+  );
+  const protectedUnit = tierTwoSimulation.addUnit("raider", "player", 500, 300);
+  const protectedHp = protectedUnit.hp;
+  tierTwoSimulation.applyDamage(protectedUnit, 20);
+
+  assert.equal(protectedUnit.hp, protectedHp);
+  assert.equal(
+    tierTwoShield.shieldStrength,
+    STRUCTURE_DEFINITIONS.shield_turret_t2.shieldCapacity - 20,
+  );
 });
 
 test("a powered Shield Turret absorbs hits inside its field and spills excess damage through", () => {

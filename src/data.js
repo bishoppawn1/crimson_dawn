@@ -1234,6 +1234,12 @@ Object.assign(structureDefinitions, {
     attackEnergy: 7, attackCooldown: 0.68, capacitorCapacity: 35, capacitorChargeRate: 24,
     metalCost: 190, buildTime: 10, provisionalBalance: true,
   },
+  shield_turret_t2: {
+    ...structureDefinitions.shield_turret, name: "Tier 2 Shield Turret", buildTier: 2,
+    minimumWorkerTier: 2, radius: 28, footprint: [2, 2], maxHp: 560, powerDemand: 4,
+    shieldRadius: 235, shieldCapacity: 1050, shieldRegenRate: 22,
+    metalCost: 310, buildTime: 16, provisionalBalance: true,
+  },
   mortar_turret_t2: {
     ...structureDefinitions.mortar_turret, name: "Tier 2 Mortar Turret", buildTier: 2,
     minimumWorkerTier: 2, radius: 28, footprint: [2, 2], maxHp: 520,
@@ -1305,6 +1311,12 @@ Object.assign(structureDefinitions, {
     capacitorChargeRate: 44,
     metalCost: 360, buildTime: 16, provisionalBalance: true,
   },
+  shield_turret_t3: {
+    ...structureDefinitions.shield_turret, name: "Tier 3 Shield Turret", buildTier: 3,
+    minimumWorkerTier: 3, radius: 38, footprint: [3, 3], maxHp: 820, powerDemand: 7,
+    shieldRadius: 320, shieldCapacity: 1900, shieldRegenRate: 36,
+    metalCost: 560, buildTime: 24, provisionalBalance: true,
+  },
   mortar_turret_t3: {
     ...structureDefinitions.mortar_turret, name: "Tier 3 Mortar Turret", buildTier: 3,
     minimumWorkerTier: 3, radius: 38, footprint: [3, 3], maxHp: 780,
@@ -1352,12 +1364,12 @@ export const BUILD_MENU_BY_TIER = Object.freeze({
   2: Object.freeze([
     "generator_t2", "battery_t2", "power_tower_t2", "charger_t2", "metal_mine_t2",
     "mech_factory_t2", "vehicle_factory_t2", "air_factory_t2",
-    "sentry_turret_t2", "mortar_turret_t2", "flak_turret_t2", "salvage_yard_t2",
+    "sentry_turret_t2", "shield_turret_t2", "mortar_turret_t2", "flak_turret_t2", "salvage_yard_t2",
   ]),
   3: Object.freeze([
     "generator_t3", "battery_t3", "power_tower_t3", "charger_t3", "metal_mine_t3",
     "mech_factory_t3", "vehicle_factory_t3", "air_factory_t3",
-    "sentry_turret_t3", "mortar_turret_t3", "flak_turret_t3", "salvage_yard_t3",
+    "sentry_turret_t3", "shield_turret_t3", "mortar_turret_t3", "flak_turret_t3", "salvage_yard_t3",
     "experimental_factory",
   ]),
 });

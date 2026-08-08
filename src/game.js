@@ -2524,6 +2524,7 @@ function drawSentryBuilding(structure, definition, footprint, powered, teamColor
 function drawShieldTurretBuilding(structure, definition, footprint, powered, teamColor) {
   const size = Math.min(footprint.width, footprint.height);
   const base = size * 0.31;
+  const tier = definition.buildTier || 1;
   context.fillStyle = structureMetalGradient();
   context.strokeStyle = "#10171a";
   context.lineWidth = 3;
@@ -2541,9 +2542,10 @@ function drawShieldTurretBuilding(structure, definition, footprint, powered, tea
   context.fillStyle = "#202a2f";
   context.strokeStyle = "#0c1114";
   context.lineWidth = 3;
-  for (let arm = 0; arm < 4; arm += 1) {
+  const armCount = tier === 1 ? 4 : tier === 2 ? 6 : 8;
+  for (let arm = 0; arm < armCount; arm += 1) {
     context.save();
-    context.rotate(arm * Math.PI / 2);
+    context.rotate(arm * Math.PI * 2 / armCount);
     context.fillRect(base * 0.1, -base * 0.11, base * 0.55, base * 0.22);
     context.strokeRect(base * 0.1, -base * 0.11, base * 0.55, base * 0.22);
     context.restore();
@@ -2553,7 +2555,7 @@ function drawShieldTurretBuilding(structure, definition, footprint, powered, tea
   context.shadowColor = powered ? colors.shield : "transparent";
   context.shadowBlur = powered ? 10 + strengthRatio * 8 : 0;
   context.beginPath();
-  context.arc(0, 0, base * 0.3, 0, Math.PI * 2);
+  context.arc(0, 0, base * (0.26 + tier * 0.04), 0, Math.PI * 2);
   context.fill();
   context.shadowBlur = 0;
   context.strokeStyle = powered ? `${colors.shield}cc` : "#745357";

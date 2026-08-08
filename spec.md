@@ -582,8 +582,9 @@ afford are displayed brightly, while structures blocked by worker tier or curren
 crystal are dimmed but remain visible so the progression path stays clear.
 
 Pulse Generators, Grid Batteries, Power Relay Towers, Induction Chargers, Crystal
-Harvesters, Sentry Turrets, Mortar Turrets, Flak Turrets, and Salvage Reclamation Yards
-currently have separate Tier 1, Tier 2, and Tier 3 construction definitions.
+Harvesters, Sentry Turrets, Shield Turrets, Mortar Turrets, Flak Turrets, and
+Salvage Reclamation Yards currently have separate Tier 1, Tier 2, and Tier 3
+construction definitions.
 Higher-tier versions have larger provisional costs, footprints, durability,
 demand, and role-specific output or capacity. The Strategic Supply Complex remains
 a Tier 1 construction option with
@@ -598,6 +599,8 @@ crystal income; reclamation yards field more drones with faster replacement; and
 factories gain provisional production-speed multipliers of 1.0×, 1.25×, and 1.5×.
 Sentry Turrets scale especially clearly: provisional Tier 1/Tier 2/Tier 3 weapon
 profiles are 18/34/60 damage, 185/265/360 range, and 0.75/0.68/0.55-second reloads.
+Shield Turrets scale from 520/1,050/1,900 shield capacity, 165/235/320 field radius,
+and 12/22/36 shield regeneration per second across the three tiers.
 Mortar Turrets provide slower indirect fire at 140–420, 160–550, and 180–700
 minimum-to-maximum range across the three tiers. A Mortar Turret never acquires or
 fires on a target whose center is inside its minimum range, creating a deliberate
@@ -610,9 +613,10 @@ role-defining statistics so these advantages are apparent before crystal is spen
 A player upgrades one selected completed structure at a time. Each upgrade advances
 only one tier and costs the provisional difference between the target tier's crystal
 cost and the structure's current-tier crystal cost. The conversion is immediate,
-preserves the building's integrity percentage and retained energy up to the new
-capacity, and keeps factory queues and rally orders. The larger target footprint
-snaps to the nearest compatible grid center and must fit within the battlefield
+preserves the building's integrity percentage, retained energy, and current shield
+strength up to the new capacity, and keeps factory queues and rally orders. A Shield
+Turret regenerates the newly added empty capacity after its upgrade. The larger
+target footprint snaps to the nearest compatible grid center and must fit within the battlefield
 without overlapping another structure, hostile unit, or reclamation drone. Friendly
 units are moved clear. The Strategic Supply Complex continues to use its separate
 internal supply-level upgrades rather than this structure-tier system.
@@ -704,10 +708,6 @@ the reason to the player. The player sees a green or red footprint preview befor
 confirming placement, and the enemy AI searches nearby grid cells when its preferred
 site is blocked.
 
-The Shield Turret is currently a separate provisional Tier 1 defense rather than a
-three-tier family. Tier 1 workers can construct it from their Tier 1 building
-category.
-
 Building-to-building validation uses the exact visible grid footprints. It adds no
 invisible movement padding, so adjacent footprints—including compact one-cell
 turrets and towers—may share an edge without overlapping. Unit movement still
@@ -748,17 +748,20 @@ Static defenses automatically engage hostile units, reclamation drones, and
 structures within range and stop functioning when disconnected from an energized
 network. These demand values remain provisional.
 
-The provisional Tier 1 Shield Turret creates a 165-world-unit field around itself.
-Its 520-point shield intercepts damage aimed at friendly units, reclamation drones,
-and structures whose centers are inside the field, including the Shield Turret
-itself. A hit is absorbed by the nearest eligible field; overlapping fields do not
-stack on one hit. Damage beyond the field's remaining strength spills through to
-the original target. An unpowered field is inactive but retains its remaining
-strength. While powered, the turret consumes 2 energy per second to maintain the
-field and restores up to 12 shield points per second, drawing another 0.75 grid
-energy per restored point. Regeneration pauses when no surplus grid energy is
-available. Selecting the turret shows its field radius, current behavior, numeric
-shield strength, and a cyan shield bar directly above the green integrity bar.
+Shield Turrets create a protective field around themselves. Their provisional Tier
+1/Tier 2/Tier 3 profiles provide 520/1,050/1,900 shield points, 165/235/320-world-unit
+field radii, and 12/22/36 shield regeneration per second. They occupy 1×1, 2×2, and
+3×3 footprints, have 340/560/820 integrity, cost 160/310/560 crystal, and passively
+consume 2/4/7 energy per second respectively. A field intercepts damage aimed at
+friendly units, reclamation drones, and structures whose centers are inside it,
+including the Shield Turret itself. A hit is absorbed by the nearest eligible field;
+overlapping fields do not stack on one hit. Damage beyond the field's remaining
+strength spills through to the original target. An unpowered field is inactive but
+retains its remaining strength. While powered, every tier draws another 0.75 grid
+energy per restored shield point. Regeneration pauses when no surplus grid energy
+is available. Selecting the turret shows its field radius, current behavior,
+numeric shield strength, and a cyan shield bar directly above the green integrity
+bar.
 
 Static defenses charge an internal weapon capacitor continuously from their local
 grid. A shot spends capacitor energy, allowing normal generator output to build up

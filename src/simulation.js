@@ -48,6 +48,7 @@ const AI_STRUCTURE_UPGRADE_PRIORITY = Object.freeze({
   factory: 90,
   charger: 85,
   sentry_turret: 80,
+  shield_turret: 80,
   flak_turret: 80,
   mortar_turret: 78,
   battery: 75,
@@ -1157,6 +1158,7 @@ export class Simulation {
     const hpRatio = clamp(structure.hp / currentDefinition.maxHp, 0, 1);
     const storedEnergy = structure.storedEnergy;
     const weaponEnergy = structure.weaponEnergy;
+    const shieldStrength = structure.shieldStrength;
     this.resources[structure.team].metal -= upgrade.metalCost;
 
     structure.type = upgrade.targetType;
@@ -1174,6 +1176,16 @@ export class Simulation {
       ? clamp(weaponEnergy || 0, 0, targetDefinition.capacitorCapacity)
       : null;
     structure.defenseStatus = targetDefinition.capacitorCapacity ? "ready" : null;
+    structure.shieldStrength = targetDefinition.shieldCapacity
+      ? clamp(shieldStrength || 0, 0, targetDefinition.shieldCapacity)
+      : null;
+    structure.shieldStatus = targetDefinition.shieldCapacity
+      ? structure.shieldStrength + EPSILON >= targetDefinition.shieldCapacity
+        ? "stable"
+        : structure.powered
+          ? "regenerating"
+          : "unpowered"
+      : null;
     this.recordStructureTierUnlock(structure);
 
     if (targetDefinition.droneCount) {
