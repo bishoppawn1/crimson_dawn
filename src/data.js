@@ -544,7 +544,7 @@ const baseUnitDefinitions = {
   worker_drone_t1: {
     name: "Tier 1 Worker Drone",
     role: "worker",
-    roleDescription: "Construction, allied repair, and close-range self-defense",
+    roleDescription: "Construction, factory assistance, allied repair, and close-range self-defense",
     tier: 1,
     radius: 6,
     maxHp: 70,
@@ -570,7 +570,7 @@ const baseUnitDefinitions = {
   worker_drone_t2: {
     name: "Tier 2 Worker Drone",
     role: "worker",
-    roleDescription: "Construction, allied repair, and close-range self-defense",
+    roleDescription: "Construction, factory assistance, allied repair, and close-range self-defense",
     tier: 2,
     radius: 7,
     maxHp: 95,
@@ -596,7 +596,7 @@ const baseUnitDefinitions = {
   worker_drone_t3: {
     name: "Tier 3 Worker Drone",
     role: "worker",
-    roleDescription: "Construction, allied repair, and close-range self-defense",
+    roleDescription: "Construction, factory assistance, allied repair, and close-range self-defense",
     tier: 3,
     radius: 8,
     maxHp: 125,
@@ -1424,6 +1424,7 @@ export const SIMULATION_RULES = Object.freeze({
   buildingGridSize: 40,
   constructionStartingHpRatio: 0.1,
   constructionCancelRefundRate: 0.75,
+  workerProductionAssistRange: 24,
   enemyInitialThinkDelay: 1,
   enemyThinkInterval: 1,
   enemyAttackWaveSize: 3,

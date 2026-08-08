@@ -821,6 +821,73 @@ test("higher-tier factories have progressively faster production throughput", ()
   assert.equal(tierThree.productionQueue[0].progress, 1.5);
 });
 
+test("workers add their tier-specific build rates to active factory production", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  simulation.addStructure("generator", "player", 80, 200);
+  const factory = simulation.addStructure("mech_factory_t1", "player", 240, 200);
+  const tierOneWorker = simulation.addUnit("worker_drone_t1", "player", 304, 200);
+  const tierThreeWorker = simulation.addUnit("worker_drone_t3", "player", 240, 264);
+  simulation.refreshPowerState(0);
+  simulation.queueProduction(factory.id, "scout_mech");
+
+  assert.equal(
+    simulation.commandAssistProduction([tierOneWorker.id, tierThreeWorker.id], factory.id),
+    2,
+  );
+  assert.equal(tierOneWorker.productionAssistTargetId, factory.id);
+  assert.equal(tierThreeWorker.productionAssistTargetId, factory.id);
+  assert.deepEqual(simulation.getFactoryProductionAssistState(factory.id), {
+    workerCount: 2,
+    productionRate:
+      UNIT_DEFINITIONS.worker_drone_t1.buildRate +
+      UNIT_DEFINITIONS.worker_drone_t3.buildRate,
+  });
+
+  simulation.updateProduction(1);
+
+  assert.equal(
+    factory.productionQueue[0].progress,
+    STRUCTURE_DEFINITIONS.mech_factory_t1.productionRate +
+      UNIT_DEFINITIONS.worker_drone_t1.buildRate +
+      UNIT_DEFINITIONS.worker_drone_t3.buildRate,
+  );
+});
+
+test("production assistance requires an active friendly factory and overrides worker combat", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  simulation.addStructure("generator", "player", 80, 200);
+  const factory = simulation.addStructure("mech_factory_t1", "player", 240, 200);
+  const idleFactory = simulation.addStructure("vehicle_factory_t1", "player", 240, 400, {
+    powered: true,
+  });
+  const worker = simulation.addUnit("worker_drone_t1", "player", 304, 200);
+  const combatUnit = simulation.addUnit("scout_mech", "player", 304, 260);
+  const enemy = simulation.addUnit("worker_drone_t1", "enemy", 304, 250);
+  simulation.refreshPowerState(0);
+
+  assert.equal(simulation.commandAssistProduction([worker.id], idleFactory.id), 0);
+  simulation.queueProduction(factory.id, "scout_mech");
+  assert.equal(simulation.commandAssistProduction([combatUnit.id], factory.id), 0);
+  assert.equal(simulation.commandAssistProduction([worker.id], factory.id), 1);
+
+  simulation.applyDamage(worker, 1, enemy);
+  simulation.tick(0.25);
+
+  assert.equal(worker.attackTargetId, null);
+  assert.equal(enemy.hp, UNIT_DEFINITIONS.worker_drone_t1.maxHp);
+  assert.equal(factory.productionQueue[0].progress, 0.5);
+
+  factory.powered = false;
+  simulation.updateUnits(0.25);
+  assert.equal(worker.productionAssistTargetId, factory.id);
+
+  factory.productionQueue = [];
+  simulation.updateUnits(0.25);
+  assert.equal(worker.productionAssistTargetId, null);
+});
+
 test("completed mech factories globally unlock matching structure upgrades", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;

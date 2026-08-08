@@ -671,6 +671,19 @@ contributing progress. The effect stops while the worker is traveling, paused, i
 stasis, or after the foundation completes, so the animation communicates actual
 construction state rather than merely the presence of a build order.
 
+Right-clicking a completed, powered production building with an active unfinished
+unit order assigns every selected Worker Drone to assist that factory. The command
+replaces movement, combat, construction, queued construction, and repair orders.
+Workers travel to within 24 world units of the factory footprint, then each adds its
+existing tier-specific build rate directly to the factory's own production rate;
+multiple workers stack additively. The assignment remains through temporary power
+loss or a blocked factory exit, continues across later orders already in the queue,
+and ends when the queue becomes empty or the worker receives another order. A
+selected worker identifies the assisted factory, while a selected factory reports
+the number of workers currently contributing and its combined production speed.
+Active assistance uses the worker's articulated tool animation and construction
+beam so the faster progress is visible on the battlefield.
+
 Worker Drones also repair damaged friendly mobile units and completed buildings.
 An idle worker automatically acquires the nearest damaged friendly target within a
 provisional 180-world-unit service radius. Active construction and queued builds,

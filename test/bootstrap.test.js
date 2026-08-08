@@ -61,6 +61,14 @@ test("completed Shield Turrets always render their cyan shield-strength bar", as
   assert.doesNotMatch(shieldBarBlock[0], /selectedStructureIds/);
 });
 
+test("right-clicking an active friendly factory sends selected workers to assist production", async () => {
+  const game = await source("../src/game.js");
+
+  assert.match(game, /type: "assist_production"/);
+  assert.match(game, /simulation\.commandAssistProduction\(/);
+  assert.match(game, /simulation\.isFactoryActivelyProducing\(friendlyStructure\.id\)/);
+});
+
 test("the interface and battlefield present the economy as crimson crystal", async () => {
   const [index, game, data, styles] = await Promise.all([
     source("../index.html"),

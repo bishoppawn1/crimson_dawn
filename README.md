@@ -165,6 +165,7 @@ either player enters the battlefield.
 - Press `G`, then right-click to force-move without engaging enemies en route.
 - Right-click a hostile unit to attack it.
 - Right-click an unfinished friendly building with selected workers to resume construction.
+- Right-click a powered factory with an active queue to send selected workers to accelerate its unit production.
 - Right-click a damaged friendly unit or completed building with selected workers to repair it; workers can repair one another but not themselves.
 - Select an unfinished building and press `C` to cancel it for a partial refund.
 - Press `Q` to use Overdrive with selected Bulwark Mechs.

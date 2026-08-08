@@ -444,6 +444,7 @@ export class Simulation {
       buildTargetId: null,
       buildQueue: [],
       repairTargetId: null,
+      productionAssistTargetId: null,
       holdPosition: false,
       navigationObstacleId: null,
       navigationSide: null,
@@ -653,6 +654,7 @@ export class Simulation {
       unit.buildTargetId = null;
       unit.buildQueue = [];
       unit.repairTargetId = null;
+      unit.productionAssistTargetId = null;
       unit.holdPosition = false;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -728,6 +730,7 @@ export class Simulation {
         unit.buildTargetId = null;
         unit.buildQueue = [];
         unit.repairTargetId = null;
+        unit.productionAssistTargetId = null;
         unit.holdPosition = false;
         unit.navigationObstacleId = null;
         unit.navigationSide = null;
@@ -743,6 +746,7 @@ export class Simulation {
       unit.buildTargetId = null;
       unit.buildQueue = [];
       unit.repairTargetId = null;
+      unit.productionAssistTargetId = null;
       unit.holdPosition = false;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -764,6 +768,7 @@ export class Simulation {
       unit.buildTargetId = null;
       unit.buildQueue = [];
       unit.repairTargetId = null;
+      unit.productionAssistTargetId = null;
       unit.holdPosition = holdPosition;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -777,6 +782,7 @@ export class Simulation {
   assignActiveBuildTarget(worker, structureId) {
     worker.buildTargetId = structureId;
     worker.repairTargetId = null;
+    worker.productionAssistTargetId = null;
     worker.attackTargetId = null;
     worker.attackTargetMode = null;
     worker.moveTarget = null;
@@ -815,6 +821,7 @@ export class Simulation {
         continue;
       }
       worker.repairTargetId = target.id;
+      worker.productionAssistTargetId = null;
       worker.moveTarget = null;
       worker.moveMode = null;
       worker.attackTargetId = null;
@@ -828,6 +835,58 @@ export class Simulation {
       accepted += 1;
     }
     return accepted;
+  }
+
+  commandAssistProduction(unitIds, structureId) {
+    const factory = this.getStructure(structureId);
+    if (!isActivelyProducingFactory(factory)) return 0;
+
+    let accepted = 0;
+    const orderedIds = [...unitIds];
+    for (const [orderIndex, id] of orderedIds.entries()) {
+      const worker = this.getUnit(id);
+      const definition = worker && UNIT_DEFINITIONS[worker.type];
+      if (
+        !worker?.alive ||
+        worker.state !== "active" ||
+        worker.team !== factory.team ||
+        !definition?.workerTier ||
+        !definition.buildRate
+      ) {
+        continue;
+      }
+      worker.productionAssistTargetId = factory.id;
+      worker.moveTarget = null;
+      worker.moveMode = null;
+      worker.attackTargetId = null;
+      worker.attackTargetMode = null;
+      worker.buildTargetId = null;
+      worker.buildQueue = [];
+      worker.repairTargetId = null;
+      worker.holdPosition = false;
+      worker.navigationObstacleId = null;
+      worker.navigationSide = null;
+      this.resetUnitNavigation(worker, orderIndex, orderedIds.length);
+      accepted += 1;
+    }
+    return accepted;
+  }
+
+  isFactoryActivelyProducing(structureId) {
+    return isActivelyProducingFactory(this.getStructure(structureId));
+  }
+
+  getFactoryProductionAssistState(structureId) {
+    const factory = this.getStructure(structureId);
+    let workerCount = 0;
+    let productionRate = 0;
+    if (!factory) return { workerCount, productionRate };
+    for (const worker of this.units) {
+      if (!isActivelyAssistingProduction(worker, factory)) continue;
+      workerCount += 1;
+      productionRate += UNIT_DEFINITIONS[worker.type].buildRate || 0;
+    }
+    return { workerCount, productionRate };
   }
 
   resetUnitNavigation(unit, orderIndex = null, orderCount = 1) {
@@ -881,6 +940,7 @@ export class Simulation {
         continue;
       }
       worker.buildQueue = Array.isArray(worker.buildQueue) ? worker.buildQueue : [];
+      worker.productionAssistTargetId = null;
       if (!queue) {
         worker.buildQueue = [];
         this.assignActiveBuildTarget(worker, structure.id);
@@ -2329,10 +2389,19 @@ export class Simulation {
         unit.repairTargetId = null;
         repairTarget = null;
       }
+      let productionAssistTarget = this.getStructure(unit.productionAssistTargetId);
+      if (
+        unit.productionAssistTargetId &&
+        !isValidProductionAssistTarget(unit, productionAssistTarget)
+      ) {
+        unit.productionAssistTargetId = null;
+        productionAssistTarget = null;
+      }
       const existingTarget = this.getEntity(unit.attackTargetId);
       const hasPriorityWorkerOrder = Boolean(
         unit.buildTargetId ||
         unit.buildQueue?.length ||
+        unit.productionAssistTargetId ||
         unit.moveTarget ||
         unit.holdPosition ||
         (
@@ -2365,7 +2434,8 @@ export class Simulation {
             !buildTarget.complete &&
             buildTarget.team === unit.team
           ) ||
-          isValidRepairTarget(unit, repairTarget)
+          isValidRepairTarget(unit, repairTarget) ||
+          isValidProductionAssistTarget(unit, productionAssistTarget)
         )
       ) {
         unit.attackTargetId = null;
@@ -3488,6 +3558,16 @@ export class Simulation {
   }
 
   updateProduction(delta) {
+    const assistRates = new Map();
+    for (const worker of this.units) {
+      const factory = this.getStructure(worker.productionAssistTargetId);
+      if (!isActivelyAssistingProduction(worker, factory)) continue;
+      assistRates.set(
+        factory.id,
+        (assistRates.get(factory.id) || 0) + (UNIT_DEFINITIONS[worker.type].buildRate || 0),
+      );
+    }
+
     for (const factory of this.structures) {
       const definition = STRUCTURE_DEFINITIONS[factory.type];
       if (!factory.alive || !factory.complete || !factory.powered || !definition.production || factory.productionQueue.length === 0) {
@@ -3495,7 +3575,9 @@ export class Simulation {
       }
       const order = factory.productionQueue[0];
       const unitDefinition = UNIT_DEFINITIONS[order.unitType];
-      order.progress += delta * (definition.productionRate || 1);
+      order.progress += delta * (
+        (definition.productionRate || 1) + (assistRates.get(factory.id) || 0)
+      );
       if (order.progress + EPSILON < unitDefinition.productionTime) continue;
 
       const spawn = this.findUnitSpawn(factory, order.unitType);
@@ -3804,6 +3886,25 @@ export class Simulation {
         unit.attackTargetId = null;
         unit.attackTargetMode = null;
         this.updateUnitRepair(unit, repairTarget, definition, delta);
+        continue;
+      }
+
+      const productionAssistTarget = this.getStructure(unit.productionAssistTargetId);
+      if (
+        unit.productionAssistTargetId &&
+        !isValidProductionAssistTarget(unit, productionAssistTarget)
+      ) {
+        unit.productionAssistTargetId = null;
+      }
+      if (isValidProductionAssistTarget(unit, productionAssistTarget)) {
+        unit.attackTargetId = null;
+        unit.attackTargetMode = null;
+        if (
+          distanceToStructureFootprint(unit, productionAssistTarget) >
+          SIMULATION_RULES.workerProductionAssistRange + EPSILON
+        ) {
+          this.moveUnitToward(unit, productionAssistTarget, delta);
+        }
         continue;
       }
 
@@ -4888,6 +4989,7 @@ export class Simulation {
       for (const weaponSystem of target.weaponSystems || []) weaponSystem.targetId = null;
       target.buildTargetId = null;
       target.repairTargetId = null;
+      target.productionAssistTargetId = null;
       target.navigationObstacleId = null;
       target.navigationSide = null;
       const salvageMetal = Math.round(UNIT_DEFINITIONS[target.type].metalValue * 0.55);
@@ -4924,6 +5026,9 @@ export class Simulation {
     const repairTarget = target.kind === "unit"
       ? this.getEntity(target.repairTargetId)
       : null;
+    const productionAssistTarget = target.kind === "unit"
+      ? this.getStructure(target.productionAssistTargetId)
+      : null;
     if (
       target.kind !== "unit" ||
       target.state !== "active" ||
@@ -4940,7 +5045,8 @@ export class Simulation {
             !buildTarget.complete &&
             buildTarget.team === target.team
           ) ||
-          isValidRepairTarget(target, repairTarget)
+          isValidRepairTarget(target, repairTarget) ||
+          isValidProductionAssistTarget(target, productionAssistTarget)
         )
       ) ||
       ["force", "advance", "retreat"].includes(target.moveMode)
@@ -4960,6 +5066,7 @@ export class Simulation {
     }
     target.buildTargetId = null;
     target.repairTargetId = null;
+    target.productionAssistTargetId = null;
     target.holdPosition = false;
     target.navigationObstacleId = null;
     target.navigationSide = null;
@@ -5173,6 +5280,50 @@ function isValidRepairTarget(worker, target) {
     target.team === worker.team &&
     (target.kind !== "structure" || target.complete) &&
     target.hp + EPSILON < maximumHp
+  );
+}
+
+function isActivelyProducingFactory(factory) {
+  const definition = factory?.kind === "structure"
+    ? STRUCTURE_DEFINITIONS[factory.type]
+    : null;
+  const order = factory?.productionQueue?.[0];
+  const unitDefinition = order ? UNIT_DEFINITIONS[order.unitType] : null;
+  return Boolean(
+    factory?.alive &&
+    factory.complete &&
+    factory.powered &&
+    definition?.production &&
+    order &&
+    unitDefinition &&
+    order.progress + EPSILON < unitDefinition.productionTime
+  );
+}
+
+function isValidProductionAssistTarget(worker, factory) {
+  const workerDefinition = worker?.kind === "unit" ? UNIT_DEFINITIONS[worker.type] : null;
+  const factoryDefinition = factory?.kind === "structure"
+    ? STRUCTURE_DEFINITIONS[factory.type]
+    : null;
+  return Boolean(
+    worker?.alive &&
+    workerDefinition?.workerTier &&
+    workerDefinition.buildRate &&
+    factory?.alive &&
+    factory.complete &&
+    factory.team === worker.team &&
+    factoryDefinition?.production &&
+    factory.productionQueue?.length
+  );
+}
+
+function isActivelyAssistingProduction(worker, factory) {
+  return Boolean(
+    worker?.state === "active" &&
+    isValidProductionAssistTarget(worker, factory) &&
+    isActivelyProducingFactory(factory) &&
+    distanceToStructureFootprint(worker, factory) <=
+      SIMULATION_RULES.workerProductionAssistRange + EPSILON
   );
 }
 

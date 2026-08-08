@@ -1036,6 +1036,14 @@ function applyAuthorizedCommand(command, team) {
         target.id,
       ) > 0;
     }
+    case "assist_production": {
+      const factory = ownedStructure(command.structureId, team);
+      if (!factory) return false;
+      return simulation.commandAssistProduction(
+        ownedUnitIds(command.unitIds, team),
+        factory.id,
+      ) > 0;
+    }
     case "construct": {
       if (!STRUCTURE_DEFINITIONS[command.structureType]) return false;
       if (!Number.isFinite(command.x) || !Number.isFinite(command.y)) return false;
@@ -2266,6 +2274,18 @@ function drawCommandIndicators() {
       context.stroke();
       context.restore();
     }
+    const productionAssistTarget = simulation.getStructure(unit.productionAssistTargetId);
+    if (productionAssistTarget?.alive) {
+      context.save();
+      context.strokeStyle = `${colors.energy}90`;
+      context.lineWidth = 2;
+      context.setLineDash([4, 5]);
+      context.beginPath();
+      context.moveTo(unitPosition.x, unitPosition.y);
+      context.lineTo(productionAssistTarget.x, productionAssistTarget.y);
+      context.stroke();
+      context.restore();
+    }
     if (unit.moveTarget) {
       context.strokeStyle = `${colors.selection}45`;
       context.lineWidth = 1;
@@ -3115,6 +3135,7 @@ function drawUnit(unit) {
   const activeBuildTarget = getActiveConstructionTarget(unit);
   const activeRepairTarget = getActiveRepairTarget(unit);
   const displayedRepairTarget = presentedEntity(activeRepairTarget);
+  const activeProductionAssistTarget = getActiveProductionAssistTarget(unit);
 
   if (definition.underbellyBeamRadius) {
     drawZenithUnderbellyBeam(unit, definition, selected);
@@ -3165,7 +3186,12 @@ function drawUnit(unit) {
   }
 
   drawUnitGroundShadow(definition);
-  const pose = getUnitRenderPose(unit, activeBuildTarget, displayedRepairTarget);
+  const pose = getUnitRenderPose(
+    unit,
+    activeBuildTarget,
+    displayedRepairTarget,
+    activeProductionAssistTarget,
+  );
   context.rotate(pose.facing);
   context.translate(0, pose.recoil * definition.radius);
   drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis", pose);
@@ -3175,6 +3201,8 @@ function drawUnit(unit) {
     drawWorkerConstructionEffect(unit, activeBuildTarget, pose, teamColor);
   } else if (displayedRepairTarget) {
     drawWorkerRepairEffect(unit, displayedRepairTarget, pose, teamColor);
+  } else if (activeProductionAssistTarget) {
+    drawWorkerConstructionEffect(unit, activeProductionAssistTarget, pose, teamColor);
   }
 
   const barWidth = Math.max(24, definition.radius * 2.3);
@@ -3238,10 +3266,42 @@ function getActiveRepairTarget(unit) {
   return separation <= definition.repairRange + 0.001 ? repairTarget : null;
 }
 
-function getUnitRenderPose(unit, activeBuildTarget = null, activeRepairTarget = null) {
+function getActiveProductionAssistTarget(unit) {
+  const definition = UNIT_DEFINITIONS[unit.type];
+  const factory = simulation.getStructure(unit.productionAssistTargetId);
+  const order = factory?.productionQueue?.[0];
+  const unitDefinition = order ? UNIT_DEFINITIONS[order.unitType] : null;
+  if (
+    !definition.workerTier ||
+    unit.state !== "active" ||
+    !factory?.alive ||
+    !factory.complete ||
+    !factory.powered ||
+    factory.team !== unit.team ||
+    !STRUCTURE_DEFINITIONS[factory.type].production ||
+    !unitDefinition ||
+    order.progress >= unitDefinition.productionTime
+  ) {
+    return null;
+  }
+  const footprint = structureFootprint(factory.type);
+  const deltaX = Math.max(Math.abs(unit.x - factory.x) - footprint.halfWidth, 0);
+  const deltaY = Math.max(Math.abs(unit.y - factory.y) - footprint.halfHeight, 0);
+  return Math.hypot(deltaX, deltaY) <= SIMULATION_RULES.workerProductionAssistRange + 0.001
+    ? factory
+    : null;
+}
+
+function getUnitRenderPose(
+  unit,
+  activeBuildTarget = null,
+  activeRepairTarget = null,
+  activeProductionAssistTarget = null,
+) {
   const attackTarget = presentedEntity(simulation.getEntity(unit.attackTargetId));
   const buildTarget = simulation.getStructure(unit.buildTargetId);
   const repairTarget = presentedEntity(simulation.getEntity(unit.repairTargetId));
+  const productionAssistTarget = simulation.getStructure(unit.productionAssistTargetId);
   const transferTarget = unit.energyTransferTargetIds?.length
     ? presentedEntity(simulation.getUnit(unit.energyTransferTargetIds[0]))
     : null;
@@ -3250,6 +3310,7 @@ function getUnitRenderPose(unit, activeBuildTarget = null, activeRepairTarget = 
     : unit.moveTarget ||
       (buildTarget?.alive ? buildTarget : null) ||
       (repairTarget?.alive ? repairTarget : null) ||
+      (productionAssistTarget?.alive ? productionAssistTarget : null) ||
       (transferTarget?.alive ? transferTarget : null);
   const start = simulation.teamStarts[unit.team];
   const fallbackFacing = start
@@ -3260,7 +3321,11 @@ function getUnitRenderPose(unit, activeBuildTarget = null, activeRepairTarget = 
     : fallbackFacing;
   const moving =
     unit.state === "active" &&
-    Boolean(unit.moveTarget || (repairTarget?.alive && !activeRepairTarget)) &&
+    Boolean(
+      unit.moveTarget ||
+      (repairTarget?.alive && !activeRepairTarget) ||
+      (productionAssistTarget?.alive && !activeProductionAssistTarget)
+    ) &&
     !simulation.isUnitStoppedToAttack(unit);
   const phase = [...unit.id].reduce((total, character) => total + character.charCodeAt(0), 0) * 0.31;
   const firingAge = recentAttackAge(unit.id);
@@ -3279,7 +3344,9 @@ function getUnitRenderPose(unit, activeBuildTarget = null, activeRepairTarget = 
   return {
     facing,
     moving,
-    building: Boolean(activeBuildTarget || activeRepairTarget),
+    building: Boolean(
+      activeBuildTarget || activeRepairTarget || activeProductionAssistTarget
+    ),
     workCycle: Math.sin(simulation.time * 13 + phase),
     phase,
     stride: moving ? Math.sin(simulation.time * 9 + phase) : 0,
@@ -5551,8 +5618,13 @@ function updateInterface() {
     const salvageText = definition.droneCount
       ? ` · ${definition.droneCount} reclamation drones · ${definition.droneReplacementTime}s rebuild`
       : "";
+    const productionAssist = definition.production
+      ? simulation.getFactoryProductionAssistState(selectedStructure.id)
+      : { workerCount: 0, productionRate: 0 };
     const factoryText = definition.factoryBranch
-      ? ` · ${Math.round((definition.productionRate || 1) * 100)}% production speed`
+      ? productionAssist.workerCount > 0
+        ? ` · ${Math.round((definition.productionRate || 1) * 100)}% base production speed · ${productionAssist.workerCount} worker${productionAssist.workerCount === 1 ? "" : "s"} assisting · ${Math.round(((definition.productionRate || 1) + productionAssist.productionRate) * 100)}% current speed`
+        : ` · ${Math.round((definition.productionRate || 1) * 100)}% production speed`
       : "";
     const builderCount = selectedStructure.complete
       ? 0
@@ -5594,6 +5666,10 @@ function updateInterface() {
     const repairText = repairTarget?.alive && repairDefinition
       ? ` · REPAIRING ${repairDefinition.name.toUpperCase()}`
       : "";
+    const productionAssistTarget = simulation.getStructure(unit.productionAssistTargetId);
+    const productionAssistText = productionAssistTarget?.alive
+      ? ` · ASSISTING ${STRUCTURE_DEFINITIONS[productionAssistTarget.type].name.toUpperCase()} PRODUCTION`
+      : "";
     const buildQueueText = unit.buildQueue?.length
       ? ` · ${unit.buildQueue.length} BUILD${unit.buildQueue.length === 1 ? "" : "S"} QUEUED`
       : "";
@@ -5611,7 +5687,7 @@ function updateInterface() {
         ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}`
         : "";
     selectionName.textContent = definition.name;
-    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${combatText}${emergencyRecoveryText}${supplyText}${orderText}${repairText}${buildQueueText}`;
+    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${combatText}${emergencyRecoveryText}${supplyText}${orderText}${repairText}${productionAssistText}${buildQueueText}`;
   } else {
     const activeCount = selectedUnits.filter((unit) => unit.state === "active").length;
     selectionName.textContent = `${selectedUnits.length} units selected`;
@@ -6165,11 +6241,25 @@ canvas.addEventListener("contextmenu", (event) => {
       updateInterface();
       return;
     }
-    const repairTarget = friendlyUnit || friendlyStructure;
     const hasSelectedWorker = [...selectedUnitIds].some((id) => {
       const unit = simulation.getUnit(id);
       return unit?.alive && UNIT_DEFINITIONS[unit.type].workerTier;
     });
+    if (
+      hasSelectedWorker &&
+      friendlyStructure?.complete &&
+      STRUCTURE_DEFINITIONS[friendlyStructure.type].production &&
+      simulation.isFactoryActivelyProducing(friendlyStructure.id)
+    ) {
+      issueGameCommand({
+        type: "assist_production",
+        unitIds: [...selectedUnitIds],
+        structureId: friendlyStructure.id,
+      });
+      updateInterface();
+      return;
+    }
+    const repairTarget = friendlyUnit || friendlyStructure;
     if (
       hasSelectedWorker &&
       repairTarget?.alive &&
