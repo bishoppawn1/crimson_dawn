@@ -48,7 +48,11 @@ const {
   PeerMultiplayerSession,
 } = await import(`./multiplayer.js${versionSuffix}`);
 const {
+  STRATEGIC_DRONE_MARKER_SCREEN_RADIUS,
+  STRATEGIC_UNIT_CODE_SCREEN_SIZE,
+  STRATEGIC_UNIT_MARKER_SCREEN_RADIUS,
   strategicIconWorldSize,
+  strategicUnitCode,
   strategicViewActive,
   strategicZoomMinimum,
 } = await import(`./strategic-view.js${versionSuffix}`);
@@ -1406,7 +1410,7 @@ function render(now = performance.now()) {
 }
 
 function drawStrategicEntities() {
-  const lineWidth = strategicIconWorldSize(camera.zoom, 1.5);
+  const structureLineWidth = strategicIconWorldSize(camera.zoom, 1.5);
   for (const structure of simulation.structures) {
     if (
       !structure.alive ||
@@ -1420,7 +1424,7 @@ function drawStrategicEntities() {
     context.translate(structure.x, structure.y);
     context.fillStyle = palette.dark;
     context.strokeStyle = selectedStructureIds.has(structure.id) ? colors.selection : palette.bright;
-    context.lineWidth = lineWidth;
+    context.lineWidth = structureLineWidth;
     context.beginPath();
     if (definition.headquarters) {
       context.moveTo(0, -size);
@@ -1441,17 +1445,26 @@ function drawStrategicEntities() {
     context.restore();
   }
 
+  const hoverPoint = pointerScreen &&
+    !minimapContains(currentMinimapLayout(), pointerScreen)
+    ? screenToWorld(pointerScreen)
+    : null;
+  let hoveredMobile = null;
   const drawMobileIcon = (entity, drone = false) => {
     const displayed = presentedEntity(entity);
     if (!worldPointIsVisible(displayed.x, displayed.y, 80)) return;
     const definition = entity.kind === "unit" ? UNIT_DEFINITIONS[entity.type] : DRONE_DEFINITION;
     const palette = teamPalette(entity.team);
     const selected = selectedUnitIds.has(entity.id);
-    const size = strategicIconWorldSize(camera.zoom, drone ? 4 : selected ? 8 : 6);
+    const size = strategicIconWorldSize(
+      camera.zoom,
+      drone ? STRATEGIC_DRONE_MARKER_SCREEN_RADIUS : STRATEGIC_UNIT_MARKER_SCREEN_RADIUS,
+    );
+    const lineWidth = strategicIconWorldSize(camera.zoom, 0.75);
     context.save();
     context.translate(displayed.x, displayed.y);
     context.fillStyle = palette.bright;
-    context.strokeStyle = selected ? colors.selection : palette.dark;
+    context.strokeStyle = palette.dark;
     context.lineWidth = lineWidth;
     context.beginPath();
     if (definition.movementLayer === "air") {
@@ -1464,7 +1477,37 @@ function drawStrategicEntities() {
     }
     context.fill();
     context.stroke();
+
+    if (selected) {
+      const selectionRadius = strategicIconWorldSize(camera.zoom, 4.25);
+      context.strokeStyle = colors.selection;
+      context.lineWidth = strategicIconWorldSize(camera.zoom, 0.9);
+      context.beginPath();
+      context.arc(0, 0, selectionRadius, 0, Math.PI * 2);
+      context.stroke();
+    }
+
+    const code = drone ? "REC" : strategicUnitCode(definition);
+    const fontSize = strategicIconWorldSize(camera.zoom, STRATEGIC_UNIT_CODE_SCREEN_SIZE);
+    const labelX = strategicIconWorldSize(camera.zoom, 4.25);
+    context.font = `800 ${fontSize}px ui-monospace, monospace`;
+    context.textAlign = "left";
+    context.textBaseline = "middle";
+    context.lineJoin = "round";
+    context.strokeStyle = "#080b0ee8";
+    context.lineWidth = strategicIconWorldSize(camera.zoom, 1.8);
+    context.strokeText(code, labelX, 0);
+    context.fillStyle = selected ? colors.selection : palette.bright;
+    context.fillText(code, labelX, 0);
     context.restore();
+
+    if (
+      hoverPoint &&
+      Math.hypot(displayed.x - hoverPoint.x, displayed.y - hoverPoint.y) <=
+        strategicIconWorldSize(camera.zoom, 12)
+    ) {
+      hoveredMobile = { displayed, definition, code };
+    }
   };
   for (const drone of simulation.getDrones()) {
     if (drone.alive && entityIsVisibleToLocalTeam(drone)) drawMobileIcon(drone, true);
@@ -1472,6 +1515,31 @@ function drawStrategicEntities() {
   for (const unit of simulation.units) {
     if (unit.alive && !unit.carriedById && entityIsVisibleToLocalTeam(unit)) drawMobileIcon(unit);
   }
+  if (hoveredMobile) drawStrategicMobileTooltip(hoveredMobile);
+}
+
+function drawStrategicMobileTooltip({ displayed, definition, code }) {
+  const fontSize = strategicIconWorldSize(camera.zoom, 15);
+  const paddingX = strategicIconWorldSize(camera.zoom, 5);
+  const height = strategicIconWorldSize(camera.zoom, 21);
+  const offsetY = strategicIconWorldSize(camera.zoom, 18);
+  const label = `${definition.name} · ${code}`;
+  context.save();
+  context.font = `800 ${fontSize}px ui-monospace, monospace`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  const width = context.measureText(label).width + paddingX * 2;
+  context.translate(displayed.x, displayed.y - offsetY);
+  context.fillStyle = "#080b0eee";
+  context.strokeStyle = colors.selection;
+  context.lineWidth = strategicIconWorldSize(camera.zoom, 0.8);
+  context.beginPath();
+  context.roundRect(-width / 2, -height / 2, width, height, height * 0.2);
+  context.fill();
+  context.stroke();
+  context.fillStyle = "#eef7f8";
+  context.fillText(label, 0, 0);
+  context.restore();
 }
 
 function drawShieldFields() {

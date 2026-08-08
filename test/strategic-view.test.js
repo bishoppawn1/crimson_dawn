@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  STRATEGIC_DRONE_MARKER_SCREEN_RADIUS,
   STRATEGIC_ICON_ZOOM_THRESHOLD,
+  STRATEGIC_UNIT_MARKER_SCREEN_RADIUS,
   strategicIconWorldSize,
+  strategicUnitCode,
   strategicViewActive,
   strategicZoomMinimum,
 } from "../src/strategic-view.js";
@@ -23,4 +26,15 @@ test("strategic icons remain a constant screen size across whole-map zoom levels
     assert.equal(strategicViewActive(zoom), true);
   }
   assert.equal(strategicViewActive(STRATEGIC_ICON_ZOOM_THRESHOLD + 0.01), false);
+});
+
+test("strategic unit tags identify role and tier with compact markers", () => {
+  assert.equal(strategicUnitCode({ role: "worker", tier: 1 }), "W1");
+  assert.equal(strategicUnitCode({ role: "tank", tier: 2 }), "TK2");
+  assert.equal(strategicUnitCode({ role: "anti_air_mech", tier: 3 }), "AA3");
+  assert.equal(strategicUnitCode({ role: "bomber", tier: 2 }), "BM2");
+  assert.equal(strategicUnitCode({ role: "hexapod_landship", tier: 3 }), "HL3");
+  assert.equal(strategicUnitCode({ role: "unknown" }), "U");
+  assert.ok(STRATEGIC_UNIT_MARKER_SCREEN_RADIUS < 3);
+  assert.ok(STRATEGIC_DRONE_MARKER_SCREEN_RADIUS < STRATEGIC_UNIT_MARKER_SCREEN_RADIUS);
 });

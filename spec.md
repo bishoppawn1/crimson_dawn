@@ -66,11 +66,15 @@ camera; an armed force-move modifier is preserved for this command.
 The main battlefield camera also supports a seamless strategic zoom. Its dynamic
 minimum scale fits the complete active map inside the Canvas, while its maximum
 remains 200%. Zoom stays anchored beneath the mouse cursor. At 45% scale and below,
-fine terrain decoration, labels, health bars, and detailed sprites give way to
-fixed-screen-size tactical symbols: circles for ground units, triangles for aircraft,
-squares for ordinary structures, and a ringed diamond for each Headquarters. Team
-colors, selection highlighting, hit testing, movement orders, and combat targeting
-remain usable in this whole-map view.
+fine terrain decoration, health bars, and detailed sprites give way to
+fixed-screen-size tactical symbols. Mobile units use very small circles or aircraft
+triangles followed by a persistent role-and-tier code such as `W1` for a Tier 1
+Worker, `TK2` for a Tier 2 Battle Tank, or `BM3` for a Tier 3 Bomber. Hovering a
+mobile symbol shows its complete unit name. Selection uses a thin outer ring without
+enlarging the underlying marker. Ordinary structures use squares and each
+Headquarters uses a ringed diamond. Team colors, selection highlighting, forgiving
+hit testing, movement orders, and combat targeting remain usable in this whole-map
+view.
 On desktop displays, the battlefield expands across the available browser width;
 outer padding and the command column remain narrow enough to prioritize the play
 surface.
