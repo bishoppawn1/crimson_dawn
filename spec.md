@@ -1036,33 +1036,27 @@ time, power demand, and destruction all use normal simulation rules. The crystal
 decision thresholds are provisional.
 
 Enemy combat units stage until three active attackers are ready, then launch as a
-coordinated wave toward one target. Advancing formations retain that strategic
-destination while stopping to fire at any hostile unit or structure that enters
-weapon range; they resume the advance after the local target is gone, and nearby
-targets do not pull the formation into a chase. Newly produced
-attackers wait for a later wave instead of crossing the map individually. Automatic
-attacks within weapon range still allow staged units to defend themselves locally.
-If a player unit or structure appears within 800 world units of enemy infrastructure,
-available defenders respond immediately without waiting for a complete wave. If at
-least three completed player Sentry Turrets are clustered within 420 world units of
-one another, ordinary assault waves grow from three to five units. An assault force
-more than 800 world units from its generator fallback retreats toward that generator
-when hostile combat strength
-within 520 world units exceeds its nearby strength by a factor of 1.5. Retreat uses
-a strategic fallback move: units stop to fire at hostiles in range, then continue
-toward their regroup point without abandoning the retreat to pursue them. A
-retreated field force then regroups for at least 15 seconds and waits for two
-additional non-garrison combat units. When that recovery completes, every active
-non-garrison unit in the regrouped force launches together rather than being split
-into ordinary three-unit waves. Regrouping is capped at 30 seconds: if production
-cannot supply the requested reinforcements by then, all active survivors launch the
-same mass charge with whatever energy they have recovered. Units still in stasis
-remain home until they reactivate. This prevents an outmatched force from repeating
-an immediate energy-wasting advance without allowing partially charged survivors
-to remain parked indefinitely. A player rush inside the normal base response radius
-still overrides regrouping so available units defend immediately. The cadence,
-response radius, strength estimate, defense cluster, retreat, regroup, reinforcement,
-maximum hold, and wave-size values are provisional.
+coordinated wave only after a preflight strength check. For each candidate target,
+the AI totals active hostile combat units and completed armed structures within a
+provisional 520-world-unit defense radius. It selects the nearest target whose
+local defensive strength does not exceed the staged wave's strength by more than a
+provisional factor of 1.5. If the ordinary three-unit wave is outmatched, the units
+remain staged while production prioritizes reinforcements; once enough attackers
+are present, the AI sends the smallest safe wave. If the nearest objective is too
+strongly defended but another valid target is safe, the wave attacks the safer
+objective instead. The AI does not send an ordinary wave and then reverse it into
+a strategic retreat; a dispatched formation continues its assault.
+
+Advancing formations retain that strategic destination while stopping to fire at
+any hostile unit or structure that enters weapon range; they resume the advance
+after the local target is gone, and nearby targets do not pull the formation into a
+chase. Newly produced attackers wait for a later wave instead of crossing the map
+individually. Automatic attacks within weapon range still allow staged units to
+defend themselves locally. If a player unit or structure appears within 800 world
+units of enemy infrastructure, available defenders respond immediately without
+waiting for a complete wave or applying the ordinary assault preflight check. The
+cadence, response radius, defense-evaluation radius, strength ratio, and minimum
+wave size are provisional.
 
 Every completed AI harvester at least 480 world units from its starting command point is
 treated as an outpost rather than an unprotected income structure. The building AI

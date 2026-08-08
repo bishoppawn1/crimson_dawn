@@ -20,7 +20,7 @@ import {
   powerCoverageBounds,
   structureFootprint,
 } from "../src/data.js";
-import { Simulation } from "../src/simulation.js";
+import { distance, Simulation } from "../src/simulation.js";
 import {
   generateLobbyCode,
   isValidLobbyCode,
@@ -4856,14 +4856,13 @@ test("enemy combat units fire at nearby workers while advancing", () => {
   );
 });
 
-test("enemy combat units form a larger wave against clustered static defenses", () => {
+test("enemy AI holds an outmatched wave until enough attackers are staged", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "enemy", 1800, 800);
   const staged = [
     simulation.addUnit("scout_mech", "enemy", 1260, 720),
     simulation.addUnit("scout_mech", "enemy", 1300, 760),
     simulation.addUnit("scout_mech", "enemy", 1340, 800),
-    simulation.addUnit("scout_mech", "enemy", 1380, 840),
   ];
   simulation.addStructure("sentry_turret", "player", 560, 760);
   simulation.addStructure("sentry_turret", "player", 600, 800);
@@ -4872,174 +4871,72 @@ test("enemy combat units form a larger wave against clustered static defenses", 
 
   simulation.tick(1 / 30);
 
-  assert.ok(staged.every((unit) => unit.attackTargetId === null));
+  assert.ok(staged.every((unit) => unit.moveTarget === null));
+  assert.ok(staged.every((unit) => unit.moveMode !== "advance"));
+  assert.ok(!simulation.events.some((event) => event.type === "enemy_wave"));
+  assert.ok(!simulation.events.some((event) => event.type === "enemy_retreat"));
 
-  const fifth = simulation.addUnit("scout_mech", "enemy", 1420, 880);
+  const reinforcement = simulation.addUnit("scout_mech", "enemy", 1380, 840);
   simulation.aiThinkRemaining = 0;
   simulation.tick(1 / 30);
 
-  assert.equal(
-    SIMULATION_RULES.enemyAttackWaveSize + SIMULATION_RULES.enemyHeavyDefenseWaveBonus,
-    5,
-  );
-  assert.ok([...staged, fifth].every((unit) => unit.moveMode === "advance"));
+  assert.ok([...staged, reinforcement].every((unit) => unit.moveMode === "advance"));
+  const wave = simulation.events.find((event) => event.type === "enemy_wave");
+  assert.equal(wave.unitIds.length, 4);
 });
 
-test("an enemy assault force retreats when nearby combat strength clearly outmatches it", () => {
+test("enemy AI chooses a safer target instead of attacking a defended position", () => {
   const simulation = new Simulation();
-  const enemyGenerator = simulation.addStructure("generator", "enemy", 1800, 800);
+  simulation.addStructure("generator", "enemy", 1800, 800);
+  const attackers = [
+    simulation.addUnit("scout_mech", "enemy", 1260, 720),
+    simulation.addUnit("scout_mech", "enemy", 1300, 760),
+    simulation.addUnit("scout_mech", "enemy", 1340, 800),
+  ];
+  const defendedTarget = simulation.addStructure("generator", "player", 700, 800);
+  simulation.addStructure("sentry_turret", "player", 660, 760);
+  simulation.addStructure("sentry_turret", "player", 700, 840);
+  simulation.addStructure("sentry_turret", "player", 740, 800);
+  const saferTarget = simulation.addStructure("generator", "player", 500, 100);
+  simulation.aiThinkRemaining = 0;
+
+  simulation.tick(1 / 30);
+
+  assert.ok(attackers.every((unit) => unit.moveMode === "advance"));
+  assert.ok(attackers.every(
+    (unit) => distance(unit.moveTarget, saferTarget) < distance(unit.moveTarget, defendedTarget),
+  ));
+  const wave = simulation.events.find((event) => event.type === "enemy_wave");
+  assert.equal(wave.targetId, saferTarget.id);
+  assert.notEqual(wave.targetId, defendedTarget.id);
+});
+
+test("an already dispatched AI assault does not turn around when defenses appear", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "enemy", 1800, 800);
+  const target = simulation.addStructure("generator", "player", 100, 800);
   const attackers = [
     simulation.addUnit("scout_mech", "enemy", 860, 760),
     simulation.addUnit("scout_mech", "enemy", 900, 800),
     simulation.addUnit("scout_mech", "enemy", 940, 840),
   ];
-  const target = simulation.addStructure("sentry_turret", "player", 500, 800);
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+  assert.ok(attackers.every((unit) => unit.moveMode === "advance"));
+  const assaultDestinations = attackers.map((unit) => ({ ...unit.moveTarget }));
+
   simulation.addStructure("sentry_turret", "player", 500, 760);
+  simulation.addStructure("sentry_turret", "player", 500, 800);
   simulation.addStructure("sentry_turret", "player", 500, 840);
-  simulation.commandAttack(attackers.map((unit) => unit.id), target.id);
-  const worker = simulation.addUnit("worker_drone_t1", "player", 860, 700);
-  const workerStartingHp = worker.hp;
-  simulation.aiThinkRemaining = 0;
-
-  simulation.tick(1 / 30);
-
-  assert.equal(worker.hp, workerStartingHp);
-  assert.ok(simulation.pendingImpacts.some((impact) => impact.targetId === worker.id));
-  assert.ok(attackers.every((unit) => unit.moveMode === "retreat"));
-  assert.ok(attackers.every((unit) => unit.moveTarget.x < enemyGenerator.x));
-  assert.ok(attackers.every((unit) => unit.moveTarget.x > unit.x));
-  assert.ok(simulation.events.some((event) => event.type === "enemy_retreat"));
-  advanceToScheduledImpacts(simulation);
-  assert.ok(worker.hp < workerStartingHp);
-});
-
-test("a retreated AI force regroups and reinforces before attacking again", () => {
-  const simulation = new Simulation();
-  simulation.addStructure("generator", "enemy", 1800, 800);
-  const attackers = [
-    simulation.addUnit("scout_mech", "enemy", 860, 760),
-    simulation.addUnit("scout_mech", "enemy", 900, 800),
-    simulation.addUnit("scout_mech", "enemy", 940, 840),
-  ];
-  const target = simulation.addStructure("sentry_turret", "player", 500, 800);
-  simulation.addStructure("sentry_turret", "player", 500, 760);
-  simulation.addStructure("sentry_turret", "player", 500, 840);
-  simulation.commandAttack(attackers.map((unit) => unit.id), target.id);
-  simulation.aiThinkRemaining = 0;
-
-  simulation.tick(1 / 30);
-
-  const aiState = simulation.aiStates.enemy;
-  assert.ok(aiState.regroupUntil > simulation.time);
-  assert.equal(
-    aiState.regroupForceAttackAt,
-    simulation.time + SIMULATION_RULES.enemyRetreatMaximumRegroupDuration,
-  );
-  assert.equal(
-    aiState.regroupRequiredFieldCount,
-    attackers.length + SIMULATION_RULES.enemyRetreatReinforcementCount,
-  );
-  for (const unit of attackers) {
-    unit.x = unit.moveTarget.x;
-    unit.y = unit.moveTarget.y;
-  }
-  simulation.tick(1 / 30);
-  assert.ok(attackers.every((unit) => unit.moveTarget === null));
-
-  const waveCountBeforeRegroup = simulation.events.filter(
-    (event) => event.type === "enemy_wave",
-  ).length;
-  const energyAtHome = attackers.map((unit) => unit.energy);
   simulation.aiThinkRemaining = 0;
   simulation.tick(1 / 30);
 
-  assert.ok(attackers.every((unit) => unit.moveTarget === null));
-  assert.deepEqual(attackers.map((unit) => unit.energy), energyAtHome);
-  assert.equal(
-    simulation.events.filter((event) => event.type === "enemy_wave").length,
-    waveCountBeforeRegroup,
-  );
-
-  const reinforcements = [
-    simulation.addUnit("scout_mech", "enemy", 1740, 760),
-    simulation.addUnit("scout_mech", "enemy", 1740, 840),
-  ];
-  simulation.time = aiState.regroupUntil + 0.1;
-  simulation.aiThinkRemaining = 0;
-  simulation.tick(1 / 30);
-
-  assert.equal(aiState.regroupRequiredFieldCount, 0);
-  assert.equal(aiState.regroupForceAttackAt, 0);
-  assert.ok([...attackers, ...reinforcements].every((unit) => unit.moveMode === "advance"));
-  const regroupCharge = simulation.events.find(
-    (event) => event.type === "enemy_wave" && event.regroupCharge,
-  );
-  assert.ok(regroupCharge);
-  assert.equal(regroupCharge.unitIds.length, attackers.length + reinforcements.length);
-});
-
-test("half-energy AI survivors launch a mass charge after the regroup deadline", () => {
-  const simulation = new Simulation();
-  simulation.addStructure("generator", "enemy", 1800, 800);
-  const attackers = Array.from({ length: 3 }, (_, index) =>
-    simulation.addUnit(
-      "scout_mech",
-      "enemy",
-      860 + index * 40,
-      760 + (index % 3) * 40,
-    ),
-  );
-  const homeSurvivors = [
-    simulation.addUnit("scout_mech", "enemy", 1740, 760),
-    simulation.addUnit("scout_mech", "enemy", 1740, 840),
-  ];
-  const chargeUnits = [...attackers, ...homeSurvivors];
-  const defenses = Array.from({ length: 3 }, (_, index) =>
-    simulation.addStructure(
-      "sentry_turret",
-      "player",
-      500,
-      760 + index * 40,
-    ),
-  );
-  simulation.commandAttack(attackers.map((unit) => unit.id), defenses[0].id);
-  simulation.aiThinkRemaining = 0;
-
-  simulation.tick(1 / 30);
-
-  const aiState = simulation.aiStates.enemy;
-  assert.ok(attackers.every((unit) => unit.moveMode === "retreat"));
-  assert.equal(
-    aiState.regroupRequiredFieldCount,
-    chargeUnits.length + SIMULATION_RULES.enemyRetreatReinforcementCount,
-  );
-  for (const unit of attackers) {
-    unit.x = unit.moveTarget.x;
-    unit.y = unit.moveTarget.y;
-  }
-  simulation.tick(1 / 30);
-  for (const unit of chargeUnits) {
-    unit.energy = UNIT_DEFINITIONS[unit.type].maxEnergy * 0.5;
-  }
-
-  simulation.time = aiState.regroupForceAttackAt + 0.1;
-  simulation.aiThinkRemaining = 0;
-  simulation.tick(1 / 30);
-
-  assert.equal(aiState.regroupRequiredFieldCount, 0);
-  assert.equal(aiState.regroupForceAttackAt, 0);
-  assert.ok(chargeUnits.every((unit) => unit.moveMode === "advance"));
-  assert.ok(chargeUnits.every((unit) => unit.moveTarget));
-  assert.ok(chargeUnits.every((unit) => unit.energy > 0));
-  const charge = simulation.events.find(
-    (event) => event.type === "enemy_wave" && event.regroupCharge,
-  );
-  assert.ok(charge);
-  assert.deepEqual(
-    new Set(charge.unitIds),
-    new Set(chargeUnits.map((unit) => unit.id)),
-  );
-  assert.ok(charge.unitIds.length > SIMULATION_RULES.enemyAttackWaveSize);
+  assert.ok(attackers.every((unit) => unit.moveMode === "advance"));
+  assert.deepEqual(attackers.map((unit) => unit.moveTarget), assaultDestinations);
+  assert.ok(attackers.every(
+    (unit) => distance(unit.moveTarget, target) < distance(unit, target),
+  ));
+  assert.ok(!simulation.events.some((event) => event.type === "enemy_retreat"));
 });
 
 test("enemy combat units immediately answer structures rushed near their base", () => {
@@ -5348,9 +5245,7 @@ test("victory waits until every AI commander has been eliminated", () => {
 test("snapshots preserve multi-AI teams, starts, maps, and decision state", () => {
   const host = Simulation.createFieldTest({ playerCount: 5, enemyAiEnabled: false });
   host.aiStates["enemy-3"].decisionIndex = 6;
-  host.aiStates["enemy-3"].regroupUntil = 42;
-  host.aiStates["enemy-3"].regroupForceAttackAt = 57;
-  host.aiStates["enemy-3"].regroupRequiredFieldCount = 7;
+  host.aiStates["enemy-3"].constructionLosses = [{ x: 420, y: 360, time: 12 }];
   const restored = Simulation.fromSnapshot(JSON.parse(JSON.stringify(host.createSnapshot())));
 
   assert.deepEqual(restored.teams, host.teams);
