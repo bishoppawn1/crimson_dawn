@@ -132,7 +132,7 @@
           <p id="match-mode" class="match-mode">MATCH SETUP</p>
         </div>
         <div class="resources" aria-label="Player resources">
-          <span><i class="metal-dot"></i>Metal <strong id="metal-value">0</strong></span>
+          <span><i class="crystal-icon" aria-hidden="true"></i>Crystal <strong id="crystal-value">0</strong></span>
           <span><i class="energy-dot"></i>Energy net <strong id="energy-value">0/s</strong></span>
           <span><i class="supply-dot"></i>Supply <strong id="supply-value">0/0</strong></span>
         </div>
@@ -196,7 +196,7 @@
             <div id="structure-commands" class="command-group" hidden>
               <button id="cancel-construction-button" class="command-button cancel-command">
                 <strong>C · Cancel Construction</strong>
-                <small><span id="cancel-refund-value">0</span> metal refunded</small>
+                <small><span id="cancel-refund-value">0</span> crystal refunded</small>
               </button>
               <button id="supply-upgrade-button" class="command-button" hidden>
                 <strong id="supply-upgrade-title">Upgrade Supply Complex</strong>
@@ -237,7 +237,7 @@
             <p><b>G</b>, then right-click to force-move and ignore enemies until arrival.</p>
             <p>Combat units pursue enemies that damage them unless a force-move or explicit attack order takes priority.</p>
             <p><b>Q</b> activates Overdrive on selected assault mechs.</p>
-            <p><b>C</b> cancels a selected unfinished building and refunds part of its unbuilt metal.</p>
+            <p><b>C</b> cancels a selected unfinished building and refunds part of its unbuilt crystal.</p>
             <p><b>Unit Tester</b> gives the human commander Tier 3 workers, unlimited resources and energy, instant completed buildings, and instant factory production. Its Enemy Spawner can place buildings and units for any AI commander; those assets then follow normal AI, power, energy, and combat rules.</p>
             <p>Buildings block ground movement. Workers automatically slide around them; aircraft fly over terrain, structures, and ground units without pushing them aside.</p>
             <p>Units are compact but physical: dense groups spread out instead of stacking in one spot.</p>
@@ -248,14 +248,14 @@
             <p>Worker construction is grouped by tier. Higher-tier drones inherit lower-tier options; locked buttons show the required worker tier.</p>
             <p>A completed Tier 2 or Tier 3 Mech Factory unlocks in-place upgrades to that tier for your existing structures.</p>
             <p>Units consume supply when queued. Strategic Supply Complexes add massive capacity and can be upgraded twice.</p>
-            <p>Ordinary buildings snap to the grid and cannot overlap units or structures. Metal mines snap to marked deposits.</p>
+            <p>Ordinary buildings snap to the grid and cannot overlap units or structures. Crystal Harvesters snap to marked crimson deposits.</p>
             <p>Ridges, faults, ancient ruins, and broken starting walls are impassable to ground units and construction. Every player count has several battlefield layouts with landmarks spread from the center into outer expansion routes, plus nearby expansions and contested rich deposits.</p>
             <p>Buildings can sit directly beside each other when their visible grid footprints only share an edge.</p>
             <p>Tier 1 infrastructure is compact: generators and batteries are 1×1, while Tier 1 factories are 2×2. Higher tiers are larger.</p>
             <p>Build mode marks power as filled construction-grid cells. Placement previews say whether the snapped site is inside or outside the grid.</p>
             <p>Relay towers extend power. Red rings and crosses mark disconnected structures.</p>
             <p>Induction Chargers cover a large area, recharge every unit in their field at once, and fairly share limited grid power.</p>
-            <p>The energy HUD shows net building power plus stored capacity. Mines draw passive power, and factories draw more while producing.</p>
+            <p>The energy HUD shows net building power plus stored capacity. Crystal Harvesters draw passive power, and factories draw more while producing.</p>
             <p>Generators provide constant power. Batteries store the most surplus; generators and relay towers also hold smaller reserves.</p>
             <p>Active units below 18 energy regenerate a slow emergency reserve so they can move or fire again.</p>
             <p>All mobile units carry greatly expanded internal energy reserves.</p>

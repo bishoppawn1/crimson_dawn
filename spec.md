@@ -7,9 +7,9 @@ JavaScript and Canvas. Exact balance values and faction roster remain undecided.
 
 Crimson Dawn is a real-time strategy game set in the future. Its central strategic
 idea is that energy is required not only to run a base but also to keep an army
-mobile and combat-capable. Players expand to secure metal, construct power
+mobile and combat-capable. Players expand to secure crystal, construct power
 infrastructure, move energy toward the front, destroy enemy supply assets, and
-recover metal from wrecked units.
+recover crystal from wrecked units.
 
 The intended pressure is logistical rather than primarily mechanical: players
 should make meaningful decisions about range, reserves, supply, and retreat without
@@ -39,7 +39,7 @@ match, it randomly selects one of the maps valid for the current lobby size. The
 chosen map identity and complete map state are included in the authoritative
 snapshot sent to the guest.
 
-- **Broken Frontier** contains 27 Metal Mine deposits, fortified starting bases,
+- **Broken Frontier** contains 27 crimson crystal deposits, fortified starting bases,
   central divides, and two distant five-deposit frontier clusters.
 - **Ashen Divide** uses 19 deposits and a broken vertical spine that creates two
   major contested attack lanes.
@@ -67,18 +67,19 @@ On desktop displays, the battlefield expands across the available browser width;
 outer padding and the command column remain narrow enough to prioritize the play
 surface.
 
-The battlefield ground uses muted olive vegetation and broad earthen-brown patches
-with a subtle fixed mottled texture. Construction-grid lines remain visible across
-both surfaces. This brighter natural palette separates neutral gray unit armor from
-the ground while preserving the readability of team markings, range overlays, and
-placement indicators.
+The battlefield ground uses rust-red earth, dusty rose clearings, and broad burgundy
+patches with a subtle fixed mottled texture. Small deterministic remnants of crimson
+crystal are scattered across ordinary terrain for atmosphere without representing
+harvestable resources or changing pathing. Construction-grid lines remain visible
+across both surfaces while preserving the readability of team markings, range
+overlays, and placement indicators.
 
 Buildings use a detailed top-down industrial style rather than abstract geometric
 icons. Cast foundations, roof bevels, shadows, vents, fasteners, access panels,
 hazard markings, and team-colored powered components provide a shared visual
 language. Each family retains recognizable working machinery: generators expose
 turbine cores, batteries show cell banks and charge levels, relay towers use braced
-masts, chargers use copper induction coils, mines show excavation and conveyor
+masts, chargers use copper induction coils, harvesters show cutting and conveyor
 equipment, and each factory branch has a distinct production-bay layout. Unfinished
 structures display foundation framing and construction rails instead of appearing
 as translucent copies of completed buildings.
@@ -99,21 +100,22 @@ walls slow a direct ground rush without sealing either side into its base.
 
 ## 2. Resources
 
-### 2.1 Metal
+### 2.1 Crystal
 
-Metal is the primary construction material for units and buildings.
+Crimson crystal is the primary construction material for units and buildings.
 
-Metal can be obtained from:
+Crystal can be obtained from:
 
-- Metal mines.
-- Converting energy into metal.
-- Reclaiming the wreckage of destroyed units.
+- Crystal Harvesters built on map-defined crimson crystal deposits.
+- Converting energy into crystal.
+- Reclaiming crystal scrap from the wreckage of destroyed units.
 
 Most deposits are individually distributed, while remote frontier locations group
 several deposits into expansion objectives. Distance from a starting base does not
-change a deposit's yield or color. Explicit **Rich Metal Deposits** provide a
-provisional 1.5× multiplier to any Metal Mine built on them and are marked yellow;
-ordinary deposits use the same neutral appearance whether nearby or remote.
+change a deposit's yield or color. Explicit **Rich Crystal Deposits** provide a
+provisional 1.5× multiplier to any Crystal Harvester built on them and appear as
+brighter scarlet crystal clusters; ordinary deposits remain visibly crimson whether
+nearby or remote.
 
 ### 2.2 Energy
 
@@ -126,7 +128,7 @@ Energy powers the base and military. It is required for:
 - Other future energy-consuming operations defined by unit or building data.
 
 Energy can be obtained from power generators and high-output structures such as
-nuclear reactors. Metal atomizers can convert metal into energy.
+nuclear reactors. Crystal atomizers can convert crystal into energy.
 
 Generated energy is not automatically retained in a global pool. Grid Batteries
 provide the largest reserves, while Pulse Generators and Power Relay Towers include
@@ -141,13 +143,13 @@ also reports its own stored energy and capacity.
 
 ### 2.3 Resource Conversion
 
-Converters transform energy into metal. Atomizers transform metal into energy.
+Converters transform energy into crystal. Atomizers transform crystal into energy.
 Both processes must be lossy. Converting a resource and then converting the result
 back must always return less than the original amount, preventing a closed
 conversion loop from creating resources.
 
 Conversion exists to let a player rebalance an economy, not to replace expansion,
-mining, generation, or salvage.
+crystal harvesting, generation, or salvage.
 
 ### 2.4 Supply
 
@@ -155,7 +157,7 @@ Mobile units consume a data-defined amount of supply according to their role and
 tier. Worker Drones use 1, 2, and 3 supply across Tiers 1–3; Vanguards use 4, 6,
 and 8; Bulwarks use 8, 12, and 16; and Arc Energy Carriers use 6, 9, and 12.
 Production orders reserve their full supply as soon as they enter a factory queue.
-An order that would exceed capacity is rejected without spending metal. Destroyed
+An order that would exceed capacity is rejected without spending crystal. Destroyed
 units and queues lost with a destroyed factory release their supply reservation.
 
 Each side has a large baseline capacity of 1,000 supply. Completed, powered
@@ -349,7 +351,7 @@ weapon range before firing.
 Raiders are fast, long-endurance harassment units rather than line fighters. Their
 provisional profile uses 108 movement speed, 105 integrity, efficient movement, and
 a 1.75× damage multiplier against structures. When acquiring targets automatically,
-they prefer exposed generators, batteries, relay towers, chargers, mines, salvage
+they prefer exposed generators, batteries, relay towers, chargers, harvesters, salvage
 yards, supply complexes, and factories over units or static defenses in the same
 area. Explicit attack orders and retaliation remain higher priority. Their ordinary
 anti-unit damage remains deliberately weaker than a Tier 1 Vanguard's.
@@ -577,10 +579,10 @@ The worker construction interface presents exactly three independently collapsib
 boxes labeled Tier 1, Tier 2, and Tier 3. Players may open or close each box at any
 time. Within an open box, structures the current worker selection can build and
 afford are displayed brightly, while structures blocked by worker tier or current
-metal are dimmed but remain visible so the progression path stays clear.
+crystal are dimmed but remain visible so the progression path stays clear.
 
-Pulse Generators, Grid Batteries, Power Relay Towers, Induction Chargers, Metal
-Mines, Sentry Turrets, Mortar Turrets, Flak Turrets, and Salvage Reclamation Yards
+Pulse Generators, Grid Batteries, Power Relay Towers, Induction Chargers, Crystal
+Harvesters, Sentry Turrets, Mortar Turrets, Flak Turrets, and Salvage Reclamation Yards
 currently have separate Tier 1, Tier 2, and Tier 3 construction definitions.
 Higher-tier versions have larger provisional costs, footprints, durability,
 demand, and role-specific output or capacity. The Strategic Supply Complex remains
@@ -591,8 +593,8 @@ factory and building-variant balance values are provisional.
 Every higher tier must provide a visible functional improvement, not merely a
 larger model or more durability. Generators improve output and grid reach;
 batteries improve storage and transfer throughput; relays improve reach and
-buffering; chargers improve field size and recharge throughput; mines improve
-metal income; reclamation yards field more drones with faster replacement; and
+buffering; chargers improve field size and recharge throughput; harvesters improve
+crystal income; reclamation yards field more drones with faster replacement; and
 factories gain provisional production-speed multipliers of 1.0×, 1.25×, and 1.5×.
 Sentry Turrets scale especially clearly: provisional Tier 1/Tier 2/Tier 3 weapon
 profiles are 18/34/60 damage, 185/265/360 range, and 0.75/0.68/0.55-second reloads.
@@ -603,11 +605,11 @@ close-range dead zone. Its selected range display shows both boundaries.
 Flak Turrets scale from 8/13/20 base damage, 225/285/360 range, and
 0.38/0.32/0.27-second reloads while retaining their 2× aircraft multiplier.
 Build controls, upgrade controls, and selected-structure details display the
-role-defining statistics so these advantages are apparent before metal is spent.
+role-defining statistics so these advantages are apparent before crystal is spent.
 
 A player upgrades one selected completed structure at a time. Each upgrade advances
-only one tier and costs the provisional difference between the target tier's metal
-cost and the structure's current-tier metal cost. The conversion is immediate,
+only one tier and costs the provisional difference between the target tier's crystal
+cost and the structure's current-tier crystal cost. The conversion is immediate,
 preserves the building's integrity percentage and retained energy up to the new
 capacity, and keeps factory queues and rally orders. The larger target footprint
 snaps to the nearest compatible grid center and must fit within the battlefield
@@ -621,7 +623,7 @@ selected worker's construction queue without interrupting the current project, a
 keeps placement mode active for further orders. Workers advance through valid
 foundations in placement order. Ordinary non-Shift placement replaces the current
 construction order and clears its queue, as do explicit move, attack, stop, and
-hold-position commands. A cancelled queued foundation is skipped. Metal is spent
+hold-position commands. A cancelled queued foundation is skipped. Crystal is spent
 when each placement is confirmed. Incomplete buildings remain visible and vulnerable.
 When one or more workers with construction orders are selected, the interface shows
 each worker's active foundation and its shared live construction percentage, followed
@@ -651,7 +653,7 @@ target with workers selected replaces their current orders, sends them into repa
 range, and suppresses automatic combat until the repair finishes or receives a
 replacement command. Workers are valid repair targets for other workers, but a
 worker can never repair itself. Multiple workers may repair the same target. Repairs
-consume no metal and provisionally restore 8/13/20 integrity per second at Tiers
+consume no crystal and provisionally restore 8/13/20 integrity per second at Tiers
 1/2/3, spending 0.5 worker energy per point of integrity restored; a worker that
 exhausts its battery enters ordinary stasis and keeps the repair assignment for when
 it reactivates. Active repair uses a green tool beam distinct from construction.
@@ -696,8 +698,8 @@ cannot overlap a living building, unfinished foundation, hostile unit, or
 reclamation drone. Friendly player-controlled units do not block placement. When a
 foundation is confirmed beneath friendly workers or combat units, those units are
 moved to the nearest clear edge outside its collision footprint; assigned builders
-then begin construction from outside the foundation. Metal Mines instead snap to
-their required deposit location. Invalid placement does not spend metal and reports
+then begin construction from outside the foundation. Crystal Harvesters instead snap to
+their required deposit location. Invalid placement does not spend crystal and reports
 the reason to the player. The player sees a green or red footprint preview before
 confirming placement, and the enemy AI searches nearby grid cells when its preferred
 site is blocked.
@@ -713,11 +715,12 @@ stops at the moving unit's own physical radius from the exact structure footprin
 there is no additional structure-clearance padding.
 
 Tier 1 infrastructure is deliberately compact. Pulse Generators, Grid Batteries,
-Induction Chargers, Metal Mines, Power Relay Towers, Sentry Turrets, Shield Turrets,
-and Mortar Turrets use 1×1 footprints. Tier 1 factories use 2×2 footprints.
-Equivalent Tier 2 infrastructure uses 2×2 footprints except for the Tier 2 Power Relay Tower, which
-remains 1×1. Metal Mines are permanently capped at 2×2: both their Tier 2 and Tier 3
-versions use that footprint, with higher mining output represented through their
+Induction Chargers, Crystal Harvesters, Power Relay Towers, Sentry Turrets, Shield
+Turrets, and Mortar Turrets use 1×1 footprints. Tier 1 factories use 2×2 footprints.
+Equivalent Tier 2 infrastructure uses 2×2 footprints except for the Tier 2 Power
+Relay Tower, which remains 1×1. Crystal Harvesters are permanently capped at 2×2:
+both their Tier 2 and Tier 3 versions use that footprint, with higher harvesting
+output represented through their
 machinery and stats rather than a larger occupied area. Tier 2 factories use 3×3
 footprints; other Tier 3 infrastructure uses 3×3 footprints and Tier 3 factories use
 4×4 footprints. Exceptional strategic or experimental structures may use larger
@@ -732,13 +735,13 @@ worker is visibly marked as paused and explains the right-click recovery command
 
 Selecting an unfinished friendly building exposes a Cancel Construction command,
 also available with the `C` shortcut. Cancellation removes the foundation, releases
-its assigned workers, and refunds 75% of the metal represented by its unbuilt
-progress. Metal already represented by completed progress is not refundable. The
+its assigned workers, and refunds 75% of the crystal represented by its unbuilt
+progress. Crystal already represented by completed progress is not refundable. The
 75% refund rate is provisional.
 
 ### 5.3 Economy and Static Defense Buildings
 
-Metal Mines provide continuous income while connected to a functioning power
+Crystal Harvesters provide continuous income while connected to a functioning power
 network and passively consume 2 energy per second while operating. Other powered
 economic buildings likewise apply their data-defined passive demand continuously.
 Static defenses automatically engage hostile units, reclamation drones, and
@@ -768,16 +771,16 @@ replace energy spent firing. Mortars launch a visibly arcing projectile and repo
 `TARGET TOO CLOSE` when hostile targets exist only inside their dead zone.
 
 The Strategic Supply Complex is an exceptionally large 8-by-6-grid-cell economic
-building. It costs 1,200 metal, takes 80 seconds to construct, and passively draws
-6 energy per second. Its Level 2 upgrade costs 800 metal and takes 25 powered
-seconds; its Level 3 upgrade costs 1,600 metal and takes 40 powered seconds. An
+building. It costs 1,200 crystal, takes 80 seconds to construct, and passively draws
+6 energy per second. Its Level 2 upgrade costs 800 crystal and takes 25 powered
+seconds; its Level 3 upgrade costs 1,600 crystal and takes 40 powered seconds. An
 upgrade adds another 6 energy per second of demand while progressing and pauses
 without adequate local-grid power. The enemy AI constructs and upgrades the same
 building through the same paid commands available to the player.
 
-Metal Mines are location-constrained. They may only be constructed on unused,
-map-defined metal deposits and snap to the selected deposit. A second mine cannot
-occupy the same deposit while the existing mine remains alive. Power generators
+Crystal Harvesters are location-constrained. They may only be constructed on unused,
+map-defined crystal deposits and snap to the selected deposit. A second harvester cannot
+occupy the same deposit while the existing harvester remains alive. Power generators
 and other energy-production buildings are not deposit-constrained and may be
 constructed on any otherwise valid terrain.
 
@@ -788,13 +791,13 @@ Every human or AI commander begins with exactly:
 - Three Tier 1 Worker Drones.
 - One Tier 1 Mech Factory.
 - One power generator.
-- One completed Metal Mine on a nearby map-defined metal deposit, within the
+- One completed Crystal Harvester on a nearby map-defined crystal deposit, within the
   starting generator's power network.
 
-The starting mine provides a guaranteed metal income so spending the initial metal
+The starting harvester provides a guaranteed crystal income so spending the initial crystal
 cannot leave a commander unable to construct anything. No battery, relay, charger,
 reclamation yard, static defense, energy carrier, or combat unit is pre-built. Both
-commanders use their workers and starting metal income to expand their economy and
+commanders use their workers and starting crystal income to expand their economy and
 military.
 
 ### 5.5 Match End and Restart
@@ -830,7 +833,7 @@ descriptive placeholders until the factions and visual language are established.
 
 ## 7. Wreckage and Salvage
 
-Destroyed units leave wreckage containing a portion of their original metal value.
+Destroyed units leave wreckage containing a portion of their original crystal value.
 Wreck fields turn locations of major battles into economic objectives.
 
 ### 7.1 Salvage Reclamation Yard
@@ -841,13 +844,13 @@ recovery. It is not an essential early-game economy structure.
 
 Each yard controls three reclamation drones. Its default behavior is:
 
-1. Find the nearest eligible unit wreck or scrap pile with metal remaining. More
+1. Find the nearest eligible unit wreck or crystal scrap pile with crystal remaining. More
    than one drone may choose the same pile.
 2. Dispatch an available drone to the wreck.
-3. Mine or collect metal from that wreck.
+3. Harvest crystal scrap from that wreck.
 4. If the drone still has carrying capacity when the pile is exhausted, travel
    directly to the nearest remaining eligible pile and continue collecting.
-5. Return the recovered metal to the yard only when the drone is full or no
+5. Return the recovered crystal to the yard only when the drone is full or no
    eligible salvage remains.
 6. Repeat while eligible wreckage remains.
 
@@ -860,30 +863,30 @@ blocked. Path searches are budgeted across simulation ticks so several active
 yards cannot cause a single large frame-time spike.
 
 Reclamation drones can be targeted and destroyed. A yard automatically rebuilds a
-destroyed drone at no metal or energy cost to the player. Replacement should take
+destroyed drone at no crystal or energy cost to the player. Replacement should take
 a defined amount of time, preventing instant replacement while preserving the
 building's low-maintenance automation role. A yard can never have more than three
 active or rebuilding drones.
 
-If a reclamation drone is destroyed while carrying scrap, all carried metal drops
-at the destruction location as a reclaimable scrap pile. Its replacement begins
-empty.
+If a reclamation drone is destroyed while carrying crystal scrap, all carried
+crystal drops at the destruction location as a reclaimable crystal scrap pile. Its
+replacement begins empty.
 
 Carrying capacity, collection time, replacement time, and behavior when the yard
 loses power remain tuning decisions. Multiple drones may harvest the same wreck
-concurrently, but the implementation must preserve its finite metal and prevent
+concurrently, but the implementation must preserve its finite crystal and prevent
 them from collecting more than the pile contains.
 
 ## 8. Enemy AI
 
 Each enemy AI performs the same categories of action as the player: gathering
-metal, generating and relaying power, storing grid energy, constructing buildings
+crystal, generating and relaying power, storing grid energy, constructing buildings
 with workers, producing units, maintaining defenses, supplying unit energy,
 fighting, and reclaiming wreckage. It uses the same simulation commands and pays
 the same costs; it does not receive hidden free units or buildings.
 
 In matches with multiple AI opponents, each AI is a separate free-for-all
-commander. It owns independent metal, power, supply, technology unlocks, workers,
+commander. It owns independent crystal, power, supply, technology unlocks, workers,
 production queues, expansion choices, strategic decision state, and decision timing.
 AI commanders may attack one another as well as the human, claim any currently
 unused deposit, and are subject to the same placement and occupancy checks. They do
@@ -891,18 +894,18 @@ not share resources, vision-derived decisions, construction projects, or armies.
 
 The AI reassigns an available worker to an unfinished enemy foundation when its
 original builder is destroyed or otherwise lost. If a preferred ordinary build
-cell is blocked, it searches nearby valid grid cells; if a planned Metal Mine
+cell is blocked, it searches nearby valid grid cells; if a planned Crystal Harvester
 deposit is unavailable, it searches the remaining deposits rather than abandoning
 its construction plan. AI construction also compares friendly and hostile combat
 strength around every proposed foundation. It avoids locally outmatched sites and
 skips contested deposits in favor of safer expansions instead of knowingly placing
 an undefended project beside a superior hostile force. Losing an unfinished or
 freshly completed project creates a temporary no-build zone around that site, so
-the AI cannot repeatedly spend metal rebuilding into the same active kill zone.
+the AI cannot repeatedly spend crystal rebuilding into the same active kill zone.
 The current threat radius, strength ratio, loss radius, and 60-second memory are
 provisional.
 
-Before spending metal on a consumer, battery, or relay, the AI verifies that the
+Before spending crystal on a consumer, battery, or relay, the AI verifies that the
 finished building can attach to an existing energized power node. A relay whose
 preferred position is beyond the current grid is moved to the connected edge of
 the network so it extends the grid toward the intended destination. The AI also
@@ -924,9 +927,9 @@ worker, and still pay normal construction costs.
 The AI makes its first decision after one second and reevaluates every second. It
 does not follow a fixed or map-specific building sequence. Instead, it scores its
 current strategic needs, including nearby threats, missing production, grid
-storage, static defense, army charging, metal income, relay coverage, reclaimable
+storage, static defense, army charging, crystal income, relay coverage, reclaimable
 wreckage, supply pressure, and production capacity. A rush can therefore move a
-defensive turret ahead of an economic choice, low metal can promote expansion once
+defensive turret ahead of an economic choice, low crystal can promote expansion once
 the base can protect it, and larger economies naturally request additional
 batteries, relays, defenses, chargers, salvage capacity, and factories. The
 decision counter varies valid placement lanes but never dictates the next
@@ -936,8 +939,8 @@ Once a completed Mech Factory unlocks a higher structure tier, the AI also upgra
 its existing completed buildings through the same immediate, paid structure-upgrade
 command available to the player. It upgrades one tier at a time, prefers bringing
 lower-tier buildings up before applying final-tier upgrades, and prioritizes power
-generation, metal income, production, charging, and defense. It retains at least
-400 metal plus any metal reserved for its next strategic building or supply plan
+generation, crystal income, production, charging, and defense. It retains at least
+400 crystal plus any crystal reserved for its next strategic building or supply plan
 after current unit-production choices, and it does not upgrade a consumer when the
 resulting maximum demand would exceed its generation headroom. Normal
 footprint-clearance rules can postpone an upgrade.
@@ -956,29 +959,29 @@ Crawlers through the same role-balancing production logic used for other combat
 units; none are spawned or granted for free.
 
 Once its opening battery, sentry, charger, first combat wave, and paid expansion
-are established, an AI with metal above its low-economy recovery threshold
+are established, an AI with crystal above its low-economy recovery threshold
 deliberately constructs a Tier 2 Mech Factory. It then produces a Tier 2 Worker
 Drone and deliberately establishes its parallel production branches in order:
 Tier 1 Vehicle Factory, Tier 2 Vehicle Factory, and Tier 2 Air Factory. These
 branch requests outrank routine base growth so recurring batteries, defenses,
 chargers, relays, extra Mech Factories, and non-urgent expansion cannot starve them
-indefinitely. After reaching three mines, the same stable
+indefinitely. After reaching three harvesters, the same stable
 economy reserves for a Tier 3 Mech Factory, produces a Tier 3 Worker Drone, and
 adds Tier 3 Vehicle and Air Factories before resuming ordinary infrastructure
 growth. Each branch tier is built explicitly rather than skipping directly to a
-later, more expensive factory. Immediate defense and low-metal expansion may
+later, more expensive factory. Immediate defense and low-crystal expansion may
 temporarily outrank technology, but ordinary Tier 1 growth must not permanently
 crowd Tier 2 or Tier 3 out of the strategy scorer. All advanced factories, workers,
-and structures use the same prerequisites, metal costs, build times, power
+and structures use the same prerequisites, crystal costs, build times, power
 requirements, and vulnerable construction process as the player's equivalents.
-The two- and three-mine technology thresholds are provisional.
+The two- and three-harvester technology thresholds are provisional.
 
 The AI still maintains a battery, local static defense, charger support, and a
 three-unit combat reserve before committing to ordinary expansion. The Strategic
 Supply Complex is constructed only when remaining supply falls to 10 percent of
 current capacity or less, and each later capacity upgrade is purchased only when
 supply becomes that constrained again. Once the initial force is secured, the AI
-reserves enough metal for its highest-scoring current building need before queueing
+reserves enough crystal for its highest-scoring current building need before queueing
 ordinary combat units. Replacing a missing worker and rebuilding a deployed or
 destroyed combat reserve take priority over that building reserve. Factories
 balance their available combat roles by current and queued roster counts, then add
@@ -986,22 +989,22 @@ an energy carrier once a field army is large enough to need mobile support; they
 not repeatedly produce only the first unit in the factory roster.
 
 After establishing its opening battery, defense, and charger, the AI begins paid
-economic expansion instead of relying indefinitely on its starting mine. It seeks
+economic expansion instead of relying indefinitely on its starting harvester. It seeks
 the nearest unused non-frontier deposit first, constructs a normally vulnerable
 generator outpost within power range when needed, and then has a worker construct
-the mine. Expansion has no mine-count cap or fixed deposit sequence: after the
-basic opening is covered, the AI maintains at least two mines and raises that
+the harvester. Expansion has no harvester-count cap or fixed deposit sequence: after the
+basic opening is covered, the AI maintains at least two harvesters and raises that
 minimum by one every 55 seconds. Encountering a cluster of at least three player
 Sentry Turrets immediately raises the current expansion target by one, allowing a
 fortified player to trade early safety for an AI that takes map control faster. The
-AI also seeks another mine whenever its available metal is at or below 400 or
-reaches a 900-metal expansion surplus. There is no upper mine limit, so time,
+AI also seeks another harvester whenever its available crystal is at or below 400 or
+reaches a 900-crystal expansion surplus. There is no upper harvester limit, so time,
 recurring economic pressure, or later surpluses can carry expansion across the
 entire map. It prefers non-frontier
 deposits before farther frontier deposits and reevaluates ownership and placement
 on every decision, so deposits already claimed by either side or temporarily
 blocked by hostile units are skipped. Construction costs, travel, construction
-time, power demand, and destruction all use normal simulation rules. The metal
+time, power demand, and destruction all use normal simulation rules. The crystal
 decision thresholds are provisional.
 
 Enemy combat units stage until three active attackers are ready, then launch as a
@@ -1033,11 +1036,11 @@ still overrides regrouping so available units defend immediately. The cadence,
 response radius, strength estimate, defense cluster, retreat, regroup, reinforcement,
 maximum hold, and wave-size values are provisional.
 
-Every completed AI mine at least 480 world units from its starting command point is
+Every completed AI harvester at least 480 world units from its starting command point is
 treated as an outpost rather than an unprotected income structure. The building AI
 prioritizes a powered Sentry Turret within 300 world units of each undefended
 outpost. Two combat units are assigned to each outpost, excluded from ordinary
-attack waves, and ordered to remain near the mine. They immediately attack hostile
+attack waves, and ordered to remain near the harvester. They immediately attack hostile
 units or structures within 520 world units and return to their guard positions once
 the local threat is gone. Production counts these garrisons in addition to the
 field army, so protecting expansions does not permanently consume the next assault
@@ -1048,8 +1051,8 @@ wave. All defense and garrison values remain provisional.
 The first vertical slice should validate energy logistics and automated salvage,
 not attempt the final unit roster. It should include:
 
-- Metal storage and battery-limited energy storage.
-- One metal mine and one generator.
+- Crystal income and reserves plus battery-limited energy storage.
+- One crystal harvester and one generator.
 - A local building-power rule.
 - One charging structure.
 - One Tier 1 production branch with a basic combat unit.
@@ -1108,10 +1111,10 @@ magenta, and pale-gray accents so ownership remains readable.
 
 Unit Tester is a separate single-player setup with the same two-through-eight-player
 and compatible-map choices. The human commander starts with Tier 3 Worker Drones
-and has unlimited metal, grid energy, unit energy, and supply. Human foundations
+and has unlimited crystal, grid energy, unit energy, and supply. Human foundations
 complete as soon as they are placed, and human factory orders finish on the next
 simulation step while retaining collision-safe factory exits. Normal placement,
-footprint, metal-deposit, factory-branch, and factory-tier restrictions still apply,
+footprint, crystal-deposit, factory-branch, and factory-tier restrictions still apply,
 so the tester exercises real gameplay definitions instead of bypassing them with
 synthetic entities. Every AI commander in a Unit Tester match retains its ordinary
 resource balance, power networks, construction time, production time, supply use,
@@ -1120,7 +1123,7 @@ teams. A dedicated Enemy Spawner lets the tester choose any AI commander, select
 any building or unit definition, and place that asset directly on a valid battlefield
 position for free. Spawned buildings are completed immediately, while spawned units
 must pass the ordinary terrain, map-edge, structure, and unit collision checks.
-Metal Mines still require an unused deposit and every building still uses its normal
+Crystal Harvesters still require an unused deposit and every building still uses its normal
 grid footprint. Once placed, enemy assets belong to the selected AI and receive no
 tester advantages: consumers require a normal powered grid, units use ordinary
 energy and supply behavior, and the AI may command the assets through its usual

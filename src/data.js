@@ -999,7 +999,7 @@ const structureDefinitions = {
     provisionalBalance: true,
   },
   metal_mine: {
-    name: "Metal Mine",
+    name: "Crystal Harvester",
     family: "metal_mine",
     buildTier: 1,
     minimumWorkerTier: 1,
@@ -1207,7 +1207,7 @@ Object.assign(structureDefinitions, {
     chargeRadius: 310, chargeRate: 170, metalCost: 175, buildTime: 12,
   },
   metal_mine_t2: {
-    ...structureDefinitions.metal_mine, name: "Tier 2 Metal Mine", buildTier: 2,
+    ...structureDefinitions.metal_mine, name: "Tier 2 Crystal Harvester", buildTier: 2,
     minimumWorkerTier: 2, radius: 34, footprint: [2, 2], maxHp: 620, powerDemand: 3,
     metalRate: 8, metalCost: 210, buildTime: 13, provisionalBalance: true,
   },
@@ -1277,7 +1277,7 @@ Object.assign(structureDefinitions, {
     chargeRadius: 360, chargeRate: 250, metalCost: 330, buildTime: 19,
   },
   metal_mine_t3: {
-    ...structureDefinitions.metal_mine, name: "Tier 3 Metal Mine", buildTier: 3,
+    ...structureDefinitions.metal_mine, name: "Tier 3 Crystal Harvester", buildTier: 3,
     minimumWorkerTier: 3, radius: 34, footprint: [2, 2], maxHp: 900, powerDemand: 5,
     metalRate: 12, metalCost: 390, buildTime: 20, provisionalBalance: true,
   },

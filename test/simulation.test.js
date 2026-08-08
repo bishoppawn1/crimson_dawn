@@ -183,7 +183,7 @@ test("unit tester construction completes immediately while AI construction stays
   assert.equal(enemyWorker.buildTargetId, enemyStructure.id);
 });
 
-test("unit tester factory orders deploy on the next simulation step without spending metal", () => {
+test("unit tester factory orders deploy on the next simulation step without spending crystal", () => {
   const simulation = new Simulation({ testerTeams: ["player"], enemyAiEnabled: false });
   const factory = simulation.addStructure("mech_factory_t1", "player", 400, 400);
   const startingMetal = simulation.resources.player.metal;
@@ -895,7 +895,7 @@ test("structure upgrade unlocks are team-specific and expanded footprints need c
   assert.equal(simulation.resources.enemy.metal, startingMetal);
 });
 
-test("enemy AI structure upgrades keep its strategic metal reserve", () => {
+test("enemy AI structure upgrades keep its strategic crystal reserve", () => {
   const simulation = new Simulation();
   const generator = simulation.addStructure("generator", "enemy", 300, 300);
   simulation.addStructure("mech_factory_t2", "enemy", 700, 700);
@@ -945,7 +945,7 @@ test("enemy AI upgrades existing economy buildings after unlocking their tier", 
   assert.equal(generator.type, "generator_t3");
 });
 
-test("higher-tier Metal Mines still snap to deposits", () => {
+test("higher-tier Crystal Harvesters still snap to deposits", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;
   const worker = simulation.addUnit("worker_drone_t2", "player", 100, 100);
@@ -1855,7 +1855,7 @@ test("an isolated charged battery powers its local grid while discharging", () =
   assert.ok(battery.storedEnergy < 20);
 });
 
-test("metal mines continuously consume their passive power demand", () => {
+test("Crystal Harvesters continuously consume their passive power demand", () => {
   const simulation = new Simulation();
   const battery = simulation.addStructure("battery", "player", 100, 100, { storedEnergy: 20 });
   const mine = simulation.addStructure("metal_mine", "player", 220, 100);
@@ -2012,7 +2012,7 @@ test("destroyed units create finite reclaimable wreckage", () => {
   );
 });
 
-test("a powered salvage yard automatically returns wreck metal", () => {
+test("a powered salvage yard automatically returns wreck crystal", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);
   simulation.addStructure("salvage_yard", "player", 240, 100);
@@ -2025,7 +2025,7 @@ test("a powered salvage yard automatically returns wreck metal", () => {
   assert.ok(simulation.resources.player.metal <= startingMetal + 20.001);
 });
 
-test("multiple reclamation drones can harvest the same scrap pile", () => {
+test("multiple reclamation drones can harvest the same crystal scrap pile", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);
   const yard = simulation.addStructure("salvage_yard", "player", 240, 100);
@@ -2042,7 +2042,7 @@ test("multiple reclamation drones can harvest the same scrap pile", () => {
   assert.ok(wreck.metal >= 0);
 });
 
-test("partially loaded reclamation drones visit another scrap pile before returning", () => {
+test("partially loaded reclamation drones visit another crystal scrap pile before returning", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);
   const yard = simulation.addStructure("salvage_yard", "player", 240, 100);
@@ -2417,7 +2417,7 @@ test("power coverage uses the same grid-aligned square cells as network connecti
   assert.equal(justOutsideGrid.powered, false);
 });
 
-test("powered metal mines generate metal over time", () => {
+test("powered Crystal Harvesters generate crystal over time", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);
   const mine = simulation.addStructure("metal_mine", "player", 220, 100);
@@ -2429,7 +2429,7 @@ test("powered metal mines generate metal over time", () => {
   assert.ok(simulation.resources.player.metal >= startingMetal + 9.9);
 });
 
-test("yellow rich deposits increase the mine's actual metal output", () => {
+test("bright Rich Crystal Deposits increase a harvester's actual crystal output", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);
   const richDeposit = simulation.addMetalDeposit(220, 100, {
@@ -2684,7 +2684,7 @@ test("group production skips unpowered factories and rejects mixed factory types
   assert.match(simulation.lastProductionError, /matching completed factories/i);
 });
 
-test("a Tier 1 mech factory spends metal and constructs a worker drone", () => {
+test("a Tier 1 mech factory spends crystal and constructs a worker drone", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);
   const factory = simulation.addStructure("mech_factory_t1", "player", 220, 100);
@@ -3031,7 +3031,7 @@ test("newly produced combat units engage threats while rallying", () => {
   assert.ok(unit.x > stoppedX, "the unit should continue toward its rally point after the fight");
 });
 
-test("workers spend metal and complete new structures", () => {
+test("workers spend crystal and complete new structures", () => {
   const simulation = new Simulation();
   const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
   const startingMetal = simulation.resources.player.metal;
@@ -3355,7 +3355,7 @@ test("a damaged Shield Turret regenerates slowly by drawing local grid energy", 
   assert.equal(shield.shieldStatus, "unpowered");
 });
 
-test("destroyed reclamation drones drop their carried scrap at the death location", () => {
+test("destroyed reclamation drones drop their carried crystal scrap at the death location", () => {
   const simulation = new Simulation();
   const yard = simulation.addStructure("salvage_yard", "player", 100, 100);
   const drone = yard.drones[0];
@@ -3371,7 +3371,7 @@ test("destroyed reclamation drones drop their carried scrap at the death locatio
   assert.equal(drone.carry, 0);
 });
 
-test("both sides start with three workers, a Tier 1 factory, a generator, and a powered mine", () => {
+test("both sides start with three workers, a Tier 1 factory, a generator, and a powered Crystal Harvester", () => {
   const simulation = Simulation.createFieldTest();
 
   for (const team of ["player", "enemy"]) {
@@ -3407,7 +3407,7 @@ test("both sides start with three workers, a Tier 1 factory, a generator, and a 
   assert.ok(simulation.resources.enemy.metal > startingMetal.enemy);
 });
 
-test("metal mines can only be placed on unused metal deposits and snap to them", () => {
+test("Crystal Harvesters can only be placed on unused crystal deposits and snap to them", () => {
   const simulation = new Simulation();
   const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
   const deposit = simulation.addMetalDeposit(300, 300);
@@ -3416,7 +3416,7 @@ test("metal mines can only be placed on unused metal deposits and snap to them",
   const invalidMine = simulation.startConstruction([worker.id], "metal_mine", 100, 400);
   assert.equal(invalidMine, null);
   assert.equal(simulation.resources.player.metal, startingMetal);
-  assert.match(simulation.lastPlacementError, /unused metal deposit/i);
+  assert.match(simulation.lastPlacementError, /unused crystal deposit/i);
 
   const mine = simulation.startConstruction([worker.id], "metal_mine", 340, 300);
   assert.ok(mine);
@@ -3428,7 +3428,7 @@ test("metal mines can only be placed on unused metal deposits and snap to them",
   assert.equal(duplicateMine, null);
 });
 
-test("energy-production buildings can be placed away from metal deposits", () => {
+test("energy-production buildings can be placed away from crystal deposits", () => {
   const simulation = new Simulation();
   const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
 
@@ -3674,7 +3674,7 @@ test("building classes use distinct grid footprints", () => {
   assert.equal(SIMULATION_RULES.structureCollisionPadding, 0);
 });
 
-test("Metal Mine footprints never exceed two grid cells per side", () => {
+test("Crystal Harvester footprints never exceed two grid cells per side", () => {
   const mines = Object.values(STRUCTURE_DEFINITIONS).filter(
     (definition) => definition.family === "metal_mine",
   );
@@ -4181,7 +4181,7 @@ test("the standard enemy opening establishes defenses and launches promptly", ()
   );
 });
 
-test("enemy AI builds generation before spending metal on an unpowered consumer", () => {
+test("enemy AI builds generation before spending crystal on an unpowered consumer", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
   simulation.aiBuildIndex = 3;
@@ -4369,7 +4369,7 @@ test("enemy AI balances combat roles and adds energy support as its army grows",
   assert.equal(factory.productionQueue[0]?.unitType, "energy_carrier");
 });
 
-test("enemy AI reserves metal for its next building after fielding a combat force", () => {
+test("enemy AI reserves crystal for its next building after fielding a combat force", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
   simulation.aiBuildIndex = 1;
@@ -4434,7 +4434,7 @@ test("enemy AI only constructs a Supply Complex when its remaining supply is low
   );
 });
 
-test("enemy AI establishes a paid outpost and expands to another metal deposit", () => {
+test("enemy AI establishes a paid outpost and expands to another crystal deposit", () => {
   const simulation = Simulation.createFieldTest();
   simulation.aiThinkRemaining = 0;
   simulation.aiBuildIndex = 4;
@@ -4480,7 +4480,7 @@ test("enemy AI establishes a paid outpost and expands to another metal deposit",
   assert.ok(enemyMines.length >= 2);
 });
 
-test("fortified opposition accelerates AI expansion beyond two mines", () => {
+test("fortified opposition accelerates AI expansion beyond two harvesters", () => {
   const simulation = new Simulation({ width: 2200, height: 1400 });
   simulation.teamStarts.enemy = { x: 1800, y: 700 };
   const anchor = simulation.addStructure("generator", "enemy", 1800, 700);
@@ -4501,7 +4501,7 @@ test("fortified opposition accelerates AI expansion beyond two mines", () => {
   assert.ok(Math.hypot(request.x - openDeposit.x, request.y - openDeposit.y) <= 220);
 });
 
-test("AI strategy requests a sentry at every undefended remote mine", () => {
+test("AI strategy requests a sentry at every undefended remote harvester", () => {
   const simulation = new Simulation({ width: 2200, height: 1400 });
   simulation.teamStarts.enemy = { x: 1800, y: 700 };
   const anchor = simulation.addStructure("generator", "enemy", 1800, 700);
@@ -4573,7 +4573,7 @@ test("AI outpost garrisons stay out of attack waves and answer local threats", (
   assert.ok(garrison.every((unit) => unit.attackTargetId === localThreat.id));
 });
 
-test("enemy AI expands beyond four mines when metal is low and skips player claims", () => {
+test("enemy AI expands beyond four harvesters when crystal is low and skips player claims", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
   simulation.aiBuildIndex = 9;
@@ -4932,7 +4932,7 @@ test("enemy combat units immediately answer structures rushed near their base", 
   );
 });
 
-test("cancelling construction removes the foundation, clears workers, and refunds unbuilt metal", () => {
+test("cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal", () => {
   const simulation = new Simulation();
   const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
   const definition = STRUCTURE_DEFINITIONS.battery;

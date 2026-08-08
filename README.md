@@ -1,7 +1,7 @@
 # Crimson Dawn
 
 Crimson Dawn is a browser-based real-time strategy game about battlefield energy
-logistics. Metal constructs armies and bases; energy keeps structures operating and
+logistics. Crimson crystal constructs armies and bases; energy keeps structures operating and
 units moving, attacking, and using selected special abilities.
 
 [Play Crimson Dawn on GitHub Pages](https://bishoppawn1.github.io/crimson_dawn/)
@@ -24,8 +24,8 @@ The current build is the first playable field test. It includes:
 - Realistic role-specific top-down Canvas sprites with directional lighting,
   articulated machinery, functional equipment, target-aware facing, and clearly
   separated rear legs and feet on every mech.
-- A muted olive-and-earth battlefield palette with subtle fixed ground texture
-  that keeps neutral gray units readable.
+- A rust-red and burgundy battlefield palette with subtle fixed ground texture
+  and scattered crimson shards that keep neutral gray units readable.
 - Energy-dependent shutdown, stasis regeneration, and reactivation.
 - Greatly expanded internal batteries for every worker, combat unit, carrier, and
   enemy unit.
@@ -33,7 +33,7 @@ The current build is the first playable field test. It includes:
   movement can recover without replacing normal energy logistics.
 - Finite Grid Battery storage plus smaller generator and relay reserves, with
   visible charging and discharging states.
-- Net building-power accounting, including passive Metal Mine demand and extra
+- Net building-power accounting, including passive Crystal Harvester demand and extra
   demand from active factory queues.
 - Local generator, battery, and relay networks with disconnected-building warnings.
 - A powered charging radius and visible mobile carriers that spend their own
@@ -44,7 +44,7 @@ The current build is the first playable field test. It includes:
 - Hostile units and wreck creation.
 - A powered reclamation yard with three autonomous salvage drones.
 - Free, delayed replacement of destroyed reclamation drones in the simulation.
-- Multiple reclamation drones can harvest the same wreck or scrap pile concurrently,
+- Multiple reclamation drones can harvest the same wreck or crystal scrap pile concurrently,
   then chain directly to nearby piles until their cargo is full. Their hovering
   chassis passes over starting walls while rocky terrain still redirects them.
 - Automatic attacks against hostile units entering weapon range.
@@ -53,17 +53,17 @@ The current build is the first playable field test. It includes:
   prioritize exposed economic and power infrastructure.
 - Compact unit silhouettes with physical unit-to-unit separation for dense groups.
 - Drag-box unit selection plus matching factory-group selection, stop, and hold-position commands.
-- Metal mines, relay-tower power networks, and stronger static sentry defenses.
+- Crystal Harvesters, relay-tower power networks, and stronger static sentry defenses.
 - Grid-charged sentry and long-range mortar turrets with visible range, charge,
   targeting status, and a counterable minimum-range dead zone for mortars.
-- Map-defined metal deposits that restrict mine construction locations.
+- Map-defined crimson crystal deposits that restrict harvester construction locations.
 - Five selectable 5,200×3,200 duel battlefields plus three distinct layouts for
   every total player count from three through eight: 23 maps in total.
 - Edge-to-edge ancient-ruin, layered-crag, and fractured-spoke map families, with
   substantial outer landmarks in every sector and a ruin-heavy three-player
   Ancient Triad stretching from its central sanctuary to outlying districts.
-- Neutral-colored ordinary deposits at every distance plus yellow Rich Metal
-  Deposits that provide a provisional 1.5× Metal Mine output multiplier.
+- Red ordinary deposits at every distance plus bright scarlet Rich Crystal
+  Deposits that provide a provisional 1.5× Crystal Harvester output multiplier.
 - Visible impassable ridges, shelves, crags, and broken starting walls that block
   ground movement and construction for both players and AI while leaving open gates.
 - A top-right tactical minimap showing the entire battlefield, all living units in
@@ -80,7 +80,7 @@ The current build is the first playable field test. It includes:
   targets and hovers over them with its stronger underbelly laser.
 - Tier 1–3 worker construction inheritance and a three-category build menu;
   Tier 1 and Tier 2 workers can construct the next Mech Factory to advance.
-- Tiered generator, storage, relay, charger, mine, sentry, and salvage-yard
+- Tiered generator, storage, relay, charger, harvester, sentry, and salvage-yard
   variants with progressively stronger role-specific output and visible statistics.
 - Higher-tier factories produce at provisional 1.25× and 1.5× throughput, while
   Tier 2 and Tier 3 sentries gain substantial damage, range, and reload upgrades.
@@ -108,11 +108,11 @@ The current build is the first playable field test. It includes:
 - A concise HUD energy readout showing net building power per second and combined
   stored grid energy against capacity.
 - Independent AI economies that continually expand, accelerate map control against
-  fortified opponents, defend remote mines with sentries and local garrisons, and
+  fortified opponents, defend remote harvesters with sentries and local garrisons, and
   attack any opposing commander in grouped waves using the same rules as the player.
-- Scrap piles dropped when a loaded reclamation drone is destroyed.
+- Crystal scrap piles dropped when a loaded reclamation drone is destroyed.
 - Symmetrical starts containing three workers, one Tier 1 Mech Factory, one
-  generator, and one powered Metal Mine on a nearby deposit per side.
+  generator, and one powered Crystal Harvester on a nearby deposit per side.
 
 ## Run locally
 

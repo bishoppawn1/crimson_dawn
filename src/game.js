@@ -87,7 +87,7 @@ const lobbyMap = document.querySelector("#lobby-map");
 const lobbyMapSummary = document.querySelector("#lobby-map-summary");
 const startLobbyMatchButton = document.querySelector("#start-lobby-match-button");
 const matchModeLabel = document.querySelector("#match-mode");
-const metalValue = document.querySelector("#metal-value");
+const crystalValue = document.querySelector("#crystal-value");
 const energyValue = document.querySelector("#energy-value");
 const supplyValue = document.querySelector("#supply-value");
 const selectionName = document.querySelector("#selection-name");
@@ -182,15 +182,15 @@ const minCameraZoom = 0.5;
 const maxCameraZoom = 2;
 
 const colors = {
-  background: "#4a593d",
-  gridFine: "#405037",
-  gridStrong: "#667358",
+  background: "#503537",
+  gridFine: "#493033",
+  gridStrong: "#70474b",
   player: "#7fd4ef",
   playerDark: "#24627c",
   enemy: "#e65a64",
   enemyDark: "#772e38",
   energy: "#52d1ff",
-  metal: "#d0c9b9",
+  crystal: "#ef4058",
   health: "#6fe28d",
   shield: "#65d8ff",
   stasis: "#e4b44c",
@@ -312,7 +312,7 @@ for (const tier of [1, 2, 3]) {
     const button = document.createElement("button");
     button.className = "command-button build-command-button";
     const roleSummary = describeStructureRole(definition);
-    button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · T${definition.minimumWorkerTier} worker${roleSummary ? ` · ${roleSummary}` : ""}</small>`;
+    button.innerHTML = `${definition.name}<small>${definition.metalCost} crystal · T${definition.minimumWorkerTier} worker${roleSummary ? ` · ${roleSummary}` : ""}</small>`;
     button.addEventListener("click", () => {
       testerSpawnPlacement = null;
       placementStructureType = placementStructureType === structureType ? null : structureType;
@@ -340,7 +340,7 @@ for (const unitType of producibleUnitTypes) {
     : definition.attackRange
       ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× vs air` : ""}`
       : "";
-  button.innerHTML = `${definition.name}<small>${definition.metalCost} metal · ${definition.supplyCost} supply${roleSummary}${combatSummary}</small>`;
+  button.innerHTML = `${definition.name}<small>${definition.metalCost} crystal · ${definition.supplyCost} supply${roleSummary}${combatSummary}</small>`;
   button.addEventListener("click", () => {
     const selectedFactories = getSelectedStructures();
     if (selectedFactories.length > 0) {
@@ -1187,7 +1187,7 @@ function describeStructureRole(definition) {
   if (definition.chargeRadius) {
     return `${definition.chargeRate}/s recharge · ${definition.chargeRadius} radius`;
   }
-  if (definition.metalRate) return `+${definition.metalRate} metal/s`;
+  if (definition.metalRate) return `+${definition.metalRate} crystal/s`;
   if (definition.droneCount) {
     return `${definition.droneCount} drones · ${definition.droneReplacementTime}s rebuild`;
   }
@@ -1245,7 +1245,7 @@ function render(now = performance.now()) {
   context.scale(camera.zoom, camera.zoom);
   context.translate(-camera.x, -camera.y);
   drawTerrain();
-  drawMetalDeposits();
+  drawCrystalDeposits();
   drawPowerNetwork();
   drawShieldFields();
   drawCommandIndicators();
@@ -1426,7 +1426,7 @@ function drawMinimap() {
   context.beginPath();
   context.rect(layout.mapLeft, layout.mapTop, layout.mapWidth, layout.mapHeight);
   context.clip();
-  context.fillStyle = "#35412f";
+  context.fillStyle = "#482f32";
   context.fillRect(layout.mapLeft, layout.mapTop, layout.mapWidth, layout.mapHeight);
 
   for (const obstacle of simulation.terrain) {
@@ -1438,10 +1438,10 @@ function drawMinimap() {
     context.fillStyle = obstacle.terrainType === "starting_wall"
       ? "#718078"
       : obstacle.terrainType === "ruins"
-        ? "#77736a"
+        ? "#70565a"
         : obstacle.terrainType === "fracture"
-          ? "#6e4e46"
-          : "#645844";
+          ? "#763d48"
+          : "#674047";
     context.fillRect(
       point.x,
       point.y,
@@ -1452,10 +1452,13 @@ function drawMinimap() {
 
   for (const deposit of simulation.metalDeposits) {
     const point = minimapPoint(layout, deposit.x, deposit.y);
-    context.fillStyle = deposit.rich ? "#e6c94f" : "#aaa99e";
+    context.fillStyle = deposit.rich ? "#ff7b8c" : "#d83452";
+    context.shadowColor = deposit.rich ? "#ff8b99" : "#c91f3f";
+    context.shadowBlur = deposit.rich ? 7 : 4;
     context.beginPath();
     context.arc(point.x, point.y, deposit.rich ? 3 : 2, 0, Math.PI * 2);
     context.fill();
+    context.shadowBlur = 0;
   }
 
   for (const structure of simulation.structures) {
@@ -1497,12 +1500,12 @@ function drawTerrain() {
   context.fillRect(0, 0, simulation.width, simulation.height);
 
   const groundPatches = [
-    { x: 0.12, y: 0.5, radiusX: 0.11, radiusY: 0.26, rotation: 0.1, color: "#66583e" },
-    { x: 0.29, y: 0.22, radiusX: 0.15, radiusY: 0.12, rotation: -0.18, color: "#596343" },
-    { x: 0.4, y: 0.74, radiusX: 0.18, radiusY: 0.13, rotation: 0.14, color: "#6d5c3d" },
-    { x: 0.56, y: 0.33, radiusX: 0.16, radiusY: 0.14, rotation: -0.08, color: "#566443" },
-    { x: 0.72, y: 0.77, radiusX: 0.15, radiusY: 0.13, rotation: 0.2, color: "#705f40" },
-    { x: 0.88, y: 0.5, radiusX: 0.11, radiusY: 0.26, rotation: -0.1, color: "#65543b" },
+    { x: 0.12, y: 0.5, radiusX: 0.11, radiusY: 0.26, rotation: 0.1, color: "#6b423d" },
+    { x: 0.29, y: 0.22, radiusX: 0.15, radiusY: 0.12, rotation: -0.18, color: "#59383b" },
+    { x: 0.4, y: 0.74, radiusX: 0.18, radiusY: 0.13, rotation: 0.14, color: "#733f42" },
+    { x: 0.56, y: 0.33, radiusX: 0.16, radiusY: 0.14, rotation: -0.08, color: "#5f383d" },
+    { x: 0.72, y: 0.77, radiusX: 0.15, radiusY: 0.13, rotation: 0.2, color: "#704044" },
+    { x: 0.88, y: 0.5, radiusX: 0.11, radiusY: 0.26, rotation: -0.1, color: "#63383b" },
   ];
   for (const patch of groundPatches) {
     context.fillStyle = patch.color;
@@ -1521,7 +1524,7 @@ function drawTerrain() {
 
   // Small deterministic mottles keep the field organic without shimmering as
   // the camera moves or introducing simulation-side randomness.
-  context.fillStyle = "#8a76512b";
+  context.fillStyle = "#a4545728";
   const visibleBounds = visibleWorldBounds(80);
   const firstMottleX = Math.max(80, Math.floor(visibleBounds.left / 160) * 160 + 80);
   const firstMottleY = Math.max(80, Math.floor(visibleBounds.top / 160) * 160 + 80);
@@ -1536,6 +1539,8 @@ function drawTerrain() {
     }
   }
 
+  drawCrystalRemnants(visibleBounds);
+
   const gridSize = SIMULATION_RULES.buildingGridSize;
   context.lineWidth = placementIsActive() ? 1.5 : 1;
   const firstGridX = Math.floor(visibleBounds.left / gridSize) * gridSize;
@@ -1543,8 +1548,8 @@ function drawTerrain() {
   for (let x = firstGridX; x <= visibleBounds.right; x += gridSize) {
     context.strokeStyle = placementIsActive()
       ? x % (gridSize * 5) === 0
-        ? "#b6c69a"
-        : "#81936f"
+        ? "#d2a1a5"
+        : "#9a6b70"
       : x % (gridSize * 5) === 0
         ? colors.gridStrong
         : colors.gridFine;
@@ -1556,8 +1561,8 @@ function drawTerrain() {
   for (let y = firstGridY; y <= visibleBounds.bottom; y += gridSize) {
     context.strokeStyle = placementIsActive()
       ? y % (gridSize * 5) === 0
-        ? "#b6c69a"
-        : "#81936f"
+        ? "#d2a1a5"
+        : "#9a6b70"
       : y % (gridSize * 5) === 0
         ? colors.gridStrong
         : colors.gridFine;
@@ -1592,17 +1597,17 @@ function drawImpassableTerrain() {
     context.fillStyle = isStartingWall
       ? "#465451"
       : isRuins
-        ? "#55534c"
+        ? "#584447"
         : isFracture
-          ? "#3e3533"
-          : "#4b4234";
+          ? "#4b2d33"
+          : "#50363a";
     context.strokeStyle = isStartingWall
       ? "#879b92"
       : isRuins
-        ? "#a49d88"
+        ? "#a77d81"
         : isFracture
-          ? "#8f6254"
-          : "#75654a";
+          ? "#a85060"
+          : "#85535b";
     context.lineWidth = 4;
     context.fillRect(left, top, obstacle.width, obstacle.height);
     context.strokeRect(left, top, obstacle.width, obstacle.height);
@@ -1612,10 +1617,10 @@ function drawImpassableTerrain() {
     context.strokeStyle = isStartingWall
       ? "#d1ded653"
       : isRuins
-        ? "#d6ceb84d"
+        ? "#dab4b84d"
         : isFracture
-          ? "#d07b5a45"
-          : "#b69d7040";
+          ? "#ef617545"
+          : "#cd778340";
     context.lineWidth = 2;
     for (
       let offset = -obstacle.height;
@@ -1647,6 +1652,59 @@ function drawImpassableTerrain() {
       drawLabel(obstacle.x, obstacle.y, `${obstacle.name} · Impassable`, true, "#9aa3aa");
     }
   }
+}
+
+function drawCrystalRemnants(visibleBounds) {
+  const spacing = 220;
+  const firstX = Math.max(50, Math.floor(visibleBounds.left / spacing) * spacing + 70);
+  const firstY = Math.max(50, Math.floor(visibleBounds.top / spacing) * spacing + 70);
+  for (let y = firstY; y <= visibleBounds.bottom; y += spacing) {
+    for (let x = firstX; x <= visibleBounds.right; x += spacing) {
+      const signature = Math.abs(Math.floor(x / spacing) * 37 + Math.floor(y / spacing) * 61);
+      if (signature % 4 === 0) continue;
+      const shardX = x + (signature % 53) - 26;
+      const shardY = y + ((signature * 7) % 47) - 23;
+      const shardCount = signature % 5 === 0 ? 2 : 1;
+      for (let shard = 0; shard < shardCount; shard += 1) {
+        drawCrystalShard(
+          shardX + shard * 8,
+          shardY + shard * 3,
+          3 + ((signature + shard) % 4),
+          (signature + shard * 19) * 0.08,
+          { alpha: 0.22 },
+        );
+      }
+    }
+  }
+}
+
+function drawCrystalShard(x, y, size, rotation = 0, { alpha = 1, rich = false } = {}) {
+  context.save();
+  context.translate(x, y);
+  context.rotate(rotation);
+  context.globalAlpha *= alpha;
+  if (alpha > 0.5) {
+    context.shadowColor = rich ? "#ff7587" : "#df2648";
+    context.shadowBlur = rich ? 12 : 7;
+  }
+  context.fillStyle = rich ? "#ff6379" : "#ca2947";
+  context.strokeStyle = rich ? "#ffd0d5" : "#f17a88";
+  context.lineWidth = Math.max(0.75, size * 0.12);
+  context.beginPath();
+  context.moveTo(0, -size * 1.35);
+  context.lineTo(size * 0.58, -size * 0.18);
+  context.lineTo(size * 0.28, size);
+  context.lineTo(-size * 0.36, size * 0.78);
+  context.lineTo(-size * 0.6, -size * 0.12);
+  context.closePath();
+  context.fill();
+  context.stroke();
+  context.strokeStyle = rich ? "#fff0f2aa" : "#ffacb566";
+  context.beginPath();
+  context.moveTo(0, -size * 1.2);
+  context.lineTo(-size * 0.08, size * 0.65);
+  context.stroke();
+  context.restore();
 }
 
 function drawPlacementPreview() {
@@ -1769,7 +1827,7 @@ function drawPlacementPreview() {
   }
 }
 
-function drawMetalDeposits() {
+function drawCrystalDeposits() {
   const placement = activeStructurePlacement();
   const occupiedIds = new Set(
     simulation.structures
@@ -1793,44 +1851,54 @@ function drawMetalDeposits() {
     context.strokeStyle = emphasized
       ? colors.selection
       : rich && available
-        ? "#d8b76fbb"
+        ? "#ff7183dd"
         : available
-          ? "#aaa39170"
-          : "#5e5a5240";
-    context.fillStyle = emphasized ? "#d0c9b91c" : rich ? "#d8b76f18" : "#8b867a10";
+          ? "#d52f4d99"
+          : "#5e343b55";
+    context.fillStyle = emphasized ? "#f7e68d1c" : rich ? "#ff526b20" : "#bd264118";
     context.lineWidth = emphasized || rich ? 3 : 2;
     context.beginPath();
     context.arc(0, 0, rich ? 49 : 43, 0, Math.PI * 2);
     context.fill();
     context.stroke();
     if (rich) {
-      context.strokeStyle = "#d8b76f66";
+      context.strokeStyle = "#ff718377";
       context.setLineDash([8, 7]);
       context.beginPath();
       context.arc(0, 0, 58, 0, Math.PI * 2);
       context.stroke();
+      context.setLineDash([]);
     }
-    context.fillStyle = available ? "#77776f" : "#444540";
-    context.beginPath();
-    context.moveTo(-21, 14);
-    context.lineTo(-11, -17);
-    context.lineTo(0, 7);
-    context.lineTo(12, -23);
-    context.lineTo(23, 14);
-    context.closePath();
-    context.fill();
+    context.globalAlpha = available ? 1 : 0.28;
+    const shards = rich
+      ? [
+        [-19, 10, 10, -0.34],
+        [-7, -5, 15, -0.08],
+        [10, 5, 12, 0.24],
+        [21, 13, 8, 0.42],
+        [5, 18, 7, 0.08],
+      ]
+      : [
+        [-15, 11, 8, -0.34],
+        [-4, -3, 12, -0.08],
+        [11, 8, 9, 0.26],
+        [20, 16, 6, 0.42],
+      ];
+    for (const [x, y, size, rotation] of shards) {
+      drawCrystalShard(x, y, size, rotation, { rich });
+    }
     context.restore();
     if (available) {
       drawLabel(
         deposit.x,
         deposit.y + (rich ? 70 : 57),
         rich
-          ? `Rich Metal Deposit · ${deposit.yieldMultiplier.toFixed(1)}× output`
+          ? `Rich Crimson Crystal Deposit · ${deposit.yieldMultiplier.toFixed(1)}× output`
           : deposit.cluster
-            ? `${deposit.cluster} · Metal Deposit`
-            : "Metal Deposit",
+            ? `${deposit.cluster} · Crimson Crystal Deposit`
+            : "Crimson Crystal Deposit",
         true,
-        emphasized ? colors.selection : rich ? "#d8b76f" : "#8f8b82",
+        emphasized ? colors.selection : rich ? "#ff8493" : "#df5267",
       );
     }
   }
@@ -1951,7 +2019,7 @@ function drawCommandIndicators() {
     const buildTarget = simulation.getStructure(unit.buildTargetId);
     if (buildTarget?.alive && !buildTarget.complete) {
       context.save();
-      context.strokeStyle = `${colors.metal}80`;
+      context.strokeStyle = `${colors.crystal}80`;
       context.lineWidth = 2;
       context.setLineDash([5, 6]);
       context.beginPath();
@@ -2267,7 +2335,7 @@ function drawChargerBuilding(footprint, powered, teamColor) {
   context.stroke();
 }
 
-function drawMineBuilding(definition, footprint, powered, teamColor) {
+function drawCrystalHarvesterBuilding(definition, footprint, powered, teamColor) {
   const width = footprint.width * 0.74;
   const height = footprint.height * 0.72;
   drawRoofPanel(-width / 2, -height / 2, width, height, Math.min(width, height) * 0.13);
@@ -2298,11 +2366,14 @@ function drawMineBuilding(definition, footprint, powered, teamColor) {
     context.lineTo(roller, height * 0.09);
     context.stroke();
   }
-  context.fillStyle = "#917456";
-  for (let ore = 0; ore < (definition.buildTier || 1) + 2; ore += 1) {
-    context.beginPath();
-    context.arc(width * 0.31 + (ore % 2) * 5, -height * 0.2 + Math.floor(ore / 2) * 5, 3, 0, Math.PI * 2);
-    context.fill();
+  for (let crystal = 0; crystal < (definition.buildTier || 1) + 2; crystal += 1) {
+    drawCrystalShard(
+      width * 0.3 + (crystal % 2) * 6,
+      -height * 0.2 + Math.floor(crystal / 2) * 6,
+      3.5,
+      crystal * 0.22,
+      { rich: definition.buildTier >= 3 },
+    );
   }
 }
 
@@ -2596,8 +2667,13 @@ function drawSalvageYardBuilding(definition, footprint, powered, teamColor) {
   }
   for (let scrap = 0; scrap < 10 + (definition.buildTier || 1) * 3; scrap += 1) {
     const side = scrap % 2 === 0 ? -1 : 1;
-    context.fillStyle = scrap % 3 === 0 ? "#896542" : "#626a68";
-    context.fillRect(side * width * (0.14 + (scrap % 3) * 0.035) - 3, height * (0.13 + (scrap % 4) * 0.045) - 2, 6, 4);
+    drawCrystalShard(
+      side * width * (0.14 + (scrap % 3) * 0.035),
+      height * (0.13 + (scrap % 4) * 0.045),
+      2.5 + (scrap % 3),
+      scrap * 0.31,
+      { alpha: 0.82, rich: scrap % 5 === 0 },
+    );
   }
   context.strokeStyle = "#171f20";
   context.lineWidth = 6;
@@ -2612,7 +2688,7 @@ function drawSalvageYardBuilding(definition, footprint, powered, teamColor) {
   context.moveTo(-width * 0.37, -height * 0.26);
   context.lineTo(width * 0.23, -height * 0.26);
   context.stroke();
-  context.strokeStyle = "#997450";
+  context.strokeStyle = colors.crystal;
   context.beginPath();
   context.moveTo(width * 0.18, -height * 0.27);
   context.lineTo(width * 0.18, -height * 0.02);
@@ -2628,7 +2704,7 @@ function drawCompletedBuilding(structure, definition, footprint, family, powered
   else if (family === "battery") drawBatteryBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "power_tower") drawRelayBuilding(definition, footprint, powered, teamColor);
   else if (family === "charger") drawChargerBuilding(footprint, powered, teamColor);
-  else if (family === "metal_mine") drawMineBuilding(definition, footprint, powered, teamColor);
+  else if (family === "metal_mine") drawCrystalHarvesterBuilding(definition, footprint, powered, teamColor);
   else if (family === "factory") drawFactoryBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "supply_complex") drawSupplyComplexBuilding(structure, footprint, powered, teamColor);
   else if (family === "sentry_turret") drawSentryBuilding(structure, definition, footprint, powered, teamColor);
@@ -2746,7 +2822,7 @@ function drawStructure(structure) {
       structure.y - footprint.halfHeight - 5,
       structureBarWidth,
       structure.constructionProgress / definition.buildTime,
-      colors.metal,
+      colors.crystal,
     );
     const assignedBuilders = simulation.units.filter(
       (unit) => unit.alive && unit.buildTargetId === structure.id,
@@ -2758,7 +2834,7 @@ function drawStructure(structure) {
         ? `${assignedBuilders} worker${assignedBuilders === 1 ? "" : "s"} building`
         : "paused - right-click with worker",
       assignedBuilders > 0,
-      assignedBuilders > 0 ? colors.metal : colors.stasis,
+      assignedBuilders > 0 ? colors.crystal : colors.stasis,
     );
   } else if (definition.storageCapacity) {
     drawBar(
@@ -3086,7 +3162,7 @@ function drawWorkerConstructionEffect(unit, structure, pose, teamColor) {
     const sparkAngle = pose.phase + index * 1.83 + sparkPhase * 0.8;
     const sparkDistance = 3 + sparkPhase * 10;
     context.globalAlpha = 1 - sparkPhase;
-    context.strokeStyle = index % 2 === 0 ? "#ffe29a" : colors.metal;
+    context.strokeStyle = index % 2 === 0 ? "#ffe29a" : colors.crystal;
     context.lineWidth = 1.2;
     context.beginPath();
     context.moveTo(impact.x, impact.y);
@@ -4631,7 +4707,7 @@ function drawDrone(drone) {
     context.lineTo(side * 0.75, 0.18);
     context.stroke();
   }
-  context.fillStyle = colors.metal;
+  context.fillStyle = colors.crystal;
   context.fillRect(-0.2, 0.32, 0.4, 0.13);
   context.strokeStyle = "#1b2428";
   context.lineWidth = 0.08;
@@ -4650,7 +4726,7 @@ function drawDrone(drone) {
       drone.y - 14,
       24,
       drone.carry / DRONE_DEFINITION.carryCapacity,
-      colors.metal,
+      colors.crystal,
     );
   }
 }
@@ -4672,12 +4748,22 @@ function drawWreck(wreck) {
   context.closePath();
   context.fill();
   context.stroke();
+  const visibleScrap = Math.max(1, Math.ceil(ratio * 5));
+  for (let shard = 0; shard < visibleScrap; shard += 1) {
+    drawCrystalShard(
+      -10 + shard * 5,
+      5 - (shard % 2) * 7,
+      3 + (shard % 3),
+      shard * 0.38,
+      { rich: shard % 4 === 0 },
+    );
+  }
   context.restore();
-  drawBar(wreck.x, wreck.y - 22, 40, ratio, colors.metal);
-  context.fillStyle = "#bdb5a5";
+  drawBar(wreck.x, wreck.y - 22, 40, ratio, colors.crystal);
+  context.fillStyle = "#ff9ca8";
   context.font = "600 10px ui-monospace, monospace";
   context.textAlign = "center";
-  context.fillText(`${Math.ceil(wreck.metal)}M`, wreck.x, wreck.y + 28);
+  context.fillText(`${Math.ceil(wreck.metal)}C · CRYSTAL SCRAP`, wreck.x, wreck.y + 28);
   context.textAlign = "start";
 }
 
@@ -5160,7 +5246,7 @@ function updateInterface() {
   const localResources = simulation.resources[localTeam];
   const unitTesterActive = simulation.isTesterTeam(localTeam);
   testerSpawnCommands.hidden = matchEnded || !unitTesterActive;
-  metalValue.textContent = unitTesterActive
+  crystalValue.textContent = unitTesterActive
     ? "∞"
     : Math.floor(localResources.metal).toLocaleString();
   const netEnergyRate = simulation.getNetEnergyRate(localTeam);
@@ -5233,7 +5319,7 @@ function updateInterface() {
       : null;
     const mineRate = definition.metalRate * (mineDeposit?.yieldMultiplier || 1);
     const mineText = definition.metalRate
-      ? ` · +${mineRate} metal/s${mineDeposit?.rich ? " · RICH DEPOSIT" : ""}`
+      ? ` · +${mineRate} crystal/s${mineDeposit?.rich ? " · RICH DEPOSIT" : ""}`
       : "";
     const salvageText = definition.droneCount
       ? ` · ${definition.droneCount} reclamation drones · ${definition.droneReplacementTime}s rebuild`
@@ -5331,7 +5417,7 @@ function updateInterface() {
     button.title = !workerCanBuild
       ? `Requires a Tier ${definition.minimumWorkerTier} Worker Drone`
       : !canAfford
-        ? `Requires ${definition.metalCost.toLocaleString()} metal`
+        ? `Requires ${definition.metalCost.toLocaleString()} crystal`
         : `Build ${definition.name}`;
     button.classList.toggle("active", placementStructureType === structureType);
   }
@@ -5401,7 +5487,7 @@ function updateInterface() {
       supplyUpgradeButton.disabled = true;
     } else {
       supplyUpgradeTitle.textContent = `Upgrade to Supply Level ${targetLevel}`;
-      supplyUpgradeDetails.textContent = `${upgrade.metalCost.toLocaleString()} metal · ${upgrade.upgradeTime}s · ${upgrade.capacity.toLocaleString()} capacity`;
+      supplyUpgradeDetails.textContent = `${upgrade.metalCost.toLocaleString()} crystal · ${upgrade.upgradeTime}s · ${upgrade.capacity.toLocaleString()} capacity`;
       supplyUpgradeButton.disabled = localResources.metal < upgrade.metalCost;
     }
   }
@@ -5415,7 +5501,7 @@ function updateInterface() {
     buildingUpgradeTitle.textContent = `Upgrade to ${targetDefinition.name}`;
     const roleSummary = describeStructureRole(targetDefinition);
     buildingUpgradeDetails.textContent = buildingUpgrade.valid
-      ? `${buildingUpgrade.metalCost.toLocaleString()} metal · immediate${roleSummary ? ` · ${roleSummary}` : ""}`
+      ? `${buildingUpgrade.metalCost.toLocaleString()} crystal · immediate${roleSummary ? ` · ${roleSummary}` : ""}`
       : buildingUpgrade.reason;
     buildingUpgradeButton.disabled = !buildingUpgrade.valid;
   }

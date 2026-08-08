@@ -50,3 +50,21 @@ test("the tactical minimap routes right-clicks into selected-unit move orders", 
   assert.match(game, /TACTICAL MAP · L:CENTER · R:MOVE/);
   assert.match(index, /right-click it with units selected to move them/);
 });
+
+test("the interface and battlefield present the economy as crimson crystal", async () => {
+  const [index, game, data, styles] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+    source("../src/data.js"),
+    source("../styles.css"),
+  ]);
+
+  assert.match(index, /class="crystal-icon"/);
+  assert.match(index, />Crystal <strong id="crystal-value"/);
+  assert.doesNotMatch(index, />Metal\b/);
+  assert.match(data, /name: "Crystal Harvester"/);
+  assert.match(game, /drawCrystalDeposits\(\)/);
+  assert.match(game, /drawCrystalRemnants\(visibleBounds\)/);
+  assert.match(game, /CRYSTAL SCRAP/);
+  assert.match(styles, /\.crystal-icon/);
+});

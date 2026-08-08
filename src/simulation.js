@@ -956,7 +956,7 @@ export class Simulation {
     const account = this.resources[factory.team];
     const instant = this.isTesterTeam(factory.team);
     if (!instant && account.metal + EPSILON < unitDefinition.metalCost) {
-      this.lastProductionError = "Not enough metal.";
+      this.lastProductionError = "Not enough crystal.";
       return false;
     }
     const supply = this.getSupplyState(factory.team);
@@ -1080,7 +1080,7 @@ export class Simulation {
     }
     const account = this.resources[structure.team];
     if (account.metal + EPSILON < upgrade.metalCost) {
-      this.lastUpgradeError = "Not enough metal.";
+      this.lastUpgradeError = "Not enough crystal.";
       return false;
     }
     account.metal -= upgrade.metalCost;
@@ -1134,7 +1134,7 @@ export class Simulation {
     const placement = this.findStructureUpgradePlacement(structure, targetType);
     if (!placement.valid) return { ...baseInfo, ...placement, valid: false };
     if (this.resources[structure.team].metal + EPSILON < metalCost) {
-      return { ...baseInfo, ...placement, valid: false, reason: "Not enough metal." };
+      return { ...baseInfo, ...placement, valid: false, reason: "Not enough crystal." };
     }
     return { ...baseInfo, ...placement, valid: true, reason: null };
   }
@@ -1353,7 +1353,7 @@ export class Simulation {
     }
     const account = this.resources[team];
     if (!instant && account.metal + EPSILON < definition.metalCost) {
-      this.lastPlacementError = "Not enough metal.";
+      this.lastPlacementError = "Not enough crystal.";
       return null;
     }
 
@@ -1407,7 +1407,7 @@ export class Simulation {
           x,
           y,
           depositId,
-          reason: "Metal Mines must be placed on an unused metal deposit.",
+          reason: "Crystal Harvesters must be placed on an unused crystal deposit.",
         };
       }
       x = deposit.x;
@@ -1523,7 +1523,7 @@ export class Simulation {
         if (acceptable(candidate)) return candidate;
       }
       return avoidHostileThreats && preferred.valid
-        ? { ...preferred, valid: false, reason: "No safe metal deposit is available." }
+        ? { ...preferred, valid: false, reason: "No safe crystal deposit is available." }
         : preferred;
     }
 
@@ -1612,7 +1612,7 @@ export class Simulation {
           return candidate;
         }
       }
-      return { ...preferred, valid: false, reason: "No powered metal deposit is available." };
+      return { ...preferred, valid: false, reason: "No powered crystal deposit is available." };
     }
 
     const powerNodes = this.structures.filter(

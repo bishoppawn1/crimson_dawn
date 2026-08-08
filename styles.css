@@ -383,7 +383,7 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
-.metal-dot,
+.crystal-icon,
 .energy-dot,
 .supply-dot {
   width: 9px;
@@ -391,6 +391,16 @@ h2 {
   border-radius: 50%;
   background: #c9c5bb;
   box-shadow: 0 0 10px #c9c5bb88;
+}
+
+.crystal-icon {
+  width: 10px;
+  height: 10px;
+  border: 1px solid #ff9a9f;
+  border-radius: 2px 7px 2px 7px;
+  background: linear-gradient(135deg, #ff727d 0 28%, #c91f3a 29% 68%, #6f1024 69%);
+  box-shadow: 0 0 12px #f13d58cc, inset 2px 2px 2px #ffd1d566;
+  transform: rotate(45deg);
 }
 
 .energy-dot {
