@@ -976,7 +976,7 @@ finishes another generator beside that expansion before resuming the original
 plan. It does not knowingly place disconnected consumers or expand demand beyond
 its steady generation capacity.
 
-After its opening battery, sentry, charger, and first combat force are established,
+After its opening battery, sentry, and first combat force are established,
 the AI deliberately maintains redundant generation instead of waiting for an
 immediate shortage. It targets at least two Pulse Generators, adds roughly one
 generator for every four non-generator structures, and plans for 20% generation
@@ -988,12 +988,13 @@ worker, and still pay normal construction costs.
 The AI makes its first decision after one second and reevaluates every second. It
 does not follow a fixed or map-specific building sequence. Instead, it scores its
 current strategic needs, including nearby threats, missing production, grid
-storage, static defense, army charging, crystal income, relay coverage, reclaimable
-wreckage, supply pressure, and production capacity. A rush can therefore move a
-defensive turret ahead of an economic choice, low crystal can promote expansion once
-the base can protect it, and larger economies naturally request additional
-batteries, relays, defenses, chargers, salvage capacity, and factories. The
-decision counter varies valid placement lanes but never dictates the next
+storage, static defense, demonstrated army-charging demand, crystal income, relay
+coverage, reclaimable wreckage, supply pressure, and production capacity. A rush
+can therefore move a defensive turret ahead of an economic choice, low crystal can
+promote expansion once the base can protect it, and larger economies naturally request additional
+batteries, relays, defenses, salvage capacity, and factories while charging
+infrastructure remains limited by actual low-energy demand. The decision counter
+varies valid placement lanes but never dictates the next
 structure type. These relative priorities are provisional tuning values.
 
 Once a completed Mech Factory unlocks a higher structure tier, the AI also upgrades
@@ -1019,13 +1020,13 @@ scoring system. AI mech and vehicle factories also produce Skyguards and Flak
 Crawlers through the same role-balancing production logic used for other combat
 units; none are spawned or granted for free.
 
-Once its opening battery, sentry, charger, first combat wave, and paid expansion
+Once its opening battery, sentry, first combat wave, and paid expansion
 are established, an AI with crystal above its low-economy recovery threshold
 deliberately constructs a Tier 2 Mech Factory. It then produces a Tier 2 Worker
 Drone and deliberately establishes its parallel production branches in order:
 Tier 1 Vehicle Factory, Tier 2 Vehicle Factory, and Tier 2 Air Factory. These
 branch requests outrank routine base growth so recurring batteries, defenses,
-chargers, relays, extra Mech Factories, and non-urgent expansion cannot starve them
+relays, extra Mech Factories, and non-urgent expansion cannot starve them
 indefinitely. After reaching three harvesters, the same stable
 economy reserves for a Tier 3 Mech Factory, produces a Tier 3 Worker Drone, and
 adds Tier 3 Vehicle and Air Factories before resuming ordinary infrastructure
@@ -1037,8 +1038,17 @@ and structures use the same prerequisites, crystal costs, build times, power
 requirements, and vulnerable construction process as the player's equivalents.
 The two- and three-harvester technology thresholds are provisional.
 
-The AI still maintains a battery, local static defense, charger support, and a
-three-unit combat reserve before committing to ordinary expansion. The Strategic
+The AI still maintains a battery, local static defense, and a three-unit combat
+reserve before committing to ordinary expansion. It does not construct chargers
+from total army size or add a separate charger merely because a higher structure
+tier becomes available. When at least two combat units within a provisional
+520-world-unit base staging area fall to 50% energy or less, it may construct one
+charger centered on that demonstrated demand. A living charger prevents any further
+charger construction; higher-tier support comes from upgrading that structure.
+Idle depleted combat units within the same staging distance route into the powered
+charger field, and ordinary assault waves leave them there until they reach 90%
+energy. A nearby rush still overrides this recharge delay. These demand, staging,
+and release thresholds are provisional. The Strategic
 Supply Complex is constructed only when remaining supply falls to 10 percent of
 current capacity or less, and each later capacity upgrade is purchased only when
 supply becomes that constrained again. Once the initial force is secured, the AI
@@ -1049,7 +1059,7 @@ balance their available combat roles by current and queued roster counts, then a
 an energy carrier once a field army is large enough to need mobile support; they do
 not repeatedly produce only the first unit in the factory roster.
 
-After establishing its opening battery, defense, and charger, the AI begins paid
+After establishing its opening battery and defense, the AI begins paid
 economic expansion instead of relying indefinitely on its starting harvester. It seeks
 the nearest unused non-frontier deposit first, constructs a normally vulnerable
 generator outpost within power range when needed, and then has a worker construct

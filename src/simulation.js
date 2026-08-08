@@ -2830,7 +2830,6 @@ export class Simulation {
     if (structureUpgrade) this.upgradeStructure(structureUpgrade.structureId, teamId);
 
     this.updateEnemyExpansionGarrisons(teamId, enemyAnchor, playerTargets);
-    const stagedUnits = this.getEnemyStagedCombatUnits(teamId);
     const rushTargets = playerTargets.filter((target) =>
       this.structures.some(
         (structure) =>
@@ -2839,6 +2838,10 @@ export class Simulation {
           distance(structure, target) <= SIMULATION_RULES.enemyRushResponseRadius,
       ),
     );
+    if (rushTargets.length === 0) this.stageEnemyCombatUnitsForRecharge(teamId);
+    const stagedUnits = this.getEnemyStagedCombatUnits(teamId, {
+      includeRecharging: rushTargets.length > 0,
+    });
     const assaultPlan = rushTargets.length > 0 && stagedUnits.length > 0
       ? {
         target: nearest(stagedUnits[0], rushTargets),
@@ -2936,8 +2939,7 @@ export class Simulation {
     );
     const nearbyAircraft = enemyAircraft.filter((target) => nearbyThreats.includes(target));
     const basicForceReady = combatStrength >= this.getEnemyAttackWaveSize(teamId);
-    const coreBaseReady =
-      batteryCount > 0 && sentryCount > 0 && chargerCount > 0 && basicForceReady;
+    const coreBaseReady = batteryCount > 0 && sentryCount > 0 && basicForceReady;
     const unlockedTier = this.getUnlockedStructureTier(teamId);
     const highestWorkerTier = Math.max(
       1,
@@ -3068,7 +3070,6 @@ export class Simulation {
       const advancedBattery = tieredType("battery", operationalTier);
       const advancedSentry = tieredType("sentry_turret", operationalTier);
       const advancedFlak = tieredType("flak_turret", operationalTier);
-      const advancedCharger = tieredType("charger", operationalTier);
       if (!hasFamilyAtTier("generator", operationalTier)) {
         addCandidate(82, advancedGenerator, planPoint(-80, sideSign * 260));
       }
@@ -3083,9 +3084,6 @@ export class Simulation {
       }
       if (flakCount > 0 && !hasFamilyAtTier("flak_turret", operationalTier)) {
         addCandidate(87, advancedFlak, planPoint(220, -sideSign * 320));
-      }
-      if (!hasFamilyAtTier("charger", operationalTier)) {
-        addCandidate(78, advancedCharger, planPoint(80, -sideSign * 340));
       }
     }
 
@@ -3143,9 +3141,18 @@ export class Simulation {
       addCandidate(outpostDefenseScore, outpostDefenseRequest.type, outpostDefenseRequest);
     }
 
-    const desiredChargerCount = combatStrength > 0 ? 1 + Math.floor(combatStrength / 9) : 0;
-    if (chargerCount < desiredChargerCount) {
-      addCandidate(84, "charger", planPoint(30, sideSign * (180 + chargerCount * 80)));
+    const chargerDemandUnits = this.getEnemyChargerDemandUnits(teamId, anchor);
+    if (
+      chargerCount === 0 &&
+      chargerDemandUnits.length >= SIMULATION_RULES.enemyChargerMinimumDemandUnits
+    ) {
+      const demandCenter = {
+        x: chargerDemandUnits.reduce((total, unit) => total + unit.x, 0) /
+          chargerDemandUnits.length,
+        y: chargerDemandUnits.reduce((total, unit) => total + unit.y, 0) /
+          chargerDemandUnits.length,
+      };
+      addCandidate(84, tieredType("charger", operationalTier), demandCenter);
     }
 
     const fortifiedOpposition = this.hasEnemyHeavyDefenseCluster(teamId);
@@ -3419,10 +3426,85 @@ export class Simulation {
     return SIMULATION_RULES.enemyAttackWaveSize;
   }
 
-  getEnemyStagedCombatUnits(teamId = "enemy") {
+  getEnemyChargerDemandUnits(teamId, anchor = null) {
+    const stagingAnchor = anchor || this.structures.find(
+      (structure) =>
+        structure.alive &&
+        structure.complete &&
+        structure.team === teamId &&
+        STRUCTURE_DEFINITIONS[structure.type].generationRate,
+    ) || this.teamStarts[teamId];
+    return this.units.filter((unit) => {
+      const definition = UNIT_DEFINITIONS[unit.type];
+      return (
+        unit.alive &&
+        unit.team === teamId &&
+        isCombatUnitDefinition(definition) &&
+        unit.energy <=
+          definition.maxEnergy * SIMULATION_RULES.enemyChargerDemandEnergyRatio + EPSILON &&
+        (
+          !stagingAnchor ||
+          distance(unit, stagingAnchor) <= SIMULATION_RULES.enemyChargerStagingRadius
+        )
+      );
+    });
+  }
+
+  stageEnemyCombatUnitsForRecharge(teamId = "enemy") {
+    const chargers = this.structures.filter((structure) => {
+      const definition = STRUCTURE_DEFINITIONS[structure.type];
+      return (
+        structure.alive &&
+        structure.complete &&
+        structure.powered &&
+        structure.team === teamId &&
+        definition.chargeRadius
+      );
+    });
+    if (chargers.length === 0) return 0;
+
+    let routed = 0;
+    for (const unit of this.getEnemyChargerDemandUnits(teamId)) {
+      const target = this.getEntity(unit.attackTargetId);
+      if (
+        unit.state !== "active" ||
+        unit.garrisonStructureId ||
+        target?.alive ||
+        unit.moveTarget
+      ) {
+        continue;
+      }
+      const charger = nearest(unit, chargers);
+      const definition = STRUCTURE_DEFINITIONS[charger.type];
+      const chargerDistance = distance(unit, charger);
+      if (chargerDistance <= definition.chargeRadius) continue;
+      if (chargerDistance > SIMULATION_RULES.enemyChargerStagingRadius) continue;
+      routed += this.commandMove([unit.id], charger.x, charger.y, { force: true });
+    }
+    return routed;
+  }
+
+  getEnemyStagedCombatUnits(teamId = "enemy", { includeRecharging = false } = {}) {
+    const chargers = includeRecharging
+      ? []
+      : this.structures.filter((structure) => {
+        const definition = STRUCTURE_DEFINITIONS[structure.type];
+        return (
+          structure.alive &&
+          structure.complete &&
+          structure.powered &&
+          structure.team === teamId &&
+          definition.chargeRadius
+        );
+      });
     return this.units.filter((unit) => {
       const definition = UNIT_DEFINITIONS[unit.type];
       const target = this.getEntity(unit.attackTargetId);
+      const isRecharging = chargers.some((charger) =>
+        unit.energy <
+          definition.maxEnergy * SIMULATION_RULES.enemyChargerReleaseEnergyRatio - EPSILON &&
+        distance(unit, charger) <= STRUCTURE_DEFINITIONS[charger.type].chargeRadius
+      );
       return (
         unit.alive &&
         unit.state === "active" &&
@@ -3430,7 +3512,8 @@ export class Simulation {
         isCombatUnitDefinition(definition) &&
         !unit.garrisonStructureId &&
         !target?.alive &&
-        !unit.moveTarget
+        !unit.moveTarget &&
+        !isRecharging
       );
     });
   }

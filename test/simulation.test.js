@@ -4397,12 +4397,103 @@ test("advanced enemy mech factories produce the worker generation needed for the
   assert.equal(tierThreeFactory.productionQueue[0]?.unitType, "worker_drone_t3");
 });
 
+test("enemy AI builds at most one charger and only for depleted staged units", () => {
+  const simulation = new Simulation();
+  const anchor = simulation.addStructure("generator", "enemy", 2600, 900);
+  for (const [x, y] of [[2680, 820], [2680, 900], [2680, 980]]) {
+    simulation.addStructure("generator", "enemy", x, y);
+  }
+  simulation.addStructure("mech_factory_t1", "enemy", 2440, 1040);
+  simulation.addStructure("battery", "enemy", 2520, 820);
+  simulation.addStructure("sentry_turret", "enemy", 2480, 900);
+  const combatUnits = [
+    simulation.addUnit("scout_mech", "enemy", 2400, 1040),
+    simulation.addUnit("assault_mech", "enemy", 2440, 1100),
+    simulation.addUnit("scout_mech", "enemy", 2480, 1100),
+  ];
+  const planPoint = (forward, side = 0) => ({ x: anchor.x - forward, y: anchor.y + side });
+
+  const fullEnergyRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    1,
+  );
+  assert.notEqual(fullEnergyRequest?.type, "charger");
+
+  for (const unit of combatUnits.slice(0, 2)) {
+    unit.energy = UNIT_DEFINITIONS[unit.type].maxEnergy * 0.4;
+  }
+  const demandRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    2,
+  );
+  assert.equal(demandRequest.type, "charger");
+
+  simulation.addStructure(demandRequest.type, "enemy", demandRequest.x, demandRequest.y);
+  for (let index = 0; index < 18; index += 1) {
+    simulation.addUnit("scout_mech", "enemy", 2200 + (index % 6) * 35, 1160 + index * 4);
+  }
+  const supportedRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    3,
+  );
+  assert.notEqual(supportedRequest?.type, "charger");
+});
+
+test("enemy AI routes depleted staged units into its charger and waits for recharge", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  simulation.addStructure("generator", "enemy", 1000, 900);
+  const charger = simulation.addStructure("charger", "enemy", 1040, 900);
+  const depletedUnits = [
+    simulation.addUnit("scout_mech", "enemy", 1340, 880),
+    simulation.addUnit("assault_mech", "enemy", 1380, 920),
+  ];
+  for (const unit of depletedUnits) {
+    unit.energy = UNIT_DEFINITIONS[unit.type].maxEnergy * 0.4;
+  }
+  simulation.refreshPowerState(0);
+
+  assert.equal(simulation.stageEnemyCombatUnitsForRecharge("enemy"), 2);
+  assert.ok(depletedUnits.every((unit) => unit.moveTarget && unit.moveMode === "force"));
+
+  depletedUnits[0].x = charger.x + 120;
+  depletedUnits[0].y = charger.y;
+  depletedUnits[1].x = charger.x + 160;
+  depletedUnits[1].y = charger.y;
+  for (const unit of depletedUnits) {
+    unit.moveTarget = null;
+    unit.moveMode = null;
+  }
+  assert.equal(simulation.getEnemyStagedCombatUnits("enemy").length, 0);
+  assert.equal(
+    simulation.getEnemyStagedCombatUnits("enemy", { includeRecharging: true }).length,
+    2,
+  );
+
+  const startingEnergy = depletedUnits.map((unit) => unit.energy);
+  advance(simulation, 1);
+  assert.ok(depletedUnits.every((unit, index) => unit.energy > startingEnergy[index]));
+
+  for (const unit of depletedUnits) {
+    unit.energy = UNIT_DEFINITIONS[unit.type].maxEnergy * 0.91;
+  }
+  assert.equal(simulation.getEnemyStagedCombatUnits("enemy").length, 2);
+});
+
 test("the standard enemy opening establishes defenses and launches promptly", () => {
   const simulation = Simulation.createFieldTest();
 
   advance(simulation, 30 * BUILD_DURATION_MULTIPLIER);
 
-  for (const structureType of ["battery", "sentry_turret", "charger"]) {
+  for (const structureType of ["battery", "sentry_turret"]) {
     assert.ok(
       simulation.structures.some(
         (structure) =>
@@ -4414,6 +4505,15 @@ test("the standard enemy opening establishes defenses and launches promptly", ()
       `${structureType} should be operational during the opening`,
     );
   }
+  assert.ok(
+    simulation.structures.filter(
+      (structure) =>
+        structure.alive &&
+        structure.team === "enemy" &&
+        STRUCTURE_DEFINITIONS[structure.type].family === "charger",
+    ).length <= 1,
+    "the opening should never accumulate redundant chargers",
+  );
   const enemyCombatUnits = simulation.units.filter(
     (unit) => unit.alive && unit.team === "enemy" && UNIT_DEFINITIONS[unit.type].attackRange > 0,
   );
@@ -4491,7 +4591,13 @@ test("enemy AI places powered consumers inside its energized grid", () => {
   simulation.addStructure("mech_factory_t1", "enemy", 2680, 920);
   simulation.addStructure("battery", "enemy", 2760, 720);
   simulation.addStructure("sentry_turret", "enemy", 2640, 760);
-  simulation.addUnit("scout_mech", "enemy", 2720, 980);
+  const depletedUnits = [
+    simulation.addUnit("scout_mech", "enemy", 2720, 980),
+    simulation.addUnit("assault_mech", "enemy", 2760, 980),
+  ];
+  for (const unit of depletedUnits) {
+    unit.energy = UNIT_DEFINITIONS[unit.type].maxEnergy * 0.4;
+  }
   simulation.addUnit("worker_drone_t1", "enemy", 2800, 1000);
 
   simulation.tick(1 / 30);
@@ -4522,7 +4628,13 @@ test("enemy AI completes extra generation before projected demand exceeds supply
   simulation.addStructure("power_tower", "enemy", 2640, 800);
   simulation.addStructure("battery", "enemy", 2760, 720);
   simulation.addStructure("sentry_turret", "enemy", 2600, 760);
-  simulation.addUnit("scout_mech", "enemy", 2720, 980);
+  const depletedUnits = [
+    simulation.addUnit("scout_mech", "enemy", 2720, 980),
+    simulation.addUnit("assault_mech", "enemy", 2760, 980),
+  ];
+  for (const unit of depletedUnits) {
+    unit.energy = UNIT_DEFINITIONS[unit.type].maxEnergy * 0.4;
+  }
   simulation.addUnit("worker_drone_t1", "enemy", 2500, 1000);
 
   assert.equal(simulation.needsAdditionalGeneration("enemy", "charger"), true);
