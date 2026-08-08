@@ -1100,6 +1100,23 @@ const structureDefinitions = {
     buildTime: 6,
     provisionalBalance: true,
   },
+  shield_turret: {
+    name: "Shield Turret",
+    family: "shield_turret",
+    buildTier: 1,
+    minimumWorkerTier: 1,
+    radius: 18,
+    footprint: [1, 1],
+    maxHp: 340,
+    powerDemand: 2,
+    shieldRadius: 165,
+    shieldCapacity: 520,
+    shieldRegenRate: 12,
+    shieldEnergyPerPoint: 0.75,
+    metalCost: 160,
+    buildTime: 10,
+    provisionalBalance: true,
+  },
   mortar_turret: {
     name: "Mortar Turret",
     family: "mortar_turret",
@@ -1330,7 +1347,7 @@ export const BUILD_MENU_BY_TIER = Object.freeze({
   1: Object.freeze([
     "generator", "battery", "power_tower", "charger", "metal_mine",
     "mech_factory_t1", "vehicle_factory_t1",
-    "sentry_turret", "mortar_turret", "flak_turret", "salvage_yard", "supply_complex",
+    "sentry_turret", "shield_turret", "mortar_turret", "flak_turret", "salvage_yard", "supply_complex",
   ]),
   2: Object.freeze([
     "generator_t2", "battery_t2", "power_tower_t2", "charger_t2", "metal_mine_t2",

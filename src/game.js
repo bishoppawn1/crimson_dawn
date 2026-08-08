@@ -192,6 +192,7 @@ const colors = {
   energy: "#52d1ff",
   metal: "#d0c9b9",
   health: "#6fe28d",
+  shield: "#65d8ff",
   stasis: "#e4b44c",
   selection: "#f6ee8d",
   disconnected: "#ff6675",
@@ -1170,6 +1171,9 @@ function runAuthoritativeSimulationHeartbeat(now = performance.now()) {
 }
 
 function describeStructureRole(definition) {
+  if (definition.shieldCapacity) {
+    return `${definition.shieldCapacity} shield · ${definition.shieldRadius} radius · ${definition.shieldRegenRate}/s regen`;
+  }
   if (definition.capacitorCapacity) {
     const damagePerSecond = definition.attackDamage / definition.attackCooldown;
     const range = definition.minimumAttackRange
@@ -1243,6 +1247,7 @@ function render(now = performance.now()) {
   drawTerrain();
   drawMetalDeposits();
   drawPowerNetwork();
+  drawShieldFields();
   drawCommandIndicators();
 
   for (const wreck of simulation.wrecks) {
@@ -1271,6 +1276,35 @@ function render(now = performance.now()) {
   context.restore();
   drawCameraHud();
   drawMinimap();
+}
+
+function drawShieldFields() {
+  for (const shield of simulation.structures) {
+    const definition = STRUCTURE_DEFINITIONS[shield.type];
+    if (!shield.alive || !shield.complete || !definition.shieldCapacity) continue;
+    const selected = selectedStructureIds.has(shield.id);
+    const active = shield.powered && shield.shieldStrength > 0.01;
+    if (!active && !selected) continue;
+    const strengthRatio = Math.max(0, Math.min(1, shield.shieldStrength / definition.shieldCapacity));
+    const pulse = 0.5 + Math.sin(renderTimestamp * 0.0025 + shield.x * 0.01) * 0.5;
+    context.save();
+    context.translate(shield.x, shield.y);
+    if (active) {
+      context.fillStyle = `${colors.shield}${Math.round(10 + strengthRatio * 14).toString(16).padStart(2, "0")}`;
+      context.beginPath();
+      context.arc(0, 0, definition.shieldRadius, 0, Math.PI * 2);
+      context.fill();
+    }
+    context.strokeStyle = active
+      ? `${colors.shield}${selected ? "aa" : Math.round(55 + pulse * 35).toString(16)}`
+      : "#8c99a566";
+    context.lineWidth = selected ? 2.5 : 1.5;
+    if (!active) context.setLineDash([7, 9]);
+    context.beginPath();
+    context.arc(0, 0, definition.shieldRadius, 0, Math.PI * 2);
+    context.stroke();
+    context.restore();
+  }
 }
 
 function mobileSimulationEntities(source = simulation) {
@@ -2416,6 +2450,48 @@ function drawSentryBuilding(structure, definition, footprint, powered, teamColor
   context.fillRect(-base * 0.42, -3, base * 0.35, 6);
 }
 
+function drawShieldTurretBuilding(structure, definition, footprint, powered, teamColor) {
+  const size = Math.min(footprint.width, footprint.height);
+  const base = size * 0.31;
+  context.fillStyle = structureMetalGradient();
+  context.strokeStyle = "#10171a";
+  context.lineWidth = 3;
+  polygon(8, base, Math.PI / 8);
+  context.fill();
+  context.stroke();
+
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.arc(0, 0, base * 0.72, 0, Math.PI * 2);
+  context.stroke();
+
+  const strengthRatio = structure.shieldStrength / definition.shieldCapacity;
+  context.fillStyle = "#202a2f";
+  context.strokeStyle = "#0c1114";
+  context.lineWidth = 3;
+  for (let arm = 0; arm < 4; arm += 1) {
+    context.save();
+    context.rotate(arm * Math.PI / 2);
+    context.fillRect(base * 0.1, -base * 0.11, base * 0.55, base * 0.22);
+    context.strokeRect(base * 0.1, -base * 0.11, base * 0.55, base * 0.22);
+    context.restore();
+  }
+
+  context.fillStyle = powered && strengthRatio > 0 ? colors.shield : "#62565b";
+  context.shadowColor = powered ? colors.shield : "transparent";
+  context.shadowBlur = powered ? 10 + strengthRatio * 8 : 0;
+  context.beginPath();
+  context.arc(0, 0, base * 0.3, 0, Math.PI * 2);
+  context.fill();
+  context.shadowBlur = 0;
+  context.strokeStyle = powered ? `${colors.shield}cc` : "#745357";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.arc(0, 0, base * (0.42 + strengthRatio * 0.08), 0, Math.PI * 2);
+  context.stroke();
+}
+
 function drawMortarBuilding(structure, definition, footprint, powered, teamColor) {
   const size = Math.min(footprint.width, footprint.height);
   const base = size * 0.3;
@@ -2556,6 +2632,7 @@ function drawCompletedBuilding(structure, definition, footprint, family, powered
   else if (family === "factory") drawFactoryBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "supply_complex") drawSupplyComplexBuilding(structure, footprint, powered, teamColor);
   else if (family === "sentry_turret") drawSentryBuilding(structure, definition, footprint, powered, teamColor);
+  else if (family === "shield_turret") drawShieldTurretBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "mortar_turret") drawMortarBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "flak_turret") drawFlakBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "salvage_yard") drawSalvageYardBuilding(definition, footprint, powered, teamColor);
@@ -2654,6 +2731,15 @@ function drawStructure(structure) {
     structure.hp / definition.maxHp,
     colors.health,
   );
+  if (definition.shieldCapacity && structure.complete && selectedStructureIds.has(structure.id)) {
+    drawBar(
+      structure.x,
+      structure.y - footprint.halfHeight - 17,
+      structureBarWidth,
+      structure.shieldStrength / definition.shieldCapacity,
+      colors.shield,
+    );
+  }
   if (!structure.complete) {
     drawBar(
       structure.x,
@@ -4602,7 +4688,11 @@ function drawEvents() {
       drawAttackEvent(event, age);
     } else {
       const alpha = Math.max(0, 1 - age / 1.2);
-      const eventColor = event.type === "stasis" ? colors.stasis : colors.energy;
+      const eventColor = event.type === "stasis"
+        ? colors.stasis
+        : event.type === "shield_hit"
+          ? colors.shield
+          : colors.energy;
       context.globalAlpha = alpha;
       context.strokeStyle = eventColor;
       context.lineWidth = 3;
@@ -5132,6 +5222,9 @@ function updateInterface() {
     const defenseText = definition.capacitorCapacity
       ? ` · ${definition.attackDamage} damage · ${definition.minimumAttackRange ? `${definition.minimumAttackRange}–` : ""}${definition.attackRange} range · ${(definition.attackDamage / definition.attackCooldown).toFixed(1)} DPS${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""} · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
       : "";
+    const shieldText = definition.shieldCapacity
+      ? ` · ${Math.ceil(selectedStructure.shieldStrength)}/${definition.shieldCapacity} shield · ${definition.shieldRadius} field radius · ${definition.shieldRegenRate}/s regen · ${definition.shieldEnergyPerPoint} energy/point · ${selectedStructure.shieldStatus.toUpperCase()}`
+      : "";
     const chargerText = definition.chargeRadius
       ? ` · ${definition.chargeRate}/s unit recharge · ${definition.chargeRadius} field radius`
       : "";
@@ -5164,7 +5257,7 @@ function updateInterface() {
         ? ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · UPGRADING TO ${selectedStructure.supplyUpgrade.targetLevel}`
         : ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · +${definition.supplyLevels[selectedStructure.supplyLevel - 1].capacity.toLocaleString()} capacity`
       : "";
-    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${chargerText}${mineText}${demandText}${defenseText}${salvageText}${factoryText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
+    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${chargerText}${mineText}${demandText}${defenseText}${shieldText}${salvageText}${factoryText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
   } else if (selectedUnits.length === 0) {
     selectionName.textContent = "No units selected";
     selectionDetails.textContent = "Select friendly units or a structure on the battlefield.";

@@ -702,6 +702,10 @@ the reason to the player. The player sees a green or red footprint preview befor
 confirming placement, and the enemy AI searches nearby grid cells when its preferred
 site is blocked.
 
+The Shield Turret is currently a separate provisional Tier 1 defense rather than a
+three-tier family. Tier 1 workers can construct it from their Tier 1 building
+category.
+
 Building-to-building validation uses the exact visible grid footprints. It adds no
 invisible movement padding, so adjacent footprints—including compact one-cell
 turrets and towers—may share an edge without overlapping. Unit movement still
@@ -709,9 +713,9 @@ stops at the moving unit's own physical radius from the exact structure footprin
 there is no additional structure-clearance padding.
 
 Tier 1 infrastructure is deliberately compact. Pulse Generators, Grid Batteries,
-Induction Chargers, Metal Mines, Power Relay Towers, Sentry Turrets, and Mortar
-Turrets use 1×1 footprints. Tier 1 factories use 2×2 footprints. Equivalent Tier 2
-infrastructure uses 2×2 footprints except for the Tier 2 Power Relay Tower, which
+Induction Chargers, Metal Mines, Power Relay Towers, Sentry Turrets, Shield Turrets,
+and Mortar Turrets use 1×1 footprints. Tier 1 factories use 2×2 footprints.
+Equivalent Tier 2 infrastructure uses 2×2 footprints except for the Tier 2 Power Relay Tower, which
 remains 1×1. Metal Mines are permanently capped at 2×2: both their Tier 2 and Tier 3
 versions use that footprint, with higher mining output represented through their
 machinery and stats rather than a larger occupied area. Tier 2 factories use 3×3
@@ -740,6 +744,18 @@ economic buildings likewise apply their data-defined passive demand continuously
 Static defenses automatically engage hostile units, reclamation drones, and
 structures within range and stop functioning when disconnected from an energized
 network. These demand values remain provisional.
+
+The provisional Tier 1 Shield Turret creates a 165-world-unit field around itself.
+Its 520-point shield intercepts damage aimed at friendly units, reclamation drones,
+and structures whose centers are inside the field, including the Shield Turret
+itself. A hit is absorbed by the nearest eligible field; overlapping fields do not
+stack on one hit. Damage beyond the field's remaining strength spills through to
+the original target. An unpowered field is inactive but retains its remaining
+strength. While powered, the turret consumes 2 energy per second to maintain the
+field and restores up to 12 shield points per second, drawing another 0.75 grid
+energy per restored point. Regeneration pauses when no surplus grid energy is
+available. Selecting the turret shows its field radius, current behavior, numeric
+shield strength, and a cyan shield bar directly above the green integrity bar.
 
 Static defenses charge an internal weapon capacitor continuously from their local
 grid. A shot spends capacitor energy, allowing normal generator output to build up

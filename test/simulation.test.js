@@ -3256,6 +3256,105 @@ test("full idle sentries do not prevent a new sentry from charging", () => {
   assert.ok(newTurret.weaponEnergy >= 2.9, "the grid's remaining output should charge the new turret");
 });
 
+test("Tier 1 workers can construct the provisional Shield Turret", () => {
+  assert.ok(BUILD_MENU_BY_TIER[1].includes("shield_turret"));
+  assert.equal(canWorkerTierBuildStructure(1, "shield_turret"), true);
+  assert.equal(STRUCTURE_DEFINITIONS.shield_turret.family, "shield_turret");
+  assert.ok(STRUCTURE_DEFINITIONS.shield_turret.shieldCapacity > 0);
+});
+
+test("a powered Shield Turret absorbs hits inside its field and spills excess damage through", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 100, 100);
+  const shield = simulation.addStructure("shield_turret", "player", 220, 100, {
+    shieldStrength: 30,
+  });
+  const protectedUnit = simulation.addUnit("raider", "player", 340, 100);
+  const attacker = simulation.addUnit("raider", "enemy", 500, 100);
+  const startingHp = protectedUnit.hp;
+  simulation.refreshPowerState(0.25);
+
+  simulation.applyDamage(protectedUnit, 50, attacker);
+
+  assert.equal(shield.powered, true);
+  assert.equal(shield.shieldStrength, 0);
+  assert.equal(protectedUnit.hp, startingHp - 20);
+  assert.equal(protectedUnit.attackTargetId, attacker.id);
+  assert.ok(simulation.events.some(
+    (event) => event.type === "shield_hit" && event.shieldId === shield.id,
+  ));
+});
+
+test("a powered Shield Turret protects its own structure", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 100, 100);
+  const shield = simulation.addStructure("shield_turret", "player", 220, 100);
+  const startingHp = shield.hp;
+  const startingStrength = shield.shieldStrength;
+  simulation.refreshPowerState(0.25);
+
+  simulation.applyDamage(shield, 40);
+
+  assert.equal(shield.hp, startingHp);
+  assert.equal(shield.shieldStrength, startingStrength - 40);
+});
+
+test("Shield Turrets do not intercept attacks outside their field or while unpowered", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 100, 100);
+  const shield = simulation.addStructure("shield_turret", "player", 220, 100);
+  const distantUnit = simulation.addUnit("raider", "player", 500, 100);
+  const startingDistantHp = distantUnit.hp;
+  simulation.refreshPowerState(0.25);
+
+  simulation.applyDamage(distantUnit, 25);
+  assert.equal(distantUnit.hp, startingDistantHp - 25);
+  assert.equal(shield.shieldStrength, STRUCTURE_DEFINITIONS.shield_turret.shieldCapacity);
+
+  const isolated = new Simulation();
+  const unpoweredShield = isolated.addStructure("shield_turret", "player", 220, 100);
+  const nearbyUnit = isolated.addUnit("raider", "player", 300, 100);
+  const startingNearbyHp = nearbyUnit.hp;
+  isolated.refreshPowerState(0.25);
+  isolated.applyDamage(nearbyUnit, 25);
+
+  assert.equal(unpoweredShield.powered, false);
+  assert.equal(nearbyUnit.hp, startingNearbyHp - 25);
+  assert.equal(
+    unpoweredShield.shieldStrength,
+    STRUCTURE_DEFINITIONS.shield_turret.shieldCapacity,
+  );
+});
+
+test("a damaged Shield Turret regenerates slowly by drawing local grid energy", () => {
+  const simulation = new Simulation();
+  const battery = simulation.addStructure("battery", "player", 100, 100, {
+    storedEnergy: 20,
+  });
+  const shield = simulation.addStructure("shield_turret", "player", 220, 100, {
+    shieldStrength: 0,
+  });
+  const definition = STRUCTURE_DEFINITIONS.shield_turret;
+
+  simulation.tick(0.25);
+
+  assert.equal(shield.powered, true);
+  assert.equal(shield.shieldStrength, definition.shieldRegenRate * 0.25);
+  assert.equal(
+    battery.storedEnergy,
+    20 - (definition.powerDemand + definition.shieldRegenRate * definition.shieldEnergyPerPoint) * 0.25,
+  );
+  assert.equal(shield.shieldStatus, "regenerating");
+
+  battery.storedEnergy = 0;
+  const strengthBeforePowerLoss = shield.shieldStrength;
+  simulation.tick(0.25);
+
+  assert.equal(shield.powered, false);
+  assert.equal(shield.shieldStrength, strengthBeforePowerLoss);
+  assert.equal(shield.shieldStatus, "unpowered");
+});
+
 test("destroyed reclamation drones drop their carried scrap at the death location", () => {
   const simulation = new Simulation();
   const yard = simulation.addStructure("salvage_yard", "player", 100, 100);

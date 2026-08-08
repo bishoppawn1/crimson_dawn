@@ -512,11 +512,16 @@ export class Simulation {
       weaponEnergy: definition.capacitorCapacity ? definition.capacitorCapacity : null,
       defenseTargetId: null,
       defenseStatus: definition.capacitorCapacity ? "ready" : null,
+      shieldStrength: definition.shieldCapacity ? definition.shieldCapacity : null,
+      shieldStatus: definition.shieldCapacity ? "stable" : null,
       ...overrides,
     };
 
     if (definition.storageCapacity) {
       structure.storedEnergy = clamp(structure.storedEnergy, 0, definition.storageCapacity);
+    }
+    if (definition.shieldCapacity) {
+      structure.shieldStrength = clamp(structure.shieldStrength, 0, definition.shieldCapacity);
     }
     if (definition.supplyLevels) {
       structure.supplyLevel = clamp(
@@ -1791,6 +1796,7 @@ export class Simulation {
     this.updateSupplyUpgrades(delta);
     this.updateProduction(delta);
     this.updateStaticDefenses(delta);
+    this.updateShieldTurrets(delta);
     this.updateChargers(delta);
     this.updateEnergyCarriers(delta);
     this.updateDrones(delta);
@@ -2119,6 +2125,7 @@ export class Simulation {
         structure.powerStatus = definition.generationRate ? "generating" : "online";
         if (definition.storageCapacity) structure.storedEnergy = definition.storageCapacity;
         if (definition.capacitorCapacity) structure.weaponEnergy = definition.capacitorCapacity;
+        if (definition.shieldCapacity) structure.shieldStrength = definition.shieldCapacity;
       }
     }
   }
@@ -3811,6 +3818,37 @@ export class Simulation {
     }
   }
 
+  updateShieldTurrets(delta) {
+    for (const shield of this.structures) {
+      const definition = STRUCTURE_DEFINITIONS[shield.type];
+      if (!shield.alive || !shield.complete || !definition.shieldCapacity) continue;
+      if (!shield.powered) {
+        shield.shieldStatus = "unpowered";
+        continue;
+      }
+      const missingStrength = definition.shieldCapacity - shield.shieldStrength;
+      if (missingStrength <= EPSILON) {
+        shield.shieldStrength = definition.shieldCapacity;
+        shield.shieldStatus = "stable";
+        continue;
+      }
+
+      const requestedStrength = Math.min(definition.shieldRegenRate * delta, missingStrength);
+      const energyRequired = requestedStrength * definition.shieldEnergyPerPoint;
+      const suppliedEnergy = this.takeStructureEnergy(shield, energyRequired);
+      const restoredStrength = suppliedEnergy / definition.shieldEnergyPerPoint;
+      shield.shieldStrength = Math.min(
+        definition.shieldCapacity,
+        shield.shieldStrength + restoredStrength,
+      );
+      shield.shieldStatus = restoredStrength > EPSILON
+        ? "regenerating"
+        : shield.shieldStrength > EPSILON
+          ? "low power"
+          : "depleted";
+    }
+  }
+
   updateUnits(delta) {
     this.navigationSearchesRemaining = NAVIGATION_SEARCHES_PER_TICK;
     this.lastNavigationSearchCount = 0;
@@ -4912,7 +4950,25 @@ export class Simulation {
 
   applyDamage(target, amount, source = null) {
     if (!target?.alive || amount <= 0) return;
-    target.hp = Math.max(0, target.hp - amount);
+    const shield = this.findProtectingShield(target);
+    let remainingDamage = amount;
+    if (shield) {
+      const absorbedDamage = Math.min(remainingDamage, shield.shieldStrength);
+      shield.shieldStrength = Math.max(0, shield.shieldStrength - absorbedDamage);
+      remainingDamage -= absorbedDamage;
+      shield.shieldStatus = shield.shieldStrength > EPSILON ? "absorbing" : "depleted";
+      this.emit("shield_hit", target.x, target.y, {
+        targetId: target.id,
+        shieldId: shield.id,
+        absorbedDamage,
+        depleted: shield.shieldStrength <= EPSILON,
+      });
+    }
+    if (remainingDamage <= EPSILON) {
+      this.assignRetaliationTarget(target, source);
+      return;
+    }
+    target.hp = Math.max(0, target.hp - remainingDamage);
     if (target.hp > EPSILON) {
       this.assignRetaliationTarget(target, source);
       return;
@@ -4941,6 +4997,25 @@ export class Simulation {
     }
     if (target.kind === "structure") target.powered = false;
     this.emit("destroyed", target.x, target.y, { targetId: target.id });
+  }
+
+  findProtectingShield(target) {
+    if (!target?.alive || !target.team || !Number.isFinite(target.x) || !Number.isFinite(target.y)) {
+      return null;
+    }
+    return nearest(
+      target,
+      this.structures.filter((shield) => {
+        const definition = STRUCTURE_DEFINITIONS[shield.type];
+        return shield.alive &&
+          shield.complete &&
+          shield.powered &&
+          shield.team === target.team &&
+          definition.shieldCapacity &&
+          shield.shieldStrength > EPSILON &&
+          distance(shield, target) <= definition.shieldRadius + EPSILON;
+      }),
+    );
   }
 
   assignRetaliationTarget(target, aggressor) {
