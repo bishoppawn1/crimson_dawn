@@ -1485,7 +1485,6 @@ export const SIMULATION_RULES = Object.freeze({
   enemyConstructionRecentBuildWindow: 30,
   enemyConstructionLossMemoryLimit: 12,
   enemySupplyLowRatio: 0.1,
-  enemyLowGridEnergyRatio: 0.2,
   enemyChargerDemandEnergyRatio: 0.5,
   enemyChargerReleaseEnergyRatio: 0.9,
   enemyChargerMinimumDemandUnits: 2,

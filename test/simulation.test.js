@@ -1020,6 +1020,15 @@ test("enemy AI structure upgrades keep its strategic crystal reserve", () => {
   );
 });
 
+test("enemy AI does not upgrade existing Grid Batteries", () => {
+  const simulation = new Simulation();
+  simulation.resources.enemy.metal = 5000;
+  simulation.addStructure("battery", "enemy", 300, 300);
+  simulation.addStructure("mech_factory_t2", "enemy", 700, 700);
+
+  assert.equal(simulation.getEnemyStructureUpgradeRequest("enemy"), null);
+});
+
 test("enemy AI upgrades existing economy buildings after unlocking their tier", () => {
   const simulation = new Simulation();
   simulation.resources.enemy.metal = 5000;
@@ -4031,31 +4040,31 @@ test("the Tier 2 Power Relay Tower stays compact and improves every relay functi
   assert.deepEqual([tierTwoCoverage.columns, tierTwoCoverage.rows], [15, 15]);
 });
 
-test("enemy AI searches nearby grid cells when its preferred site is occupied", () => {
+test("enemy AI searches nearby grid cells when its preferred generator site is occupied", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
   simulation.aiBuildIndex = 1;
-  simulation.addStructure("generator", "enemy", 2880, 800);
+  const anchor = simulation.addStructure("generator", "enemy", 2880, 800);
   simulation.addStructure("mech_factory_t1", "enemy", 2640, 960);
   const worker = simulation.addUnit("worker_drone_t1", "enemy", 2740, 800);
 
   simulation.tick(1 / 30);
 
-  const battery = simulation.structures.find(
-    (structure) => structure.alive && structure.team === "enemy" && structure.type === "battery",
+  const generator = simulation.structures.find(
+    (structure) =>
+      structure.alive &&
+      structure.team === "enemy" &&
+      structure.type === "generator" &&
+      structure.id !== anchor.id,
   );
-  const batteryFootprint = structureFootprint("battery");
-  assert.ok(battery);
-  assert.notDeepEqual([battery.x, battery.y], [2740, 800]);
-  assert.equal((battery.x - batteryFootprint.halfWidth) % SIMULATION_RULES.buildingGridSize, 0);
-  assert.equal((battery.y - batteryFootprint.halfHeight) % SIMULATION_RULES.buildingGridSize, 0);
-  assert.equal(
-    simulation.isBuildSiteConnectedToPower("battery", "enemy", battery.x, battery.y),
-    true,
-  );
+  const generatorFootprint = structureFootprint("generator");
+  assert.ok(generator);
+  assert.notDeepEqual([generator.x, generator.y], [2740, 800]);
+  assert.equal((generator.x - generatorFootprint.halfWidth) % SIMULATION_RULES.buildingGridSize, 0);
+  assert.equal((generator.y - generatorFootprint.halfHeight) % SIMULATION_RULES.buildingGridSize, 0);
   assert.ok(
-    Math.hypot(battery.x - worker.x, battery.y - worker.y) + 0.0001 >=
-      STRUCTURE_DEFINITIONS.battery.radius +
+    Math.hypot(generator.x - worker.x, generator.y - worker.y) + 0.0001 >=
+      STRUCTURE_DEFINITIONS.generator.radius +
         UNIT_DEFINITIONS.worker_drone_t1.radius +
         SIMULATION_RULES.structureCollisionPadding,
   );
@@ -4151,11 +4160,10 @@ test("enemy AI skips a contested deposit for a safer expansion", () => {
   );
 });
 
-test("enemy AI replaces battery requests with generation while grid energy is low", () => {
+test("enemy AI requests generators instead of Grid Batteries at every energy level", () => {
   const simulation = new Simulation();
   const anchor = simulation.addStructure("generator", "enemy", 2600, 900);
   simulation.addStructure("mech_factory_t1", "enemy", 2440, 1040);
-  simulation.addStructure("battery", "enemy", 2520, 820);
   for (let index = 0; index < 6; index += 1) {
     simulation.addStructure("power_tower", "enemy", 2360 + index * 40, 760);
   }
@@ -4168,7 +4176,7 @@ test("enemy AI replaces battery requests with generation while grid energy is lo
     planPoint,
     1,
   );
-  const laterLowEnergyRequest = simulation.getEnemyStrategicConstructionRequest(
+  const laterRequest = simulation.getEnemyStrategicConstructionRequest(
     "enemy",
     anchor,
     [],
@@ -4177,7 +4185,7 @@ test("enemy AI replaces battery requests with generation while grid energy is lo
   );
 
   assert.equal(earlyRequest.type, "generator");
-  assert.equal(laterLowEnergyRequest.type, "generator");
+  assert.equal(laterRequest.type, "generator");
 
   simulation.addStructure("generator", "enemy", 2680, 900);
   simulation.refreshPowerState(0);
@@ -4189,7 +4197,7 @@ test("enemy AI replaces battery requests with generation while grid energy is lo
     planPoint,
     1,
   );
-  assert.notEqual(recoveredRequest.type, "generator");
+  assert.notEqual(recoveredRequest.type, "battery");
 
   const rushedTarget = simulation.addUnit("scout_mech", "player", 2300, 900);
   const defensiveRequest = simulation.getEnemyStrategicConstructionRequest(
@@ -4298,11 +4306,10 @@ test("advanced AI economies add generators matching their operational tier", () 
   assert.equal(request.type, "generator_t2");
 });
 
-test("enemy AI waits for its pending low-energy generator instead of adding a battery", () => {
+test("enemy AI waits for its pending generator without adding a Grid Battery", () => {
   const simulation = new Simulation();
   const anchor = simulation.addStructure("generator", "enemy", 2600, 900);
   simulation.addStructure("mech_factory_t1", "enemy", 2440, 1040);
-  simulation.addStructure("battery", "enemy", 2520, 900);
   for (let index = 0; index < 6; index += 1) {
     simulation.addStructure("power_tower", "enemy", 2360 + index * 40, 760);
   }
@@ -4578,18 +4585,34 @@ test("the standard enemy opening establishes defenses and launches promptly", ()
 
   advance(simulation, 30 * BUILD_DURATION_MULTIPLIER);
 
-  for (const structureType of ["battery", "sentry_turret"]) {
-    assert.ok(
-      simulation.structures.some(
-        (structure) =>
-          structure.alive &&
-          structure.complete &&
-          structure.team === "enemy" &&
-          structure.type === structureType,
-      ),
-      `${structureType} should be operational during the opening`,
-    );
-  }
+  assert.ok(
+    simulation.structures.some(
+      (structure) =>
+        structure.alive &&
+        structure.complete &&
+        structure.team === "enemy" &&
+        structure.type === "sentry_turret",
+    ),
+    "sentry_turret should be operational during the opening",
+  );
+  assert.ok(
+    simulation.structures.filter(
+      (structure) =>
+        structure.alive &&
+        structure.complete &&
+        structure.team === "enemy" &&
+        STRUCTURE_DEFINITIONS[structure.type].family === "generator",
+    ).length >= 2,
+  );
+  assert.equal(
+    simulation.structures.some(
+      (structure) =>
+        structure.alive &&
+        structure.team === "enemy" &&
+        STRUCTURE_DEFINITIONS[structure.type].family === "battery",
+    ),
+    false,
+  );
   assert.ok(
     simulation.structures.filter(
       (structure) =>
@@ -4646,7 +4669,7 @@ test("enemy AI places a needed relay on its connected grid", () => {
   simulation.addStructure("generator", "enemy", 2840, 720);
   simulation.addStructure("generator", "enemy", 2840, 880);
   simulation.addStructure("mech_factory_t1", "enemy", 2680, 960);
-  simulation.addStructure("battery", "enemy", 2760, 720);
+  simulation.addStructure("generator", "enemy", 2760, 720);
   simulation.addStructure("sentry_turret", "enemy", 2640, 760);
   simulation.addStructure("charger", "enemy", 2720, 840);
   simulation.addStructure("metal_mine", "enemy", 2920, 600);
@@ -4674,7 +4697,7 @@ test("enemy AI places powered consumers inside its energized grid", () => {
   simulation.resources.enemy.metal = 1000;
   simulation.addStructure("generator", "enemy", 2880, 800);
   simulation.addStructure("mech_factory_t1", "enemy", 2680, 920);
-  simulation.addStructure("battery", "enemy", 2760, 720);
+  simulation.addStructure("generator", "enemy", 2760, 720);
   simulation.addStructure("sentry_turret", "enemy", 2640, 760);
   const depletedUnits = [
     simulation.addUnit("scout_mech", "enemy", 2720, 980),
@@ -4809,11 +4832,11 @@ test("enemy AI balances combat roles and adds energy support as its army grows",
   assert.equal(factory.productionQueue[0]?.unitType, "energy_carrier");
 });
 
-test("enemy AI reserves crystal for its next building after fielding a combat force", () => {
+test("enemy AI reserves crystal for its next generator after fielding a combat force", () => {
   const simulation = new Simulation();
   simulation.aiThinkRemaining = 0;
   simulation.aiBuildIndex = 1;
-  simulation.resources.enemy.metal = STRUCTURE_DEFINITIONS.battery.metalCost - 10;
+  simulation.resources.enemy.metal = STRUCTURE_DEFINITIONS.generator.metalCost - 10;
   simulation.addUnit("worker_drone_t1", "enemy", 1200, 600);
   simulation.addUnit("worker_drone_t1", "enemy", 1240, 600);
   simulation.addUnit("worker_drone_t1", "enemy", 1280, 600);
@@ -4827,7 +4850,7 @@ test("enemy AI reserves crystal for its next building after fielding a combat fo
   assert.equal(factory.productionQueue.length, 0);
   assert.equal(
     simulation.resources.enemy.metal,
-    STRUCTURE_DEFINITIONS.battery.metalCost - 10,
+    STRUCTURE_DEFINITIONS.generator.metalCost - 10,
   );
 });
 
@@ -4880,7 +4903,7 @@ test("enemy AI establishes a paid outpost and expands to another crystal deposit
   simulation.aiBuildIndex = 4;
   simulation.resources.enemy.metal = 5000;
   const enemyStart = simulation.teamStarts.enemy;
-  simulation.addStructure("battery", "enemy", enemyStart.x, enemyStart.y + 160);
+  simulation.addStructure("generator", "enemy", enemyStart.x, enemyStart.y + 160);
   simulation.addStructure("sentry_turret", "enemy", enemyStart.x - 160, enemyStart.y);
   simulation.addStructure("charger", "enemy", enemyStart.x, enemyStart.y - 160);
   simulation.addUnit("scout_mech", "enemy", enemyStart.x - 80, enemyStart.y + 200);
@@ -5540,8 +5563,18 @@ test("every AI commander makes decisions with independent state and resources", 
   for (const team of simulation.teams.filter((candidate) => candidate.kind === "ai")) {
     assert.equal(simulation.aiStates[team.id].decisionIndex, 2);
     assert.ok(simulation.structures.some(
-      (structure) => structure.alive && structure.team === team.id && structure.type === "battery",
+      (structure) =>
+        structure.alive &&
+        structure.team === team.id &&
+        structure.type === "generator" &&
+        !structure.complete,
     ));
+    assert.equal(simulation.structures.some(
+      (structure) =>
+        structure.alive &&
+        structure.team === team.id &&
+        STRUCTURE_DEFINITIONS[structure.type].family === "battery",
+    ), false);
     assert.ok(simulation.resources[team.id].metal < 520);
   }
 });

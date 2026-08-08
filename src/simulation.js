@@ -52,7 +52,6 @@ const AI_STRUCTURE_UPGRADE_PRIORITY = Object.freeze({
   shield_turret: 80,
   flak_turret: 80,
   mortar_turret: 78,
-  battery: 75,
   power_tower: 70,
   salvage_yard: 65,
 });
@@ -2543,7 +2542,13 @@ export class Simulation {
     const plannedDemand = this.getPlannedPowerDemandRate(teamId);
     const generationRate = this.getGenerationRate(teamId);
     const candidates = this.structures
-      .filter((structure) => structure.alive && structure.complete && structure.team === teamId)
+      .filter(
+        (structure) =>
+          structure.alive &&
+          structure.complete &&
+          structure.team === teamId &&
+          STRUCTURE_DEFINITIONS[structure.type].family !== "battery",
+      )
       .map((structure) => {
         const currentDefinition = STRUCTURE_DEFINITIONS[structure.type];
         const upgrade = this.getStructureUpgradeInfo(structure.id);
@@ -3175,17 +3180,11 @@ export class Simulation {
       (structure) => STRUCTURE_DEFINITIONS[structure.type].factoryBranch,
     ).length;
     const generatorCount = countFamily("generator");
-    const batteryCount = countFamily("battery");
     const sentryCount = countFamily("sentry_turret");
     const flakCount = countFamily("flak_turret");
     const chargerCount = countFamily("charger");
     const relayCount = countFamily("power_tower");
     const salvageYardCount = countFamily("salvage_yard");
-    const gridEnergy = this.resources[teamId];
-    const gridEnergyIsLow =
-      gridEnergy.energyCapacity <= EPSILON ||
-      gridEnergy.energy <=
-        gridEnergy.energyCapacity * SIMULATION_RULES.enemyLowGridEnergyRatio + EPSILON;
     const generatorConstructionPending = structures.some(
       (structure) =>
         !structure.complete && Boolean(STRUCTURE_DEFINITIONS[structure.type].generationRate),
@@ -3205,7 +3204,8 @@ export class Simulation {
     );
     const nearbyAircraft = enemyAircraft.filter((target) => nearbyThreats.includes(target));
     const basicForceReady = combatStrength >= this.getEnemyAttackWaveSize(teamId);
-    const coreBaseReady = batteryCount > 0 && sentryCount > 0 && basicForceReady;
+    const coreBaseReady =
+      generatorCount >= 2 && sentryCount > 0 && basicForceReady;
     const unlockedTier = this.getUnlockedStructureTier(teamId);
     const highestWorkerTier = Math.max(
       1,
@@ -3269,13 +3269,12 @@ export class Simulation {
     const generationCapacityShortfall =
       committedGenerationRate + EPSILON < this.getEnemyRequiredGenerationRate(teamId);
     if (
-      coreBaseReady &&
       !generatorConstructionPending &&
       (generatorCount < desiredGeneratorCount || generationCapacityShortfall)
     ) {
       const generatorRing = Math.floor(generatorCount / 3);
       addCandidate(
-        90,
+        generatorCount < 2 ? 94 : 90,
         tieredType("generator", operationalTier),
         planPoint(
           -80 + (generatorCount % 3) * 80,
@@ -3333,38 +3332,16 @@ export class Simulation {
 
     if (operationalTier >= 2) {
       const advancedGenerator = tieredType("generator", operationalTier);
-      const advancedBattery = tieredType("battery", operationalTier);
       const advancedSentry = tieredType("sentry_turret", operationalTier);
       const advancedFlak = tieredType("flak_turret", operationalTier);
       if (!hasFamilyAtTier("generator", operationalTier)) {
         addCandidate(82, advancedGenerator, planPoint(-80, sideSign * 260));
-      }
-      if (
-        (!gridEnergyIsLow || batteryCount === 0) &&
-        !hasFamilyAtTier("battery", operationalTier)
-      ) {
-        addCandidate(76, advancedBattery, planPoint(20, -sideSign * 260));
       }
       if (!hasFamilyAtTier("sentry_turret", operationalTier)) {
         addCandidate(86, advancedSentry, planPoint(160, sideSign * 320));
       }
       if (flakCount > 0 && !hasFamilyAtTier("flak_turret", operationalTier)) {
         addCandidate(87, advancedFlak, planPoint(220, -sideSign * 320));
-      }
-    }
-
-    const desiredBatteryCount = Math.max(1, Math.ceil(powerConsumerCount / 6));
-    if (batteryCount < desiredBatteryCount) {
-      if (gridEnergyIsLow && batteryCount > 0) {
-        if (!generatorConstructionPending) {
-          addCandidate(
-            94,
-            tieredType("generator", operationalTier),
-            planPoint(-40, sideSign * laneOffset),
-          );
-        }
-      } else {
-        addCandidate(batteryCount === 0 ? 94 : 56, "battery", planPoint(-40, sideSign * laneOffset));
       }
     }
 
