@@ -101,6 +101,10 @@ const selectionQueue = document.querySelector("#selection-queue");
 const overdriveButton = document.querySelector("#overdrive-button");
 const stopButton = document.querySelector("#stop-button");
 const holdButton = document.querySelector("#hold-button");
+const transportCommands = document.querySelector("#transport-commands");
+const transportLoadButton = document.querySelector("#transport-load-button");
+const transportFillButton = document.querySelector("#transport-fill-button");
+const transportDropButton = document.querySelector("#transport-drop-button");
 const unitCommands = document.querySelector("#unit-commands");
 const buildCommands = document.querySelector("#build-commands");
 const buildCommandGrid = document.querySelector("#build-command-grid");
@@ -1024,6 +1028,22 @@ function applyAuthorizedCommand(command, team) {
         ownedUnitIds(command.unitIds, team),
         Boolean(command.holdPosition),
       ) > 0;
+    case "load": {
+      const transport = simulation.getUnit(command.transportId);
+      if (!transport?.alive || transport.team !== team) return false;
+      return simulation.commandLoadUnits(
+        ownedUnitIds(command.unitIds, team),
+        transport.id,
+      ) > 0;
+    }
+    case "fill_transports": {
+      const transportIds = ownedUnitIds(command.transportIds, team);
+      return transportIds.length > 0 && simulation.commandFillTransports(transportIds) > 0;
+    }
+    case "unload_transports": {
+      const transportIds = ownedUnitIds(command.transportIds, team);
+      return transportIds.length > 0 && simulation.commandUnloadTransports(transportIds) > 0;
+    }
     case "build": {
       const structure = ownedStructure(command.structureId, team);
       if (!structure || structure.complete) return false;
@@ -1357,7 +1377,7 @@ function render(now = performance.now()) {
       if (worldPointIsVisible(displayedDrone.x, displayedDrone.y, 70)) drawDrone(displayedDrone);
     }
     for (const unit of simulation.units) {
-      if (!unit.alive) continue;
+      if (!unit.alive || unit.carriedById) continue;
       const displayedUnit = presentedEntity(unit);
       if (worldPointIsVisible(displayedUnit.x, displayedUnit.y, 100)) drawUnit(displayedUnit);
     }
@@ -1431,7 +1451,7 @@ function drawStrategicEntities() {
     if (drone.alive) drawMobileIcon(drone, true);
   }
   for (const unit of simulation.units) {
-    if (unit.alive) drawMobileIcon(unit);
+    if (unit.alive && !unit.carriedById) drawMobileIcon(unit);
   }
 }
 
@@ -1644,7 +1664,7 @@ function drawMinimap() {
     context.fill();
   };
   for (const unit of simulation.units) {
-    if (unit.alive) drawUnitDot(unit);
+    if (unit.alive && !unit.carriedById) drawUnitDot(unit);
   }
   for (const drone of simulation.getDrones()) {
     if (drone.alive) drawUnitDot(drone);
@@ -2362,7 +2382,7 @@ function drawCommandIndicators() {
   }
 
   for (const unit of simulation.units) {
-    if (!selectedUnitIds.has(unit.id) || !unit.alive) continue;
+    if (!selectedUnitIds.has(unit.id) || !unit.alive || unit.carriedById) continue;
     const unitPosition = presentedPosition(unit);
     const buildTarget = simulation.getStructure(unit.buildTargetId);
     if (buildTarget?.alive && !buildTarget.complete) {
@@ -4325,8 +4345,61 @@ function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
   if (definition.role === "gunship") drawGunshipAircraft(definition, palette, stasis);
   else if (definition.role === "bomber") drawBomberAircraft(definition, palette, stasis);
   else if (definition.role === "energy_tender") drawEnergyTenderAircraft(definition, palette, stasis);
+  else if (definition.role === "transport") drawTransportAircraft(definition, palette, stasis);
   else drawInterceptorAircraft(definition, palette, stasis);
   context.restore();
+}
+
+function drawTransportAircraft(definition, palette, stasis) {
+  context.fillStyle = palette.armorDark;
+  context.strokeStyle = palette.outline;
+  context.beginPath();
+  context.moveTo(-1.15, -0.16);
+  context.lineTo(-0.52, -0.55);
+  context.lineTo(-0.34, -0.92);
+  context.lineTo(-0.12, -0.92);
+  context.lineTo(-0.18, -0.36);
+  context.lineTo(0.18, -0.36);
+  context.lineTo(0.12, -0.92);
+  context.lineTo(0.34, -0.92);
+  context.lineTo(0.52, -0.55);
+  context.lineTo(1.15, -0.16);
+  context.lineTo(1.04, 0.2);
+  context.lineTo(0.48, 0.08);
+  context.lineTo(0.38, 0.72);
+  context.lineTo(-0.38, 0.72);
+  context.lineTo(-0.48, 0.08);
+  context.lineTo(-1.04, 0.2);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = palette.armor;
+  context.beginPath();
+  context.moveTo(0, -0.78);
+  context.bezierCurveTo(0.28, -0.62, 0.42, -0.2, 0.4, 0.52);
+  context.lineTo(0.22, 0.82);
+  context.lineTo(-0.22, 0.82);
+  context.lineTo(-0.4, 0.52);
+  context.bezierCurveTo(-0.42, -0.2, -0.28, -0.62, 0, -0.78);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = palette.armorLight;
+  context.fillRect(-0.31, 0.12, 0.62, 0.3);
+  context.strokeRect(-0.31, 0.12, 0.62, 0.3);
+  context.strokeStyle = palette.accent;
+  context.lineWidth = 0.08;
+  for (const x of [-0.19, 0, 0.19]) {
+    context.beginPath();
+    context.moveTo(x, 0.16);
+    context.lineTo(x, 0.38);
+    context.stroke();
+  }
+  drawAircraftCanopy(0, -0.38, 0.2, 0.26, palette);
+  drawAircraftNavigationLights(-1.02, 1.02, 0.03, stasis);
+  drawAircraftTierMarks(definition.tier, 0.61, palette);
 }
 
 function drawAircraftCanopy(x, y, radiusX, radiusY, palette) {
@@ -5710,7 +5783,7 @@ function updateInterface() {
 
   const selectedUnits = [...selectedUnitIds]
     .map((id) => simulation.getUnit(id))
-    .filter(Boolean);
+    .filter((unit) => unit && !unit.carriedById);
   const selectedStructures = getSelectedStructures();
   const selectedStructure = simulation.getStructure(selectedStructureId);
   if (selectedStructures.length > 1) {
@@ -5835,6 +5908,9 @@ function updateInterface() {
         ? ` · SUPPLYING ${unit.energyTransferTargetIds.length} UNIT${unit.energyTransferTargetIds.length === 1 ? "" : "S"}`
         : ` · NO UNIT IN ${definition.transferRange} RANGE`
       : "";
+    const transportText = definition.transportCapacity
+      ? ` · ${(unit.cargoUnitIds || []).length}/${definition.transportCapacity} CARGO`
+      : "";
     const roleText = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
     const combatText = definition.underbellyBeamRadius
       ? ` · ${definition.underbellyBeamDamagePerSecond} damage/s underbelly beam · ${definition.underbellyBeamRadius} radius · ${definition.speed} speed${definition.automaticTargetAcquisitionRange ? ` · ${definition.automaticTargetAcquisitionRange} LOCAL ACQUISITION` : ""}`
@@ -5844,11 +5920,15 @@ function updateInterface() {
         ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}`
         : "";
     selectionName.textContent = definition.name;
-    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${combatText}${emergencyRecoveryText}${supplyText}${orderText}${repairText}${productionAssistText}${buildQueueText}`;
+    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${combatText}${emergencyRecoveryText}${supplyText}${transportText}${orderText}${repairText}${productionAssistText}${buildQueueText}`;
   } else {
     const activeCount = selectedUnits.filter((unit) => unit.state === "active").length;
+    const cargoCount = selectedUnits.reduce(
+      (total, unit) => total + (unit.cargoUnitIds || []).length,
+      0,
+    );
     selectionName.textContent = `${selectedUnits.length} units selected`;
-    selectionDetails.textContent = `${activeCount} active · ${selectedUnits.length - activeCount} in stasis`;
+    selectionDetails.textContent = `${activeCount} active · ${selectedUnits.length - activeCount} in stasis${cargoCount ? ` · ${cargoCount} cargo aboard` : ""}`;
   }
   renderSelectionQueues(selectedStructures, selectedUnits);
 
@@ -5858,6 +5938,22 @@ function updateInterface() {
   });
   overdriveButton.disabled = !canOverdrive;
   unitCommands.hidden = matchEnded || selectedUnits.length === 0;
+  const selectedTransportUnits = selectedUnits.filter(
+    (unit) => UNIT_DEFINITIONS[unit.type].transportCapacity,
+  );
+  const primaryTransport = selectedTransportUnits[0];
+  transportCommands.hidden = matchEnded || selectedTransportUnits.length === 0;
+  transportLoadButton.disabled = !primaryTransport ||
+    simulation.transportReservedSlots(primaryTransport) >=
+      UNIT_DEFINITIONS[primaryTransport.type].transportCapacity;
+  transportFillButton.disabled = selectedTransportUnits.length === 0 ||
+    selectedTransportUnits.every(
+      (unit) =>
+        simulation.transportReservedSlots(unit) >= UNIT_DEFINITIONS[unit.type].transportCapacity,
+    );
+  transportDropButton.disabled = !selectedTransportUnits.some(
+    (unit) => (unit.cargoUnitIds || []).length > 0,
+  );
 
   const selectedWorkers = selectedUnits.filter((unit) => UNIT_DEFINITIONS[unit.type].workerTier);
   buildCommands.hidden = matchEnded || selectedWorkers.length === 0;
@@ -5969,7 +6065,11 @@ function updateInterface() {
     matchEnded || (!canCancelConstruction && !canShowSupplyUpgrade && !canShowBuildingUpgrade);
 
   const lowEnergyUnits = simulation.units.filter(
-    (unit) => unit.alive && unit.team === localTeam && energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio,
+    (unit) =>
+      unit.alive &&
+      !unit.carriedById &&
+      unit.team === localTeam &&
+      energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio,
   );
   const stasisUnits = lowEnergyUnits.filter((unit) => unit.state === "stasis");
   const disconnectedStructures = simulation.structures.filter(
@@ -6027,7 +6127,7 @@ function pruneSelection() {
   selectedUnitIds = new Set(
     [...selectedUnitIds].filter((id) => {
       const unit = simulation.getUnit(id);
-      return unit?.alive && unit.team === localTeam;
+      return unit?.alive && !unit.carriedById && unit.team === localTeam;
     }),
   );
   selectStructures(getSelectedStructures());
@@ -6089,7 +6189,7 @@ function clampValue(value, minimum, maximum) {
 
 function findUnitAt(point, team = null) {
   const candidates = simulation.units.filter((unit) => {
-    if (!unit.alive || (team && unit.team !== team)) return false;
+    if (!unit.alive || unit.carriedById || (team && unit.team !== team)) return false;
     const position = presentedPosition(unit);
     const hitRadius = Math.max(
       UNIT_DEFINITIONS[unit.type].radius + 8,
@@ -6097,7 +6197,13 @@ function findUnitAt(point, team = null) {
     );
     return Math.hypot(position.x - point.x, position.y - point.y) <= hitRadius;
   });
-  return candidates.at(-1) || null;
+  return candidates.sort((left, right) => {
+    const leftDefinition = UNIT_DEFINITIONS[left.type];
+    const rightDefinition = UNIT_DEFINITIONS[right.type];
+    const layerPriority = (definition) =>
+      definition.transportCapacity ? 2 : definition.movementLayer === "air" ? 1 : 0;
+    return layerPriority(leftDefinition) - layerPriority(rightDefinition);
+  }).at(-1) || null;
 }
 
 function findStructureAt(point, team = null) {
@@ -6134,7 +6240,9 @@ function matchingFactoryGroup(factories) {
 
 function findEnemyAt(point) {
   const candidates = [
-    ...simulation.units.filter((entity) => entity.alive && entity.team !== localTeam),
+    ...simulation.units.filter(
+      (entity) => entity.alive && !entity.carriedById && entity.team !== localTeam,
+    ),
     ...simulation.structures.filter((entity) => entity.alive && entity.team !== localTeam),
     ...simulation.getDrones().filter((entity) => entity.alive && entity.team !== localTeam),
   ];
@@ -6293,7 +6401,7 @@ canvas.addEventListener("mouseup", (event) => {
     const top = Math.min(drag.start.y, drag.current.y);
     const bottom = Math.max(drag.start.y, drag.current.y);
     const boxedUnits = simulation.units.filter((unit) => {
-      if (!unit.alive || unit.team !== localTeam) return false;
+      if (!unit.alive || unit.carriedById || unit.team !== localTeam) return false;
       const position = presentedPosition(unit);
       return position.x >= left && position.x <= right && position.y >= top && position.y <= bottom;
     });
@@ -6394,6 +6502,18 @@ canvas.addEventListener("contextmenu", (event) => {
     const friendlyUnit = findUnitAt(point, localTeam);
     const friendlyStructure = findStructureAt(point, localTeam);
     if (
+      friendlyUnit &&
+      UNIT_DEFINITIONS[friendlyUnit.type].transportCapacity &&
+      issueGameCommand({
+        type: "load",
+        unitIds: [...selectedUnitIds].filter((id) => id !== friendlyUnit.id),
+        transportId: friendlyUnit.id,
+      })
+    ) {
+      updateInterface();
+      return;
+    }
+    if (
       friendlyStructure &&
       !friendlyStructure.complete &&
       issueGameCommand({
@@ -6470,6 +6590,62 @@ function issueSelectedUnitMove(point) {
   return Boolean(accepted);
 }
 
+function selectedTransports() {
+  return [...selectedUnitIds]
+    .map((id) => simulation.getUnit(id))
+    .filter(
+      (unit) =>
+        unit?.alive &&
+        !unit.carriedById &&
+        UNIT_DEFINITIONS[unit.type].transportCapacity,
+    );
+}
+
+function fillOneSelectedTransport() {
+  const transport = selectedTransports()[0];
+  if (!transport) return false;
+  const selectedPassengers = [...selectedUnitIds].filter((id) => {
+    const unit = simulation.getUnit(id);
+    const definition = unit && UNIT_DEFINITIONS[unit.type];
+    return (
+      unit?.alive &&
+      unit.id !== transport.id &&
+      !unit.carriedById &&
+      definition.movementLayer !== "air" &&
+      !definition.transportCapacity
+    );
+  });
+  const accepted = issueGameCommand(
+    selectedPassengers.length > 0
+      ? { type: "load", unitIds: selectedPassengers, transportId: transport.id }
+      : { type: "fill_transports", transportIds: [transport.id] },
+  );
+  updateInterface();
+  return Boolean(accepted);
+}
+
+function fillAllSelectedTransports() {
+  const transports = selectedTransports();
+  if (transports.length === 0) return false;
+  const accepted = issueGameCommand({
+    type: "fill_transports",
+    transportIds: transports.map((transport) => transport.id),
+  });
+  updateInterface();
+  return Boolean(accepted);
+}
+
+function unloadSelectedTransports() {
+  const transports = selectedTransports();
+  if (transports.length === 0) return false;
+  const accepted = issueGameCommand({
+    type: "unload_transports",
+    transportIds: transports.map((transport) => transport.id),
+  });
+  updateInterface();
+  return Boolean(accepted);
+}
+
 function activateOverdrive() {
   issueGameCommand({
     type: "ability",
@@ -6492,6 +6668,9 @@ function cancelSelectedConstruction() {
 }
 
 overdriveButton.addEventListener("click", activateOverdrive);
+transportLoadButton.addEventListener("click", fillOneSelectedTransport);
+transportFillButton.addEventListener("click", fillAllSelectedTransports);
+transportDropButton.addEventListener("click", unloadSelectedTransports);
 cancelConstructionButton.addEventListener("click", cancelSelectedConstruction);
 supplyUpgradeButton.addEventListener("click", () => {
   if (selectedStructureId) {
@@ -6614,11 +6793,19 @@ window.addEventListener("keydown", (event) => {
   if (matchMode === "menu") return;
   const key = event.key.toLowerCase();
   if (simulation.matchResult) return;
-  if (["w", "a", "s", "d"].includes(key)) {
+  const transportHotkeyActive = key === "d" && selectedTransports().length > 0;
+  if (["w", "a", "s", "d"].includes(key) && !transportHotkeyActive) {
     event.preventDefault();
     cameraKeys.add(key);
   }
   if (key === "q" && !event.repeat) activateOverdrive();
+  if (key === "f" && !event.repeat) fillOneSelectedTransport();
+  if (key === "l" && !event.repeat) fillAllSelectedTransports();
+  if (key === "d" && transportHotkeyActive && !event.repeat) {
+    event.preventDefault();
+    cameraKeys.delete("d");
+    unloadSelectedTransports();
+  }
   if (key === "c" && !event.repeat) cancelSelectedConstruction();
   if (key === "g" && !event.repeat) {
     forceMoveArmed = true;

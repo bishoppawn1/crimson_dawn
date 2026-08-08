@@ -52,6 +52,23 @@ test("the tactical minimap routes right-clicks into selected-unit move orders", 
   assert.match(index, /right-click it with units selected to move them/);
 });
 
+test("Dropship controls expose explicit, balanced, and unload command paths", async () => {
+  const [index, game] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+  ]);
+
+  assert.match(index, /id="transport-load-button"[^>]*>[\s\S]*?F · Fill One/);
+  assert.match(index, /id="transport-fill-button"[^>]*>[\s\S]*?L · Fill All/);
+  assert.match(index, /id="transport-drop-button"[^>]*>[\s\S]*?D · Drop All/);
+  assert.match(game, /case "load"/);
+  assert.match(game, /case "fill_transports"/);
+  assert.match(game, /case "unload_transports"/);
+  assert.match(game, /key === "f"[\s\S]*?fillOneSelectedTransport/);
+  assert.match(game, /key === "l"[\s\S]*?fillAllSelectedTransports/);
+  assert.match(game, /key === "d"[\s\S]*?unloadSelectedTransports/);
+});
+
 test("completed Shield Turrets always render their cyan shield-strength bar", async () => {
   const game = await source("../src/game.js");
   const shieldBarBlock = game.match(

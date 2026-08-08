@@ -280,6 +280,11 @@ export class Simulation {
       : Math.max(0, Math.round(snapshot.time / SIMULATION_STEP_SECONDS));
     simulation.nextEntityNumber = snapshot.nextEntityNumber;
     simulation.units = snapshot.units || [];
+    for (const unit of simulation.units) {
+      unit.transportTargetId ||= null;
+      unit.carriedById ||= null;
+      unit.cargoUnitIds = Array.isArray(unit.cargoUnitIds) ? unit.cargoUnitIds : [];
+    }
     simulation.structures = snapshot.structures || [];
     simulation.wrecks = snapshot.wrecks || [];
     simulation.rebuildEntityLookup();
@@ -458,6 +463,9 @@ export class Simulation {
       navigationTarget: null,
       navigationReplanAt: this.time + navigationReplanPhase(unitId),
       garrisonStructureId: null,
+      transportTargetId: null,
+      carriedById: null,
+      cargoUnitIds: [],
       energyTransferTargetIds: [],
       energyTransferredThisTick: 0,
       underbellyBeamActive: false,
@@ -475,6 +483,7 @@ export class Simulation {
     unit.hp = clamp(unit.hp, 0, definition.maxHp);
     unit.energy = clamp(unit.energy, 0, definition.maxEnergy);
     unit.buildQueue = Array.isArray(unit.buildQueue) ? [...unit.buildQueue] : [];
+    unit.cargoUnitIds = Array.isArray(unit.cargoUnitIds) ? [...unit.cargoUnitIds] : [];
     if (definition.weaponSystems?.length) {
       unit.weaponSystems = normalizeWeaponSystemState(unit.weaponSystems, definition);
     }
@@ -640,7 +649,7 @@ export class Simulation {
 
     for (const [orderIndex, id] of orderedIds.entries()) {
       const unit = this.getUnit(id);
-      if (!unit || !unit.alive || unit.state !== "active") continue;
+      if (!unit || !unit.alive || unit.carriedById || unit.state !== "active") continue;
       const definition = UNIT_DEFINITIONS[unit.type];
       const destination = definition.movementLayer === "air"
         ? {
@@ -661,6 +670,7 @@ export class Simulation {
       unit.buildQueue = [];
       unit.repairTargetId = null;
       unit.productionAssistTargetId = null;
+      unit.transportTargetId = null;
       unit.holdPosition = false;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -712,7 +722,7 @@ export class Simulation {
 
   commandAttack(unitIds, targetId) {
     const target = this.getEntity(targetId);
-    if (!target || !target.alive || target.kind === "wreck") return 0;
+    if (!target || !target.alive || target.carriedById || target.kind === "wreck") return 0;
 
     let accepted = 0;
     const orderedIds = [...unitIds];
@@ -722,6 +732,7 @@ export class Simulation {
       if (
         !unit ||
         !unit.alive ||
+        unit.carriedById ||
         unit.state !== "active" ||
         unit.team === target.team ||
         !canUnitAttackTarget(definition, target)
@@ -737,6 +748,7 @@ export class Simulation {
         unit.buildQueue = [];
         unit.repairTargetId = null;
         unit.productionAssistTargetId = null;
+        unit.transportTargetId = null;
         unit.holdPosition = false;
         unit.navigationObstacleId = null;
         unit.navigationSide = null;
@@ -753,6 +765,7 @@ export class Simulation {
       unit.buildQueue = [];
       unit.repairTargetId = null;
       unit.productionAssistTargetId = null;
+      unit.transportTargetId = null;
       unit.holdPosition = false;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -766,7 +779,7 @@ export class Simulation {
     let accepted = 0;
     for (const id of unitIds) {
       const unit = this.getUnit(id);
-      if (!unit || !unit.alive) continue;
+      if (!unit || !unit.alive || unit.carriedById) continue;
       unit.moveTarget = null;
       unit.moveMode = null;
       unit.attackTargetId = null;
@@ -775,6 +788,7 @@ export class Simulation {
       unit.buildQueue = [];
       unit.repairTargetId = null;
       unit.productionAssistTargetId = null;
+      unit.transportTargetId = null;
       unit.holdPosition = holdPosition;
       unit.navigationObstacleId = null;
       unit.navigationSide = null;
@@ -785,7 +799,253 @@ export class Simulation {
     return accepted;
   }
 
+  isTransport(unit) {
+    return Boolean(unit?.alive && UNIT_DEFINITIONS[unit.type]?.transportCapacity);
+  }
+
+  transportReservedSlots(transport) {
+    if (!this.isTransport(transport)) return 0;
+    const cargoIds = new Set(transport.cargoUnitIds || []);
+    const pendingCount = this.units.filter(
+      (unit) =>
+        unit.alive &&
+        !unit.carriedById &&
+        unit.transportTargetId === transport.id &&
+        !cargoIds.has(unit.id),
+    ).length;
+    return cargoIds.size + pendingCount;
+  }
+
+  commandLoadUnits(unitIds, transportId) {
+    const transport = this.getUnit(transportId);
+    const transportDefinition = transport && UNIT_DEFINITIONS[transport.type];
+    if (
+      !this.isTransport(transport) ||
+      transport.carriedById ||
+      transport.state !== "active"
+    ) {
+      return 0;
+    }
+
+    let remainingSlots = Math.max(
+      0,
+      transportDefinition.transportCapacity - this.transportReservedSlots(transport),
+    );
+    const orderedIds = [...new Set(unitIds)];
+    const orderCount = Math.min(orderedIds.length, remainingSlots);
+    let accepted = 0;
+    for (const id of orderedIds) {
+      if (remainingSlots <= 0) break;
+      const unit = this.getUnit(id);
+      const definition = unit && UNIT_DEFINITIONS[unit.type];
+      if (
+        !unit ||
+        !unit.alive ||
+        unit.state !== "active" ||
+        unit.carriedById ||
+        unit.transportTargetId ||
+        unit.team !== transport.team ||
+        definition.movementLayer === "air" ||
+        definition.transportCapacity
+      ) {
+        continue;
+      }
+      unit.transportTargetId = transport.id;
+      unit.moveTarget = { x: transport.x, y: transport.y };
+      unit.moveMode = "transport";
+      unit.attackTargetId = null;
+      unit.attackTargetMode = null;
+      unit.buildTargetId = null;
+      unit.buildQueue = [];
+      unit.repairTargetId = null;
+      unit.productionAssistTargetId = null;
+      unit.holdPosition = false;
+      unit.navigationObstacleId = null;
+      unit.navigationSide = null;
+      this.resetUnitNavigation(unit, accepted, orderCount);
+      accepted += 1;
+      remainingSlots -= 1;
+    }
+    return accepted;
+  }
+
+  commandFillTransports(transportIds) {
+    const transports = [...new Set(transportIds)]
+      .map((id) => this.getUnit(id))
+      .filter(
+        (transport) =>
+          this.isTransport(transport) &&
+          !transport.carriedById &&
+          transport.state === "active",
+      )
+      .sort((left, right) => left.id.localeCompare(right.id));
+    if (transports.length === 0) return 0;
+
+    const team = transports[0].team;
+    const candidates = this.units.filter((unit) => {
+      const definition = UNIT_DEFINITIONS[unit.type];
+      return (
+        unit.alive &&
+        unit.state === "active" &&
+        unit.team === team &&
+        !unit.carriedById &&
+        !unit.transportTargetId &&
+        definition.movementLayer !== "air" &&
+        !definition.transportCapacity
+      );
+    });
+    const assignedIds = new Set();
+    let accepted = 0;
+    let assignedInRound = true;
+    while (assignedInRound) {
+      assignedInRound = false;
+      for (const transport of transports) {
+        const capacity = UNIT_DEFINITIONS[transport.type].transportCapacity;
+        if (this.transportReservedSlots(transport) >= capacity) continue;
+        const candidate = candidates
+          .filter((unit) => !assignedIds.has(unit.id))
+          .sort(
+            (left, right) =>
+              distance(left, transport) - distance(right, transport) ||
+              left.id.localeCompare(right.id),
+          )[0];
+        if (!candidate) continue;
+        const loaded = this.commandLoadUnits([candidate.id], transport.id);
+        if (!loaded) continue;
+        assignedIds.add(candidate.id);
+        accepted += loaded;
+        assignedInRound = true;
+      }
+    }
+    return accepted;
+  }
+
+  updateTransportLoading() {
+    for (const unit of this.units) {
+      if (!unit.alive || unit.carriedById || !unit.transportTargetId) continue;
+      if (unit.state !== "active") {
+        unit.transportTargetId = null;
+        if (unit.moveMode === "transport") {
+          unit.moveTarget = null;
+          unit.moveMode = null;
+        }
+        continue;
+      }
+      const transport = this.getUnit(unit.transportTargetId);
+      const transportDefinition = transport && UNIT_DEFINITIONS[transport.type];
+      const unitDefinition = UNIT_DEFINITIONS[unit.type];
+      if (
+        !this.isTransport(transport) ||
+        transport.carriedById ||
+        transport.team !== unit.team ||
+        transport.state !== "active" ||
+        (transport.cargoUnitIds || []).length >= transportDefinition.transportCapacity
+      ) {
+        unit.transportTargetId = null;
+        if (unit.moveMode === "transport") {
+          unit.moveTarget = null;
+          unit.moveMode = null;
+        }
+        continue;
+      }
+      unit.moveTarget = { x: transport.x, y: transport.y };
+      unit.moveMode = "transport";
+      const boardingDistance =
+        transportDefinition.radius +
+        unitDefinition.radius +
+        transportDefinition.transportLoadRange;
+      if (distance(unit, transport) > boardingDistance + EPSILON) continue;
+
+      transport.cargoUnitIds = [...(transport.cargoUnitIds || []), unit.id];
+      unit.carriedById = transport.id;
+      unit.transportTargetId = null;
+      unit.productionAssistTargetId = null;
+      unit.x = transport.x;
+      unit.y = transport.y;
+      unit.moveTarget = null;
+      unit.moveMode = null;
+      unit.navigationPath = [];
+      unit.navigationTarget = null;
+      this.emit("transport_loaded", transport.x, transport.y, {
+        transportId: transport.id,
+        unitId: unit.id,
+      });
+    }
+  }
+
+  syncTransportCargoPositions() {
+    for (const transport of this.units) {
+      if (!this.isTransport(transport)) continue;
+      transport.cargoUnitIds = (transport.cargoUnitIds || []).filter((unitId) => {
+        const unit = this.getUnit(unitId);
+        if (!unit?.alive || unit.carriedById !== transport.id) return false;
+        unit.x = transport.x;
+        unit.y = transport.y;
+        return true;
+      });
+    }
+  }
+
+  findTransportUnloadPoint(transport, unit, slot) {
+    const transportDefinition = UNIT_DEFINITIONS[transport.type];
+    const unitDefinition = UNIT_DEFINITIONS[unit.type];
+    const baseRadius = transportDefinition.radius + unitDefinition.radius + 12;
+    for (let ring = 0; ring < 6; ring += 1) {
+      const radius = baseRadius + ring * (unitDefinition.radius * 2 + 12);
+      for (let offset = 0; offset < 16; offset += 1) {
+        const angle = ((slot + offset) / 16) * Math.PI * 2;
+        const candidate = {
+          x: transport.x + Math.cos(angle) * radius,
+          y: transport.y + Math.sin(angle) * radius,
+        };
+        if (this.isUnitPositionClear(candidate, unit.type, { ignoreUnitIds: [transport.id] })) {
+          return candidate;
+        }
+      }
+    }
+    return null;
+  }
+
+  commandUnloadTransports(transportIds) {
+    let unloaded = 0;
+    for (const transportId of [...new Set(transportIds)].sort()) {
+      const transport = this.getUnit(transportId);
+      if (
+        !this.isTransport(transport) ||
+        transport.carriedById ||
+        transport.state !== "active"
+      ) continue;
+      const remainingCargo = [];
+      for (const unitId of transport.cargoUnitIds || []) {
+        const unit = this.getUnit(unitId);
+        if (!unit?.alive || unit.carriedById !== transport.id) continue;
+        const destination = this.findTransportUnloadPoint(transport, unit, unloaded);
+        if (!destination) {
+          remainingCargo.push(unitId);
+          continue;
+        }
+        unit.carriedById = null;
+        unit.x = destination.x;
+        unit.y = destination.y;
+        unit.moveTarget = null;
+        unit.moveMode = null;
+        unit.attackTargetId = null;
+        unit.attackTargetMode = null;
+        unit.holdPosition = false;
+        this.resetUnitNavigation(unit);
+        unloaded += 1;
+        this.emit("transport_unloaded", destination.x, destination.y, {
+          transportId: transport.id,
+          unitId: unit.id,
+        });
+      }
+      transport.cargoUnitIds = remainingCargo;
+    }
+    return unloaded;
+  }
+
   assignActiveBuildTarget(worker, structureId) {
+    worker.transportTargetId = null;
     worker.buildTargetId = structureId;
     worker.repairTargetId = null;
     worker.productionAssistTargetId = null;
@@ -819,6 +1079,7 @@ export class Simulation {
       if (
         !worker?.alive ||
         worker.state !== "active" ||
+        worker.carriedById ||
         worker.id === target.id ||
         worker.team !== target.team ||
         !definition?.workerTier ||
@@ -834,6 +1095,7 @@ export class Simulation {
       worker.attackTargetMode = null;
       worker.buildTargetId = null;
       worker.buildQueue = [];
+      worker.transportTargetId = null;
       worker.holdPosition = false;
       worker.navigationObstacleId = null;
       worker.navigationSide = null;
@@ -855,6 +1117,7 @@ export class Simulation {
       if (
         !worker?.alive ||
         worker.state !== "active" ||
+        worker.carriedById ||
         worker.team !== factory.team ||
         !definition?.workerTier ||
         !definition.buildRate
@@ -869,6 +1132,7 @@ export class Simulation {
       worker.buildTargetId = null;
       worker.buildQueue = [];
       worker.repairTargetId = null;
+      worker.transportTargetId = null;
       worker.holdPosition = false;
       worker.navigationObstacleId = null;
       worker.navigationSide = null;
@@ -936,6 +1200,7 @@ export class Simulation {
       if (
         !worker?.alive ||
         worker.state !== "active" ||
+        worker.carriedById ||
         worker.team !== structure.team ||
         !UNIT_DEFINITIONS[worker.type].workerTier ||
         !canWorkerTierBuildStructure(
@@ -1869,6 +2134,7 @@ export class Simulation {
     this.refreshPowerState(delta);
     this.applyTesterTeamAdvantages();
     if (this.enemyAiEnabled) this.updateEnemyAi(delta);
+    this.updateTransportLoading();
     this.assignAutomaticTargets();
     this.updateUnits(delta);
     this.updateConstruction(delta);
@@ -2332,7 +2598,7 @@ export class Simulation {
   rebuildCombatSpatialIndex() {
     this.combatSpatialIndex = new Map();
     for (const entity of [...this.units, ...this.droneCache, ...this.structures]) {
-      if (!entity.alive) continue;
+      if (!entity.alive || entity.carriedById) continue;
       const cellX = Math.floor(entity.x / COMBAT_SPATIAL_CELL_SIZE);
       const cellY = Math.floor(entity.y / COMBAT_SPATIAL_CELL_SIZE);
       const key = `${cellX},${cellY}`;
@@ -2389,7 +2655,7 @@ export class Simulation {
     this.rebuildCombatSpatialIndex();
     for (const unit of this.units) {
       const definition = UNIT_DEFINITIONS[unit.type];
-      if (!unit.alive || unit.state !== "active") continue;
+      if (!unit.alive || unit.carriedById || unit.state !== "active") continue;
       const buildTarget = this.getStructure(unit.buildTargetId);
       let repairTarget = this.getEntity(unit.repairTargetId);
       if (unit.repairTargetId && !isValidRepairTarget(unit, repairTarget)) {
@@ -3790,7 +4056,7 @@ export class Simulation {
     return { ...factory.rallyPoint };
   }
 
-  isUnitPositionClear(point, unitType) {
+  isUnitPositionClear(point, unitType, { ignoreUnitIds = [] } = {}) {
     const definition = UNIT_DEFINITIONS[unitType];
     if (!definition) return false;
     if (
@@ -3820,8 +4086,9 @@ export class Simulation {
       });
     if (!clearOfStructures) return false;
 
+    const ignoredIds = new Set(ignoreUnitIds);
     return this.units.every((unit) => {
-      if (!unit.alive) return true;
+      if (!unit.alive || unit.carriedById || ignoredIds.has(unit.id)) return true;
       const clearance =
         definition.radius +
         UNIT_DEFINITIONS[unit.type].radius +
@@ -3926,7 +4193,7 @@ export class Simulation {
     this.lastNavigationSearchCount = 0;
     this.lastNavigationNodeObstacleCount = 0;
     for (const unit of this.units) {
-      if (!unit.alive) continue;
+      if (!unit.alive || unit.carriedById) continue;
       const definition = UNIT_DEFINITIONS[unit.type];
       if (definition.movementLayer !== "air" && !definition.stridesOverStructures) {
         this.resolveUnitStructureOverlap(unit);
@@ -4083,10 +4350,11 @@ export class Simulation {
     }
     this.resolveUnitOverlaps();
     for (const unit of this.units) {
-      if (unit.alive && UNIT_DEFINITIONS[unit.type].movementLayer !== "air") {
+      if (unit.alive && !unit.carriedById && UNIT_DEFINITIONS[unit.type].movementLayer !== "air") {
         this.resolveUnitTerrainOverlap(unit);
       }
     }
+    this.syncTransportCargoPositions();
   }
 
   updateUnitRepair(worker, target, definition, delta) {
@@ -4127,7 +4395,7 @@ export class Simulation {
   }
 
   resolveUnitOverlaps() {
-    const aliveUnits = this.units.filter((unit) => unit.alive);
+    const aliveUnits = this.units.filter((unit) => unit.alive && !unit.carriedById);
     this.lastUnitSeparationPasses = 0;
     if (aliveUnits.length < 2) return;
 
@@ -4667,6 +4935,7 @@ export class Simulation {
     unit.state = "stasis";
     unit.moveTarget = null;
     unit.moveMode = null;
+    unit.transportTargetId = null;
     unit.attackTargetId = null;
     unit.attackTargetMode = null;
     for (const weaponSystem of unit.weaponSystems || []) weaponSystem.targetId = null;
@@ -4685,6 +4954,7 @@ export class Simulation {
         .filter(
           (unit) =>
             unit.alive &&
+            !unit.carriedById &&
             unit.team === charger.team &&
             unit.energy + EPSILON < UNIT_DEFINITIONS[unit.type].maxEnergy &&
             distance(unit, charger) <= definition.chargeRadius,
@@ -4723,7 +4993,11 @@ export class Simulation {
 
   updateEnergyCarriers(delta) {
     const carriers = this.units.filter(
-      (unit) => unit.alive && unit.state === "active" && UNIT_DEFINITIONS[unit.type].transferRate,
+      (unit) =>
+        unit.alive &&
+        !unit.carriedById &&
+        unit.state === "active" &&
+        UNIT_DEFINITIONS[unit.type].transferRate,
     );
 
     for (const carrier of carriers) {
@@ -4736,7 +5010,12 @@ export class Simulation {
 
       const recipients = this.units
         .filter((unit) => {
-          if (!unit.alive || unit.id === carrier.id || unit.team !== carrier.team) return false;
+          if (
+            !unit.alive ||
+            unit.carriedById ||
+            unit.id === carrier.id ||
+            unit.team !== carrier.team
+          ) return false;
           const targetDefinition = UNIT_DEFINITIONS[unit.type];
           return (
             !targetDefinition.transferRate &&
@@ -5046,6 +5325,54 @@ export class Simulation {
     }
   }
 
+  destroyUnit(unit) {
+    if (!unit?.alive) return;
+    const destroyedAt = { x: unit.x, y: unit.y };
+    const carrier = this.getUnit(unit.carriedById);
+    if (carrier) {
+      carrier.cargoUnitIds = (carrier.cargoUnitIds || []).filter((id) => id !== unit.id);
+    }
+
+    const cargoIds = [...(unit.cargoUnitIds || [])];
+    unit.cargoUnitIds = [];
+    unit.alive = false;
+    unit.hp = 0;
+    unit.state = "destroyed";
+    unit.carriedById = null;
+    unit.transportTargetId = null;
+    unit.moveTarget = null;
+    unit.moveMode = null;
+    unit.attackTargetId = null;
+    unit.attackTargetMode = null;
+    for (const weaponSystem of unit.weaponSystems || []) weaponSystem.targetId = null;
+    unit.buildTargetId = null;
+    unit.buildQueue = [];
+    unit.repairTargetId = null;
+    unit.productionAssistTargetId = null;
+    unit.navigationObstacleId = null;
+    unit.navigationSide = null;
+    const salvageMetal = Math.round(UNIT_DEFINITIONS[unit.type].metalValue * 0.55);
+    this.addWreck(destroyedAt.x, destroyedAt.y, salvageMetal, unit.team);
+    this.emit("destroyed", destroyedAt.x, destroyedAt.y, { targetId: unit.id });
+
+    for (const passengerId of cargoIds) {
+      const passenger = this.getUnit(passengerId);
+      if (!passenger?.alive || passenger.carriedById !== unit.id) continue;
+      passenger.x = destroyedAt.x;
+      passenger.y = destroyedAt.y;
+      this.destroyUnit(passenger);
+    }
+    for (const passenger of this.units) {
+      if (passenger.alive && passenger.transportTargetId === unit.id) {
+        passenger.transportTargetId = null;
+        if (passenger.moveMode === "transport") {
+          passenger.moveTarget = null;
+          passenger.moveMode = null;
+        }
+      }
+    }
+  }
+
   applyDamage(target, amount, source = null) {
     if (!target?.alive || amount <= 0) return;
     const shield = this.findProtectingShield(target);
@@ -5085,31 +5412,16 @@ export class Simulation {
     const definition = target.kind === "structure"
       ? STRUCTURE_DEFINITIONS[target.type]
       : UNIT_DEFINITIONS[target.type];
+    if (target.kind === "unit") {
+      this.destroyUnit(target);
+      return true;
+    }
     if (target.kind === "structure") this.recordAiConstructionLoss(target);
     target.hp = 0;
     target.alive = false;
-    if (target.kind === "unit") {
-      target.state = "destroyed";
-      target.moveTarget = null;
-      target.moveMode = null;
-      target.attackTargetId = null;
-      target.attackTargetMode = null;
-      for (const weaponSystem of target.weaponSystems || []) weaponSystem.targetId = null;
-      target.buildTargetId = null;
-      target.buildQueue = [];
-      target.repairTargetId = null;
-      target.productionAssistTargetId = null;
-      target.navigationObstacleId = null;
-      target.navigationSide = null;
-      target.navigationPath = [];
-      target.navigationTarget = null;
-      const salvageMetal = Math.round(definition.metalValue * 0.55);
-      this.addWreck(target.x, target.y, salvageMetal, target.team);
-    } else {
-      target.powered = false;
-      target.connected = false;
-      target.powerStatus = "destroyed";
-    }
+    target.powered = false;
+    target.connected = false;
+    target.powerStatus = "destroyed";
     this.emit("destroyed", target.x, target.y, { targetId: target.id });
 
     if (triggerHeadquartersLoss && definition.headquarters) {
@@ -5189,7 +5501,7 @@ export class Simulation {
           isValidProductionAssistTarget(target, productionAssistTarget)
         )
       ) ||
-      ["force", "advance", "retreat"].includes(target.moveMode)
+      ["force", "advance", "retreat", "transport"].includes(target.moveMode)
     ) {
       return false;
     }
@@ -5278,6 +5590,7 @@ export function energyRatio(unit) {
 }
 
 function canUnitAttackTarget(definition, target) {
+  if (target?.carriedById) return false;
   if (definition?.underbellyBeamRadius) return isUnderbellyBeamTarget(target);
   if (!definition?.groundAttackOnly || target.kind !== "unit") return true;
   return UNIT_DEFINITIONS[target.type]?.movementLayer !== "air";
@@ -5413,9 +5726,11 @@ function isValidRepairTarget(worker, target) {
   const maximumHp = repairableEntityMaxHp(target);
   return Boolean(
     worker?.alive &&
+    !worker.carriedById &&
     definition?.workerTier &&
     definition.repairRate &&
     target?.alive &&
+    !target.carriedById &&
     target.id !== worker.id &&
     target.team === worker.team &&
     (target.kind !== "structure" || target.complete) &&
@@ -5447,6 +5762,7 @@ function isValidProductionAssistTarget(worker, factory) {
     : null;
   return Boolean(
     worker?.alive &&
+    !worker.carriedById &&
     workerDefinition?.workerTier &&
     workerDefinition.buildRate &&
     factory?.alive &&

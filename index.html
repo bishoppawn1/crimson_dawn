@@ -181,6 +181,11 @@
                 <button id="stop-button" class="command-button">Stop</button>
                 <button id="hold-button" class="command-button">Hold position</button>
               </div>
+              <div id="transport-commands" class="command-grid" hidden>
+                <button id="transport-load-button" class="command-button"><strong>F · Fill One</strong></button>
+                <button id="transport-fill-button" class="command-button"><strong>L · Fill All</strong></button>
+                <button id="transport-drop-button" class="command-button"><strong>D · Drop All</strong></button>
+              </div>
             </div>
 
             <div id="build-commands" class="command-group" hidden>
@@ -238,12 +243,13 @@
             <p><b>G</b>, then right-click to force-move and ignore enemies until arrival.</p>
             <p>Combat units pursue enemies that damage them unless a force-move or explicit attack order takes priority.</p>
             <p><b>Q</b> activates Overdrive on selected assault mechs.</p>
+            <p>Dropships carry up to eight ground units. Select one and press <b>F</b> to call the nearest units aboard, select several and press <b>L</b> to fill them evenly, or select ground units and right-click a friendly Dropship for exact loading. Press <b>D</b> with Dropships selected to unload everyone.</p>
             <p><b>C</b> cancels a selected unfinished building and refunds part of its unbuilt crystal.</p>
             <p><b>Unit Tester</b> gives the human commander Tier 3 workers, unlimited resources and energy, instant completed buildings, and instant factory production. Its Enemy Spawner can place buildings and units for any AI commander; those assets then follow normal AI, power, energy, and combat rules.</p>
             <p>Buildings block ground movement. Workers automatically slide around them; aircraft fly over terrain, structures, and ground units without pushing them aside.</p>
             <p>Units are compact but physical: dense groups spread out instead of stacking in one spot.</p>
             <p>Workers construct buildings, accelerate active unit production when you right-click a producing factory, and repair damaged friendly units or completed structures when you right-click the target. A worker can be repaired by another worker, but cannot repair itself. Hold Shift while placing to queue multiple foundations in order. Select a factory to queue units; box-select matching factories to share production controls and automatically route each new unit to the shortest powered queue, then right-click terrain to set their shared attack-move rally point. Selected workers and factories show the active job, live progress, and every next item in queue order.</p>
-            <p>Mech and Vehicle Factories each field five tier-matched roles, including Skyguard Mechs and Flak Crawlers for anti-air defense. Air Factories field four faster, lighter aircraft roles.</p>
+            <p>Mech Factories field five ground roles plus a tier-matched Dropship, Vehicle Factories field five tier-matched roles including Flak Crawlers, and Air Factories field four faster, lighter aircraft roles.</p>
             <p>Ordinary weapons deal reduced damage to aircraft. Skyguards, Flak Crawlers, and Flak Turrets prioritize aircraft and deal double damage to them.</p>
             <p>The Zenith Doughnut only auto-detects nearby ground targets, then flies directly over and hovers above them while its underbelly beam fires. Distant targets require an explicit order.</p>
             <p>Worker construction is grouped by tier. Higher-tier drones inherit lower-tier options; locked buttons show the required worker tier.</p>

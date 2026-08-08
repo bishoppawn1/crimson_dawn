@@ -1908,6 +1908,9 @@ test("every unit type has the enlarged provisional energy capacity", () => {
       bomber_t3: 1800,
       energy_tender_t2: 3900,
       energy_tender_t3: 5700,
+      dropship_t1: 1500,
+      dropship_t2: 2100,
+      dropship_t3: 3000,
       arsenal_colossus: 6000,
       hexapod_landship: 7800,
       zenith_doughnut: 7200,
@@ -2573,13 +2576,13 @@ test("bright Rich Crystal Deposits increase a harvester's actual crystal output"
   assert.ok(simulation.resources.player.metal >= startingMetal + 14.9);
 });
 
-test("each mech factory tier offers improved copies of the same five unit roles", () => {
+test("each mech factory tier offers improved copies of the same six unit roles", () => {
   const factoryTypes = ["mech_factory_t1", "mech_factory_t2", "mech_factory_t3"];
-  const expectedRoles = ["worker", "vanguard", "bulwark", "anti_air_mech", "carrier"];
+  const expectedRoles = ["worker", "vanguard", "bulwark", "anti_air_mech", "carrier", "transport"];
   const definitionsByTier = factoryTypes.map((factoryType, index) => {
     const tier = index + 1;
     const production = STRUCTURE_DEFINITIONS[factoryType].production;
-    assert.equal(production.length, 5);
+    assert.equal(production.length, 6);
     const definitions = production.map((unitType) => UNIT_DEFINITIONS[unitType]);
     assert.deepEqual(definitions.map((definition) => definition.role), expectedRoles);
     assert.ok(definitions.every((definition) => definition.tier === tier));
@@ -2601,6 +2604,8 @@ test("each mech factory tier offers improved copies of the same five unit roles"
     assert.ok(currentTier.bulwark.attackDamage > previousTier.bulwark.attackDamage);
     assert.ok(currentTier.anti_air_mech.attackDamage > previousTier.anti_air_mech.attackDamage);
     assert.ok(currentTier.carrier.transferRate > previousTier.carrier.transferRate);
+    assert.ok(currentTier.transport.speed > previousTier.transport.speed);
+    assert.equal(currentTier.transport.transportCapacity, 8);
   }
 });
 
@@ -2678,6 +2683,83 @@ test("all flying units use the faster movement profiles", () => {
   assert.ok(UNIT_DEFINITIONS.zenith_doughnut.maxHp < UNIT_DEFINITIONS.arsenal_colossus.maxHp);
 });
 
+test("Dropships exist at every tier with eight ground-unit cargo slots", () => {
+  const transports = ["dropship_t1", "dropship_t2", "dropship_t3"]
+    .map((type) => UNIT_DEFINITIONS[type]);
+
+  assert.deepEqual(transports.map((definition) => definition.tier), [1, 2, 3]);
+  assert.ok(transports.every((definition) => definition.role === "transport"));
+  assert.ok(transports.every((definition) => definition.movementLayer === "air"));
+  assert.ok(transports.every((definition) => definition.transportCapacity === 8));
+  assert.ok(STRUCTURE_DEFINITIONS.mech_factory_t1.production.includes("dropship_t1"));
+  assert.ok(STRUCTURE_DEFINITIONS.mech_factory_t2.production.includes("dropship_t2"));
+  assert.ok(STRUCTURE_DEFINITIONS.mech_factory_t3.production.includes("dropship_t3"));
+});
+
+test("explicit transport orders reserve eight slots, board nearby units, and unload them", () => {
+  const simulation = new Simulation({ width: 1200, height: 900 });
+  const transport = simulation.addUnit("dropship_t1", "player", 500, 450);
+  const passengers = Array.from({ length: 9 }, (_, index) =>
+    simulation.addUnit(
+      index === 0 ? "worker_drone_t1" : "scout_mech",
+      "player",
+      488 + (index % 3) * 8,
+      438 + Math.floor(index / 3) * 8,
+    ));
+  const initialSupply = simulation.getSupplyState("player").used;
+
+  assert.equal(simulation.commandLoadUnits(passengers.map((unit) => unit.id), transport.id), 8);
+  assert.equal(passengers.filter((unit) => unit.transportTargetId === transport.id).length, 8);
+  simulation.tick(1 / 30);
+
+  assert.equal(transport.cargoUnitIds.length, 8);
+  assert.equal(passengers.filter((unit) => unit.carriedById === transport.id).length, 8);
+  assert.equal(simulation.getSupplyState("player").used, initialSupply);
+  assert.equal(simulation.commandMove([passengers[0].id], 100, 100), 0);
+
+  assert.equal(simulation.commandUnloadTransports([transport.id]), 8);
+  assert.equal(transport.cargoUnitIds.length, 0);
+  assert.ok(passengers.slice(0, 8).every((unit) => !unit.carriedById));
+  assert.ok(passengers.slice(0, 8).every((unit) => simulation.isUnitPositionClear(
+    unit,
+    unit.type,
+    { ignoreUnitIds: [unit.id] },
+  )));
+});
+
+test("multi-transport filling balances reservations and rejects aircraft cargo", () => {
+  const simulation = new Simulation({ width: 1400, height: 900 });
+  const first = simulation.addUnit("dropship_t2", "player", 300, 450);
+  const second = simulation.addUnit("dropship_t2", "player", 1100, 450);
+  const groundUnits = Array.from({ length: 10 }, (_, index) =>
+    simulation.addUnit("scout_mech", "player", 560 + index * 18, 450));
+  const aircraft = simulation.addUnit("interceptor_t2", "player", 700, 550);
+  const enemy = simulation.addUnit("scout_mech", "enemy", 700, 350);
+
+  assert.equal(simulation.commandFillTransports([second.id, first.id]), 10);
+  assert.equal(groundUnits.filter((unit) => unit.transportTargetId === first.id).length, 5);
+  assert.equal(groundUnits.filter((unit) => unit.transportTargetId === second.id).length, 5);
+  assert.equal(simulation.commandLoadUnits([aircraft.id, enemy.id], first.id), 0);
+  assert.equal(aircraft.transportTargetId, null);
+  assert.equal(enemy.transportTargetId, null);
+});
+
+test("destroying a loaded Dropship destroys its passengers and snapshots preserve cargo", () => {
+  const simulation = new Simulation({ width: 900, height: 700 });
+  const transport = simulation.addUnit("dropship_t3", "player", 450, 350);
+  const passenger = simulation.addUnit("battle_tank_t3", "player", 450, 350);
+  assert.equal(simulation.commandLoadUnits([passenger.id], transport.id), 1);
+  simulation.tick(1 / 30);
+  const restored = Simulation.fromSnapshot(structuredClone(simulation.createSnapshot()));
+
+  assert.equal(restored.getUnit(transport.id).cargoUnitIds[0], passenger.id);
+  assert.equal(restored.getUnit(passenger.id).carriedById, transport.id);
+  simulation.applyDamage(transport, transport.hp);
+  assert.equal(transport.alive, false);
+  assert.equal(passenger.alive, false);
+  assert.equal(simulation.wrecks.length, 2);
+});
+
 test("vehicle and air factories only queue units from their own tier and branch", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 100_000;
@@ -2717,7 +2799,7 @@ test("vehicle and air factories deploy their completed production orders", () =>
   assert.equal(airFactory.productionQueue.length, 0);
 });
 
-test("factories only queue the five unit variants matching their tier", () => {
+test("factories only queue the six unit variants matching their tier", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;
   const tierOneFactory = simulation.addStructure("mech_factory_t1", "player", 220, 100);
@@ -2726,13 +2808,13 @@ test("factories only queue the five unit variants matching their tier", () => {
   for (const unitType of STRUCTURE_DEFINITIONS.mech_factory_t1.production) {
     assert.equal(simulation.queueProduction(tierOneFactory.id, unitType), true);
   }
-  assert.equal(tierOneFactory.productionQueue.length, 5);
+  assert.equal(tierOneFactory.productionQueue.length, 6);
   assert.equal(simulation.queueProduction(tierOneFactory.id, "scout_mech_t2"), false);
 
   for (const unitType of STRUCTURE_DEFINITIONS.mech_factory_t2.production) {
     assert.equal(simulation.queueProduction(tierTwoFactory.id, unitType), true);
   }
-  assert.equal(tierTwoFactory.productionQueue.length, 5);
+  assert.equal(tierTwoFactory.productionQueue.length, 6);
   assert.equal(simulation.queueProduction(tierTwoFactory.id, "scout_mech"), false);
 });
 
@@ -2879,6 +2961,9 @@ test("unit roles and tiers reserve different provisional supply amounts", () => 
       bomber_t3: 16,
       energy_tender_t2: 8,
       energy_tender_t3: 11,
+      dropship_t1: 8,
+      dropship_t2: 12,
+      dropship_t3: 17,
       arsenal_colossus: 70,
       hexapod_landship: 120,
       zenith_doughnut: 95,

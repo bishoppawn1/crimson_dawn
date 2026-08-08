@@ -356,7 +356,8 @@ current automatic target and pursue the aggressor. Retaliation may carry them be
 their normal automatic-acquisition range. If the unit was following an ordinary
 movement route, that destination remains saved while it retaliates and resumes after
 the aggressor is destroyed or is no longer a valid target.
-Explicit movement, attack, stop, and hold-position commands remain available.
+Explicit movement, attack, stop, hold-position, transport loading, and transport
+unloading commands remain available.
 Commands are contextual rather than limited to special-ability buttons.
 An explicit terrain move remains as a resumable route when a unit acquires a hostile
 in weapon range. The unit stops in place, attacks while stationary—including between
@@ -399,8 +400,8 @@ Air and ground units do not push one another apart, allowing aircraft to pass ov
 ground formations without displacing them. Aircraft emphasize speed over
 survivability: the standard air roster moves at 160–300 world units per second and
 has lower provisional integrity than its previous profiles. Interceptors remain the
-fastest standard aircraft, while gunships, bombers, and energy tenders retain their
-relative role differences. The experimental Zenith Doughnut is a much larger
+fastest standard aircraft, while gunships, bombers, dropships, and energy tenders
+retain their relative role differences. The experimental Zenith Doughnut is a much larger
 72-radius aircraft with a provisional movement speed of 375 world units per second.
 
 Ordinary weapons deal a provisional 0.55× damage multiplier against aircraft.
@@ -447,7 +448,9 @@ minor attachments. Interceptors have needle noses, swept delta wings, and twin t
 fins; Gunships use short armored fuselages, straight weapon wings, large paired
 engine nacelles, and visible cannons; Bombers are broad tailless flying wings with
 recessed payload bays; and Energy Tenders use narrow transport bodies dominated by
-two long external energy cylinders and illuminated transfer conduits. Tier 3 models
+two long external energy cylinders and illuminated transfer conduits. Dropships use
+broad lift wings, a deep central cargo hull, and a clearly segmented dorsal cargo
+hatch. Tier 3 models
 retain their role silhouette while adding extra control surfaces, exhausts, armor,
 or energy-system markings.
 
@@ -458,7 +461,7 @@ ladder.
 
 | Production building | Available tiers | Produces |
 | --- | --- | --- |
-| Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs and related ground units |
+| Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs, workers, Arc Energy Carriers, and Dropships |
 | Vehicle Factory | Tier 1, Tier 2, Tier 3 | Scout Vehicles, Battle Tanks, Mobile Artillery, Flak Crawlers, and Grid Tankers |
 | Air Factory | Tier 2, Tier 3 | Interceptors, Gunships, Bombers, and Energy Tenders |
 | Experimental Factory | Tier 3 only | Arsenal Colossus, Hexapod Landship, and Zenith Doughnut |
@@ -479,7 +482,7 @@ buildings a player may construct.
 
 ### 5.1 Tiered Mech Factory Roster
 
-Every Mech Factory exposes five consistent production lines at its own tier:
+Every Mech Factory exposes six consistent production lines at its own tier:
 
 | Production line | Battlefield role |
 | --- | --- |
@@ -488,14 +491,17 @@ Every Mech Factory exposes five consistent production lines at its own tier:
 | Bulwark Mech | Slower, durable frontline combat with the energy-consuming Overdrive ability |
 | Skyguard Mech | Mobile missile defense with extra damage against aircraft |
 | Arc Energy Carrier | Unarmed mobile energy storage and transfer support |
+| Dropship | Unarmed aerial transport for up to eight ground units |
 
-A Tier 1 Mech Factory produces the Tier 1 version of all five units. Tier 2 and
-Tier 3 factories each produce a stronger version of the same five roles at their
+A Tier 1 Mech Factory produces the Tier 1 version of all six units. Tier 2 and
+Tier 3 factories each produce a stronger version of the same six roles at their
 matching tier rather than mixing lower-tier units into their menus. Higher-tier
 copies improve the statistics relevant to their role: workers build faster,
 Vanguards, Bulwarks, and Skyguards become more combat-capable, and Arc Energy
-Carriers store and transfer more energy. All current unit costs, production times,
-and tier-to-tier stat increases are provisional balance values.
+Carriers store and transfer more energy. Dropships retain the same eight-unit
+capacity while improving speed, integrity, and internal energy. All current unit
+costs, production times, and tier-to-tier stat increases are provisional balance
+values.
 
 ### 5.2 Vehicle and Air Factory Rosters
 
@@ -527,6 +533,31 @@ terrain and buildings. Every higher-tier vehicle or aircraft
 improves the integrity, energy storage, and combat statistics relevant to its role.
 All current unit costs, production times, energy budgets, and tier-to-tier stat
 increases are provisional balance values.
+
+#### Dropship transport rules
+
+Tier 1, Tier 2, and Tier 3 Mech Factories each produce a matching-tier flying
+Dropship. Every Dropship has exactly eight cargo slots. It can carry active friendly
+ground units, including workers, mechs, vehicles, and ground experimentals, but it
+cannot carry aircraft or another Dropship. Cargo continues to consume supply while
+aboard.
+
+Selecting one Dropship and pressing `F` assigns the nearest eligible friendly ground
+units to fill its unreserved cargo slots. If eligible ground units are selected
+together with that Dropship, `F` loads that explicit selection instead. Selecting
+multiple Dropships and pressing `L` assigns nearest eligible ground units in balanced
+rounds so one cargo slot is reserved in each selected transport before a second slot
+is reserved in any of them. Selecting ground units and right-clicking a friendly
+Dropship explicitly assigns those units to that transport until its eight slots are
+reserved. Assigned units pursue the transport and board when they reach its hull.
+
+Carried units are hidden, cannot move, attack, build, repair, recharge, transfer
+energy, be selected, or be targeted, and remain at their current integrity and energy
+until deployed. Selecting one or more Dropships and pressing `D` attempts to unload
+all cargo into deterministic clear ground positions around each aircraft. A unit
+remains aboard if terrain, structures, map edges, and deployed ground units leave no
+valid nearby position. If a Dropship is destroyed, every unit aboard is destroyed
+with it and produces ordinary salvage at the crash position.
 
 #### Experimental Factory roster
 
@@ -1272,8 +1303,9 @@ direct WebRTC data channel opens does not end an active match. An actual data-ch
 close still pauses the match and reports the lost player connection. Transport send
 failures are contained and surfaced to the player rather than escaping the animation
 loop and stopping the game.
-Movement, attack, construction, production, rally, stop, ability, cancellation,
-and upgrade commands all use the same simulation APIs as single player. Pausing and
+Movement, attack, construction, production, rally, stop, ability, transport loading
+and unloading, cancellation, and upgrade commands all use the same simulation APIs
+as single player. Pausing and
 match resets are disabled during multiplayer; either player may leave the match and
 return to the mode menu. Automatic reconnection and spectators are not yet
 implemented.
