@@ -389,10 +389,11 @@ terrain, completed structures, and foundations, but remain constrained by the ma
 boundary, their movement-energy cost, and physical separation from other aircraft.
 Air and ground units do not push one another apart, allowing aircraft to pass over
 ground formations without displacing them. Aircraft emphasize speed over
-survivability: the standard air roster moves at 105–155 world units per second and
-has lower provisional integrity than its previous profiles. The experimental
-Zenith Doughnut is a much larger 72-radius aircraft with a provisional movement
-speed of 250 world units per second.
+survivability: the standard air roster moves at 160–300 world units per second and
+has lower provisional integrity than its previous profiles. Interceptors remain the
+fastest standard aircraft, while gunships, bombers, and energy tenders retain their
+relative role differences. The experimental Zenith Doughnut is a much larger
+72-radius aircraft with a provisional movement speed of 375 world units per second.
 
 Ordinary weapons deal a provisional 0.55× damage multiplier against aircraft.
 Dedicated anti-air weapons instead deal 2× damage and automatically prefer an
@@ -880,8 +881,9 @@ Each yard controls three reclamation drones. Its default behavior is:
    eligible salvage remains.
 6. Repeat while eligible wreckage remains.
 
-Reclamation drones hover over starting-wall segments instead of routing through
-their gates. Rocky ridges, shelves, and crags remain impassable to the drones, so
+Reclamation drones move at 130 world units per second and hover over starting-wall
+segments instead of routing through their gates. Rocky ridges, shelves, and crags
+remain impassable to the drones, so
 those larger terrain features still shape salvage routes. Drones use deterministic
 visibility-path routing around impassable terrain on trips to wrecks and back to
 their yard, and recalculate when their target changes or an existing route becomes

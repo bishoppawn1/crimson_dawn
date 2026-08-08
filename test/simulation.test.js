@@ -380,7 +380,7 @@ test("experimental factory exposes three distinct strategic units", () => {
   assert.equal(doughnut.groundAttackOnly, true);
   assert.equal(doughnut.attackRange, 0);
   assert.ok(doughnut.underbellyBeamRadius > 0);
-  assert.equal(doughnut.speed, 250);
+  assert.equal(doughnut.speed, 375);
   assert.equal(doughnut.roleDescription, "Mmm, tasty!");
 
   for (const unitType of roster) {
@@ -1356,7 +1356,7 @@ test("Zenith Doughnuts are enormous and fast strategic aircraft", () => {
   const doughnut = UNIT_DEFINITIONS.zenith_doughnut;
 
   assert.ok(doughnut.radius >= 70);
-  assert.equal(doughnut.speed, 250);
+  assert.equal(doughnut.speed, 375);
   assert.ok(doughnut.underbellyBeamRadius >= 48);
   assert.equal(doughnut.automaticTargetAcquisitionRange, 400);
   assert.equal(doughnut.underbellyBeamDamagePerSecond, 150);
@@ -2557,17 +2557,26 @@ test("air factories begin at Tier 2 and produce four matching-tier aircraft role
   }
 });
 
-test("aircraft trade integrity for higher movement speed", () => {
-  const standardAircraft = [
-    "interceptor_t2", "interceptor_t3",
-    "gunship_t2", "gunship_t3",
-    "bomber_t2", "bomber_t3",
-    "energy_tender_t2", "energy_tender_t3",
-  ].map((type) => UNIT_DEFINITIONS[type]);
+test("all flying units use the faster movement profiles", () => {
+  const expectedAircraftSpeeds = {
+    interceptor_t2: 270,
+    interceptor_t3: 300,
+    gunship_t2: 185,
+    gunship_t3: 205,
+    bomber_t2: 160,
+    bomber_t3: 175,
+    energy_tender_t2: 210,
+    energy_tender_t3: 235,
+  };
+  const standardAircraft = Object.keys(expectedAircraftSpeeds)
+    .map((type) => UNIT_DEFINITIONS[type]);
 
-  assert.ok(standardAircraft.every((definition) => definition.speed >= 105));
+  for (const [type, speed] of Object.entries(expectedAircraftSpeeds)) {
+    assert.equal(UNIT_DEFINITIONS[type].speed, speed);
+  }
   assert.ok(standardAircraft.every((definition) => definition.maxHp <= 295));
-  assert.ok(UNIT_DEFINITIONS.zenith_doughnut.speed > UNIT_DEFINITIONS.arsenal_colossus.speed);
+  assert.equal(UNIT_DEFINITIONS.zenith_doughnut.speed, 375);
+  assert.equal(DRONE_DEFINITION.speed, 130);
   assert.ok(UNIT_DEFINITIONS.zenith_doughnut.maxHp < UNIT_DEFINITIONS.arsenal_colossus.maxHp);
 });
 
