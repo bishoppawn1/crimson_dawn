@@ -1926,12 +1926,18 @@ test("every unit type has the enlarged provisional energy capacity", () => {
       skyguard_mech: 720,
       skyguard_mech_t2: 1020,
       skyguard_mech_t3: 1380,
+      radar_mech: 720,
+      radar_mech_t2: 990,
+      radar_mech_t3: 1350,
       energy_carrier: 2520,
       energy_carrier_t2: 3600,
       energy_carrier_t3: 5100,
       scout_vehicle: 660,
       scout_vehicle_t2: 900,
       scout_vehicle_t3: 1200,
+      radar_vehicle: 840,
+      radar_vehicle_t2: 1140,
+      radar_vehicle_t3: 1500,
       battle_tank: 840,
       battle_tank_t2: 1140,
       battle_tank_t3: 1500,
@@ -1955,6 +1961,8 @@ test("every unit type has the enlarged provisional energy capacity", () => {
       dropship_t1: 1500,
       dropship_t2: 2100,
       dropship_t3: 3000,
+      radar_aircraft_t2: 1080,
+      radar_aircraft_t3: 1470,
       arsenal_colossus: 6000,
       hexapod_landship: 7800,
       zenith_doughnut: 7200,
@@ -2623,13 +2631,13 @@ test("bright Rich Crystal Deposits increase a harvester's actual crystal output"
   assert.ok(simulation.resources.player.metal >= startingMetal + 14.9);
 });
 
-test("each mech factory tier offers improved copies of the same six unit roles", () => {
+test("each mech factory tier offers improved copies of the same seven unit roles", () => {
   const factoryTypes = ["mech_factory_t1", "mech_factory_t2", "mech_factory_t3"];
-  const expectedRoles = ["worker", "vanguard", "bulwark", "anti_air_mech", "carrier", "transport"];
+  const expectedRoles = ["worker", "vanguard", "bulwark", "anti_air_mech", "carrier", "radar_mech", "transport"];
   const definitionsByTier = factoryTypes.map((factoryType, index) => {
     const tier = index + 1;
     const production = STRUCTURE_DEFINITIONS[factoryType].production;
-    assert.equal(production.length, 6);
+    assert.equal(production.length, 7);
     const definitions = production.map((unitType) => UNIT_DEFINITIONS[unitType]);
     assert.deepEqual(definitions.map((definition) => definition.role), expectedRoles);
     assert.ok(definitions.every((definition) => definition.tier === tier));
@@ -2653,12 +2661,13 @@ test("each mech factory tier offers improved copies of the same six unit roles",
     assert.ok(currentTier.carrier.transferRate > previousTier.carrier.transferRate);
     assert.ok(currentTier.transport.speed > previousTier.transport.speed);
     assert.equal(currentTier.transport.transportCapacity, 8);
+    assert.ok(currentTier.radar_mech.radarRange > previousTier.radar_mech.radarRange);
   }
 });
 
-test("vehicle factories produce five matching-tier vehicle roles", () => {
+test("vehicle factories produce six matching-tier vehicle roles", () => {
   const factoryTypes = ["vehicle_factory_t1", "vehicle_factory_t2", "vehicle_factory_t3"];
-  const expectedRoles = ["vehicle_scout", "tank", "artillery", "anti_air_vehicle", "grid_tanker"];
+  const expectedRoles = ["vehicle_scout", "tank", "artillery", "anti_air_vehicle", "grid_tanker", "radar_vehicle"];
   const definitionsByTier = factoryTypes.map((factoryType, index) => {
     const tier = index + 1;
     const definitions = STRUCTURE_DEFINITIONS[factoryType].production
@@ -2674,6 +2683,8 @@ test("vehicle factories produce five matching-tier vehicle roles", () => {
       assert.ok(definitionsByTier[index][role].maxHp > definitionsByTier[index - 1][role].maxHp);
       if (role === "grid_tanker") {
         assert.ok(definitionsByTier[index][role].transferRate > definitionsByTier[index - 1][role].transferRate);
+      } else if (role === "radar_vehicle") {
+        assert.ok(definitionsByTier[index][role].radarRange > definitionsByTier[index - 1][role].radarRange);
       } else {
         assert.ok(definitionsByTier[index][role].attackDamage > definitionsByTier[index - 1][role].attackDamage);
       }
@@ -2681,12 +2692,12 @@ test("vehicle factories produce five matching-tier vehicle roles", () => {
   }
 });
 
-test("air factories begin at Tier 2 and produce four matching-tier aircraft roles", () => {
+test("air factories begin at Tier 2 and produce five matching-tier aircraft roles", () => {
   assert.equal(STRUCTURE_DEFINITIONS.air_factory_t1, undefined);
   assert.ok(!BUILD_MENU.includes("air_factory_t1"));
 
   const factoryTypes = ["air_factory_t2", "air_factory_t3"];
-  const expectedRoles = ["interceptor", "gunship", "bomber", "energy_tender"];
+  const expectedRoles = ["interceptor", "gunship", "bomber", "energy_tender", "radar_aircraft"];
   const definitionsByTier = factoryTypes.map((factoryType, index) => {
     const tier = index + 2;
     const definitions = STRUCTURE_DEFINITIONS[factoryType].production
@@ -2717,6 +2728,8 @@ test("all flying units use the faster movement profiles", () => {
     bomber_t3: 175,
     energy_tender_t2: 210,
     energy_tender_t3: 235,
+    radar_aircraft_t2: 235,
+    radar_aircraft_t3: 260,
   };
   const standardAircraft = Object.keys(expectedAircraftSpeeds)
     .map((type) => UNIT_DEFINITIONS[type]);
@@ -2807,6 +2820,114 @@ test("destroying a loaded Dropship destroys its passengers and snapshots preserv
   assert.equal(simulation.wrecks.length, 2);
 });
 
+test("all units and structures provide a useful deterministic vision range", () => {
+  assert.ok(
+    Object.values(UNIT_DEFINITIONS).every(
+      (definition) => Number.isFinite(definition.visionRange) && definition.visionRange > 0,
+    ),
+  );
+  assert.ok(
+    Object.values(STRUCTURE_DEFINITIONS).every(
+      (definition) => Number.isFinite(definition.visionRange) && definition.visionRange > 0,
+    ),
+  );
+  assert.ok(DRONE_DEFINITION.visionRange > 0);
+});
+
+test("enemy contacts are hidden until they enter current friendly vision", () => {
+  const simulation = new Simulation({ width: 1400, height: 800 });
+  const scout = simulation.addUnit("scout_mech", "player", 100, 200);
+  const enemy = simulation.addUnit("raider", "enemy", 700, 200);
+
+  assert.equal(simulation.isEntityVisibleToTeam("player", scout), true);
+  assert.equal(simulation.isEntityVisibleToTeam("player", enemy), false);
+
+  enemy.x = 390;
+  assert.equal(simulation.isEntityVisibleToTeam("player", enemy), true);
+});
+
+test("powered radar arrays reveal long range and lose that coverage off-grid", () => {
+  const simulation = new Simulation({ width: 1800, height: 800 });
+  const generator = simulation.addStructure("generator", "player", 100, 300);
+  const radar = simulation.addStructure("radar_tower", "player", 220, 300);
+  const enemy = simulation.addUnit("raider", "enemy", 1120, 300);
+
+  assert.equal(simulation.isEntityVisibleToTeam("player", enemy), false);
+  simulation.tick(0.25);
+  assert.equal(radar.powered, true);
+  assert.equal(simulation.getEntityVisionRange(radar), STRUCTURE_DEFINITIONS.radar_tower.radarRange);
+  assert.equal(simulation.isEntityVisibleToTeam("player", enemy), true);
+
+  generator.alive = false;
+  simulation.tick(0.25);
+  assert.equal(radar.powered, false);
+  assert.equal(simulation.getEntityVisionRange(radar), 340);
+  assert.equal(simulation.isEntityVisibleToTeam("player", enemy), false);
+});
+
+test("radar towers and mobile radar units improve across every available branch tier", () => {
+  for (const tier of [1, 2, 3]) {
+    const suffix = tier === 1 ? "" : `_t${tier}`;
+    assert.ok(BUILD_MENU_BY_TIER[tier].includes(`radar_tower${suffix}`));
+    assert.ok(UNIT_DEFINITIONS[`radar_mech${suffix}`].attackDamage > 0);
+    assert.ok(UNIT_DEFINITIONS[`radar_vehicle${suffix}`].attackDamage > 0);
+  }
+  for (const tier of [2, 3]) {
+    const definition = UNIT_DEFINITIONS[`radar_aircraft_t${tier}`];
+    assert.ok(definition.attackDamage > 0);
+    assert.ok(definition.radarRange > definition.attackRange * 4);
+  }
+  assert.equal(getNextStructureTierType("radar_tower"), "radar_tower_t2");
+  assert.equal(getNextStructureTierType("radar_tower_t2"), "radar_tower_t3");
+  assert.equal(getNextStructureTierType("radar_tower_t3"), null);
+});
+
+test("enemy AI invests in radar after preserving its opening wave and garrison", () => {
+  const simulation = new Simulation();
+  const anchor = simulation.addStructure("generator", "enemy", 2600, 900);
+  simulation.addStructure("generator", "enemy", 2680, 900);
+  simulation.addStructure("mech_factory_t1", "enemy", 2440, 1040);
+  simulation.addStructure("battery", "enemy", 2520, 820);
+  simulation.addStructure("sentry_turret", "enemy", 2480, 900);
+  simulation.addStructure("charger", "enemy", 2520, 980);
+  for (let index = 0; index < 4; index += 1) {
+    simulation.addUnit("scout_mech", "enemy", 2420 + index * 35, 1120);
+  }
+  const planPoint = (forward, side = 0) => ({ x: anchor.x - forward, y: anchor.y + side });
+
+  const earlyRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    1,
+  );
+  assert.notEqual(earlyRequest?.type, "radar_tower");
+
+  simulation.addUnit("scout_mech", "enemy", 2560, 1120);
+  const securedRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    planPoint,
+    1,
+  );
+  assert.equal(securedRequest.type, "radar_tower");
+});
+
+test("direct attack commands cannot target unseen enemies", () => {
+  const simulation = new Simulation({ width: 1400, height: 800 });
+  const attacker = simulation.addUnit("assault_mech", "player", 100, 200);
+  const target = simulation.addUnit("raider", "enemy", 700, 200);
+
+  assert.equal(simulation.commandAttack([attacker.id], target.id, { requireVision: true }), 0);
+  assert.equal(attacker.attackTargetId, null);
+
+  target.x = 390;
+  assert.equal(simulation.commandAttack([attacker.id], target.id, { requireVision: true }), 1);
+  assert.equal(attacker.attackTargetId, target.id);
+});
+
 test("vehicle and air factories only queue units from their own tier and branch", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 100_000;
@@ -2846,7 +2967,7 @@ test("vehicle and air factories deploy their completed production orders", () =>
   assert.equal(airFactory.productionQueue.length, 0);
 });
 
-test("factories only queue the six unit variants matching their tier", () => {
+test("factories only queue the seven unit variants matching their tier", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;
   const tierOneFactory = simulation.addStructure("mech_factory_t1", "player", 220, 100);
@@ -2855,13 +2976,13 @@ test("factories only queue the six unit variants matching their tier", () => {
   for (const unitType of STRUCTURE_DEFINITIONS.mech_factory_t1.production) {
     assert.equal(simulation.queueProduction(tierOneFactory.id, unitType), true);
   }
-  assert.equal(tierOneFactory.productionQueue.length, 6);
+  assert.equal(tierOneFactory.productionQueue.length, 7);
   assert.equal(simulation.queueProduction(tierOneFactory.id, "scout_mech_t2"), false);
 
   for (const unitType of STRUCTURE_DEFINITIONS.mech_factory_t2.production) {
     assert.equal(simulation.queueProduction(tierTwoFactory.id, unitType), true);
   }
-  assert.equal(tierTwoFactory.productionQueue.length, 6);
+  assert.equal(tierTwoFactory.productionQueue.length, 7);
   assert.equal(simulation.queueProduction(tierTwoFactory.id, "scout_mech"), false);
 });
 
@@ -2982,12 +3103,18 @@ test("unit roles and tiers reserve different provisional supply amounts", () => 
       skyguard_mech: 5,
       skyguard_mech_t2: 8,
       skyguard_mech_t3: 11,
+      radar_mech: 5,
+      radar_mech_t2: 7,
+      radar_mech_t3: 10,
       energy_carrier: 6,
       energy_carrier_t2: 9,
       energy_carrier_t3: 12,
       scout_vehicle: 3,
       scout_vehicle_t2: 5,
       scout_vehicle_t3: 7,
+      radar_vehicle: 5,
+      radar_vehicle_t2: 8,
+      radar_vehicle_t3: 11,
       battle_tank: 9,
       battle_tank_t2: 13,
       battle_tank_t3: 18,
@@ -3011,6 +3138,8 @@ test("unit roles and tiers reserve different provisional supply amounts", () => 
       dropship_t1: 8,
       dropship_t2: 12,
       dropship_t3: 17,
+      radar_aircraft_t2: 7,
+      radar_aircraft_t3: 10,
       arsenal_colossus: 70,
       hexapod_landship: 120,
       zenith_doughnut: 95,

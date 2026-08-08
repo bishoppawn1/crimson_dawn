@@ -53,6 +53,7 @@ const AI_STRUCTURE_UPGRADE_PRIORITY = Object.freeze({
   flak_turret: 80,
   mortar_turret: 78,
   power_tower: 70,
+  radar_tower: 70,
   salvage_yard: 65,
 });
 
@@ -625,6 +626,57 @@ export class Simulation {
     return this.entityById.get(id) || null;
   }
 
+  getEntityVisionRange(entity) {
+    if (!entity?.alive) return 0;
+    if (entity.kind === "unit") {
+      return UNIT_DEFINITIONS[entity.type]?.visionRange || 0;
+    }
+    if (entity.kind === "drone") return DRONE_DEFINITION.visionRange || 0;
+    if (entity.kind !== "structure" || !entity.complete) return 0;
+    const definition = STRUCTURE_DEFINITIONS[entity.type];
+    if (!definition) return 0;
+    if (definition.radarRange && !entity.powered) {
+      return Math.min(340, definition.visionRange || 340);
+    }
+    return definition.visionRange || 0;
+  }
+
+  getVisionSources(teamId) {
+    return [
+      ...this.units,
+      ...this.structures,
+      ...this.getDrones(),
+    ]
+      .filter((entity) => entity.alive && entity.team === teamId)
+      .map((entity) => ({
+        id: entity.id,
+        x: entity.x,
+        y: entity.y,
+        range: this.getEntityVisionRange(entity),
+      }))
+      .filter((source) => source.range > 0);
+  }
+
+  isPointVisibleToTeam(teamId, x, y, radius = 0, visionSources = null) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const sources = visionSources || this.getVisionSources(teamId);
+    return sources.some(
+      (source) => Math.hypot(source.x - x, source.y - y) <= source.range + radius + EPSILON,
+    );
+  }
+
+  isEntityVisibleToTeam(teamId, entity, visionSources = null) {
+    if (!entity?.alive) return false;
+    if (entity.team === teamId) return true;
+    return this.isPointVisibleToTeam(
+      teamId,
+      entity.x,
+      entity.y,
+      entityRadius(entity),
+      visionSources,
+    );
+  }
+
   rebuildEntityLookup() {
     this.droneCache = this.structures.flatMap((structure) => structure.drones || []);
     this.entityById = new Map(
@@ -719,7 +771,7 @@ export class Simulation {
     return point;
   }
 
-  commandAttack(unitIds, targetId) {
+  commandAttack(unitIds, targetId, { requireVision = false } = {}) {
     const target = this.getEntity(targetId);
     if (!target || !target.alive || target.carriedById || target.kind === "wreck") return 0;
 
@@ -734,6 +786,7 @@ export class Simulation {
         unit.carriedById ||
         unit.state !== "active" ||
         unit.team === target.team ||
+        (requireVision && !this.isEntityVisibleToTeam(unit.team, target)) ||
         !canUnitAttackTarget(definition, target)
       ) {
         continue;
@@ -3184,6 +3237,7 @@ export class Simulation {
     const flakCount = countFamily("flak_turret");
     const chargerCount = countFamily("charger");
     const relayCount = countFamily("power_tower");
+    const radarCount = countFamily("radar_tower");
     const salvageYardCount = countFamily("salvage_yard");
     const generatorConstructionPending = structures.some(
       (structure) =>
@@ -3204,8 +3258,9 @@ export class Simulation {
     );
     const nearbyAircraft = enemyAircraft.filter((target) => nearbyThreats.includes(target));
     const basicForceReady = combatStrength >= this.getEnemyAttackWaveSize(teamId);
-    const coreBaseReady =
-      generatorCount >= 2 && sentryCount > 0 && basicForceReady;
+    const radarForceReady = combatStrength >=
+      this.getEnemyAttackWaveSize(teamId) + SIMULATION_RULES.enemyOutpostGarrisonSize;
+    const coreBaseReady = generatorCount >= 2 && sentryCount > 0 && basicForceReady;
     const unlockedTier = this.getUnlockedStructureTier(teamId);
     const highestWorkerTier = Math.max(
       1,
@@ -3334,6 +3389,7 @@ export class Simulation {
       const advancedGenerator = tieredType("generator", operationalTier);
       const advancedSentry = tieredType("sentry_turret", operationalTier);
       const advancedFlak = tieredType("flak_turret", operationalTier);
+      const advancedRadar = tieredType("radar_tower", operationalTier);
       if (!hasFamilyAtTier("generator", operationalTier)) {
         addCandidate(82, advancedGenerator, planPoint(-80, sideSign * 260));
       }
@@ -3343,6 +3399,13 @@ export class Simulation {
       if (flakCount > 0 && !hasFamilyAtTier("flak_turret", operationalTier)) {
         addCandidate(87, advancedFlak, planPoint(220, -sideSign * 320));
       }
+      if (radarCount > 0 && !hasFamilyAtTier("radar_tower", operationalTier)) {
+        addCandidate(81, advancedRadar, planPoint(40, sideSign * 380));
+      }
+    }
+
+    if (coreBaseReady && radarForceReady && radarCount === 0) {
+      addCandidate(83, "radar_tower", planPoint(20, sideSign * 300));
     }
 
     const desiredSentryCount = Math.min(

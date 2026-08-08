@@ -56,10 +56,10 @@ Map identities, terrain, starts, and deposits are data-driven and all current
 layouts remain provisional for balance testing.
 
 A compact tactical minimap occupies the top-right corner of the battlefield. It
-always shows the complete map at a fixed overview scale, including terrain,
-deposits, living structures, and every living mobile unit. Friendly and opposing
-units use their team colors as compact dots, while the current camera view appears
-as a white rectangle. Left-clicking the minimap recenters the battlefield camera.
+always shows the complete terrain and deposit layout at a fixed overview scale.
+Friendly contacts and currently visible opposing contacts use their team colors as
+compact dots, while opposing contacts outside current vision are hidden. The current
+camera view appears as a white rectangle. Left-clicking the minimap recenters the battlefield camera.
 Right-clicking a point inside the map area with units selected issues the same
 formation move command at the corresponding world position without moving the
 camera; an armed force-move modifier is preserved for this command.
@@ -74,6 +74,29 @@ remain usable in this whole-map view.
 On desktop displays, the battlefield expands across the available browser width;
 outer padding and the command column remain narrow enough to prioritize the play
 surface.
+
+Fog of war is live and team-specific. Terrain, impassable landmarks, the construction
+grid, and deposit layout remain dimly readable outside vision so navigation does not
+become blind guesswork. Enemy units, structures, unfinished foundations, reclamation
+drones, wrecks, power links, shield fields, command indicators, and combat effects are
+not drawn or targetable outside current friendly vision. Friendly assets remain visible
+to their owner. Fog is derived deterministically from current authoritative entity
+positions and definitions, so single-player presentation, multiplayer presentation,
+and command validation use the same visibility result without a separate
+presentation-only truth.
+
+Every living unit and every completed structure supplies vision. Ordinary ground units
+have at least 320 world units of vision, aircraft have at least 400, and buildings have
+at least 340; long-range weapons receive enough sight to use their complete weapon
+range. Reclamation drones provide 300 vision. Entity radii count at the edge of a vision
+circle, and direct attack commands against unseen hostile entities are rejected.
+
+Radar Arrays form a tiered powered building family. Tier 1, Tier 2, and Tier 3 arrays
+provide provisional 950/1,250/1,600-world-unit vision while complete and powered, use
+1×1/2×2/3×3 footprints, draw 3/5/8 energy per second, and cost 140/270/500 crystal.
+An incomplete array supplies no vision. A completed but disconnected or energy-starved
+array retains only the ordinary 340-world-unit building sight range. Selecting a radar
+asset displays its current coverage circle, and the minimap applies the same coverage.
 
 Each map has a data-defined environmental theme that is preserved in multiplayer
 snapshots. **Grassland** maps use green fields, varied olive clearings, and sparse
@@ -461,9 +484,9 @@ ladder.
 
 | Production building | Available tiers | Produces |
 | --- | --- | --- |
-| Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs, workers, Arc Energy Carriers, and Dropships |
-| Vehicle Factory | Tier 1, Tier 2, Tier 3 | Scout Vehicles, Battle Tanks, Mobile Artillery, Flak Crawlers, and Grid Tankers |
-| Air Factory | Tier 2, Tier 3 | Interceptors, Gunships, Bombers, and Energy Tenders |
+| Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs, workers, Arc Energy Carriers, Watchman Radar Mechs, and Dropships |
+| Vehicle Factory | Tier 1, Tier 2, Tier 3 | Scout Vehicles, Battle Tanks, Mobile Artillery, Flak Crawlers, Grid Tankers, and Pathfinder Radars |
+| Air Factory | Tier 2, Tier 3 | Interceptors, Gunships, Bombers, Energy Tenders, and Skywatch Radars |
 | Experimental Factory | Tier 3 only | Arsenal Colossus, Hexapod Landship, and Zenith Doughnut |
 
 A player may pursue mech and vehicle technology at the same tier. Advancing one
@@ -482,7 +505,7 @@ buildings a player may construct.
 
 ### 5.1 Tiered Mech Factory Roster
 
-Every Mech Factory exposes six consistent production lines at its own tier:
+Every Mech Factory exposes seven consistent production lines at its own tier:
 
 | Production line | Battlefield role |
 | --- | --- |
@@ -492,20 +515,21 @@ Every Mech Factory exposes six consistent production lines at its own tier:
 | Skyguard Mech | Mobile missile defense with extra damage against aircraft |
 | Arc Energy Carrier | Unarmed mobile energy storage and transfer support |
 | Dropship | Unarmed aerial transport for up to eight ground units |
+| Watchman Radar Mech | Long-range mobile vision with a light defensive weapon |
 
-A Tier 1 Mech Factory produces the Tier 1 version of all six units. Tier 2 and
-Tier 3 factories each produce a stronger version of the same six roles at their
+A Tier 1 Mech Factory produces the Tier 1 version of all seven units. Tier 2 and
+Tier 3 factories each produce a stronger version of the same seven roles at their
 matching tier rather than mixing lower-tier units into their menus. Higher-tier
 copies improve the statistics relevant to their role: workers build faster,
-Vanguards, Bulwarks, and Skyguards become more combat-capable, and Arc Energy
-Carriers store and transfer more energy. Dropships retain the same eight-unit
-capacity while improving speed, integrity, and internal energy. All current unit
-costs, production times, and tier-to-tier stat increases are provisional balance
-values.
+Vanguards, Bulwarks, and Skyguards become more combat-capable, Arc Energy Carriers
+store and transfer more energy, and Watchmen extend radar coverage. Dropships retain
+the same eight-unit capacity while improving speed, integrity, and internal energy.
+All current unit costs, production times, and tier-to-tier stat increases are
+provisional balance values.
 
 ### 5.2 Vehicle and Air Factory Rosters
 
-Every Vehicle Factory produces five conventional ground and logistics roles at the
+Every Vehicle Factory produces six conventional ground and logistics roles at the
 factory's matching tier:
 
 | Production line | Battlefield role |
@@ -515,9 +539,10 @@ factory's matching tier:
 | Mobile Artillery | Long-range fire support |
 | Flak Crawler | Mobile rapid-fire anti-air defense |
 | Grid Tanker | Armored mobile energy storage and transfer support |
+| Pathfinder Radar | Long-range mobile vision with a defensive cannon |
 
 Air production begins at Tier 2; there is no Tier 1 Air Factory. Tier 2 and Tier 3
-Air Factories each produce matching-tier versions of four aircraft roles:
+Air Factories each produce matching-tier versions of five aircraft roles:
 
 | Production line | Battlefield role |
 | --- | --- |
@@ -525,6 +550,15 @@ Air Factories each produce matching-tier versions of four aircraft roles:
 | Gunship | Durable aerial assault |
 | Bomber | Heavy aerial strikes |
 | Energy Tender | Airborne mobile energy storage and transfer support |
+| Skywatch Radar | Fast airborne long-range vision with a light defensive weapon |
+
+Watchman Radar Mechs provide provisional 650/800/950 vision at Tiers 1/2/3, while
+Pathfinder Radar vehicles provide 700/850/1,000. Skywatch Radar aircraft begin with
+the Air branch and provide 900/1,100 vision at Tiers 2/3. Every radar unit carries a
+modest weapon but has substantially more vision than weapon range, making scouting
+and coverage its primary role. AI factory balancing includes the radar production
+lines, and AI commanders construct and upgrade Radar Arrays after securing an
+initial assault wave and enough units to defend their expansions.
 
 The Grid Tanker and Energy Tender automatically and fairly distribute energy to
 nearby eligible allies without crossing their protected reserve, using the same
@@ -689,7 +723,8 @@ construction or by completion; only ordinary repair after completion can restore
 it. Additional workers accelerate the finite progress and durability being added,
 but do not turn prior damage into free healing. Focused enemy fire can therefore
 destroy a foundation while workers are still building it. Incomplete buildings
-remain visible and vulnerable.
+remain vulnerable and are visible to an opponent only while inside that opponent's
+current vision.
 When one or more workers with construction orders are selected, the interface shows
 each worker's active foundation and its shared live construction percentage, followed
 by the remaining foundations in placement order.
@@ -790,7 +825,7 @@ stops at the moving unit's own physical radius from the exact structure footprin
 there is no additional structure-clearance padding.
 
 Tier 1 infrastructure is deliberately compact. Pulse Generators, Grid Batteries,
-Induction Chargers, Crystal Harvesters, Power Relay Towers, Sentry Turrets, Shield
+Induction Chargers, Crystal Harvesters, Power Relay Towers, Radar Arrays, Sentry Turrets, Shield
 Turrets, and Mortar Turrets use 1×1 footprints. Tier 1 factories use 2×2 footprints.
 Equivalent Tier 2 infrastructure uses 2×2 footprints except for the Tier 2 Power
 Relay Tower, which remains 1×1. Crystal Harvesters are permanently capped at 2×2:

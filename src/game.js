@@ -55,6 +55,10 @@ const {
 
 const canvas = document.querySelector("#battlefield");
 const context = canvas.getContext("2d");
+const fogCanvas = document.createElement("canvas");
+const fogContext = fogCanvas.getContext("2d");
+const minimapFogCanvas = document.createElement("canvas");
+const minimapFogContext = minimapFogCanvas.getContext("2d");
 const startMenu = document.querySelector("#start-menu");
 const gameShell = document.querySelector("#game-shell");
 const modeChoices = document.querySelector("#mode-choices");
@@ -183,6 +187,7 @@ const camera = {
 };
 let renderViewBounds = null;
 let renderTeamPalettes = new Map();
+let renderVisionSources = [];
 let renderTimestamp = performance.now();
 const guestPositionSmoother = new SnapshotPositionSmoother();
 const cameraKeys = new Set();
@@ -1021,7 +1026,11 @@ function applyAuthorizedCommand(command, team) {
     case "attack": {
       const target = simulation.getEntity(command.targetId);
       if (!target?.alive || target.team === team) return false;
-      return simulation.commandAttack(ownedUnitIds(command.unitIds, team), target.id) > 0;
+      return simulation.commandAttack(
+        ownedUnitIds(command.unitIds, team),
+        target.id,
+        { requireVision: true },
+      ) > 0;
     }
     case "stop":
       return simulation.commandStop(
@@ -1278,6 +1287,7 @@ function runAuthoritativeSimulationHeartbeat(now = performance.now()) {
 }
 
 function describeStructureRole(definition) {
+  if (definition.radarRange) return `${definition.radarRange} radar vision · requires grid power`;
   if (definition.shieldCapacity) {
     return `${definition.shieldCapacity} shield · ${definition.shieldRadius} radius · ${definition.shieldRegenRate}/s regen`;
   }
@@ -1339,6 +1349,7 @@ function frame(now) {
 function render(now = performance.now()) {
   renderTimestamp = now;
   renderViewBounds = visibleWorldBounds();
+  renderVisionSources = simulation.getVisionSources(localTeam);
   renderTeamPalettes = new Map([[localTeam, teamPalettes[0]]]);
   let opponentPaletteIndex = 1;
   for (const team of simulation.teams) {
@@ -1362,28 +1373,32 @@ function render(now = performance.now()) {
     drawStrategicEntities();
   } else {
     for (const wreck of simulation.wrecks) {
-      if (worldPointIsVisible(wreck.x, wreck.y, 80)) drawWreck(wreck);
+      if (
+        pointIsVisibleToLocalTeam(wreck.x, wreck.y, 20) &&
+        worldPointIsVisible(wreck.x, wreck.y, 80)
+      ) drawWreck(wreck);
     }
     for (const structure of simulation.structures) {
-      if (!structure.alive) continue;
+      if (!structure.alive || !entityIsVisibleToLocalTeam(structure)) continue;
       const footprint = structureFootprint(structure.type);
       if (worldPointIsVisible(structure.x, structure.y, Math.max(footprint.width, footprint.height))) {
         drawStructure(structure);
       }
     }
     for (const drone of simulation.getDrones()) {
-      if (!drone.alive) continue;
+      if (!drone.alive || !entityIsVisibleToLocalTeam(drone)) continue;
       const displayedDrone = presentedEntity(drone);
       if (worldPointIsVisible(displayedDrone.x, displayedDrone.y, 70)) drawDrone(displayedDrone);
     }
     for (const unit of simulation.units) {
-      if (!unit.alive || unit.carriedById) continue;
+      if (!unit.alive || unit.carriedById || !entityIsVisibleToLocalTeam(unit)) continue;
       const displayedUnit = presentedEntity(unit);
       if (worldPointIsVisible(displayedUnit.x, displayedUnit.y, 100)) drawUnit(displayedUnit);
     }
     drawEvents();
   }
   drawPlacementPreview();
+  drawFogOfWar();
   drawSelectionBox();
   context.restore();
   drawCameraHud();
@@ -1393,7 +1408,11 @@ function render(now = performance.now()) {
 function drawStrategicEntities() {
   const lineWidth = strategicIconWorldSize(camera.zoom, 1.5);
   for (const structure of simulation.structures) {
-    if (!structure.alive || !worldPointIsVisible(structure.x, structure.y, 100)) continue;
+    if (
+      !structure.alive ||
+      !entityIsVisibleToLocalTeam(structure) ||
+      !worldPointIsVisible(structure.x, structure.y, 100)
+    ) continue;
     const definition = STRUCTURE_DEFINITIONS[structure.type];
     const palette = teamPalette(structure.team);
     const size = strategicIconWorldSize(camera.zoom, definition.headquarters ? 13 : 9);
@@ -1448,17 +1467,22 @@ function drawStrategicEntities() {
     context.restore();
   };
   for (const drone of simulation.getDrones()) {
-    if (drone.alive) drawMobileIcon(drone, true);
+    if (drone.alive && entityIsVisibleToLocalTeam(drone)) drawMobileIcon(drone, true);
   }
   for (const unit of simulation.units) {
-    if (unit.alive && !unit.carriedById) drawMobileIcon(unit);
+    if (unit.alive && !unit.carriedById && entityIsVisibleToLocalTeam(unit)) drawMobileIcon(unit);
   }
 }
 
 function drawShieldFields() {
   for (const shield of simulation.structures) {
     const definition = STRUCTURE_DEFINITIONS[shield.type];
-    if (!shield.alive || !shield.complete || !definition.shieldCapacity) continue;
+    if (
+      !shield.alive ||
+      !shield.complete ||
+      !definition.shieldCapacity ||
+      !entityIsVisibleToLocalTeam(shield)
+    ) continue;
     const selected = selectedStructureIds.has(shield.id);
     const active = shield.powered && shield.shieldStrength > 0.01;
     if (!active && !selected) continue;
@@ -1521,6 +1545,38 @@ function worldPointIsVisible(x, y, margin = 0) {
     y >= bounds.top - margin &&
     y <= bounds.bottom + margin
   );
+}
+
+function pointIsVisibleToLocalTeam(x, y, radius = 0) {
+  return simulation.isPointVisibleToTeam(localTeam, x, y, radius, renderVisionSources);
+}
+
+function entityIsVisibleToLocalTeam(entity) {
+  return simulation.isEntityVisibleToTeam(localTeam, entity, renderVisionSources);
+}
+
+function drawFogOfWar() {
+  if (fogCanvas.width !== canvas.width || fogCanvas.height !== canvas.height) {
+    fogCanvas.width = canvas.width;
+    fogCanvas.height = canvas.height;
+  }
+  fogContext.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
+  fogContext.fillStyle = "#03060bd1";
+  fogContext.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+  fogContext.globalCompositeOperation = "destination-out";
+  fogContext.fillStyle = "#000";
+  for (const source of renderVisionSources) {
+    const screenX = canvas.width / 2 + (source.x - camera.x) * camera.zoom;
+    const screenY = canvas.height / 2 + (source.y - camera.y) * camera.zoom;
+    fogContext.beginPath();
+    fogContext.arc(screenX, screenY, source.range * camera.zoom, 0, Math.PI * 2);
+    fogContext.fill();
+  }
+  fogContext.globalCompositeOperation = "source-over";
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.drawImage(fogCanvas, 0, 0);
+  context.restore();
 }
 
 function worldRectIsVisible(left, top, right, bottom, margin = 0) {
@@ -1643,8 +1699,38 @@ function drawMinimap() {
     context.shadowBlur = 0;
   }
 
+  const minimapFogWidth = Math.max(1, Math.ceil(layout.mapWidth));
+  const minimapFogHeight = Math.max(1, Math.ceil(layout.mapHeight));
+  if (
+    minimapFogCanvas.width !== minimapFogWidth ||
+    minimapFogCanvas.height !== minimapFogHeight
+  ) {
+    minimapFogCanvas.width = minimapFogWidth;
+    minimapFogCanvas.height = minimapFogHeight;
+  }
+  minimapFogContext.clearRect(0, 0, minimapFogWidth, minimapFogHeight);
+  minimapFogContext.fillStyle = "#03060bd1";
+  minimapFogContext.fillRect(0, 0, minimapFogWidth, minimapFogHeight);
+  minimapFogContext.globalCompositeOperation = "destination-out";
+  minimapFogContext.fillStyle = "#000";
+  for (const source of renderVisionSources) {
+    const point = minimapPoint(layout, source.x, source.y);
+    const range = source.range * layout.scale;
+    minimapFogContext.beginPath();
+    minimapFogContext.arc(
+      point.x - layout.mapLeft,
+      point.y - layout.mapTop,
+      range,
+      0,
+      Math.PI * 2,
+    );
+    minimapFogContext.fill();
+  }
+  minimapFogContext.globalCompositeOperation = "source-over";
+  context.drawImage(minimapFogCanvas, layout.mapLeft, layout.mapTop);
+
   for (const structure of simulation.structures) {
-    if (!structure.alive) continue;
+    if (!structure.alive || !entityIsVisibleToLocalTeam(structure)) continue;
     const point = minimapPoint(layout, structure.x, structure.y);
     const palette = teamPalette(structure.team);
     context.fillStyle = palette.dark;
@@ -1664,10 +1750,10 @@ function drawMinimap() {
     context.fill();
   };
   for (const unit of simulation.units) {
-    if (unit.alive && !unit.carriedById) drawUnitDot(unit);
+    if (unit.alive && !unit.carriedById && entityIsVisibleToLocalTeam(unit)) drawUnitDot(unit);
   }
   for (const drone of simulation.getDrones()) {
-    if (drone.alive) drawUnitDot(drone);
+    if (drone.alive && entityIsVisibleToLocalTeam(drone)) drawUnitDot(drone);
   }
 
   const viewport = minimapViewport(layout, visibleWorldBounds());
@@ -2278,6 +2364,7 @@ function drawPowerNetwork() {
       const definition = STRUCTURE_DEFINITIONS[structure.type];
       return Boolean(
         structure.alive &&
+        entityIsVisibleToLocalTeam(structure) &&
         structure.complete &&
         (definition.generationRate || definition.powerRadius || definition.relayRadius),
       );
@@ -2297,7 +2384,12 @@ function drawPowerNetwork() {
   for (const link of simulation.powerLinks || []) {
     const from = simulation.getStructure(link.fromId);
     const to = simulation.getStructure(link.toId);
-    if (!from?.alive || !to?.alive) continue;
+    if (
+      !from?.alive ||
+      !to?.alive ||
+      !entityIsVisibleToLocalTeam(from) ||
+      !entityIsVisibleToLocalTeam(to)
+    ) continue;
     if (!worldRectIsVisible(
       Math.min(from.x, to.x),
       Math.min(from.y, to.y),
@@ -2432,10 +2524,14 @@ function drawCommandIndicators() {
     }
     const indicatedTargets = new Map();
     const primaryTarget = simulation.getEntity(unit.attackTargetId);
-    if (primaryTarget?.alive) indicatedTargets.set(primaryTarget.id, primaryTarget);
+    if (primaryTarget?.alive && entityIsVisibleToLocalTeam(primaryTarget)) {
+      indicatedTargets.set(primaryTarget.id, primaryTarget);
+    }
     for (const weaponSystem of unit.weaponSystems || []) {
       const target = simulation.getEntity(weaponSystem.targetId);
-      if (target?.alive) indicatedTargets.set(target.id, target);
+      if (target?.alive && entityIsVisibleToLocalTeam(target)) {
+        indicatedTargets.set(target.id, target);
+      }
     }
     for (const target of indicatedTargets.values()) {
       const targetPosition = presentedPosition(target);
@@ -3119,11 +3215,46 @@ function drawHeadquartersBuilding(structure, footprint, powered, teamColor) {
   drawFasteners(0, 0, width * 0.86, height * 0.78, powered ? colors.energy : "#70797b");
 }
 
+function drawRadarArrayBuilding(definition, footprint, powered, teamColor) {
+  const width = footprint.width * 0.76;
+  const height = footprint.height * 0.76;
+  drawRoofPanel(-width / 2, -height / 2, width, height, 6);
+  drawFasteners(-width / 2, -height / 2, width, height);
+  context.fillStyle = "#20292d";
+  context.strokeStyle = "#0c1114";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.arc(0, 0, Math.min(width, height) * 0.21, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.strokeStyle = powered ? colors.energy : "#72575a";
+  context.lineWidth = Math.max(2, (definition.buildTier || 1) + 1);
+  context.beginPath();
+  context.arc(0, -3, Math.min(width, height) * 0.29, Math.PI * 0.12, Math.PI * 0.88);
+  context.stroke();
+  context.beginPath();
+  context.moveTo(0, -3);
+  context.lineTo(0, Math.min(width, height) * 0.23);
+  context.stroke();
+  context.fillStyle = powered ? teamColor : "#77565b";
+  context.beginPath();
+  context.arc(0, -3, 4 + (definition.buildTier || 1), 0, Math.PI * 2);
+  context.fill();
+  for (let ring = 1; ring <= (definition.buildTier || 1); ring += 1) {
+    context.strokeStyle = `${powered ? colors.energy : "#72575a"}${Math.max(32, 100 - ring * 18).toString(16)}`;
+    context.lineWidth = 1;
+    context.beginPath();
+    context.arc(0, -3, Math.min(width, height) * (0.3 + ring * 0.08), 0, Math.PI * 2);
+    context.stroke();
+  }
+}
+
 function drawCompletedBuilding(structure, definition, footprint, family, powered, teamColor) {
   if (family === "headquarters") drawHeadquartersBuilding(structure, footprint, powered, teamColor);
   else if (family === "generator") drawGeneratorBuilding(definition, footprint, powered, teamColor);
   else if (family === "battery") drawBatteryBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "power_tower") drawRelayBuilding(definition, footprint, powered, teamColor);
+  else if (family === "radar_tower") drawRadarArrayBuilding(definition, footprint, powered, teamColor);
   else if (family === "charger") drawChargerBuilding(footprint, powered, teamColor);
   else if (family === "metal_mine") drawCrystalHarvesterBuilding(definition, footprint, powered, teamColor);
   else if (family === "factory") drawFactoryBuilding(structure, definition, footprint, powered, teamColor);
@@ -3153,6 +3284,17 @@ function drawStructure(structure) {
       footprint.width + 10,
       footprint.height + 10,
     );
+  }
+
+  if (definition.radarRange && selectedStructureIds.has(structure.id)) {
+    const radarRange = simulation.getEntityVisionRange(structure);
+    context.strokeStyle = structure.powered ? `${colors.energy}b8` : `${colors.disconnected}99`;
+    context.lineWidth = 2;
+    context.setLineDash([12, 10]);
+    context.beginPath();
+    context.arc(0, 0, radarRange, 0, Math.PI * 2);
+    context.stroke();
+    context.setLineDash([]);
   }
 
   if (family === "charger") {
@@ -3323,6 +3465,16 @@ function drawUnit(unit) {
     context.beginPath();
     context.arc(unit.x, unit.y, definition.transferRange, 0, Math.PI * 2);
     context.fill();
+    context.stroke();
+    context.restore();
+  }
+  if (definition.radarRange && selected) {
+    context.save();
+    context.strokeStyle = `${colors.energy}b8`;
+    context.lineWidth = 2;
+    context.setLineDash([12, 10]);
+    context.beginPath();
+    context.arc(unit.x, unit.y, definition.radarRange, 0, Math.PI * 2);
     context.stroke();
     context.restore();
   }
@@ -4135,6 +4287,7 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
   const scout = definition.role === "vehicle_scout";
   const tanker = definition.role === "grid_tanker";
   const antiAir = definition.role === "anti_air_vehicle";
+  const radar = definition.role === "radar_vehicle";
   context.save();
   context.scale(definition.radius, definition.radius);
   context.lineCap = "round";
@@ -4293,6 +4446,26 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
       context.beginPath();
       context.arc(0, 0.19, 0.22, Math.PI * 0.12, Math.PI * 0.88);
       context.stroke();
+    } else if (radar) {
+      context.strokeStyle = stasis ? colors.stasis : colors.energy;
+      context.lineWidth = 0.08;
+      context.beginPath();
+      context.arc(0, 0.02, 0.34, Math.PI * 0.12, Math.PI * 0.88);
+      context.stroke();
+      context.beginPath();
+      context.moveTo(0, 0.02);
+      context.lineTo(0, 0.38);
+      context.stroke();
+      context.fillStyle = accent;
+      context.beginPath();
+      context.arc(0, 0.02, 0.09, 0, Math.PI * 2);
+      context.fill();
+      context.strokeStyle = outline;
+      context.lineWidth = 0.11;
+      context.beginPath();
+      context.moveTo(0.28, -0.2);
+      context.lineTo(0.28, -0.78);
+      context.stroke();
     } else {
       // A dark breech, armored barrel sleeve, and muzzle brake give the weapon
       // a credible mechanical assembly while the narrow team stripe identifies it.
@@ -4346,6 +4519,7 @@ function drawAircraftSprite(definition, teamColor, darkColor, stasis) {
   else if (definition.role === "bomber") drawBomberAircraft(definition, palette, stasis);
   else if (definition.role === "energy_tender") drawEnergyTenderAircraft(definition, palette, stasis);
   else if (definition.role === "transport") drawTransportAircraft(definition, palette, stasis);
+  else if (definition.role === "radar_aircraft") drawRadarAircraft(definition, palette, stasis);
   else drawInterceptorAircraft(definition, palette, stasis);
   context.restore();
 }
@@ -4400,6 +4574,19 @@ function drawTransportAircraft(definition, palette, stasis) {
   drawAircraftCanopy(0, -0.38, 0.2, 0.26, palette);
   drawAircraftNavigationLights(-1.02, 1.02, 0.03, stasis);
   drawAircraftTierMarks(definition.tier, 0.61, palette);
+}
+
+function drawRadarAircraft(definition, palette, stasis) {
+  drawInterceptorAircraft(definition, palette, stasis);
+  context.strokeStyle = stasis ? colors.stasis : colors.energy;
+  context.lineWidth = 0.075;
+  context.beginPath();
+  context.arc(0, 0.12, 0.35, Math.PI * 0.12, Math.PI * 0.88);
+  context.stroke();
+  context.fillStyle = palette.accent;
+  context.beginPath();
+  context.arc(0, 0.12, 0.075, 0, Math.PI * 2);
+  context.fill();
 }
 
 function drawAircraftCanopy(x, y, radiusX, radiusY, palette) {
@@ -4731,6 +4918,7 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
   const carrier = role === "carrier";
   const raider = role === "raider";
   const antiAir = role === "anti_air_mech";
+  const radar = role === "radar_mech";
   const outline = stasis ? "#24231f" : "#171d23";
   const armor = stasis ? "#555047" : "#9ba4a5";
   const armorDark = stasis ? "#35322d" : "#4c575c";
@@ -5077,6 +5265,26 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
     context.beginPath();
     context.arc(0, -0.05, 0.24, Math.PI * 0.12, Math.PI * 0.88);
     context.stroke();
+  } else if (radar) {
+    context.strokeStyle = stasis ? colors.stasis : colors.energy;
+    context.lineWidth = 0.075;
+    context.beginPath();
+    context.arc(0, -0.04, 0.34, Math.PI * 0.12, Math.PI * 0.88);
+    context.stroke();
+    context.beginPath();
+    context.moveTo(0, -0.04);
+    context.lineTo(0, 0.29);
+    context.stroke();
+    context.fillStyle = accent;
+    context.beginPath();
+    context.arc(0, -0.04, 0.08, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = outline;
+    context.lineWidth = 0.1;
+    context.beginPath();
+    context.moveTo(0.73, -0.18);
+    context.lineTo(0.73, -0.86);
+    context.stroke();
   } else {
     // Vanguards and raiders carry a compact gun along the right side of the
     // chassis. Its forward barrel makes the overhead facing unmistakable.
@@ -5290,6 +5498,7 @@ function drawWreck(wreck) {
 
 function drawEvents() {
   for (const event of simulation.events) {
+    if (!pointIsVisibleToLocalTeam(event.x, event.y, 20)) continue;
     const age = simulation.time - event.time;
     if (event.type === "attack") {
       drawAttackEvent(event, age);
@@ -5826,6 +6035,9 @@ function updateInterface() {
     const relayText = definition.relayRadius
       ? ` · ${definition.relayRadius} relay range · ${definition.chargeRate}/s buffer charge · ${definition.dischargeRate}/s discharge`
       : "";
+    const radarText = definition.radarRange
+      ? ` · ${simulation.getEntityVisionRange(selectedStructure)} CURRENT VISION · ${definition.radarRange} POWERED RADAR RANGE`
+      : ` · ${definition.visionRange} VISION`;
     const defenseText = definition.capacitorCapacity
       ? ` · ${definition.attackDamage} damage · ${definition.minimumAttackRange ? `${definition.minimumAttackRange}–` : ""}${definition.attackRange} range · ${(definition.attackDamage / definition.attackCooldown).toFixed(1)} DPS${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""} · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
       : "";
@@ -5872,7 +6084,7 @@ function updateInterface() {
         ? ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · UPGRADING TO ${selectedStructure.supplyUpgrade.targetLevel}`
         : ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · +${definition.supplyLevels[selectedStructure.supplyLevel - 1].capacity.toLocaleString()} capacity`
       : "";
-    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${chargerText}${mineText}${demandText}${defenseText}${shieldText}${salvageText}${factoryText}${headquartersText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
+    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${radarText}${chargerText}${mineText}${demandText}${defenseText}${shieldText}${salvageText}${factoryText}${headquartersText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
   } else if (selectedUnits.length === 0) {
     selectionName.textContent = "No units selected";
     selectionDetails.textContent = "Select friendly units or a structure on the battlefield.";
@@ -5912,6 +6124,7 @@ function updateInterface() {
       ? ` · ${(unit.cargoUnitIds || []).length}/${definition.transportCapacity} CARGO`
       : "";
     const roleText = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
+    const visionText = ` · ${definition.visionRange} VISION${definition.radarRange ? " · RADAR" : ""}`;
     const combatText = definition.underbellyBeamRadius
       ? ` · ${definition.underbellyBeamDamagePerSecond} damage/s underbelly beam · ${definition.underbellyBeamRadius} radius · ${definition.speed} speed${definition.automaticTargetAcquisitionRange ? ` · ${definition.automaticTargetAcquisitionRange} LOCAL ACQUISITION` : ""}`
       : definition.weaponSystems?.length
@@ -5920,7 +6133,7 @@ function updateInterface() {
         ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}`
         : "";
     selectionName.textContent = definition.name;
-    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${combatText}${emergencyRecoveryText}${supplyText}${transportText}${orderText}${repairText}${productionAssistText}${buildQueueText}`;
+    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${visionText}${combatText}${emergencyRecoveryText}${supplyText}${transportText}${orderText}${repairText}${productionAssistText}${buildQueueText}`;
   } else {
     const activeCount = selectedUnits.filter((unit) => unit.state === "active").length;
     const cargoCount = selectedUnits.reduce(
@@ -6241,10 +6454,18 @@ function matchingFactoryGroup(factories) {
 function findEnemyAt(point) {
   const candidates = [
     ...simulation.units.filter(
-      (entity) => entity.alive && !entity.carriedById && entity.team !== localTeam,
+      (entity) =>
+        entity.alive &&
+        !entity.carriedById &&
+        entity.team !== localTeam &&
+        entityIsVisibleToLocalTeam(entity),
     ),
-    ...simulation.structures.filter((entity) => entity.alive && entity.team !== localTeam),
-    ...simulation.getDrones().filter((entity) => entity.alive && entity.team !== localTeam),
+    ...simulation.structures.filter(
+      (entity) => entity.alive && entity.team !== localTeam && entityIsVisibleToLocalTeam(entity),
+    ),
+    ...simulation.getDrones().filter(
+      (entity) => entity.alive && entity.team !== localTeam && entityIsVisibleToLocalTeam(entity),
+    ),
   ];
   return (
     candidates.find((entity) => {

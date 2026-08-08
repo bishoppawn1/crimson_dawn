@@ -69,6 +69,24 @@ test("Dropship controls expose explicit, balanced, and unload command paths", as
   assert.match(game, /key === "d"[\s\S]*?unloadSelectedTransports/);
 });
 
+test("the battlefield, minimap, effects, and targeting share fog visibility", async () => {
+  const [index, game] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+  ]);
+
+  assert.match(game, /renderVisionSources = simulation\.getVisionSources\(localTeam\)/);
+  assert.match(game, /drawFogOfWar\(\)/);
+  assert.match(game, /fogContext\.globalCompositeOperation = "destination-out"/);
+  assert.match(game, /context\.drawImage\(fogCanvas, 0, 0\)/);
+  assert.match(game, /minimapFogContext\.globalCompositeOperation = "destination-out"/);
+  assert.match(game, /entityIsVisibleToLocalTeam\(structure\)/);
+  assert.match(game, /pointIsVisibleToLocalTeam\(event\.x, event\.y, 20\)/);
+  assert.match(game, /findEnemyAt[\s\S]*entityIsVisibleToLocalTeam\(entity\)/);
+  assert.match(game, /command\.unitIds,[\s\S]*requireVision: true/);
+  assert.match(index, /Fog of war hides enemy contacts/);
+});
+
 test("completed Shield Turrets always render their cyan shield-strength bar", async () => {
   const game = await source("../src/game.js");
   const shieldBarBlock = game.match(
