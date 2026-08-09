@@ -81,28 +81,25 @@ test("double-click selection uses exact unit type without crossing tiers", async
   assert.match(index, /Double-click a unit to select every deployed unit of that exact type and tier/);
 });
 
-test("Dropship controls appear only for Dropship selections", async () => {
+test("Dropship fill commands stay on keyboard shortcuts while Drop All remains contextual", async () => {
   const [index, game, styles] = await Promise.all([
     source("../index.html"),
     source("../src/game.js"),
     source("../styles.css"),
   ]);
 
-  assert.match(index, /id="transport-commands" class="command-grid" hidden/);
-  assert.match(index, /id="transport-load-button"[^>]*>[\s\S]*?F · Fill One/);
-  assert.match(index, /id="transport-fill-button"[^>]*>[\s\S]*?L · Fill All/);
+  assert.doesNotMatch(index, /id="transport-load-button"|F · Fill One/);
+  assert.doesNotMatch(index, /id="transport-fill-button"|L · Fill All/);
   assert.match(index, /id="transport-drop-button"[^>]*>[\s\S]*?U · Drop All/);
-  assert.match(
-    game,
-    /const selectedTransportUnits = selectedUnits\.filter\([\s\S]*?transportCapacity[\s\S]*?transportCommands\.hidden = matchEnded \|\| selectedTransportUnits\.length === 0/,
-  );
   assert.match(styles, /\.command-grid\[hidden\]\s*\{\s*display: none;/);
+  assert.doesNotMatch(game, /transportLoadButton|transportFillButton/);
   assert.match(game, /case "load"/);
   assert.match(game, /case "fill_transports"/);
   assert.match(game, /case "unload_transports"/);
-  assert.match(game, /key === "f"[\s\S]*?fillOneSelectedTransport/);
-  assert.match(game, /key === "l"[\s\S]*?fillAllSelectedTransports/);
-  assert.match(game, /key === "u"[\s\S]*?unloadSelectedTransports/);
+  assert.match(game, /key === "f" && hasSelectedTransport[\s\S]*?event\.preventDefault\(\);[\s\S]*?fillOneSelectedTransport/);
+  assert.match(game, /key === "l" && hasSelectedTransport[\s\S]*?event\.preventDefault\(\);[\s\S]*?fillAllSelectedTransports/);
+  assert.match(game, /key === "u" && hasSelectedTransport[\s\S]*?event\.preventDefault\(\);[\s\S]*?unloadSelectedTransports/);
+  assert.match(game, /unit\.state === "active"[\s\S]*?unit\.team === transport\.team[\s\S]*?!definition\.transportCapacity/);
   assert.match(game, /\["w", "a", "s", "d"\]\.includes\(key\)[\s\S]*?cameraKeys\.add\(key\)/);
   assert.doesNotMatch(game, /key === "d"[\s\S]*?unloadSelectedTransports/);
 });

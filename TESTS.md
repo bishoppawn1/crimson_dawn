@@ -33,10 +33,10 @@ this catalog is out of date.
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that double-click selection uses exact unit type without crossing tiers.
 
-<!-- test-catalog-entry: ["test/bootstrap.test.js","Dropship controls appear only for Dropship selections"] -->
-### 5. Dropship controls appear only for Dropship selections
+<!-- test-catalog-entry: ["test/bootstrap.test.js","Dropship fill commands stay on keyboard shortcuts while Drop All remains contextual"] -->
+### 5. Dropship fill commands stay on keyboard shortcuts while Drop All remains contextual
 
-**What it checks:** Inspects the browser entry point and interface wiring to confirm that Dropship controls appear only for Dropship selections.
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that Dropship fill commands stay on keyboard shortcuts while Drop All remains contextual.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the battlefield, minimap, effects, and targeting share fog visibility"] -->
 ### 6. the battlefield, minimap, effects, and targeting share fog visibility

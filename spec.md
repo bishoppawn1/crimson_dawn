@@ -645,7 +645,9 @@ multiple Dropships and pressing `L` assigns nearest eligible ground units in bal
 rounds so one cargo slot is reserved in each selected transport before a second slot
 is reserved in any of them. Selecting ground units and right-clicking a friendly
 Dropship explicitly assigns those units to that transport until its eight slots are
-reserved. Assigned units pursue the transport and board when they reach its hull.
+reserved. Fill One and Fill All are keyboard-only commands and do not occupy buttons
+in the command panel. Assigned units pursue the transport and board when they reach
+its hull.
 
 Carried units are hidden, cannot move, attack, build, repair, recharge, transfer
 energy, be selected, or be targeted, and remain at their current integrity and energy

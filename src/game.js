@@ -122,8 +122,6 @@ const workerUpgradeDetails = document.querySelector("#worker-upgrade-details");
 const stopButton = document.querySelector("#stop-button");
 const holdButton = document.querySelector("#hold-button");
 const transportCommands = document.querySelector("#transport-commands");
-const transportLoadButton = document.querySelector("#transport-load-button");
-const transportFillButton = document.querySelector("#transport-fill-button");
 const transportDropButton = document.querySelector("#transport-drop-button");
 const unitCommands = document.querySelector("#unit-commands");
 const buildCommands = document.querySelector("#build-commands");
@@ -6812,18 +6810,11 @@ function updateInterface() {
   overdriveButton.disabled = !canOverdrive;
   unitCommands.hidden = matchEnded || selectedUnits.length === 0;
   const selectedTransportUnits = selectedUnits.filter(
-    (unit) => UNIT_DEFINITIONS[unit.type].transportCapacity,
+    (unit) =>
+      unit.state === "active" &&
+      UNIT_DEFINITIONS[unit.type].transportCapacity,
   );
-  const primaryTransport = selectedTransportUnits[0];
   transportCommands.hidden = matchEnded || selectedTransportUnits.length === 0;
-  transportLoadButton.disabled = !primaryTransport ||
-    simulation.transportReservedSlots(primaryTransport) >=
-      UNIT_DEFINITIONS[primaryTransport.type].transportCapacity;
-  transportFillButton.disabled = selectedTransportUnits.length === 0 ||
-    selectedTransportUnits.every(
-      (unit) =>
-        simulation.transportReservedSlots(unit) >= UNIT_DEFINITIONS[unit.type].transportCapacity,
-    );
   transportDropButton.disabled = !selectedTransportUnits.some(
     (unit) => (unit.cargoUnitIds || []).length > 0,
   );
@@ -7534,6 +7525,8 @@ function selectedTransports() {
       (unit) =>
         unit?.alive &&
         !unit.carriedById &&
+        unit.state === "active" &&
+        unit.team === localTeam &&
         UNIT_DEFINITIONS[unit.type].transportCapacity,
     );
 }
@@ -7548,6 +7541,9 @@ function fillOneSelectedTransport() {
       unit?.alive &&
       unit.id !== transport.id &&
       !unit.carriedById &&
+      !unit.transportTargetId &&
+      unit.state === "active" &&
+      unit.team === transport.team &&
       definition.movementLayer !== "air" &&
       !definition.transportCapacity
     );
@@ -7605,8 +7601,6 @@ function cancelSelectedConstruction() {
 }
 
 overdriveButton.addEventListener("click", activateOverdrive);
-transportLoadButton.addEventListener("click", fillOneSelectedTransport);
-transportFillButton.addEventListener("click", fillAllSelectedTransports);
 transportDropButton.addEventListener("click", unloadSelectedTransports);
 cancelConstructionButton.addEventListener("click", cancelSelectedConstruction);
 supplyUpgradeButton.addEventListener("click", () => {
@@ -7758,9 +7752,16 @@ window.addEventListener("keydown", (event) => {
     cameraKeys.add(key);
   }
   if (key === "q" && !event.repeat) activateOverdrive();
-  if (key === "f" && !event.repeat) fillOneSelectedTransport();
-  if (key === "l" && !event.repeat) fillAllSelectedTransports();
-  if (key === "u" && selectedTransports().length > 0 && !event.repeat) {
+  const hasSelectedTransport = selectedTransports().length > 0;
+  if (key === "f" && hasSelectedTransport && !event.repeat) {
+    event.preventDefault();
+    fillOneSelectedTransport();
+  }
+  if (key === "l" && hasSelectedTransport && !event.repeat) {
+    event.preventDefault();
+    fillAllSelectedTransports();
+  }
+  if (key === "u" && hasSelectedTransport && !event.repeat) {
     event.preventDefault();
     unloadSelectedTransports();
   }
