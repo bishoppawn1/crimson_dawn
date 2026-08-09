@@ -4951,6 +4951,47 @@ function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis, pose) {
   context.restore();
 }
 
+function drawMobileRadarDish(x, y, radiusX, radiusY, palette, signalColor) {
+  context.save();
+  context.translate(x, y);
+  context.rotate(-0.12);
+  context.fillStyle = unitSurfaceGradient(
+    palette.armorLight,
+    palette.armor,
+    palette.armorDark,
+  );
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.085;
+  context.beginPath();
+  context.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+
+  context.strokeStyle = signalColor;
+  context.lineWidth = 0.055;
+  context.beginPath();
+  context.ellipse(0, 0, radiusX * 0.78, radiusY * 0.7, 0, 0, Math.PI * 2);
+  context.moveTo(-radiusX * 0.72, -radiusY * 0.22);
+  context.lineTo(0, radiusY * 0.12);
+  context.lineTo(radiusX * 0.72, -radiusY * 0.22);
+  context.moveTo(0, radiusY * 0.12);
+  context.lineTo(0, -radiusY * 0.72);
+  context.stroke();
+
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.07;
+  context.beginPath();
+  context.moveTo(0, radiusY * 0.08);
+  context.lineTo(0, -radiusY * 0.42);
+  context.stroke();
+  context.fillStyle = signalColor;
+  context.beginPath();
+  context.arc(0, -radiusY * 0.48, Math.max(0.065, radiusY * 0.14), 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.restore();
+}
+
 function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
   const outline = stasis ? "#24231f" : "#171d23";
   const armor = stasis ? "#555047" : "#90999a";
@@ -5121,25 +5162,25 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
       context.arc(0, 0.19, 0.22, Math.PI * 0.12, Math.PI * 0.88);
       context.stroke();
     } else if (radar) {
-      context.strokeStyle = stasis ? colors.stasis : colors.energy;
-      context.lineWidth = 0.08;
+      drawMobileRadarDish(
+        0,
+        0.03,
+        0.63,
+        0.47,
+        { outline, armor, armorLight, armorDark },
+        stasis ? colors.stasis : colors.energy,
+      );
+      // One short defensive cannon leaves the dish as the dominant equipment.
+      context.strokeStyle = outline;
+      context.lineWidth = 0.085;
       context.beginPath();
-      context.arc(0, 0.02, 0.34, Math.PI * 0.12, Math.PI * 0.88);
-      context.stroke();
-      context.beginPath();
-      context.moveTo(0, 0.02);
-      context.lineTo(0, 0.38);
+      context.moveTo(0.39, -0.12);
+      context.lineTo(0.39, -0.53);
       context.stroke();
       context.fillStyle = accent;
       context.beginPath();
-      context.arc(0, 0.02, 0.09, 0, Math.PI * 2);
+      context.arc(0.39, -0.12, 0.075, 0, Math.PI * 2);
       context.fill();
-      context.strokeStyle = outline;
-      context.lineWidth = 0.11;
-      context.beginPath();
-      context.moveTo(0.28, -0.2);
-      context.lineTo(0.28, -0.78);
-      context.stroke();
     } else {
       // A dark breech, armored barrel sleeve, and muzzle brake give the weapon
       // a credible mechanical assembly while the narrow team stripe identifies it.
@@ -5251,16 +5292,73 @@ function drawTransportAircraft(definition, palette, stasis) {
 }
 
 function drawRadarAircraft(definition, palette, stasis) {
-  drawInterceptorAircraft(definition, palette, stasis);
-  context.strokeStyle = stasis ? colors.stasis : colors.energy;
-  context.lineWidth = 0.075;
+  // A blunt sensor fuselage, straight wings, and paired engine pods keep the
+  // Skywatch from inheriting the Interceptor's needle-nose delta silhouette.
+  context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.09;
   context.beginPath();
-  context.arc(0, 0.12, 0.35, Math.PI * 0.12, Math.PI * 0.88);
+  context.moveTo(-0.16, -0.94);
+  context.lineTo(0.16, -0.94);
+  context.lineTo(0.39, -0.53);
+  context.lineTo(0.43, -0.19);
+  context.lineTo(1.05, -0.04);
+  context.lineTo(1.03, 0.34);
+  context.lineTo(0.43, 0.28);
+  context.lineTo(0.31, 0.82);
+  context.lineTo(0, 0.68);
+  context.lineTo(-0.31, 0.82);
+  context.lineTo(-0.43, 0.28);
+  context.lineTo(-1.03, 0.34);
+  context.lineTo(-1.05, -0.04);
+  context.lineTo(-0.43, -0.19);
+  context.lineTo(-0.39, -0.53);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  for (const side of [-1, 1]) {
+    context.fillStyle = palette.armorDark;
+    context.beginPath();
+    context.roundRect(side * 0.76 - 0.16, -0.38, 0.32, 0.88, 0.12);
+    context.fill();
+    context.stroke();
+    context.fillStyle = palette.outline;
+    context.beginPath();
+    context.ellipse(side * 0.76, 0.42, 0.1, 0.13, 0, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  drawAircraftCanopy(0, -0.63, 0.17, 0.2, palette);
+  drawMobileRadarDish(
+    0,
+    0.08,
+    0.67,
+    0.49,
+    palette,
+    stasis ? colors.stasis : colors.energy,
+  );
+
+  // The sole weapon is a short defensive gun tucked beside the sensor deck.
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.08;
+  context.beginPath();
+  context.moveTo(0.48, -0.18);
+  context.lineTo(0.48, -0.58);
   context.stroke();
   context.fillStyle = palette.accent;
   context.beginPath();
-  context.arc(0, 0.12, 0.075, 0, Math.PI * 2);
+  context.arc(0.48, -0.18, 0.07, 0, Math.PI * 2);
   context.fill();
+  if (definition.tier >= 3) {
+    context.strokeStyle = palette.accent;
+    context.lineWidth = 0.055;
+    context.beginPath();
+    context.arc(0, 0.08, 0.75, Math.PI * 0.08, Math.PI * 0.92);
+    context.stroke();
+  }
+  drawAircraftNavigationLights(-1.04, 1.04, 0.13, stasis);
+  drawAircraftTierMarks(definition.tier, 0.57, palette);
 }
 
 function drawAircraftCanopy(x, y, radiusX, radiusY, palette) {
@@ -5940,25 +6038,25 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
     context.arc(0, -0.05, 0.24, Math.PI * 0.12, Math.PI * 0.88);
     context.stroke();
   } else if (radar) {
-    context.strokeStyle = stasis ? colors.stasis : colors.energy;
-    context.lineWidth = 0.075;
+    drawMobileRadarDish(
+      0,
+      -0.01,
+      0.6,
+      0.46,
+      { outline, armor, armorLight, armorDark },
+      stasis ? colors.stasis : colors.energy,
+    );
+    // One compact shoulder gun provides defense without competing with the dish.
+    context.strokeStyle = outline;
+    context.lineWidth = 0.085;
     context.beginPath();
-    context.arc(0, -0.04, 0.34, Math.PI * 0.12, Math.PI * 0.88);
-    context.stroke();
-    context.beginPath();
-    context.moveTo(0, -0.04);
-    context.lineTo(0, 0.29);
+    context.moveTo(0.68, -0.16);
+    context.lineTo(0.68, -0.58);
     context.stroke();
     context.fillStyle = accent;
     context.beginPath();
-    context.arc(0, -0.04, 0.08, 0, Math.PI * 2);
+    context.arc(0.68, -0.16, 0.075, 0, Math.PI * 2);
     context.fill();
-    context.strokeStyle = outline;
-    context.lineWidth = 0.1;
-    context.beginPath();
-    context.moveTo(0.73, -0.18);
-    context.lineTo(0.73, -0.86);
-    context.stroke();
   } else {
     // Vanguards and raiders carry a compact gun along the right side of the
     // chassis. Its forward barrel makes the overhead facing unmistakable.

@@ -1811,9 +1811,12 @@ test("higher-tier unit sprites grow and armed variants add visible hardpoints", 
     }
   }
 
+  const radarRoles = new Set(["radar_mech", "radar_vehicle", "radar_aircraft"]);
   for (const definition of Object.values(UNIT_DEFINITIONS)) {
     const expectedHardpoints =
-      definition.unitDomain !== "experimental" && definition.attackDamage > 0
+      !radarRoles.has(definition.role) &&
+      definition.unitDomain !== "experimental" &&
+      definition.attackDamage > 0
         ? definition.transferRate
           ? definition.tier
           : Math.max(0, definition.tier - 1)
@@ -3499,11 +3502,14 @@ test("radar towers and mobile radar units improve across every available branch 
       UNIT_DEFINITIONS[`radar_vehicle${suffix}`].attackDamage,
       expectedMobileRadarDamage[`radar_vehicle${suffix}`],
     );
+    assert.equal(UNIT_DEFINITIONS[`radar_mech${suffix}`].additionalWeaponHardpoints, 0);
+    assert.equal(UNIT_DEFINITIONS[`radar_vehicle${suffix}`].additionalWeaponHardpoints, 0);
   }
   for (const tier of [2, 3]) {
     const definition = UNIT_DEFINITIONS[`radar_aircraft_t${tier}`];
     assert.equal(definition.attackDamage, expectedMobileRadarDamage[`radar_aircraft_t${tier}`]);
     assert.ok(definition.radarRange > definition.attackRange * 4);
+    assert.equal(definition.additionalWeaponHardpoints, 0);
   }
   assert.equal(getNextStructureTierType("radar_tower"), "radar_tower_t2");
   assert.equal(getNextStructureTierType("radar_tower_t2"), "radar_tower_t3");

@@ -531,6 +531,12 @@ dorsal energy core. Player blue and enemy red appear only on restrained
 identification panels, cockpit trim, and tier markings. Stasis state, health, and
 energy remain separately visible.
 
+Every mobile radar branch is dominated by an oversized dorsal dish rather than a
+combat turret or fighter silhouette. Watchman Radar Mechs, Pathfinder Radar
+vehicles, and Skywatch Radar aircraft each carry exactly one compact defensive gun
+and never gain the auxiliary weapon hardpoints used to show combat-unit tier
+progression. Higher radar tiers improve and detail their sensor assemblies instead.
+
 Aircraft roles use independent silhouettes rather than one shared airframe with
 minor attachments. Interceptors have needle noses, swept delta wings, and twin tail
 fins; Gunships use short armored fuselages, straight weapon wings, large paired
@@ -538,7 +544,9 @@ engine nacelles, and visible cannons; Bombers are broad tailless flying wings wi
 recessed payload bays; and Energy Tenders use narrow transport bodies dominated by
 two long external energy cylinders and illuminated transfer conduits. Dropships use
 broad lift wings, a deep central cargo hull, and a clearly segmented dorsal cargo
-hatch. Tier 3 models
+hatch. Skywatch Radars use blunt sensor fuselages, straight stabilizer wings, paired
+engine pods, and an oversized dorsal dish, keeping them visually distinct from the
+Interceptor's needle-nose delta planform. Tier 3 models
 retain their role silhouette while adding extra control surfaces, exhausts, armor,
 or energy-system markings.
 
