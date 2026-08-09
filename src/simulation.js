@@ -23,6 +23,16 @@ const { createMatchTeams, getMatchMap, normalizeAiDifficulty } = await import(
   `./maps.js${versionSuffix}`
 );
 const { SIMULATION_STEP_SECONDS } = await import(`./determinism.js${versionSuffix}`);
+const {
+  SPAWN_PAD_UPGRADES,
+  SPAWN_WARS_RULES,
+  createSpawnWarsTeams,
+  spawnWarsBuildZone,
+  spawnWarsInterval,
+  spawnWarsPadCost,
+  spawnWarsPadUpgradeCost,
+  spawnWarsSideForAlliance,
+} = await import(`./spawn-wars.js${versionSuffix}`);
 
 const EPSILON = 0.0001;
 const NEUTRAL_FACTION_ID = "neutral";
@@ -84,6 +94,8 @@ export class Simulation {
     mapName = null,
     mapTheme = "apocalypse",
     testerTeams = [],
+    gameMode = "standard",
+    spawnWarsState = null,
   } = {}) {
     this.width = width;
     this.height = height;
@@ -124,6 +136,8 @@ export class Simulation {
     this.mapName = mapName;
     this.mapTheme = mapTheme;
     this.testerTeams = new Set(testerTeams);
+    this.gameMode = gameMode;
+    this.spawnWars = spawnWarsState;
     this.teams = teams.map((team) => ({
       ...team,
       allianceId: team.allianceId || team.id,
@@ -224,6 +238,77 @@ export class Simulation {
     return simulation;
   }
 
+  static createSpawnWars({ playerCount = 2 } = {}) {
+    const teams = createSpawnWarsTeams(playerCount);
+    const simulation = new Simulation({
+      width: SPAWN_WARS_RULES.mapWidth,
+      height: SPAWN_WARS_RULES.mapHeight,
+      terrain: [],
+      enemyAiEnabled: false,
+      teams,
+      mapId: "spawn-wars-arena",
+      mapName: "Spawn Wars Arena",
+      mapTheme: "apocalypse",
+      gameMode: "spawn_wars",
+    });
+
+    const buildZones = {};
+    const incomeLevels = {};
+    for (const team of teams) {
+      const zone = spawnWarsBuildZone(team, playerCount);
+      buildZones[team.id] = { ...zone };
+      incomeLevels[team.id] = 0;
+      simulation.resources[team.id].metal = SPAWN_WARS_RULES.startingCrystal;
+      const side = spawnWarsSideForAlliance(team.allianceId);
+      const architectX = side === "west" ? zone.left + 180 : zone.right - 180;
+      const architectY = (zone.top + zone.bottom) / 2;
+      simulation.teamStarts[team.id] = { x: architectX, y: architectY };
+      simulation.addUnit("spawn_architect_t1", team.id, architectX, architectY, {
+        spawnWarsArchitect: true,
+      });
+    }
+
+    const objectives = {};
+    for (const allianceId of ["spawn-west", "spawn-east"]) {
+      const owner = teams.find((team) => team.allianceId === allianceId);
+      if (!owner) continue;
+      const west = allianceId === "spawn-west";
+      const hq = simulation.addStructure(
+        "spawn_command_hq",
+        owner.id,
+        west ? 160 : SPAWN_WARS_RULES.mapWidth - 160,
+        SPAWN_WARS_RULES.mapHeight / 2,
+        {
+          powered: true,
+          connected: true,
+          powerStatus: "online",
+          spawnWarsAllianceId: allianceId,
+          spawnWarsProtected: true,
+        },
+      );
+      const turret = simulation.addStructure(
+        "spawn_fortress_turret",
+        owner.id,
+        west ? 600 : SPAWN_WARS_RULES.mapWidth - 600,
+        SPAWN_WARS_RULES.mapHeight / 2,
+        { powered: true, connected: true, powerStatus: "online", spawnWarsAllianceId: allianceId },
+      );
+      objectives[allianceId] = { hqId: hq.id, turretId: turret.id };
+    }
+
+    simulation.spawnWars = {
+      playerCount,
+      buildZones,
+      incomeLevels,
+      incomeRemaining: SPAWN_WARS_RULES.incomeInterval,
+      controlAllianceId: null,
+      objectives,
+      defeatedAllianceIds: [],
+    };
+    simulation.matchRulesEnabled = true;
+    return simulation;
+  }
+
   ensureTeam(teamId, kind = teamId === "player" ? "human" : "ai") {
     if (!this.teams.some((team) => team.id === teamId)) {
       this.teams.push({
@@ -304,6 +389,8 @@ export class Simulation {
       structureTechTier: this.structureTechTier,
       resources: this.resources,
       testerTeams: [...this.testerTeams],
+      gameMode: this.gameMode,
+      spawnWars: this.spawnWars,
     };
   }
 
@@ -322,6 +409,8 @@ export class Simulation {
       mapName: snapshot.mapName || MAP_DEFINITIONS[snapshot.mapId || DEFAULT_MAP_ID]?.name,
       mapTheme: snapshot.mapTheme || MAP_DEFINITIONS[snapshot.mapId || DEFAULT_MAP_ID]?.theme || "apocalypse",
       testerTeams: snapshot.testerTeams || [],
+      gameMode: snapshot.gameMode || "standard",
+      spawnWarsState: snapshot.spawnWars || null,
     });
     simulation.mapId = snapshot.mapId || DEFAULT_MAP_ID;
     simulation.mapName = snapshot.mapName || MAP_DEFINITIONS[simulation.mapId]?.name || "Unknown Map";
@@ -393,7 +482,13 @@ export class Simulation {
       || (snapshot.matchResult === "victory" ? "player" : null);
     simulation.structureTechTier = snapshot.structureTechTier || { player: 1, enemy: 1 };
     simulation.resources = snapshot.resources;
+    simulation.gameMode = snapshot.gameMode || "standard";
+    simulation.spawnWars = snapshot.spawnWars || null;
     return simulation;
+  }
+
+  isSpawnWars() {
+    return this.gameMode === "spawn_wars" && Boolean(this.spawnWars);
   }
 
   createId(prefix) {
@@ -570,7 +665,7 @@ export class Simulation {
         : {}),
       ...overrides,
     };
-    unit.hp = clamp(unit.hp, 0, definition.maxHp);
+    unit.hp = clamp(unit.hp, 0, unit.spawnWarsMaximumHp || definition.maxHp);
     unit.energy = clamp(unit.energy, 0, definition.maxEnergy);
     unit.buildQueue = Array.isArray(unit.buildQueue) ? [...unit.buildQueue] : [];
     unit.moveQueue = Array.isArray(unit.moveQueue) ? unit.moveQueue
@@ -1099,7 +1194,9 @@ export class Simulation {
       ...(ignoreStructures
         ? []
         : this.structures
-          .filter((structure) => structure.alive)
+          .filter((structure) => (
+            structure.alive && !STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer
+          ))
           .map((structure) => expandedStructureBounds(
             structure,
             radius + SIMULATION_RULES.structureCollisionPadding,
@@ -1641,9 +1738,16 @@ export class Simulation {
         nextStructure?.alive &&
         !nextStructure.complete &&
         nextStructure.team === worker.team &&
-        canWorkerTierBuildStructure(
-          UNIT_DEFINITIONS[worker.type].workerTier,
-          nextStructure.type,
+        (
+          canWorkerTierBuildStructure(
+            UNIT_DEFINITIONS[worker.type].workerTier,
+            nextStructure.type,
+          ) ||
+          (
+            this.isSpawnWars() &&
+            UNIT_DEFINITIONS[worker.type].spawnWarsArchitect &&
+            STRUCTURE_DEFINITIONS[nextStructure.type]?.phaseLayer
+          )
         )
       ) {
         this.assignActiveBuildTarget(worker, nextStructure.id);
@@ -1666,9 +1770,16 @@ export class Simulation {
         worker.carriedById ||
         worker.team !== structure.team ||
         !UNIT_DEFINITIONS[worker.type].workerTier ||
-        !canWorkerTierBuildStructure(
-          UNIT_DEFINITIONS[worker.type].workerTier,
-          structure.type,
+        !(
+          canWorkerTierBuildStructure(
+            UNIT_DEFINITIONS[worker.type].workerTier,
+            structure.type,
+          ) ||
+          (
+            this.isSpawnWars() &&
+            UNIT_DEFINITIONS[worker.type].spawnWarsArchitect &&
+            STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer
+          )
         )
       ) {
         continue;
@@ -1741,6 +1852,7 @@ export class Simulation {
     ) {
       return false;
     }
+    if (this.isSpawnWars() && !STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer) return false;
     return this.destroyEntity(structure);
   }
 
@@ -2254,6 +2366,10 @@ export class Simulation {
 
   startConstruction(workerIds, structureType, x, y, { queue = false } = {}) {
     this.lastPlacementError = null;
+    if (this.isSpawnWars()) {
+      this.lastPlacementError = "Spawn Architects construct unit platforms through the Spawn Wars panel.";
+      return null;
+    }
     const definition = STRUCTURE_DEFINITIONS[structureType];
     const workers = workerIds
       .map((id) => this.getUnit(id))
@@ -2316,6 +2432,176 @@ export class Simulation {
     }
     this.commandBuild(workers.map((worker) => worker.id), structure.id, { queue });
     return structure;
+  }
+
+  evaluateSpawnPadPlacement(unitType, x, y, teamId) {
+    const unitDefinition = UNIT_DEFINITIONS[unitType];
+    const zone = this.spawnWars?.buildZones?.[teamId];
+    if (!this.isSpawnWars() || !unitDefinition || !zone) {
+      return { valid: false, x, y, reason: "Spawn platforms are only available in Spawn Wars." };
+    }
+    const padType = unitDefinition.unitDomain === "experimental"
+      ? "spawn_experimental_pad"
+      : "spawn_pad";
+    const definition = STRUCTURE_DEFINITIONS[padType];
+    const gridSize = SIMULATION_RULES.buildingGridSize;
+    const footprint = structureFootprint(padType);
+    const offsetX = footprint.columns % 2 === 0 ? 0 : gridSize / 2;
+    const offsetY = footprint.rows % 2 === 0 ? 0 : gridSize / 2;
+    const snappedX = Math.round((x - offsetX) / gridSize) * gridSize + offsetX;
+    const snappedY = Math.round((y - offsetY) / gridSize) * gridSize + offsetY;
+    const result = { valid: false, x: snappedX, y: snappedY, padType, reason: null };
+    if (
+      snappedX - footprint.halfWidth < zone.left ||
+      snappedX + footprint.halfWidth > zone.right ||
+      snappedY - footprint.halfHeight < zone.top ||
+      snappedY + footprint.halfHeight > zone.bottom
+    ) {
+      result.reason = "Spawn platforms must fit inside your highlighted build zone.";
+      return result;
+    }
+    const overlaps = this.structures.some((structure) => {
+      if (!structure.alive || !STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer) return false;
+      const other = structureFootprint(structure.type);
+      return (
+        Math.abs(snappedX - structure.x) + EPSILON < footprint.halfWidth + other.halfWidth &&
+        Math.abs(snappedY - structure.y) + EPSILON < footprint.halfHeight + other.halfHeight
+      );
+    });
+    if (overlaps) {
+      result.reason = "Spawn platforms cannot overlap another spawn platform.";
+      return result;
+    }
+    result.valid = true;
+    return result;
+  }
+
+  startSpawnPadConstruction(architectIds, unitType, x, y, { queue = false } = {}) {
+    this.lastPlacementError = null;
+    const architects = architectIds
+      .map((id) => this.getUnit(id))
+      .filter((unit) => unit?.alive && UNIT_DEFINITIONS[unit.type]?.spawnWarsArchitect);
+    const unitDefinition = UNIT_DEFINITIONS[unitType];
+    if (!this.isSpawnWars() || architects.length === 0 || !unitDefinition) {
+      this.lastPlacementError = "Select your active Spawn Architect.";
+      return null;
+    }
+    const teamId = architects[0].team;
+    if (architects.some((architect) => architect.team !== teamId)) {
+      this.lastPlacementError = "Architects from different commanders cannot share an order.";
+      return null;
+    }
+    const architectTier = Math.max(...architects.map((architect) => UNIT_DEFINITIONS[architect.type].tier));
+    if (unitDefinition.spawnWarsArchitect || unitDefinition.workerTier || unitDefinition.tier > architectTier) {
+      this.lastPlacementError = `Upgrade your Spawn Architect to Tier ${unitDefinition.tier}.`;
+      return null;
+    }
+    const placement = this.evaluateSpawnPadPlacement(unitType, x, y, teamId);
+    if (!placement.valid) {
+      this.lastPlacementError = placement.reason;
+      return null;
+    }
+    const cost = spawnWarsPadCost(unitDefinition);
+    if (this.resources[teamId].metal + EPSILON < cost) {
+      this.lastPlacementError = "Not enough crystal.";
+      return null;
+    }
+    this.resources[teamId].metal -= cost;
+    const padDefinition = STRUCTURE_DEFINITIONS[placement.padType];
+    const structure = this.addStructure(placement.padType, teamId, placement.x, placement.y, {
+      hp: padDefinition.maxHp,
+      complete: false,
+      constructionProgress: 0,
+      powered: true,
+      connected: true,
+      powerStatus: "constructing",
+      spawnUnitType: unitType,
+      spawnInterval: spawnWarsInterval(unitDefinition),
+      spawnRemaining: spawnWarsInterval(unitDefinition),
+      spawnUpgradeLevels: { health: 0, armor: 0, damage: 0, attack_speed: 0 },
+      constructionStartedAt: this.time,
+    });
+    for (const architect of architects) {
+      if (!queue || !architect.buildTargetId) {
+        architect.buildQueue = [];
+        this.assignActiveBuildTarget(architect, structure.id);
+      } else if (!architect.buildQueue.includes(structure.id)) {
+        architect.buildQueue.push(structure.id);
+      }
+    }
+    return structure;
+  }
+
+  upgradeSpawnArchitect(teamId) {
+    this.lastUpgradeError = null;
+    if (!this.isSpawnWars()) return false;
+    const architect = this.units.find(
+      (unit) => unit.alive && unit.team === teamId && UNIT_DEFINITIONS[unit.type]?.spawnWarsArchitect,
+    );
+    const tier = architect ? UNIT_DEFINITIONS[architect.type].tier : 0;
+    if (!architect || tier >= 3) {
+      this.lastUpgradeError = tier >= 3 ? "Spawn Architect is already Tier 3." : "No Spawn Architect found.";
+      return false;
+    }
+    const cost = SPAWN_WARS_RULES.architectUpgradeCosts[tier - 1];
+    if (this.resources[teamId].metal + EPSILON < cost) {
+      this.lastUpgradeError = "Not enough crystal.";
+      return false;
+    }
+    this.resources[teamId].metal -= cost;
+    architect.type = `spawn_architect_t${tier + 1}`;
+    architect.hp = UNIT_DEFINITIONS[architect.type].maxHp;
+    architect.energy = UNIT_DEFINITIONS[architect.type].maxEnergy;
+    this.emit("spawn_architect_upgraded", architect.x, architect.y, { unitId: architect.id, tier: tier + 1 });
+    return true;
+  }
+
+  upgradeSpawnWarsIncome(teamId) {
+    this.lastUpgradeError = null;
+    if (!this.isSpawnWars() || !this.resources[teamId]) return false;
+    const currentLevel = this.spawnWars.incomeLevels[teamId] || 0;
+    const cost = SPAWN_WARS_RULES.incomeUpgradeCosts[currentLevel];
+    if (!Number.isFinite(cost)) {
+      this.lastUpgradeError = "Income is already fully upgraded.";
+      return false;
+    }
+    if (this.resources[teamId].metal + EPSILON < cost) {
+      this.lastUpgradeError = "Not enough crystal.";
+      return false;
+    }
+    this.resources[teamId].metal -= cost;
+    this.spawnWars.incomeLevels[teamId] = currentLevel + 1;
+    this.emit("spawn_income_upgraded", this.width / 2, this.height / 2, {
+      team: teamId,
+      level: currentLevel + 1,
+    });
+    return true;
+  }
+
+  upgradeSpawnPad(structureId, category, teamId) {
+    this.lastUpgradeError = null;
+    const pad = this.getStructure(structureId);
+    const definition = pad && STRUCTURE_DEFINITIONS[pad.type];
+    const unitDefinition = pad && UNIT_DEFINITIONS[pad.spawnUnitType];
+    if (
+      !this.isSpawnWars() || !pad?.alive || !pad.complete || pad.team !== teamId ||
+      !definition?.phaseLayer || !SPAWN_PAD_UPGRADES[category] || !unitDefinition
+    ) return false;
+    pad.spawnUpgradeLevels ||= { health: 0, armor: 0, damage: 0, attack_speed: 0 };
+    const level = pad.spawnUpgradeLevels[category] || 0;
+    if (level >= SPAWN_WARS_RULES.maximumUpgradeLevel) {
+      this.lastUpgradeError = `${SPAWN_PAD_UPGRADES[category].label} is already fully upgraded.`;
+      return false;
+    }
+    const cost = spawnWarsPadUpgradeCost(unitDefinition, category, level);
+    if (this.resources[teamId].metal + EPSILON < cost) {
+      this.lastUpgradeError = "Not enough crystal.";
+      return false;
+    }
+    this.resources[teamId].metal -= cost;
+    pad.spawnUpgradeLevels[category] = level + 1;
+    this.emit("spawn_pad_upgraded", pad.x, pad.y, { structureId: pad.id, category, level: level + 1 });
+    return true;
   }
 
   evaluatePlacement(structureType, x, y, team = null) {
@@ -2741,6 +3027,7 @@ export class Simulation {
     this.assignAutomaticTargets();
     this.updateUnits(delta);
     this.updateConstruction(delta);
+    this.updateSpawnWars(delta);
     this.updateSupplyUpgrades(delta);
     this.updateProduction(delta);
     this.updateStaticDefenses(delta);
@@ -2791,6 +3078,7 @@ export class Simulation {
 
   updateMatchResult() {
     if (!this.matchRulesEnabled || this.matchResult) return this.matchResult;
+    if (this.isSpawnWars()) return null;
 
     const hasLivingAssets = (team) =>
       this.units.some((unit) => unit.alive && unit.team === team) ||
@@ -2824,6 +3112,17 @@ export class Simulation {
     this.powerLinks = [];
     for (const team of Object.keys(this.resources)) this.buildPowerNetworks(team, delta);
 
+    if (this.isSpawnWars()) {
+      for (const structure of this.structures) {
+        const definition = STRUCTURE_DEFINITIONS[structure.type];
+        if (!structure.alive || !structure.complete || !definition?.spawnWarsOnly) continue;
+        structure.powered = true;
+        structure.connected = true;
+        structure.powerStatus = "online";
+        if (definition.capacitorCapacity) structure.weaponEnergy = definition.capacitorCapacity;
+      }
+    }
+
     for (const mine of this.structures) {
       const definition = STRUCTURE_DEFINITIONS[mine.type];
       if (mine.alive && mine.complete && mine.powered && definition.metalRate) {
@@ -2833,6 +3132,90 @@ export class Simulation {
       }
     }
     this.syncStoredEnergy();
+  }
+
+  updateSpawnWars(delta) {
+    if (!this.isSpawnWars()) return;
+    this.spawnWars.incomeRemaining -= delta;
+    while (this.spawnWars.incomeRemaining <= EPSILON) {
+      for (const team of this.teams) {
+        if (this.spawnWars.defeatedAllianceIds.includes(team.allianceId)) continue;
+        const level = this.spawnWars.incomeLevels[team.id] || 0;
+        const base = SPAWN_WARS_RULES.baseIncome *
+          (1 + level * SPAWN_WARS_RULES.incomeUpgradeMultiplier);
+        const control = this.spawnWars.controlAllianceId === team.allianceId
+          ? SPAWN_WARS_RULES.controlIncome
+          : 0;
+        const amount = Math.round(base + control);
+        this.resources[team.id].metal += amount;
+        this.emit("spawn_income", this.teamStarts[team.id]?.x || this.width / 2,
+          this.teamStarts[team.id]?.y || this.height / 2, { team: team.id, amount, control });
+      }
+      this.spawnWars.incomeRemaining += SPAWN_WARS_RULES.incomeInterval;
+    }
+
+    for (const pad of this.structures) {
+      const definition = STRUCTURE_DEFINITIONS[pad.type];
+      if (!pad.alive || !pad.complete || !definition?.phaseLayer || !pad.spawnUnitType) continue;
+      pad.spawnRemaining = Math.max(0, (pad.spawnRemaining ?? pad.spawnInterval) - delta);
+      if (pad.spawnRemaining > EPSILON) continue;
+      this.spawnSpawnWarsUnit(pad);
+      pad.spawnRemaining += pad.spawnInterval;
+    }
+
+    for (const unit of this.units) {
+      if (!unit.alive || !unit.spawnWarsSpawned) continue;
+      unit.energy = UNIT_DEFINITIONS[unit.type].maxEnergy;
+      if (unit.state === "stasis") unit.state = "active";
+    }
+
+    const crossingUnits = this.units
+      .filter((unit) => unit.alive && unit.spawnWarsSpawned)
+      .sort((left, right) => left.id.localeCompare(right.id));
+    for (const unit of crossingUnits) {
+      const allianceId = this.getAllianceId(unit.team);
+      const crossed = allianceId === "spawn-west"
+        ? unit.x >= SPAWN_WARS_RULES.centerX + SPAWN_WARS_RULES.centerCaptureHalfWidth
+        : unit.x <= SPAWN_WARS_RULES.centerX - SPAWN_WARS_RULES.centerCaptureHalfWidth;
+      if (!crossed || unit.spawnWarsCenterCrossingRecorded) continue;
+      unit.spawnWarsCenterCrossingRecorded = true;
+      if (this.spawnWars.controlAllianceId === allianceId) continue;
+      this.spawnWars.controlAllianceId = allianceId;
+      this.emit("spawn_center_control", SPAWN_WARS_RULES.centerX, this.height / 2, { allianceId });
+    }
+  }
+
+  spawnSpawnWarsUnit(pad) {
+    const definition = UNIT_DEFINITIONS[pad.spawnUnitType];
+    if (!definition || this.spawnWars.defeatedAllianceIds.includes(this.getAllianceId(pad.team))) {
+      return null;
+    }
+    const levels = pad.spawnUpgradeLevels || {};
+    const healthMultiplier = 1 + (levels.health || 0) * 0.18;
+    const armorMultiplier = 1 / (1 + (levels.armor || 0) * 0.12);
+    const damageMultiplier = 1 + (levels.damage || 0) * 0.15;
+    const attackSpeedMultiplier = 1 + (levels.attack_speed || 0) * 0.12;
+    const unit = this.addUnit(pad.spawnUnitType, pad.team, pad.x, pad.y, {
+      hp: definition.maxHp * healthMultiplier,
+      spawnWarsSpawned: true,
+      spawnWarsPadId: pad.id,
+      spawnWarsMaximumHp: definition.maxHp * healthMultiplier,
+      spawnWarsArmorMultiplier: armorMultiplier,
+      spawnWarsDamageMultiplier: damageMultiplier,
+      spawnWarsAttackSpeedMultiplier: attackSpeedMultiplier,
+      spawnWarsCenterCrossingRecorded: false,
+    });
+    const opposingAllianceId = this.getAllianceId(pad.team) === "spawn-west"
+      ? "spawn-east"
+      : "spawn-west";
+    const objective = this.spawnWars.objectives[opposingAllianceId];
+    const target = this.getStructure(objective?.hqId);
+    if (target?.alive) {
+      unit.moveTarget = { x: target.x, y: target.y };
+      unit.moveMode = "advance";
+    }
+    this.emit("spawn_unit", pad.x, pad.y, { unitId: unit.id, structureId: pad.id });
+    return unit;
   }
 
   buildPowerNetworks(team, delta) {
@@ -4942,7 +5325,7 @@ export class Simulation {
         definition.movementLayer !== "air" &&
         !definition.stridesOverStructures &&
         this.structures.some((structure) => {
-          if (!structure.alive) return false;
+          if (!structure.alive || STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer) return false;
           const footprint = structureFootprint(structure.type);
           const padding = definition.radius + SIMULATION_RULES.structureCollisionPadding;
           return (
@@ -4982,7 +5365,7 @@ export class Simulation {
       definition.movementLayer === "air" ||
       definition.stridesOverStructures ||
       this.structures.every((structure) => {
-        if (!structure.alive) return true;
+        if (!structure.alive || STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer) return true;
         const clearance =
           definition.radius +
           STRUCTURE_DEFINITIONS[structure.type].radius +
@@ -5424,8 +5807,10 @@ export class Simulation {
     const cooldownMultiplier = overdrive
       ? definition.abilities.overdrive.cooldownMultiplier
       : 1;
-    unit.attackCooldownRemaining = definition.attackCooldown * cooldownMultiplier;
-    const damage = definition.attackDamage * damageMultiplierAgainstTarget(definition, target);
+    unit.attackCooldownRemaining = definition.attackCooldown * cooldownMultiplier /
+      (unit.spawnWarsAttackSpeedMultiplier || 1);
+    const damage = definition.attackDamage * (unit.spawnWarsDamageMultiplier || 1) *
+      damageMultiplierAgainstTarget(definition, target);
     this.fireWeapon(unit, target, damage, definition);
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return true;
@@ -5479,13 +5864,14 @@ export class Simulation {
       }
 
       unit.energy = Math.max(0, unit.energy - weaponDefinition.attackEnergy);
-      state.cooldownRemaining = weaponDefinition.attackCooldown;
+      state.cooldownRemaining = weaponDefinition.attackCooldown /
+        (unit.spawnWarsAttackSpeedMultiplier || 1);
       const firingDefinition = {
         ...definition,
         ...weaponDefinition,
         salvoCount: 1,
       };
-      const damage = weaponDefinition.attackDamage * damageMultiplierAgainstTarget(
+      const damage = weaponDefinition.attackDamage * (unit.spawnWarsDamageMultiplier || 1) * damageMultiplierAgainstTarget(
         firingDefinition,
         target,
       );
@@ -5534,6 +5920,7 @@ export class Simulation {
     const targets = this.getNearbyHostileTargets(unit, definition.underbellyBeamRadius)
       .filter(
         (target) =>
+          !entityIsUntargetable(target) &&
           isUnderbellyBeamTarget(target) &&
           distance(unit, target) <= definition.underbellyBeamRadius + entityRadius(target),
       );
@@ -5551,7 +5938,8 @@ export class Simulation {
     );
     unit.underbellyBeamActive = true;
     unit.underbellyBeamTargetIds = targets.map((target) => target.id);
-    const damage = definition.underbellyBeamDamagePerSecond * activeSeconds;
+    const damage = definition.underbellyBeamDamagePerSecond * activeSeconds *
+      (unit.spawnWarsDamageMultiplier || 1);
     for (const target of targets) this.applyDamage(target, damage, unit);
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return true;
@@ -5622,8 +6010,11 @@ export class Simulation {
     const speedMultiplier = overdrive
       ? definition.abilities.overdrive.speedMultiplier
       : 1;
+    const baseSpeed = this.isSpawnWars() && !definition.spawnWarsArchitect
+      ? SPAWN_WARS_RULES.commonMoveSpeed
+      : definition.speed;
     const desiredDistance = Math.min(
-      definition.speed * speedMultiplier * delta,
+      baseSpeed * speedMultiplier * delta,
       separation - waypointStopDistance,
     );
     const energyCostPerUnit = definition.movementEnergyPerUnit;
@@ -5850,7 +6241,11 @@ export class Simulation {
       ...(ignoreStructures
         ? []
         : this.structures
-          .filter((structure) => structure.alive && structure.id !== excludedObstacleId)
+          .filter((structure) => (
+            structure.alive &&
+            structure.id !== excludedObstacleId &&
+            !STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer
+          ))
           .map((structure) => ({
             id: structure.id,
             bounds: expandedStructureBounds(structure, padding),
@@ -5938,7 +6333,7 @@ export class Simulation {
       definition.radius + SIMULATION_RULES.structureCollisionPadding;
     if (!definition.stridesOverStructures) {
       for (const structure of this.structures) {
-        if (!structure.alive) continue;
+        if (!structure.alive || STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer) continue;
         const collision = sweepBounds(
           unit,
           movementX,
@@ -5967,7 +6362,7 @@ export class Simulation {
     if (definition.movementLayer === "air" || definition.stridesOverStructures) return;
     const unitRadius = UNIT_DEFINITIONS[unit.type].radius;
     for (const structure of this.structures) {
-      if (!structure.alive) continue;
+      if (!structure.alive || STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer) continue;
       const padding = unitRadius + SIMULATION_RULES.structureCollisionPadding;
       const bounds = expandedStructureBounds(structure, padding);
       if (!pointInsideBounds(unit, bounds)) continue;
@@ -6478,7 +6873,8 @@ export class Simulation {
     if (
       !target?.alive ||
       amount <= 0 ||
-      (source?.team && this.areAlliedTeams(source.team, target.team))
+      (source?.team && this.areAlliedTeams(source.team, target.team)) ||
+      entityIsUntargetable(target)
     ) return;
     const shield = this.findProtectingShield(target);
     let remainingDamage = amount;
@@ -6498,12 +6894,21 @@ export class Simulation {
       this.assignRetaliationTarget(target, source);
       return;
     }
-    target.hp = Math.max(0, target.hp - remainingDamage);
+    target.hp = Math.max(0, target.hp - remainingDamage * (target.spawnWarsArmorMultiplier || 1));
     if (target.hp > EPSILON) {
       this.assignRetaliationTarget(target, source);
       return;
     }
 
+    if (target.kind === "unit" && target.spawnWarsSpawned && source?.team) {
+      const definition = UNIT_DEFINITIONS[target.type];
+      const reward = Math.max(
+        SPAWN_WARS_RULES.minimumKillIncome,
+        Math.round((definition.metalValue || definition.metalCost || 0) * SPAWN_WARS_RULES.killIncomeRatio),
+      );
+      if (this.resources[source.team]) this.resources[source.team].metal += reward;
+      this.emit("spawn_kill_income", target.x, target.y, { team: source.team, amount: reward });
+    }
     this.destroyEntity(target);
   }
 
@@ -6534,10 +6939,44 @@ export class Simulation {
     this.addWreck(target.x, target.y, salvageMetal, target.team);
     this.emit("destroyed", target.x, target.y, { targetId: target.id });
 
-    if (triggerHeadquartersLoss && definition.headquarters) {
+    if (this.isSpawnWars() && definition.family === "spawn_objective_turret") {
+      const objective = this.spawnWars.objectives[target.spawnWarsAllianceId];
+      const headquarters = this.getStructure(objective?.hqId);
+      if (headquarters?.alive) headquarters.spawnWarsProtected = false;
+      this.emit("spawn_turret_destroyed", target.x, target.y, {
+        allianceId: target.spawnWarsAllianceId,
+      });
+    }
+    if (this.isSpawnWars() && definition.family === "spawn_objective_hq") {
+      this.eliminateSpawnWarsAlliance(target.spawnWarsAllianceId, target.id);
+    } else if (triggerHeadquartersLoss && definition.headquarters) {
       this.eliminateTeamAfterHeadquartersLoss(target.team, target.id);
     }
     return true;
+  }
+
+  eliminateSpawnWarsAlliance(allianceId, headquartersId) {
+    if (!allianceId || this.spawnWars.defeatedAllianceIds.includes(allianceId)) return;
+    this.spawnWars.defeatedAllianceIds.push(allianceId);
+    for (const unit of this.units) {
+      if (unit.alive && this.getAllianceId(unit.team) === allianceId) this.destroyUnit(unit);
+    }
+    for (const structure of this.structures) {
+      if (
+        structure.alive &&
+        this.getAllianceId(structure.team) === allianceId &&
+        structure.id !== headquartersId
+      ) this.destroyEntity(structure, { triggerHeadquartersLoss: false });
+    }
+    const winnerAllianceId = allianceId === "spawn-west" ? "spawn-east" : "spawn-west";
+    const winningTeam = this.teams.find((team) => team.allianceId === winnerAllianceId);
+    this.matchWinnerTeamId = winningTeam?.id || null;
+    this.matchResult = winnerAllianceId === this.getAllianceId("player") ? "victory" : "defeat";
+    this.emit("match_complete", this.width / 2, this.height / 2, {
+      result: this.matchResult,
+      winner: this.matchWinnerTeamId,
+      headquartersId,
+    });
   }
 
   eliminateTeamAfterHeadquartersLoss(teamId, headquartersId) {
@@ -6754,14 +7193,14 @@ function canUnitAttackTarget(definition, target) {
 }
 
 function canPrimaryWeaponAttackTarget(definition, target) {
-  if (!target || target.carriedById) return false;
+  if (!target || target.carriedById || entityIsUntargetable(target)) return false;
   if (definition?.underbellyBeamRadius) return isUnderbellyBeamTarget(target);
   if (!definition?.groundAttackOnly || target.kind !== "unit") return true;
   return UNIT_DEFINITIONS[target.type]?.movementLayer !== "air";
 }
 
 function canWeaponSystemAttackTarget(definition, weaponDefinition, target) {
-  if (!target || target.carriedById) return false;
+  if (!target || target.carriedById || entityIsUntargetable(target)) return false;
   if (weaponDefinition.targetLayer === "air") {
     return Boolean(
       target.kind === "unit" &&
@@ -6928,6 +7367,7 @@ function isMobileEnergySupportDefinition(definition) {
 }
 
 function isStaticDefenseTargetInRange(definition, defense, target) {
+  if (entityIsUntargetable(target)) return false;
   const separation = distance(defense, target);
   return (
     separation + EPSILON >= (definition.minimumAttackRange || 0) &&
@@ -6936,9 +7376,21 @@ function isStaticDefenseTargetInRange(definition, defense, target) {
 }
 
 function repairableEntityMaxHp(entity) {
-  if (entity?.kind === "unit") return UNIT_DEFINITIONS[entity.type]?.maxHp || 0;
+  if (entity?.kind === "unit") {
+    return entity.spawnWarsMaximumHp || UNIT_DEFINITIONS[entity.type]?.maxHp || 0;
+  }
   if (entity?.kind === "structure") return STRUCTURE_DEFINITIONS[entity.type]?.maxHp || 0;
   return 0;
+}
+
+function entityIsUntargetable(entity) {
+  if (!entity || entity.spawnWarsProtected) return true;
+  const definition = entity.kind === "structure"
+    ? STRUCTURE_DEFINITIONS[entity.type]
+    : entity.kind === "unit"
+      ? UNIT_DEFINITIONS[entity.type]
+      : null;
+  return Boolean(definition?.untargetable || definition?.invulnerable);
 }
 
 function isValidRepairTarget(worker, target) {

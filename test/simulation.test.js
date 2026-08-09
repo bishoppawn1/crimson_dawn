@@ -22,6 +22,12 @@ import {
 } from "../src/data.js";
 import { distance, Simulation } from "../src/simulation.js";
 import {
+  SPAWN_WARS_RULES,
+  createSpawnWarsTeams,
+  spawnWarsPadCost,
+  spawnWarsPadUpgradeCost,
+} from "../src/spawn-wars.js";
+import {
   generateLobbyCode,
   isValidLobbyCode,
   normalizeLobbyCode,
@@ -53,6 +59,112 @@ function advanceToScheduledImpacts(simulation, step = 1 / 120) {
   );
   advance(simulation, Math.max(step, latestImpactAt - simulation.time + step), step);
 }
+
+test("Spawn Wars creates fixed human teams, architects, zones, and protected objectives", () => {
+  assert.deepEqual(
+    createSpawnWarsTeams(4).map(({ kind, allianceId }) => ({ kind, allianceId })),
+    [
+      { kind: "human", allianceId: "spawn-west" },
+      { kind: "human", allianceId: "spawn-west" },
+      { kind: "human", allianceId: "spawn-east" },
+      { kind: "human", allianceId: "spawn-east" },
+    ],
+  );
+  assert.throws(() => createSpawnWarsTeams(1), /two to four/);
+
+  const simulation = Simulation.createSpawnWars({ playerCount: 3 });
+  assert.equal(simulation.gameMode, "spawn_wars");
+  assert.equal(simulation.enemyAiEnabled, false);
+  assert.equal(simulation.teams.length, 3);
+  assert.equal(simulation.units.filter((unit) => unit.spawnWarsArchitect).length, 3);
+  assert.equal(simulation.structures.filter((structure) => structure.type === "spawn_fortress_turret").length, 2);
+  assert.equal(simulation.structures.filter((structure) => structure.type === "spawn_command_hq").length, 2);
+  const westZone = simulation.spawnWars.buildZones.player;
+  const westAllyZone = simulation.spawnWars.buildZones.enemy;
+  assert.ok(westZone.bottom <= westAllyZone.top);
+});
+
+test("Spawn Wars platforms are limited to their owner's zone and spawn upgraded waves", () => {
+  const simulation = Simulation.createSpawnWars({ playerCount: 2 });
+  const architect = simulation.units.find((unit) => unit.team === "player");
+  const zone = simulation.spawnWars.buildZones.player;
+  const unitDefinition = UNIT_DEFINITIONS.scout_mech;
+  const startingCrystal = simulation.resources.player.metal;
+
+  assert.equal(
+    simulation.startSpawnPadConstruction(
+      [architect.id],
+      "scout_mech",
+      SPAWN_WARS_RULES.centerX,
+      simulation.height / 2,
+    ),
+    null,
+  );
+  assert.match(simulation.lastPlacementError, /highlighted build zone/);
+
+  const pad = simulation.startSpawnPadConstruction(
+    [architect.id],
+    "scout_mech",
+    (zone.left + zone.right) / 2,
+    (zone.top + zone.bottom) / 2,
+  );
+  assert.ok(pad);
+  assert.equal(simulation.resources.player.metal, startingCrystal - spawnWarsPadCost(unitDefinition));
+  advance(simulation, SPAWN_WARS_RULES.padBuildTime + 0.2);
+  assert.equal(pad.complete, true);
+
+  simulation.resources.player.metal = 10_000;
+  const damageCost = spawnWarsPadUpgradeCost(unitDefinition, "damage", 0);
+  assert.equal(simulation.upgradeSpawnPad(pad.id, "damage", "player"), true);
+  assert.equal(simulation.resources.player.metal, 10_000 - damageCost);
+  advance(simulation, pad.spawnInterval + 0.2);
+  const spawned = simulation.units.find((unit) => unit.spawnWarsPadId === pad.id);
+  assert.ok(spawned);
+  assert.equal(spawned.spawnWarsDamageMultiplier, 1.15);
+  assert.equal(spawned.moveMode, "advance");
+});
+
+test("Spawn Wars income, center control, equal speed, kill rewards, and objectives are deterministic", () => {
+  const simulation = Simulation.createSpawnWars({ playerCount: 2 });
+  const westStart = simulation.resources.player.metal;
+  const west = simulation.addUnit(
+    "battle_tank",
+    "player",
+    SPAWN_WARS_RULES.centerX + SPAWN_WARS_RULES.centerCaptureHalfWidth + 1,
+    900,
+    { spawnWarsSpawned: true },
+  );
+  simulation.updateSpawnWars(0.1);
+  assert.equal(simulation.spawnWars.controlAllianceId, "spawn-west");
+  simulation.updateSpawnWars(SPAWN_WARS_RULES.incomeInterval);
+  assert.equal(
+    simulation.resources.player.metal,
+    westStart + SPAWN_WARS_RULES.baseIncome + SPAWN_WARS_RULES.controlIncome,
+  );
+
+  const fast = simulation.addUnit("scout_mech", "player", 1000, 600, { spawnWarsSpawned: true });
+  const slow = simulation.addUnit("battle_tank", "player", 1000, 700, { spawnWarsSpawned: true });
+  simulation.commandMove([fast.id, slow.id], 1400, 650);
+  simulation.updateUnits(1);
+  assert.ok(Math.abs(distance(fast, { x: 1000, y: 600 }) - SPAWN_WARS_RULES.commonMoveSpeed) < 1);
+  assert.ok(Math.abs(distance(slow, { x: 1000, y: 700 }) - SPAWN_WARS_RULES.commonMoveSpeed) < 1);
+
+  const victim = simulation.addUnit("scout_mech", "enemy", 1500, 700, { spawnWarsSpawned: true });
+  const beforeKill = simulation.resources.player.metal;
+  simulation.applyDamage(victim, victim.hp + 1, west);
+  assert.ok(simulation.resources.player.metal > beforeKill);
+
+  const eastObjective = simulation.spawnWars.objectives["spawn-east"];
+  const eastHq = simulation.getStructure(eastObjective.hqId);
+  const eastTurret = simulation.getStructure(eastObjective.turretId);
+  const protectedHp = eastHq.hp;
+  simulation.applyDamage(eastHq, protectedHp, west);
+  assert.equal(eastHq.hp, protectedHp);
+  simulation.applyDamage(eastTurret, eastTurret.hp, west);
+  assert.equal(eastHq.spawnWarsProtected, false);
+  simulation.applyDamage(eastHq, eastHq.hp, west);
+  assert.equal(simulation.matchResult, "victory");
+});
 
 test("unit production and building construction use the global 4x duration scale", () => {
   assert.equal(BUILD_DURATION_MULTIPLIER, 4);
@@ -2576,6 +2688,9 @@ test("every unit type has the enlarged provisional energy capacity", () => {
       worker_drone_t1: 690,
       worker_drone_t2: 990,
       worker_drone_t3: 1380,
+      spawn_architect_t1: 1_000_000,
+      spawn_architect_t2: 1_000_000,
+      spawn_architect_t3: 1_000_000,
       scout_mech: 600,
       scout_mech_t2: 870,
       scout_mech_t3: 1200,
@@ -4020,6 +4135,9 @@ test("unit roles and tiers reserve different provisional supply amounts", () => 
       worker_drone_t1: 1,
       worker_drone_t2: 2,
       worker_drone_t3: 3,
+      spawn_architect_t1: 0,
+      spawn_architect_t2: 0,
+      spawn_architect_t3: 0,
       scout_mech: 4,
       scout_mech_t2: 6,
       scout_mech_t3: 8,

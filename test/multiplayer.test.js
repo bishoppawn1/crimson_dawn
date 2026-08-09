@@ -134,6 +134,39 @@ test("host and guest connect through one short lobby code and exchange game mess
   guest.session.close();
 });
 
+test("a host can broadcast Spawn Wars state to three independently addressed guests", async () => {
+  FakePeer.peers.clear();
+  const openedIds = [];
+  const hostMessages = [];
+  const host = await PeerMultiplayerSession.createHost(
+    {
+      onOpen: (connectionId) => openedIds.push(connectionId),
+      onMessage: (message, connectionId) => hostMessages.push({ message, connectionId }),
+    },
+    {
+      PeerConstructor: FakePeer,
+      codeFactory: () => "SW12AB34CD",
+      maximumConnections: 3,
+    },
+  );
+  const guests = await Promise.all(Array.from({ length: 3 }, () => (
+    PeerMultiplayerSession.createGuest("SW12AB34CD", {}, { PeerConstructor: FakePeer })
+  )));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(host.session.openConnectionCount(), 3);
+  assert.equal(openedIds.length, 3);
+  assert.equal(host.session.send({ type: "lobby_state", players: 4 }), true);
+  assert.equal(host.session.send({ type: "private", slot: 2 }, openedIds[1]), true);
+  guests[2].session.send({ type: "command", commandId: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(hostMessages.length, 1);
+  assert.equal(hostMessages[0].connectionId, openedIds[2]);
+
+  host.session.close();
+  for (const guest of guests) guest.session.close();
+});
+
 test("the host enters only after the guest loads and acknowledges the match start", async () => {
   FakePeer.peers.clear();
   let hostEntered = false;

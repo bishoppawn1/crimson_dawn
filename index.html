@@ -12,7 +12,7 @@
       <div class="start-menu-card">
         <p class="eyebrow">CRIMSON DAWN // COMMAND LINK</p>
         <h1 id="start-menu-title">Choose a battle mode</h1>
-        <p class="start-menu-intro">Fight up to seven independent AI commanders, test the full arsenal instantly, or join a hosted lobby.</p>
+        <p class="start-menu-intro">Fight up to seven independent AI commanders, test the full arsenal instantly, join a hosted lobby, or build automatic armies in Spawn Wars.</p>
 
         <div id="mode-choices" class="mode-choices">
           <button id="single-player-button" class="mode-card" type="button">
@@ -22,6 +22,10 @@
           <button id="multiplayer-button" class="mode-card" type="button">
             <strong>Multiplayer</strong>
             <span>Host or join a shared lobby, add AI bots, and play with up to eight commanders.</span>
+          </button>
+          <button id="spawn-wars-button" class="mode-card spawn-wars-card" type="button">
+            <strong>Spawn Wars</strong>
+            <span>Two to four human players build automatic armies in a separate online battle mode.</span>
           </button>
           <button id="unit-tester-button" class="mode-card" type="button">
             <strong>Unit Tester</strong>
@@ -79,9 +83,9 @@
         <section id="multiplayer-setup" class="multiplayer-setup" hidden>
           <div class="connection-columns">
             <section class="connection-card">
-              <p class="panel-label">HOST · WESTERN BASE</p>
+              <p class="panel-label">HOST · COMMANDER 1</p>
               <h2>Create a match</h2>
-              <p>Create a lobby, then send its short code to the other player.</p>
+              <p>Create a lobby, then send its short code to the other players.</p>
               <button id="create-host-button" class="menu-action" type="button">Create lobby</button>
               <label for="host-lobby-code">Lobby code</label>
               <div class="lobby-code-row">
@@ -91,7 +95,7 @@
             </section>
 
             <section class="connection-card">
-              <p class="panel-label">JOIN · EASTERN BASE</p>
+              <p class="panel-label">JOIN · AVAILABLE SLOT</p>
               <h2>Join a match</h2>
               <p>Enter the host's 10-character lobby code and join immediately.</p>
               <label for="join-lobby-code">Lobby code</label>
@@ -119,7 +123,7 @@
             </div>
             <p id="lobby-map-summary" class="map-description"></p>
           </section>
-          <p class="map-description">Lobby codes contain exactly 10 letters and numbers. The host manages AI slots and starts the match when everyone is ready.</p>
+          <p class="map-description">Lobby codes contain exactly 10 letters and numbers. Standard multiplayer supports AI slots; Spawn Wars accepts two to four human browsers and never fills a slot with AI.</p>
           <p id="connection-status" class="connection-status" aria-live="polite">Create a lobby or enter a lobby code to begin.</p>
           <button id="back-to-modes-button" class="menu-back" type="button">Back to mode selection</button>
         </section>
@@ -241,6 +245,34 @@
               </button>
             </div>
 
+            <div id="spawn-wars-commands" class="command-group spawn-wars-commands" hidden>
+              <p class="sub-label">SPAWN WARS · ARCHITECT</p>
+              <label for="spawn-unit-select">Automatic unit platform</label>
+              <select id="spawn-unit-select"></select>
+              <button id="spawn-place-pad-button" class="command-button" type="button">
+                <strong>Place Spawn Platform</strong>
+                <small id="spawn-pad-cost">Select your Spawn Architect</small>
+              </button>
+              <button id="spawn-architect-upgrade-button" class="command-button" type="button">
+                <strong>Upgrade Architect Tier</strong>
+                <small id="spawn-architect-upgrade-details"></small>
+              </button>
+              <button id="spawn-income-upgrade-button" class="command-button" type="button">
+                <strong>Upgrade 30s Income</strong>
+                <small id="spawn-income-upgrade-details"></small>
+              </button>
+              <p id="spawn-income-status" class="tester-spawn-help"></p>
+            </div>
+
+            <div id="spawn-pad-upgrades" class="command-group spawn-pad-upgrades" hidden>
+              <p class="sub-label">SPAWN PLATFORM UPGRADES</p>
+              <div id="spawn-pad-upgrade-grid" class="command-grid"></div>
+              <button class="command-button" type="button" disabled>
+                <strong>Special Ability · Later</strong>
+                <small>Spawned units will auto-use unlocked powers in a future update.</small>
+              </button>
+            </div>
+
             <div id="tester-spawn-commands" class="command-group tester-spawn-commands" hidden>
               <p class="sub-label">UNIT TESTER · ENEMY SPAWNER</p>
               <label for="tester-spawn-team">Enemy commander</label>
@@ -275,6 +307,7 @@
             <p>Dropships carry up to eight ground units. Select one and press <b>F</b> to call the nearest units aboard, select several and press <b>L</b> to fill them evenly, or select ground units and right-click a friendly Dropship for exact loading. Press <b>U</b> with Dropships selected to unload everyone.</p>
             <p><b>C</b> cancels a selected unfinished building and refunds part of its unbuilt crystal.</p>
             <p><b>Unit Tester</b> gives the human commander Tier 3 workers, unlimited resources and energy, instant completed buildings, and instant factory production. Its Enemy Spawner can place buildings and units for any AI commander; those assets then follow normal AI, power, energy, and combat rules.</p>
+            <p><b>Spawn Wars</b> is online-only for two to four humans. Select the invulnerable flying Spawn Architect to place 2×2 automatic unit platforms or 3×3 experimental platforms inside your marked zone, upgrade income or Architect tier, and improve future waves. Phase platforms never block or absorb fire. Cross the center for bonus income, destroy the enemy frontline turret, then destroy its exposed Command Core.</p>
             <p>Buildings block ground movement. Workers automatically slide around them; aircraft fly over terrain, structures, and ground units without pushing them aside.</p>
             <p>Units are compact but physical: dense groups spread out instead of stacking in one spot.</p>
             <p>Workers construct buildings, accelerate active unit production when you right-click a producing factory, and repair damaged friendly units or completed structures when you right-click the target. A worker can be repaired by another worker, but cannot repair itself. Hold Shift while placing to queue multiple foundations in order. Select a factory to queue units; box-select matching factories to share production controls and automatically route each new unit to the shortest powered queue, then right-click terrain to set their shared attack-move rally point. Selected workers and factories show the active job, live progress, and every next item in queue order.</p>

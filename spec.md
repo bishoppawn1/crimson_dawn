@@ -1627,6 +1627,69 @@ match resets are disabled during multiplayer; either player may leave the match 
 return to the mode menu. Automatic reconnection and spectators are not yet
 implemented.
 
+### 9.3 Spawn Wars
+
+Spawn Wars is a separate online-only mode for two through four human browsers. It
+does not offer AI opponents or a one-player start. The host remains authoritative
+and may accept up to three direct PeerJS/WebRTC guest connections while the static
+game is hosted on GitHub Pages. Two players form a fixed 1v1, three form a fixed
+2v1 with the host and first guest on the western team, and four form a fixed 2v2.
+Each human retains separate unit ownership, crystal, platform upgrades, and build
+commands even when allied.
+
+The mode uses a flat 3,600-by-2,000 arena. Every commander receives one
+invulnerable, untargetable flying Spawn Architect and a bounded, visibly marked
+phase-build zone. Allied commanders receive separate vertical halves of their
+team's zone. Architects can move normally but cannot attack, be attacked, run out
+of energy, or construct the standard economy and production tree. Tier upgrades
+cost 350 and 800 crystal and unlock matching unit-platform tiers.
+
+An Architect places a unit-specific Spawn Platform for a crystal price derived
+from that unit's normal value, tier, and role. Ordinary platforms occupy a 2x2
+placement footprint; experimental-unit platforms occupy 3x3. They take six seconds
+to construct. Platforms exist on a separate phase layer: units may pass over them,
+they do not participate in ground or air collision/pathfinding, enemies do not
+target them, and damage cannot affect them. Platforms cannot overlap other phase
+platforms or leave their owner's build zone. The owner may select and destroy a
+completed platform with no refund.
+
+Each completed platform automatically creates its configured unit on a repeating
+timer. A provisional ordinary Tier 1 interval is 32 seconds, increases by 14
+seconds per tier, Bulwark Mechs instead use 40/55/70 seconds, and experimental
+units use 120 seconds. New units initially attack-move toward the opposing Command
+Core but remain fully selectable and controllable, allowing a player to stop and
+save a wave. Every spawned combat unit uses the same provisional 105-world-unit
+movement speed in this mode. Normal unit identity, health, weapons, firing range,
+target restrictions, and collision remain intact; unit energy is continuously
+available so the mode's automatic lane battle does not stall on the standard
+logistics loop.
+
+Selecting an owned completed platform exposes three levels each of Integrity,
+Armor, Weapon Damage, and Attack Speed upgrades. These upgrades affect only units
+spawned after the purchase. Costs increase with each level and scale upward for
+higher tiers, Bulwarks, and experimental units, so a Tier 3 or Bulwark damage
+upgrade costs more than a Tier 1 light-unit damage upgrade. A Special Ability
+upgrade is visibly reserved but disabled: later work will define those abilities,
+after which spawned units will use them automatically.
+
+Every commander begins with 650 crystal. Every 30 seconds each living commander
+receives 120 crystal, increased by 35 percent of base for each of three purchasable
+income levels. Destroying a hostile spawned unit also awards the killing commander
+20 percent of its crystal value, with an eight-crystal minimum. A 240-world-unit
+capture band spans the arena center. The latest spawned unit to cross completely
+through that band toward the opposing side gives its alliance center control;
+every commander on the controlling alliance receives an additional 60 crystal on
+each 30-second payment.
+
+Each side has an invulnerable-to-self-destruction but enemy-destructible Frontline
+Annihilator turret in front of its Spawn Command Core. Both objectives have
+independent, permanently powered long-range weapons. The Command Core cannot be
+targeted or damaged until its alliance's turret is destroyed. Destroying the Core
+eliminates that alliance and ends the match. The phrase “cannot be destroyed by
+enemies” applies to Spawn Platforms and Architects, not to these two sequential
+combat objectives; otherwise the turret-to-Core victory sequence would be
+unreachable.
+
 ## 10. Open Design Questions
 
 - How does a player choose whether a mobile supplier transfers energy, and how is

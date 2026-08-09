@@ -145,19 +145,33 @@ export class PeerMultiplayerSession {
     this.peer = peer;
     this.handlers = handlers;
     this.connection = null;
+    this.connections = new Map();
+    this.connectionStates = new Map();
+    this.maximumConnections = 1;
     this.opened = false;
     this.closed = false;
     this.lobbyCode = null;
     this.connectionTimeout = null;
-    this.pendingState = null;
-    this.stateInFlightSequence = null;
-    this.stateFlushTimer = null;
+    Object.defineProperties(this, {
+      pendingState: {
+        configurable: true,
+        get: () => this.connectionStates.values().next().value?.pendingState ?? null,
+      },
+      stateInFlightSequence: {
+        configurable: true,
+        get: () => this.connectionStates.values().next().value?.stateInFlightSequence ?? null,
+      },
+      stateFlushTimer: {
+        configurable: true,
+        get: () => this.connectionStates.values().next().value?.stateFlushTimer ?? null,
+      },
+    });
 
     peer.on("error", (error) => {
       if (this.closed) return;
       // PeerJS Cloud is only the signaling broker. Once the direct WebRTC data
       // channel is open, a broker/socket interruption must not end the match.
-      if (this.connection?.open) return;
+      if ([...this.connections.values()].some((connection) => connection.open)) return;
       this.handlers.onError?.(friendlyPeerError(error));
       if (this.opened || error?.type === "network" || error?.type === "webrtc") {
         this.handlers.onClose?.(error?.type || "error");
@@ -192,8 +206,9 @@ export class PeerMultiplayerSession {
 
       const session = new PeerMultiplayerSession("host", peer, handlers);
       session.lobbyCode = lobbyCode;
+      session.maximumConnections = Math.max(1, Math.floor(options.maximumConnections || 1));
       peer.on("connection", (connection) => {
-        if (session.connection && !session.closed) {
+        if (session.connections.size >= session.maximumConnections && !session.closed) {
           connection.close?.();
           return;
         }
@@ -240,19 +255,24 @@ export class PeerMultiplayerSession {
   }
 
   attachConnection(connection) {
-    this.connection = connection;
-    connection.on("open", () => this.markOpen());
+    const connectionId = String(connection.peer || `connection-${this.connections.size + 1}`);
+    this.connections.set(connectionId, connection);
+    this.connectionStates.set(connectionId, {
+      pendingState: null,
+      stateInFlightSequence: null,
+      stateFlushTimer: null,
+    });
+    if (!this.connection) this.connection = connection;
+    connection.on("open", () => this.markOpen(connectionId));
     connection.on("close", () => {
-      clearTimeout(this.stateFlushTimer);
-      this.pendingState = null;
-      this.stateInFlightSequence = null;
-      this.stateFlushTimer = null;
+      const state = this.connectionStates.get(connectionId);
+      clearTimeout(state?.stateFlushTimer);
+      this.connectionStates.delete(connectionId);
+      this.connections.delete(connectionId);
+      this.connection = this.connections.values().next().value || null;
+      this.opened = [...this.connections.values()].some((candidate) => candidate.open);
       if (this.closed) return;
-      if (this.role === "host" && this.connection === connection) {
-        this.connection = null;
-        this.opened = false;
-      }
-      this.handlers.onClose?.("closed");
+      this.handlers.onClose?.("closed", connectionId, this.openConnectionCount());
     });
     connection.on("error", (error) => {
       if (!this.closed) this.handlers.onError?.(friendlyPeerError(error));
@@ -260,7 +280,7 @@ export class PeerMultiplayerSession {
     connection.on("data", (message) => {
       if (!message || typeof message.type !== "string") return;
       if (this.role === "host" && message.type === "state_ack") {
-        this.acknowledgeState(message.sequence);
+        this.acknowledgeState(message.sequence, connectionId);
         return;
       }
       let serialized;
@@ -271,69 +291,101 @@ export class PeerMultiplayerSession {
       }
       if (serialized.length > MAX_MESSAGE_BYTES) return;
       try {
-        this.handlers.onMessage?.(message);
+        this.handlers.onMessage?.(message, connectionId);
       } catch (error) {
         this.handlers.onError?.(error?.message || "Could not process multiplayer data.");
       }
     });
   }
 
-  markOpen() {
-    if (this.opened || this.closed) return;
+  markOpen(connectionId) {
+    if (this.closed) return;
     clearTimeout(this.connectionTimeout);
     this.connectionTimeout = null;
     this.opened = true;
-    this.handlers.onOpen?.();
+    this.handlers.onOpen?.(connectionId, this.openConnectionCount());
   }
 
-  send(message) {
-    if (
-      this.closed ||
-      !this.connection?.open ||
-      this.bufferedAmount() > MAX_BUFFERED_BYTES
-    ) {
-      return false;
-    }
-    return this.sendNow(message);
+  openConnectionCount() {
+    return [...this.connections.values()].filter((connection) => connection.open).length;
   }
 
-  sendState(message) {
-    if (
-      this.closed ||
-      !this.connection?.open ||
-      !Number.isSafeInteger(message?.sequence)
-    ) return false;
-    if (this.stateInFlightSequence !== null || this.pendingState || this.stateChannelBusy()) {
-      this.pendingState = message;
-      this.scheduleStateFlush();
-      return true;
+  send(message, connectionId = null) {
+    const targets = this.targetConnections(connectionId);
+    if (this.closed || targets.length === 0) return false;
+    let sent = true;
+    for (const [targetId, connection] of targets) {
+      if (!connection.open || this.bufferedAmount(targetId) > MAX_BUFFERED_BYTES) {
+        sent = false;
+        continue;
+      }
+      sent = this.sendNow(message, targetId) && sent;
     }
-    const sent = this.sendNow(message);
-    if (sent) this.stateInFlightSequence = message.sequence;
     return sent;
   }
 
-  sendMotion(message) {
-    if (message?.type !== "motion" || this.pendingState || this.stateChannelBusy()) {
-      return false;
+  sendState(message, connectionId = null) {
+    if (this.closed || !Number.isSafeInteger(message?.sequence)) return false;
+    const targets = this.targetConnections(connectionId);
+    if (targets.length === 0) return false;
+    for (const [targetId] of targets) {
+      const state = this.connectionStates.get(targetId);
+      if (!state) continue;
+      if (
+        state.stateInFlightSequence !== null ||
+        state.pendingState ||
+        this.stateChannelBusy(targetId)
+      ) {
+        state.pendingState = message;
+        this.scheduleStateFlush(targetId);
+        continue;
+      }
+      if (this.sendNow(message, targetId)) state.stateInFlightSequence = message.sequence;
     }
-    return this.send(message);
+    return true;
   }
 
-  bufferedAmount() {
-    return this.connection?.dataChannel?.bufferedAmount || 0;
+  sendMotion(message, connectionId = null) {
+    if (message?.type !== "motion") return false;
+    const targets = this.targetConnections(connectionId);
+    let sent = targets.length > 0;
+    for (const [targetId] of targets) {
+      const state = this.connectionStates.get(targetId);
+      if (state?.pendingState || this.stateChannelBusy(targetId)) {
+        sent = false;
+        continue;
+      }
+      sent = this.send(message, targetId) && sent;
+    }
+    return sent;
   }
 
-  stateChannelBusy() {
+  targetConnections(connectionId = null) {
+    if (connectionId) {
+      const connection = this.connections.get(connectionId);
+      return connection ? [[connectionId, connection]] : [];
+    }
+    return [...this.connections.entries()];
+  }
+
+  bufferedAmount(connectionId = null) {
+    const connection = connectionId ? this.connections.get(connectionId) : this.connection;
+    return connection?.dataChannel?.bufferedAmount || 0;
+  }
+
+  stateChannelBusy(connectionId = null) {
+    const connection = connectionId ? this.connections.get(connectionId) : this.connection;
     return (
-      this.bufferedAmount() > MAX_STATE_BUFFERED_BYTES ||
-      (this.connection?.bufferSize || 0) > 0
+      this.bufferedAmount(connectionId) > MAX_STATE_BUFFERED_BYTES ||
+      (connection?.bufferSize || 0) > 0
     );
   }
 
-  sendNow(message) {
+  sendNow(message, connectionId = null) {
+    const connection = connectionId ? this.connections.get(connectionId) : this.connection;
+    if (!connection?.open) return false;
     try {
-      this.connection.send(message);
+      connection.send(message);
       return true;
     } catch (error) {
       this.handlers.onError?.(friendlyPeerError(error));
@@ -341,48 +393,54 @@ export class PeerMultiplayerSession {
     }
   }
 
-  scheduleStateFlush() {
-    if (this.stateFlushTimer || this.closed) return;
-    this.stateFlushTimer = setTimeout(() => {
-      this.stateFlushTimer = null;
-      this.flushPendingState();
+  scheduleStateFlush(connectionId) {
+    const state = this.connectionStates.get(connectionId);
+    if (!state || state.stateFlushTimer || this.closed) return;
+    state.stateFlushTimer = setTimeout(() => {
+      state.stateFlushTimer = null;
+      this.flushPendingState(connectionId);
     }, STATE_FLUSH_RETRY_MS);
   }
 
-  acknowledgeState(sequence) {
+  acknowledgeState(sequence, connectionId = null) {
+    const targetId = connectionId || this.connections.keys().next().value;
+    const state = this.connectionStates.get(targetId);
     if (
-      this.stateInFlightSequence === null ||
-      sequence !== this.stateInFlightSequence
+      !state ||
+      state.stateInFlightSequence === null ||
+      sequence !== state.stateInFlightSequence
     ) return false;
-    this.stateInFlightSequence = null;
-    this.flushPendingState();
+    state.stateInFlightSequence = null;
+    this.flushPendingState(targetId);
     return true;
   }
 
-  flushPendingState() {
-    if (this.closed || !this.pendingState || this.stateInFlightSequence !== null) return;
-    if (!this.connection?.open) {
-      this.pendingState = null;
+  flushPendingState(connectionId) {
+    const state = this.connectionStates.get(connectionId);
+    const connection = this.connections.get(connectionId);
+    if (this.closed || !state?.pendingState || state.stateInFlightSequence !== null) return;
+    if (!connection?.open) {
+      state.pendingState = null;
       return;
     }
-    if (this.stateChannelBusy()) {
-      this.scheduleStateFlush();
+    if (this.stateChannelBusy(connectionId)) {
+      this.scheduleStateFlush(connectionId);
       return;
     }
-    const state = this.pendingState;
-    this.pendingState = null;
-    if (this.sendNow(state)) this.stateInFlightSequence = state.sequence;
+    const message = state.pendingState;
+    state.pendingState = null;
+    if (this.sendNow(message, connectionId)) state.stateInFlightSequence = message.sequence;
   }
 
   close() {
     if (this.closed) return;
     this.closed = true;
     clearTimeout(this.connectionTimeout);
-    clearTimeout(this.stateFlushTimer);
-    this.pendingState = null;
-    this.stateInFlightSequence = null;
-    this.stateFlushTimer = null;
-    this.connection?.close?.();
+    for (const state of this.connectionStates.values()) clearTimeout(state.stateFlushTimer);
+    for (const connection of this.connections.values()) connection.close?.();
+    this.connectionStates.clear();
+    this.connections.clear();
+    this.connection = null;
     this.peer?.destroy?.();
   }
 }

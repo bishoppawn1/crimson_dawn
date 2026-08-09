@@ -70,7 +70,20 @@ button {
 }
 
 .mode-choices {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.spawn-wars-card {
+  border-color: #37667a;
+  background: linear-gradient(145deg, #14232b, #11171c);
+}
+
+.spawn-wars-card strong {
+  color: #73ddff;
+}
+
+.multiplayer-setup[data-game-mode="spawn_wars"] label[for="lobby-map"] {
+  display: none;
 }
 
 .mode-card {
@@ -777,6 +790,11 @@ canvas {
   gap: 11px;
   padding: 11px;
   text-align: left;
+}
+
+.ability[hidden],
+.command-group[hidden] {
+  display: none;
 }
 
 .ability > span {

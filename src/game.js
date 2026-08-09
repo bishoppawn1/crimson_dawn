@@ -21,6 +21,15 @@ const {
   normalizeAiDifficulty,
 } = await import(`./maps.js${versionSuffix}`);
 const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix}`);
+const {
+  SPAWN_PAD_UPGRADES,
+  SPAWN_WARS_RULES,
+  spawnWarsPadCost,
+  spawnWarsPadUpgradeCost,
+  spawnWarsInterval,
+  spawnWarsAllianceForSlot,
+  spawnWarsSpawnableUnits,
+} = await import(`./spawn-wars.js${versionSuffix}`);
 const { selectableUnitIdsByExactTypeNear } = await import(`./selection.js${versionSuffix}`);
 const { FixedStepSimulationClock } = await import(`./simulation-clock.js${versionSuffix}`);
 const {
@@ -92,6 +101,7 @@ const unitTesterMapDescription = document.querySelector("#unit-tester-map-descri
 const startUnitTesterButton = document.querySelector("#start-unit-tester-button");
 const backFromUnitTesterButton = document.querySelector("#back-from-unit-tester-button");
 const multiplayerButton = document.querySelector("#multiplayer-button");
+const spawnWarsButton = document.querySelector("#spawn-wars-button");
 const multiplayerSetup = document.querySelector("#multiplayer-setup");
 const createHostButton = document.querySelector("#create-host-button");
 const joinLobbyButton = document.querySelector("#join-lobby-button");
@@ -145,6 +155,17 @@ const supplyUpgradeDetails = document.querySelector("#supply-upgrade-details");
 const buildingUpgradeButton = document.querySelector("#building-upgrade-button");
 const buildingUpgradeTitle = document.querySelector("#building-upgrade-title");
 const buildingUpgradeDetails = document.querySelector("#building-upgrade-details");
+const spawnWarsCommands = document.querySelector("#spawn-wars-commands");
+const spawnUnitSelect = document.querySelector("#spawn-unit-select");
+const spawnPlacePadButton = document.querySelector("#spawn-place-pad-button");
+const spawnPadCost = document.querySelector("#spawn-pad-cost");
+const spawnArchitectUpgradeButton = document.querySelector("#spawn-architect-upgrade-button");
+const spawnArchitectUpgradeDetails = document.querySelector("#spawn-architect-upgrade-details");
+const spawnIncomeUpgradeButton = document.querySelector("#spawn-income-upgrade-button");
+const spawnIncomeUpgradeDetails = document.querySelector("#spawn-income-upgrade-details");
+const spawnIncomeStatus = document.querySelector("#spawn-income-status");
+const spawnPadUpgrades = document.querySelector("#spawn-pad-upgrades");
+const spawnPadUpgradeGrid = document.querySelector("#spawn-pad-upgrade-grid");
 const testerSpawnCommands = document.querySelector("#tester-spawn-commands");
 const testerSpawnTeam = document.querySelector("#tester-spawn-team");
 const testerSpawnStructure = document.querySelector("#tester-spawn-structure");
@@ -169,12 +190,14 @@ let peerSession = null;
 let multiplayerConnected = false;
 let lobbyRole = null;
 let multiplayerLobby = null;
+let lobbyGameMode = "standard";
 let matchStartHandshake = null;
 let snapshotSendRemaining = 0;
 let motionSendRemaining = 0;
 let nextGuestCommandId = 1;
 let lastProcessedGuestCommandId = 0;
 let lastQueuedGuestCommandId = 0;
+let lastQueuedGuestCommandIds = new Map();
 let nextLocalCommandSequence = 1;
 let nextHostStateSequence = 1;
 let lastHostStateSequence = 0;
@@ -189,6 +212,7 @@ let selectionQueueSignature = null;
 let selectionConstructionQueueSignature = null;
 let selectionDrag = null;
 let placementStructureType = null;
+let spawnPadUnitType = null;
 let testerSpawnPlacement = null;
 let placementMessage = null;
 let placementCursor = null;
@@ -539,6 +563,7 @@ for (const tier of [1, 2, 3]) {
     button.addEventListener("click", () => {
       patrolDraft = null;
       testerSpawnPlacement = null;
+      spawnPadUnitType = null;
       placementStructureType = placementStructureType === structureType ? null : structureType;
       placementMessage = null;
       updateInterface();
@@ -586,6 +611,20 @@ for (const unitType of producibleUnitTypes) {
   productionButtons.set(unitType, button);
 }
 
+const spawnPadUpgradeButtons = new Map();
+for (const [category, upgrade] of Object.entries(SPAWN_PAD_UPGRADES)) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "command-button";
+  button.addEventListener("click", () => {
+    if (!selectedStructureId) return;
+    issueGameCommand({ type: "spawn_pad_upgrade", structureId: selectedStructureId, category });
+    updateInterface();
+  });
+  spawnPadUpgradeGrid.append(button);
+  spawnPadUpgradeButtons.set(category, button);
+}
+
 function resetPresentation() {
   selectedUnitIds = new Set();
   selectedStructureId = null;
@@ -594,6 +633,7 @@ function resetPresentation() {
   selectionConstructionQueueSignature = null;
   selectionDrag = null;
   placementStructureType = null;
+  spawnPadUnitType = null;
   testerSpawnPlacement = null;
   placementMessage = null;
   placementCursor = null;
@@ -659,7 +699,7 @@ function activeStructurePlacement() {
 }
 
 function placementIsActive() {
-  return Boolean(placementStructureType || testerSpawnPlacement);
+  return Boolean(placementStructureType || testerSpawnPlacement || spawnPadUnitType);
 }
 
 function resetGame() {
@@ -679,6 +719,7 @@ function resetAuthoritativeCommands() {
   authoritativeCommands.clear();
   nextLocalCommandSequence = 1;
   lastQueuedGuestCommandId = 0;
+  lastQueuedGuestCommandIds.clear();
 }
 
 function updateSinglePlayerMapDescription() {
@@ -733,6 +774,16 @@ function normalizeLobbyAlliance(allianceId, fallback, playerCount) {
 
 function lobbyRoster(state = multiplayerLobby) {
   if (!state) return [];
+  if (state.gameMode === "spawn_wars") {
+    const guestIds = state.guestIds || [];
+    return ["host", ...guestIds].map((connectionId, slot) => ({
+      name: slot === 0 ? "Host" : `Player ${slot + 1}`,
+      role: slot === 0 ? "Human · Host" : "Human · Guest",
+      allianceId: spawnWarsAllianceForSlot(slot, guestIds.length + 1),
+      configKind: slot === 0 ? "host" : "guest",
+      connectionId,
+    }));
+  }
   const playerCount = 1 + Number(state.guestConnected) + state.botCount;
   const roster = [{
     name: "Host",
@@ -794,7 +845,8 @@ function renderMultiplayerLobby() {
   lobbyPanel.hidden = !multiplayerLobby;
   if (!multiplayerLobby) return;
   visibleLobbyCode.textContent = multiplayerLobby.code;
-  lobbyPlayerCount.textContent = `${roster.length} / 8`;
+  const spawnWarsLobby = multiplayerLobby.gameMode === "spawn_wars";
+  lobbyPlayerCount.textContent = `${roster.length} / ${spawnWarsLobby ? 4 : 8}`;
   lobbyPlayerList.replaceChildren(...roster.map((player, index) => {
     const item = document.createElement("li");
     const name = document.createElement("strong");
@@ -821,7 +873,7 @@ function renderMultiplayerLobby() {
       item.append(difficulty);
     }
 
-    if (roster.length > 2) {
+    if (!spawnWarsLobby && roster.length > 2) {
       const alliance = document.createElement("select");
       alliance.className = "lobby-commander-select";
       alliance.setAttribute("aria-label", `${player.name} team`);
@@ -852,21 +904,28 @@ function renderMultiplayerLobby() {
   lobbyHostControls.hidden = lobbyRole !== "host";
   lobbyMap.value = "random";
   lobbyMap.disabled = true;
+  addAiButton.hidden = spawnWarsLobby;
+  removeAiButton.hidden = spawnWarsLobby;
+  lobbyMap.hidden = spawnWarsLobby;
   addAiButton.disabled = matchStarting || playerCount >= 8;
   removeAiButton.disabled = matchStarting || multiplayerLobby.botCount === 0;
-  const validTeams = commanderOptionsHaveOpponents(roster);
+  const validTeams = spawnWarsLobby || commanderOptionsHaveOpponents(roster);
   startLobbyMatchButton.disabled = matchStarting || playerCount < 2 || !validTeams;
   lobbyMapSummary.textContent = matchStarting
-    ? "Waiting for Player 2 to load and acknowledge the match…"
+    ? "Sending the arena to every connected player…"
     : playerCount < 2
-    ? "Add an AI bot or wait for a guest before starting."
+    ? spawnWarsLobby
+      ? "Wait for at least one other human player. Spawn Wars has no AI slots."
+      : "Add an AI bot or wait for a guest before starting."
     : !validTeams
       ? "Assign commanders to at least two different teams before starting."
-      : `One of ${eligibleMaps.length} ${playerCount}-player green grassland or red wasteland battlefields will be selected randomly when the match starts.`;
+      : spawnWarsLobby
+        ? `${playerCount === 2 ? "1v1" : playerCount === 3 ? "2v1" : "2v2"} · Fixed teams · Human players only · Spawn Wars Arena.`
+        : `One of ${eligibleMaps.length} ${playerCount}-player green grassland or red wasteland battlefields will be selected randomly when the match starts.`;
 }
 
 function sendLobbyState() {
-  if (lobbyRole !== "host" || !multiplayerLobby?.guestConnected) return;
+  if (lobbyRole !== "host" || !peerSession?.opened) return;
   peerSession?.send({ type: "lobby_state", lobby: multiplayerLobby });
 }
 
@@ -924,9 +983,9 @@ function configureGuestTeam(sim) {
   delete sim.aiStates.enemy;
 }
 
-function enterMultiplayerMatch(role) {
+function enterMultiplayerMatch(role, assignedTeam = null) {
   matchMode = role === "host" ? "multiplayer_host" : "multiplayer_guest";
-  localTeam = role === "host" ? "player" : "enemy";
+  localTeam = assignedTeam || (role === "host" ? "player" : "enemy");
   multiplayerConnected = Boolean(peerSession?.opened);
   snapshotSendRemaining = 0;
   motionSendRemaining = 0;
@@ -940,7 +999,8 @@ function enterMultiplayerMatch(role) {
   multiplayerSyncMessage = null;
   activeMapId = simulation.mapId;
   activePlayerCount = simulation.teams.length;
-  matchModeLabel.textContent = `${role === "host" ? "MULTIPLAYER HOST" : "MULTIPLAYER GUEST"} · ${simulation.mapName.toUpperCase()} · ${localTeam === "player" ? "WESTERN" : "EASTERN"} COMMAND`;
+  const side = simulation.getAllianceId(localTeam) === "spawn-west" ? "WESTERN" : "EASTERN";
+  matchModeLabel.textContent = `${simulation.isSpawnWars() ? "SPAWN WARS" : role === "host" ? "MULTIPLAYER HOST" : "MULTIPLAYER GUEST"} · ${simulation.mapName.toUpperCase()} · ${side} COMMAND`;
   resetPresentation();
   pauseButton.disabled = true;
   resetButton.textContent = "Leave multiplayer";
@@ -954,6 +1014,23 @@ function startHostedLobbyMatch() {
   if (playerCount < 2) return;
   const roster = lobbyRoster();
   if (!commanderOptionsHaveOpponents(roster)) return;
+  if (multiplayerLobby.gameMode === "spawn_wars") {
+    simulation = Simulation.createSpawnWars({ playerCount });
+    for (const [index, connectionId] of (multiplayerLobby.guestIds || []).entries()) {
+      const teamId = simulation.teams[index + 1]?.id;
+      if (!teamId || !peerSession?.send({
+        type: "spawn_match_start",
+        snapshot: simulation.createSnapshot(),
+        teamId,
+      }, connectionId)) {
+        setConnectionStatus("Could not deliver the Spawn Wars arena to every player.", true);
+        return;
+      }
+    }
+    enterMultiplayerMatch("host", "player");
+    sendMultiplayerSnapshot();
+    return;
+  }
   const map = getRandomMatchMap(playerCount, Math.random());
   const hasGuest = multiplayerLobby.guestConnected;
   simulation = Simulation.createFieldTest({
@@ -996,6 +1073,7 @@ function returnToMenu() {
   multiplayerSyncMessage = null;
   lobbyRole = null;
   multiplayerLobby = null;
+  lobbyGameMode = "standard";
   matchMode = "menu";
   localTeam = "player";
   activePlayerCount = 2;
@@ -1022,9 +1100,15 @@ function returnToMenu() {
 
 function multiplayerHandlers(role) {
   return {
-    onOpen() {
+    onOpen(connectionId) {
       multiplayerConnected = true;
       if (role === "host") {
+        if (multiplayerLobby?.gameMode === "spawn_wars") {
+          const guestIds = [...new Set([...(multiplayerLobby.guestIds || []), connectionId])].slice(0, 3);
+          updateHostedLobby({ guestIds, guestConnected: guestIds.length > 0 });
+          setConnectionStatus(`Player ${guestIds.indexOf(connectionId) + 2} joined. ${guestIds.length + 1} / 4 slots filled.`);
+          return;
+        }
         const previousBotCount = multiplayerLobby?.botCount || 0;
         const botCount = Math.min(previousBotCount, 6);
         const botAlliances = (multiplayerLobby?.botAlliances || [])
@@ -1040,7 +1124,20 @@ function multiplayerHandlers(role) {
         setConnectionStatus("Lobby joined. Waiting for the host to start the match…");
       }
     },
-    onMessage(message) {
+    onMessage(message, connectionId) {
+      if (role === "guest" && message.type === "spawn_match_start" && matchMode === "menu") {
+        try {
+          simulation = Simulation.fromSnapshot(message.snapshot);
+          if (!simulation.isSpawnWars() || !simulation.getTeam(message.teamId)) {
+            throw new Error("Invalid Spawn Wars setup.");
+          }
+          enterMultiplayerMatch("guest", message.teamId);
+          peerSession?.send({ type: "spawn_match_start_ack", teamId: message.teamId });
+        } catch {
+          setConnectionStatus("The host sent an incompatible Spawn Wars arena.", true);
+        }
+        return;
+      }
       const matchStartEvent = matchStartHandshake?.inspect(message);
       if (role === "host" && matchStartEvent?.kind === "acknowledged" && matchMode === "menu") {
         enterMultiplayerMatch("host");
@@ -1066,22 +1163,32 @@ function multiplayerHandlers(role) {
           setConnectionStatus("The host sent an incompatible match setup.", true);
         }
       } else if (role === "host" && message.type === "command") {
+        const guestIds = multiplayerLobby?.guestIds || [];
+        const guestIndex = guestIds.indexOf(connectionId);
+        const guestTeam = simulation.isSpawnWars()
+          ? simulation.teams[guestIndex + 1]?.id
+          : "enemy";
+        if (!guestTeam) return;
+        const previousCommandId = lastQueuedGuestCommandIds.get(connectionId) || 0;
         const commandId = Number.isSafeInteger(message.commandId) && message.commandId > 0
           ? message.commandId
-          : lastQueuedGuestCommandId + 1;
-        if (commandId <= lastQueuedGuestCommandId) return;
-        const queued = queueAuthoritativeCommand(message.command, "enemy", {
+          : previousCommandId + 1;
+        if (commandId <= previousCommandId) return;
+        const queued = queueAuthoritativeCommand(message.command, guestTeam, {
           sequence: commandId,
-          metadata: { guestCommandId: commandId },
+          metadata: { guestCommandId: commandId, connectionId },
         });
-        if (queued) lastQueuedGuestCommandId = commandId;
+        if (queued) {
+          lastQueuedGuestCommandId = Math.max(lastQueuedGuestCommandId, commandId);
+          lastQueuedGuestCommandIds.set(connectionId, commandId);
+        }
         else {
           peerSession?.send({
             type: "command_result",
             commandId,
             accepted: false,
             reason: "The host rejected that malformed command.",
-          });
+          }, connectionId);
         }
       } else if (role === "guest" && message.type === "lobby_state" && matchMode === "menu") {
         multiplayerLobby = { ...message.lobby };
@@ -1131,7 +1238,8 @@ function multiplayerHandlers(role) {
             applyAuthorizedCommand(command, localTeam);
           }
           activeMapId = simulation.mapId;
-          matchModeLabel.textContent = `MULTIPLAYER GUEST · ${simulation.mapName.toUpperCase()} · EASTERN COMMAND`;
+          const side = simulation.getAllianceId(localTeam) === "spawn-west" ? "WESTERN" : "EASTERN";
+          matchModeLabel.textContent = `${simulation.isSpawnWars() ? "SPAWN WARS" : "MULTIPLAYER GUEST"} · ${simulation.mapName.toUpperCase()} · ${side} COMMAND`;
           pruneSelection();
           peerSession?.send({ type: "state_ack", sequence });
         } catch {
@@ -1153,11 +1261,17 @@ function multiplayerHandlers(role) {
         }
       }
     },
-    onClose() {
-      if (!multiplayerConnected) return;
-      multiplayerConnected = false;
+    onClose(reason, connectionId, remainingCount) {
+      if (!multiplayerConnected && remainingCount === 0) return;
+      multiplayerConnected = remainingCount > 0;
       if (matchMode === "menu") {
         if (role === "host") {
+          if (multiplayerLobby?.gameMode === "spawn_wars") {
+            const guestIds = (multiplayerLobby.guestIds || []).filter((id) => id !== connectionId);
+            updateHostedLobby({ guestIds, guestConnected: guestIds.length > 0 });
+            setConnectionStatus("A player disconnected. The Spawn Wars lobby remains open.", true);
+            return;
+          }
           matchStartHandshake?.reset();
           const botAlliances = (multiplayerLobby?.botAlliances || []).map(
             (allianceId, index) =>
@@ -1189,12 +1303,17 @@ async function createHostMatch() {
   setConnectionStatus("Creating lobby…");
   try {
     peerSession?.close();
-    const created = await PeerMultiplayerSession.createHost(multiplayerHandlers("host"));
+    const created = await PeerMultiplayerSession.createHost(
+      multiplayerHandlers("host"),
+      { maximumConnections: lobbyGameMode === "spawn_wars" ? 3 : 1 },
+    );
     peerSession = created.session;
     matchStartHandshake = new MatchStartHandshake("host");
     lobbyRole = "host";
     multiplayerLobby = {
       code: created.lobbyCode,
+      gameMode: lobbyGameMode,
+      guestIds: [],
       guestConnected: false,
       botCount: 0,
       hostAlliance: "team-1",
@@ -1205,7 +1324,7 @@ async function createHostMatch() {
     };
     hostLobbyCode.value = created.lobbyCode;
     copyLobbyCodeButton.disabled = false;
-    setConnectionStatus(`Lobby ${created.lobbyCode} is open. Waiting for another player…`);
+    setConnectionStatus(`Lobby ${created.lobbyCode} is open. Waiting for ${lobbyGameMode === "spawn_wars" ? "1–3 human players" : "another player"}…`);
     renderMultiplayerLobby();
   } catch (error) {
     setConnectionStatus(error.message || "Could not create the lobby.", true);
@@ -1234,6 +1353,8 @@ async function joinMultiplayerLobby() {
     lobbyRole = "guest";
     multiplayerLobby = {
       code: created.lobbyCode,
+      gameMode: lobbyGameMode,
+      guestIds: [],
       guestConnected: true,
       botCount: 0,
       hostAlliance: "team-1",
@@ -1377,6 +1498,27 @@ function applyAuthorizedCommand(command, team) {
         command.y,
         { queue: Boolean(command.queue) },
       );
+    }
+    case "spawn_pad_construct": {
+      if (!UNIT_DEFINITIONS[command.unitType]) return false;
+      if (!Number.isFinite(command.x) || !Number.isFinite(command.y)) return false;
+      return simulation.startSpawnPadConstruction(
+        ownedUnitIds(command.architectIds, team),
+        command.unitType,
+        command.x,
+        command.y,
+        { queue: Boolean(command.queue) },
+      );
+    }
+    case "spawn_architect_upgrade":
+      return simulation.upgradeSpawnArchitect(team);
+    case "spawn_income_upgrade":
+      return simulation.upgradeSpawnWarsIncome(team);
+    case "spawn_pad_upgrade": {
+      const structure = ownedStructure(command.structureId, team);
+      return structure
+        ? simulation.upgradeSpawnPad(structure.id, command.category, team)
+        : false;
     }
     case "tester_spawn_structure": {
       if (!STRUCTURE_DEFINITIONS[command.structureType]) return false;
@@ -1527,7 +1669,7 @@ function processAuthoritativeCommands(executeTick) {
       executeTick: entry.executeTick,
       accepted: result.accepted,
       reason: result.reason,
-    });
+    }, entry.metadata?.connectionId || null);
   }
   return processedGuestCommand;
 }
@@ -1665,6 +1807,7 @@ function render(now = performance.now()) {
   context.translate(-camera.x, -camera.y);
   const strategicView = strategicViewActive(camera.zoom);
   drawTerrain();
+  drawSpawnWarsArena();
   const occupiedDepositIds = drawCrystalDeposits();
   drawPowerNetwork();
   drawShieldFields();
@@ -1705,6 +1848,51 @@ function render(now = performance.now()) {
   context.restore();
   drawCameraHud();
   drawMinimap();
+}
+
+function drawSpawnWarsArena() {
+  if (!simulation.isSpawnWars()) return;
+  const zone = simulation.spawnWars.buildZones[localTeam];
+  if (zone) {
+    context.save();
+    context.fillStyle = "#3dd8ff12";
+    context.strokeStyle = "#52ddff99";
+    context.lineWidth = 3;
+    context.setLineDash([18, 12]);
+    context.fillRect(zone.left, zone.top, zone.right - zone.left, zone.bottom - zone.top);
+    context.strokeRect(zone.left, zone.top, zone.right - zone.left, zone.bottom - zone.top);
+    context.setLineDash([]);
+    drawLabel((zone.left + zone.right) / 2, zone.top + 24, "YOUR PHASE BUILD ZONE", true, "#7be8ff");
+    context.restore();
+  }
+  const control = simulation.spawnWars.controlAllianceId;
+  const controlColor = control === "spawn-west"
+    ? teamPalettes[0].bright
+    : control === "spawn-east"
+      ? teamPalettes[1].bright
+      : "#d7d9dc";
+  context.save();
+  context.fillStyle = `${controlColor}18`;
+  context.strokeStyle = controlColor;
+  context.lineWidth = 4;
+  context.fillRect(
+    SPAWN_WARS_RULES.centerX - SPAWN_WARS_RULES.centerCaptureHalfWidth,
+    0,
+    SPAWN_WARS_RULES.centerCaptureHalfWidth * 2,
+    simulation.height,
+  );
+  context.beginPath();
+  context.moveTo(SPAWN_WARS_RULES.centerX, 0);
+  context.lineTo(SPAWN_WARS_RULES.centerX, simulation.height);
+  context.stroke();
+  drawLabel(
+    SPAWN_WARS_RULES.centerX,
+    42,
+    control ? `${control === "spawn-west" ? "WEST" : "EAST"} CONTROLS CENTER` : "CENTER UNCLAIMED",
+    true,
+    controlColor,
+  );
+  context.restore();
 }
 
 function drawStrategicEntities() {
@@ -2538,6 +2726,33 @@ function drawCrystalShard(x, y, size, rotation = 0, { alpha = 1, rich = false } 
 
 function drawPlacementPreview() {
   if (!placementCursor) return;
+  if (spawnPadUnitType) {
+    const placement = simulation.evaluateSpawnPadPlacement(
+      spawnPadUnitType,
+      placementCursor.x,
+      placementCursor.y,
+      localTeam,
+    );
+    const definition = STRUCTURE_DEFINITIONS[placement.padType || "spawn_pad"];
+    const footprint = structureFootprint(placement.padType || "spawn_pad");
+    const previewColor = placement.valid ? colors.energy : colors.disconnected;
+    context.save();
+    context.translate(placement.x, placement.y);
+    context.fillStyle = `${previewColor}32`;
+    context.strokeStyle = previewColor;
+    context.lineWidth = 3;
+    context.fillRect(-footprint.halfWidth, -footprint.halfHeight, footprint.width, footprint.height);
+    context.strokeRect(-footprint.halfWidth, -footprint.halfHeight, footprint.width, footprint.height);
+    context.restore();
+    drawLabel(
+      placement.x,
+      placement.y + footprint.halfHeight + 22,
+      placement.valid ? `${definition.name} · ${UNIT_DEFINITIONS[spawnPadUnitType].name}` : placement.reason,
+      true,
+      previewColor,
+    );
+    return;
+  }
   if (testerSpawnPlacement?.kind === "unit") {
     const definition = UNIT_DEFINITIONS[testerSpawnPlacement.type];
     const placement = simulation.evaluateUnitPlacement(
@@ -3869,6 +4084,26 @@ function drawStructure(structure) {
   }
 
   drawStructureFoundation(footprint, teamColor, structure.powered);
+  if (definition.phaseLayer) {
+    context.fillStyle = `${teamColor}28`;
+    context.strokeStyle = teamColor;
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(0, 0, Math.min(footprint.halfWidth, footprint.halfHeight) * 0.58, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    const spawnedDefinition = UNIT_DEFINITIONS[structure.spawnUnitType];
+    if (spawnedDefinition) {
+      drawLabel(0, -4, `T${spawnedDefinition.tier || 1}`, true, teamColor);
+      drawLabel(
+        0,
+        12,
+        structure.complete ? `${Math.ceil(structure.spawnRemaining || 0)}S` : "BUILD",
+        true,
+        teamColor,
+      );
+    }
+  }
   if (structure.complete) {
     drawCompletedBuilding(
       structure,
@@ -4118,7 +4353,13 @@ function drawUnit(unit) {
   }
 
   const barWidth = Math.max(24, renderedRadius * 2.3);
-  drawBar(unit.x, unit.y - renderedRadius - 12, barWidth, unit.hp / definition.maxHp, colors.health);
+  drawBar(
+    unit.x,
+    unit.y - renderedRadius - 12,
+    barWidth,
+    unit.hp / (unit.spawnWarsMaximumHp || definition.maxHp),
+    colors.health,
+  );
   drawBar(
     unit.x,
     unit.y - renderedRadius - 6,
@@ -6992,7 +7233,7 @@ function updateInterface() {
   matchResultPanel.hidden = !matchEnded;
   if (matchEnded) {
     const victory = simulation.matchWinnerTeamId
-      ? simulation.matchWinnerTeamId === localTeam
+      ? simulation.areAlliedTeams(simulation.matchWinnerTeamId, localTeam)
       : localTeam === "player"
         ? simulation.matchResult === "victory"
         : simulation.matchResult === "defeat";
@@ -7004,6 +7245,7 @@ function updateInterface() {
   pauseButton.disabled = matchEnded || isMultiplayer();
 
   const localResources = simulation.resources[localTeam];
+  const spawnWarsActive = simulation.isSpawnWars();
   const unitTesterActive = simulation.isTesterTeam(localTeam);
   testerSpawnCommands.hidden = matchEnded || !unitTesterActive;
   crystalValue.textContent = unitTesterActive
@@ -7011,11 +7253,15 @@ function updateInterface() {
     : Math.floor(localResources.metal).toLocaleString();
   const netEnergyRate = simulation.getNetEnergyRate(localTeam);
   const netEnergyText = netEnergyRate.toLocaleString(undefined, { maximumFractionDigits: 1 });
-  energyValue.textContent = unitTesterActive
+  energyValue.textContent = spawnWarsActive
+    ? `income in ${Math.ceil(simulation.spawnWars.incomeRemaining)}s`
+    : unitTesterActive
     ? "∞"
     : `${netEnergyRate >= 0 ? "+" : ""}${netEnergyText}/s · ${Math.floor(localResources.energy)}/${localResources.energyCapacity}`;
   const playerSupply = simulation.getSupplyState(localTeam);
-  supplyValue.textContent = unitTesterActive
+  supplyValue.textContent = spawnWarsActive
+    ? "unlimited"
+    : unitTesterActive
     ? `${playerSupply.used.toLocaleString()}/∞`
     : `${playerSupply.used.toLocaleString()}/${playerSupply.capacity.toLocaleString()}`;
   supplyValue.title = `${playerSupply.unitSupply.toLocaleString()} active · ${playerSupply.reservedSupply.toLocaleString()} queued`;
@@ -7025,6 +7271,9 @@ function updateInterface() {
     .filter((unit) => unit && !unit.carriedById);
   const selectedStructures = getSelectedStructures();
   const selectedStructure = simulation.getStructure(selectedStructureId);
+  const selectedArchitect = selectedUnits.find(
+    (unit) => UNIT_DEFINITIONS[unit.type]?.spawnWarsArchitect,
+  );
   if (selectedStructures.length > 1) {
     const definition = STRUCTURE_DEFINITIONS[selectedStructure.type];
     const poweredCount = selectedStructures.filter((structure) => structure.powered).length;
@@ -7126,12 +7375,12 @@ function updateInterface() {
     const unit = selectedUnits[0];
     const definition = UNIT_DEFINITIONS[unit.type];
     selectionName.textContent = definition.name;
-    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state === "stasis" ? "IN STASIS" : "ACTIVE"}`;
+    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${Math.ceil(unit.spawnWarsMaximumHp || definition.maxHp)} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state === "stasis" ? "IN STASIS" : "ACTIVE"}`;
   } else {
     const activeCount = selectedUnits.filter((unit) => unit.state === "active").length;
     const integrity = selectedUnits.reduce((total, unit) => total + Math.ceil(unit.hp), 0);
     const maximumIntegrity = selectedUnits.reduce(
-      (total, unit) => total + UNIT_DEFINITIONS[unit.type].maxHp,
+      (total, unit) => total + (unit.spawnWarsMaximumHp || UNIT_DEFINITIONS[unit.type].maxHp),
       0,
     );
     const energy = selectedUnits.reduce((total, unit) => total + Math.ceil(unit.energy), 0);
@@ -7178,7 +7427,7 @@ function updateInterface() {
     selectedWorkers.map((unit) => unit.id),
     localTeam,
   );
-  workerUpgradeButton.hidden = matchEnded || workerUpgrade.count === 0;
+  workerUpgradeButton.hidden = spawnWarsActive || matchEnded || workerUpgrade.count === 0;
   if (workerUpgrade.count > 0) {
     workerUpgradeTitle.textContent = workerUpgrade.count === 1
       ? `Upgrade Worker to Tier ${workerUpgrade.targetTier}`
@@ -7188,7 +7437,7 @@ function updateInterface() {
       : workerUpgrade.reason;
     workerUpgradeButton.disabled = !workerUpgrade.valid;
   }
-  buildCommands.hidden = matchEnded || selectedWorkers.length === 0;
+  buildCommands.hidden = spawnWarsActive || matchEnded || selectedWorkers.length === 0;
   const selectedWorkerTier = selectedWorkers.reduce(
     (highest, unit) => Math.max(highest, UNIT_DEFINITIONS[unit.type].workerTier),
     0,
@@ -7258,7 +7507,9 @@ function updateInterface() {
     ).toLocaleString();
   }
   const canDestroyStructure = Boolean(
-    selectedStructures.length === 1 && selectedStructure?.complete,
+    selectedStructures.length === 1 &&
+    selectedStructure?.complete &&
+    (!spawnWarsActive || STRUCTURE_DEFINITIONS[selectedStructure.type]?.phaseLayer),
   );
   destroyStructureButton.hidden = !canDestroyStructure;
   if (canDestroyStructure) {
@@ -7305,6 +7556,60 @@ function updateInterface() {
   structureCommands.hidden =
     matchEnded ||
     (!canCancelConstruction && !canDestroyStructure && !canShowSupplyUpgrade && !canShowBuildingUpgrade);
+
+  spawnWarsCommands.hidden = matchEnded || !spawnWarsActive || !selectedArchitect;
+  if (spawnWarsActive && selectedArchitect) {
+    const architectTier = UNIT_DEFINITIONS[selectedArchitect.type].tier;
+    const availableTypes = spawnWarsSpawnableUnits(UNIT_DEFINITIONS, architectTier);
+    const previousType = spawnUnitSelect.value;
+    const signature = availableTypes.join("|");
+    if (spawnUnitSelect.dataset.signature !== signature) {
+      spawnUnitSelect.replaceChildren(...availableTypes.map((unitType) => {
+        const definition = UNIT_DEFINITIONS[unitType];
+        const option = document.createElement("option");
+        option.value = unitType;
+        option.textContent = `T${definition.tier || 1} · ${definition.name}`;
+        return option;
+      }));
+      spawnUnitSelect.dataset.signature = signature;
+      if (availableTypes.includes(previousType)) spawnUnitSelect.value = previousType;
+    }
+    const unitType = spawnUnitSelect.value;
+    const unitDefinition = UNIT_DEFINITIONS[unitType];
+    const padCost = spawnWarsPadCost(unitDefinition);
+    spawnPadCost.textContent = `${padCost.toLocaleString()} crystal · ${unitDefinition.unitDomain === "experimental" ? "3×3" : "2×2"} phase platform · spawns every ${spawnWarsInterval(unitDefinition)}s`;
+    spawnPlacePadButton.disabled = localResources.metal < padCost;
+    const architectCost = SPAWN_WARS_RULES.architectUpgradeCosts[architectTier - 1];
+    spawnArchitectUpgradeDetails.textContent = Number.isFinite(architectCost)
+      ? `${architectCost.toLocaleString()} crystal · unlock Tier ${architectTier + 1} platforms`
+      : "Tier 3 maximum reached";
+    spawnArchitectUpgradeButton.disabled = !Number.isFinite(architectCost) || localResources.metal < architectCost;
+    const incomeLevel = simulation.spawnWars.incomeLevels[localTeam] || 0;
+    const incomeCost = SPAWN_WARS_RULES.incomeUpgradeCosts[incomeLevel];
+    spawnIncomeUpgradeDetails.textContent = Number.isFinite(incomeCost)
+      ? `${incomeCost.toLocaleString()} crystal · raises each 30s payment by 35% of base`
+      : "Income level 3 maximum reached";
+    spawnIncomeUpgradeButton.disabled = !Number.isFinite(incomeCost) || localResources.metal < incomeCost;
+    const controlsCenter = simulation.spawnWars.controlAllianceId === simulation.getAllianceId(localTeam);
+    spawnIncomeStatus.textContent = `Income level ${incomeLevel} · next payment ${Math.ceil(simulation.spawnWars.incomeRemaining)}s · center ${controlsCenter ? "+60 crystal controlled" : "not controlled"}`;
+  }
+
+  const selectedSpawnPad = selectedStructure?.complete &&
+    selectedStructure.team === localTeam &&
+    STRUCTURE_DEFINITIONS[selectedStructure.type]?.phaseLayer
+    ? selectedStructure
+    : null;
+  spawnPadUpgrades.hidden = matchEnded || !spawnWarsActive || !selectedSpawnPad;
+  if (selectedSpawnPad) {
+    const unitDefinition = UNIT_DEFINITIONS[selectedSpawnPad.spawnUnitType];
+    for (const [category, button] of spawnPadUpgradeButtons) {
+      const level = selectedSpawnPad.spawnUpgradeLevels?.[category] || 0;
+      const cost = spawnWarsPadUpgradeCost(unitDefinition, category, level);
+      const maximum = level >= SPAWN_WARS_RULES.maximumUpgradeLevel;
+      button.innerHTML = `<strong>${SPAWN_PAD_UPGRADES[category].label} · ${level}/3</strong><small>${maximum ? "Maximum level" : `${cost.toLocaleString()} crystal · affects future spawns`}</small>`;
+      button.disabled = maximum || localResources.metal < cost;
+    }
+  }
 
   const lowEnergyUnits = simulation.units.filter(
     (unit) =>
@@ -7353,6 +7658,9 @@ function updateInterface() {
   } else if (placementStructureType) {
     statusBanner.hidden = false;
     statusBanner.textContent = placementMessage || `PLACE ${STRUCTURE_DEFINITIONS[placementStructureType].name.toUpperCase()} · HOLD SHIFT TO QUEUE · RIGHT-CLICK TO CANCEL`;
+  } else if (spawnPadUnitType) {
+    statusBanner.hidden = false;
+    statusBanner.textContent = placementMessage || `PLACE ${UNIT_DEFINITIONS[spawnPadUnitType].name.toUpperCase()} PLATFORM · HOLD SHIFT FOR MORE · RIGHT-CLICK TO CANCEL`;
   } else if (playerSupply.used >= playerSupply.capacity) {
     statusBanner.hidden = false;
     statusBanner.textContent = "SUPPLY LIMIT REACHED · BUILD OR UPGRADE A STRATEGIC SUPPLY COMPLEX";
@@ -7407,6 +7715,14 @@ function syncPointerToCamera() {
       testerSpawnPlacement.type,
       placementCursor.x,
       placementCursor.y,
+    );
+    placementMessage = placement.valid ? null : placement.reason.toUpperCase();
+  } else if (spawnPadUnitType) {
+    const placement = simulation.evaluateSpawnPadPlacement(
+      spawnPadUnitType,
+      placementCursor.x,
+      placementCursor.y,
+      localTeam,
     );
     placementMessage = placement.valid ? null : placement.reason.toUpperCase();
   } else {
@@ -7467,7 +7783,9 @@ function findStructureAt(point, team = null) {
 }
 
 function maximumEntityHp(entity) {
-  if (entity?.kind === "unit") return UNIT_DEFINITIONS[entity.type]?.maxHp || 0;
+  if (entity?.kind === "unit") {
+    return entity.spawnWarsMaximumHp || UNIT_DEFINITIONS[entity.type]?.maxHp || 0;
+  }
   if (entity?.kind === "structure") return STRUCTURE_DEFINITIONS[entity.type]?.maxHp || 0;
   return 0;
 }
@@ -7610,6 +7928,44 @@ function placeConstruction(point, queue = false) {
   return Boolean(accepted);
 }
 
+function placeSpawnPad(point, keepActive = false) {
+  if (!spawnPadUnitType) return false;
+  const architects = [...selectedUnitIds].filter((id) => {
+    const unit = simulation.getUnit(id);
+    return unit?.alive && UNIT_DEFINITIONS[unit.type]?.spawnWarsArchitect;
+  });
+  const placement = simulation.evaluateSpawnPadPlacement(
+    spawnPadUnitType,
+    point.x,
+    point.y,
+    localTeam,
+  );
+  if (!placement.valid) {
+    placementMessage = placement.reason.toUpperCase();
+    updateInterface();
+    return false;
+  }
+  const accepted = issueGameCommand({
+    type: "spawn_pad_construct",
+    architectIds: architects,
+    unitType: spawnPadUnitType,
+    x: placement.x,
+    y: placement.y,
+    queue: keepActive,
+  });
+  if (accepted) {
+    placementMessage = null;
+    if (!keepActive) {
+      spawnPadUnitType = null;
+      placementCursor = null;
+    }
+  } else {
+    placementMessage = (simulation.lastPlacementError || "Invalid spawn platform location.").toUpperCase();
+  }
+  updateInterface();
+  return Boolean(accepted);
+}
+
 function placeTesterSpawn(point, keepActive = false) {
   if (!testerSpawnPlacement) return false;
   const command = testerSpawnPlacement.kind === "structure"
@@ -7648,6 +8004,11 @@ canvas.addEventListener("mouseup", (event) => {
 
   if (testerSpawnPlacement) {
     placeTesterSpawn(drag.current, drag.shift);
+    return;
+  }
+
+  if (spawnPadUnitType) {
+    placeSpawnPad(drag.current, drag.shift);
     return;
   }
 
@@ -7721,7 +8082,8 @@ canvas.addEventListener("dblclick", (event) => {
     simulation.matchResult ||
     event.button !== 0 ||
     testerSpawnPlacement ||
-    placementStructureType
+    placementStructureType ||
+    spawnPadUnitType
   ) return;
   event.preventDefault();
   pointerScreen = canvasScreenPoint(event);
@@ -7751,7 +8113,8 @@ canvas.addEventListener("contextmenu", (event) => {
     if (
       minimapTarget &&
       !testerSpawnPlacement &&
-      !placementStructureType
+      !placementStructureType &&
+      !spawnPadUnitType
     ) {
       if (patrolDraft) {
         recordPatrolPoint(minimapTarget);
@@ -7764,9 +8127,10 @@ canvas.addEventListener("contextmenu", (event) => {
     }
     return;
   }
-  if (testerSpawnPlacement || placementStructureType) {
+  if (testerSpawnPlacement || placementStructureType || spawnPadUnitType) {
     testerSpawnPlacement = null;
     placementStructureType = null;
+    spawnPadUnitType = null;
     placementMessage = null;
     placementCursor = null;
     updateInterface();
@@ -7945,6 +8309,7 @@ function togglePatrolRecording() {
   patrolDraft = { unitIds, points: [] };
   testerSpawnPlacement = null;
   placementStructureType = null;
+  spawnPadUnitType = null;
   placementMessage = null;
   placementCursor = null;
   forceMoveArmed = false;
@@ -8072,6 +8437,7 @@ function armTesterSpawn(kind) {
   if (!simulation.isTesterTeam(localTeam) || !testerSpawnTeam.value) return;
   patrolDraft = null;
   placementStructureType = null;
+  spawnPadUnitType = null;
   testerSpawnPlacement = {
     kind,
     team: testerSpawnTeam.value,
@@ -8102,6 +8468,34 @@ testerSpawnUnit.addEventListener("change", () => {
     syncPointerToCamera();
     updateInterface();
   }
+});
+spawnPlacePadButton.addEventListener("click", () => {
+  const hasArchitect = [...selectedUnitIds].some((id) => {
+    const unit = simulation.getUnit(id);
+    return unit?.alive && UNIT_DEFINITIONS[unit.type]?.spawnWarsArchitect;
+  });
+  if (!hasArchitect || !spawnUnitSelect.value) return;
+  patrolDraft = null;
+  testerSpawnPlacement = null;
+  placementStructureType = null;
+  spawnPadUnitType = spawnPadUnitType === spawnUnitSelect.value ? null : spawnUnitSelect.value;
+  placementMessage = null;
+  placementCursor = pointerScreen ? screenToWorld(pointerScreen) : null;
+  forceMoveArmed = false;
+  updateInterface();
+});
+spawnUnitSelect.addEventListener("change", () => {
+  if (spawnPadUnitType) spawnPadUnitType = spawnUnitSelect.value;
+  syncPointerToCamera();
+  updateInterface();
+});
+spawnArchitectUpgradeButton.addEventListener("click", () => {
+  issueGameCommand({ type: "spawn_architect_upgrade" });
+  updateInterface();
+});
+spawnIncomeUpgradeButton.addEventListener("click", () => {
+  issueGameCommand({ type: "spawn_income_upgrade" });
+  updateInterface();
 });
 patrolButton.addEventListener("click", togglePatrolRecording);
 stopButton.addEventListener("click", () => {
@@ -8152,13 +8546,19 @@ backFromUnitTesterButton.addEventListener("click", () => {
   unitTesterSetup.hidden = true;
   modeChoices.hidden = false;
 });
-multiplayerButton.addEventListener("click", () => {
+function showOnlineSetup(gameMode) {
+  lobbyGameMode = gameMode;
   modeChoices.hidden = true;
   singlePlayerSetup.hidden = true;
   unitTesterSetup.hidden = true;
   multiplayerSetup.hidden = false;
-  setConnectionStatus("Create a lobby or enter a lobby code to begin.");
-});
+  multiplayerSetup.dataset.gameMode = gameMode;
+  setConnectionStatus(gameMode === "spawn_wars"
+    ? "Create or join a 2–4 player human-only Spawn Wars lobby."
+    : "Create a lobby or enter a lobby code to begin.");
+}
+multiplayerButton.addEventListener("click", () => showOnlineSetup("standard"));
+spawnWarsButton.addEventListener("click", () => showOnlineSetup("spawn_wars"));
 backToModesButton.addEventListener("click", returnToMenu);
 createHostButton.addEventListener("click", createHostMatch);
 copyLobbyCodeButton.addEventListener("click", copyLobbyCode);
@@ -8231,6 +8631,7 @@ window.addEventListener("keydown", (event) => {
     forceMoveArmed = true;
     testerSpawnPlacement = null;
     placementStructureType = null;
+    spawnPadUnitType = null;
     placementMessage = null;
     placementCursor = null;
     updateInterface();
@@ -8240,6 +8641,7 @@ window.addEventListener("keydown", (event) => {
     forceMoveArmed = false;
     testerSpawnPlacement = null;
     placementStructureType = null;
+    spawnPadUnitType = null;
     placementMessage = null;
     placementCursor = null;
     selectionDrag = null;
