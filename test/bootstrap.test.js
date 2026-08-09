@@ -201,6 +201,9 @@ test("the Hexapod renderer uses an elongated hull, tri-claw feet, and armored tu
   assert.match(renderer[0], /function drawHexapodTurret/);
   assert.match(renderer[0], /baseRadius: 0\.27/);
   assert.match(renderer[0], /bodyHalfWidth: 0\.24/);
+  assert.match(renderer[0], /HEXAPOD_FLAK_MOUNTS = Object\.freeze/);
+  assert.match(renderer[0], /function drawHexapodFlakTurret/);
+  assert.match(renderer[0], /for \(const barrelX of \[-0\.038, 0\.038\]\)/);
 });
 
 test("the Zenith Doughnut renderer shows two dorsal anti-air batteries", async () => {

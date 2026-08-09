@@ -4601,6 +4601,12 @@ function drawArsenalColossusSprite(definition, teamColor, stasis, pose) {
 const HEXAPOD_FOOT_CLAW_COUNT = 3;
 const HEXAPOD_HULL_FRONT = -1.2;
 const HEXAPOD_HULL_REAR = 1.18;
+const HEXAPOD_FLAK_MOUNTS = Object.freeze([
+  Object.freeze({ x: -0.38, y: -0.78 }),
+  Object.freeze({ x: 0.38, y: -0.78 }),
+  Object.freeze({ x: -0.42, y: 0.72 }),
+  Object.freeze({ x: 0.42, y: 0.72 }),
+]);
 const ZENITH_AA_MOUNT_OFFSETS = Object.freeze([-0.58, 0.58]);
 
 function drawHexapodFoot(palette, footX, footY, rotation) {
@@ -4743,6 +4749,39 @@ function drawHexapodTurret(palette, cannon, facing, recoil) {
   context.restore();
 }
 
+function drawHexapodFlakTurret(palette, mount, facing, recoil) {
+  context.save();
+  context.translate(mount.x, mount.y);
+  context.rotate(facing);
+  context.lineCap = "round";
+
+  context.fillStyle = palette.joint;
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.035;
+  context.beginPath();
+  context.arc(0, 0, 0.105, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = palette.armorLight;
+  context.beginPath();
+  context.roundRect(-0.085, -0.075, 0.17, 0.15, 0.035);
+  context.fill();
+  context.stroke();
+
+  context.strokeStyle = palette.armorDark;
+  context.lineWidth = 0.042;
+  for (const barrelX of [-0.038, 0.038]) {
+    context.beginPath();
+    context.moveTo(barrelX, -0.055);
+    context.lineTo(barrelX, -0.31 + recoil * 0.45);
+    context.stroke();
+  }
+  context.fillStyle = palette.accent;
+  context.fillRect(-0.065, 0.03, 0.13, 0.032);
+  context.restore();
+}
+
 function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
   const palette = experimentalUnitPalette(teamColor, stasis);
   context.save();
@@ -4839,6 +4878,15 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
       cannon,
       pose.weaponSystemFacings?.[index] || 0,
       pose.weaponSystemRecoils?.[index] || 0,
+    );
+  }
+  for (const [index, mount] of HEXAPOD_FLAK_MOUNTS.entries()) {
+    const weaponSystemIndex = cannons.length + index;
+    drawHexapodFlakTurret(
+      palette,
+      mount,
+      pose.weaponSystemFacings?.[weaponSystemIndex] || 0,
+      pose.weaponSystemRecoils?.[weaponSystemIndex] || 0,
     );
   }
 
@@ -6675,6 +6723,17 @@ function attackPresentation(source, event = null) {
     };
   }
   if (role === "hexapod_landship") {
+    if (weaponDefinition?.weaponRole === "flak") {
+      return {
+        salvoCount: 1, salvoSpread: 0,
+        speed: kinetics.speed, minimumTravelTime: kinetics.minimumTravelTime,
+        trailFraction: 0.13, arcHeight: 3,
+        projectileSize: 2.7, trailWidth: 1.8, muzzleDuration: 0.09, muzzleSize: 9,
+        impactDuration: 0.28, impactSize: 17, sparkCount: 9, glow: 13, smoke: false,
+        projectileColor: "#f2fdff", trailColor: "#7cecff", muzzleColor: "#ffffff",
+        glowColor: "#38d9ff", impactColor: "#a5f7ff", sparkColor: "#dffeff",
+      };
+    }
     return {
       salvoCount: event?.weaponSystemIndex === undefined ? definition.salvoCount || 1 : 1,
       salvoSpread: 0,

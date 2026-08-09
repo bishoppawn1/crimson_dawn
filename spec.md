@@ -723,7 +723,7 @@ The Tier 3 Experimental Factory produces exactly three enormous strategic units:
 | Production line | Battlefield role |
 | --- | --- |
 | Arsenal Colossus | Huge assault mech carrying eight visible weapon systems and firing a converging multi-projectile salvo |
-| Hexapod Landship | Six-legged walking battleship with three independently targeting siege cannons that fire while moving, extreme durability, and the ability to stride across living building footprints |
+| Hexapod Landship | Six-legged walking battleship with three independently targeting siege cannons, four smaller anti-air flak mounts, fire-while-moving capability, extreme durability, and the ability to stride across living building footprints |
 | Zenith Doughnut | Giant circular toroidal aircraft with a downward ground beam and twin independently targeting dorsal anti-air batteries |
 
 The Arsenal Colossus follows the same overhead leg language as conventional mechs:
@@ -731,16 +731,20 @@ its hull hides the walking assembly while stationary, leaving only compact rear 
 machinery visible, and small alternating actuator and foot tips emerge while moving.
 The Hexapod Landship remains a ground unit: impassable terrain and living units
 still constrain it, but buildings are excluded from its destination validation,
-path planning, and movement collisions. Its three cannon mounts select targets,
-track, cool down, consume energy, and fire independently while the hull continues
-walking. It is the only unit that can fire while moving. An explicit attack order directs
-the main siege cannon while the two side cannons opportunistically engage other
-hostiles in range; all three may converge on one target when no alternatives exist.
+path planning, and movement collisions. Its three heavy cannon mounts and four
+smaller flak turrets select targets, track, cool down, consume energy, and fire
+independently while the hull continues walking. It is the only unit that can fire
+while moving. An explicit ground attack order directs the main siege cannon while
+the two side cannons opportunistically engage other surface targets in range; all
+three may converge on one target when no alternatives exist. The four flak mounts
+independently engage aircraft, prefer separate targets when several are available,
+and deal the standard dedicated anti-air 2× damage multiplier.
 Shell damage resolves when each visible projectile reaches its target, not when the
 firing order begins. Its six legs retain their deliberate pull-step gait, but the
 two sides use offset phases and shortened travel lanes so neighboring feet do not
 cross. Its slightly elongated walking-battleship hull carries three visibly complete,
-independently rotating armored turret assemblies instead of bare cannon sticks. Each
+independently rotating armored turret assemblies plus four compact twin-barrel flak
+mounts, giving it the mixed heavy and anti-air battery of a battleship. Each
 foot ends in a circular armored hub with three trapezoidal claws spaced exactly 120
 degrees apart. The Zenith
 Doughnut ignores terrain, structures, and ground-unit separation. When idle, it

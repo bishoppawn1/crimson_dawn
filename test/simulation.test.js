@@ -419,7 +419,7 @@ test("experimental factory exposes three distinct strategic units", () => {
 
   const landship = UNIT_DEFINITIONS.hexapod_landship;
   assert.equal(landship.legCount, 6);
-  assert.equal(landship.weaponCount, 3);
+  assert.equal(landship.weaponCount, 7);
   assert.equal(landship.weaponSystems.length, landship.weaponCount);
   assert.equal(
     landship.weaponSystems.reduce((total, weapon) => total + weapon.attackDamage, 0),
@@ -432,6 +432,13 @@ test("experimental factory exposes three distinct strategic units", () => {
   assert.equal(landship.stridesOverStructures, true);
   assert.equal(landship.firesWhileMoving, true);
   assert.equal(landship.movementLayer, "ground");
+  const landshipFlak = landship.weaponSystems.filter((weapon) => weapon.weaponRole === "flak");
+  assert.equal(landshipFlak.length, 4);
+  assert.ok(
+    landshipFlak.every(
+      (weapon) => weapon.targetLayer === "air" && weapon.airDamageMultiplier === 2,
+    ),
+  );
   assert.deepEqual(
     Object.entries(UNIT_DEFINITIONS)
       .filter(([, definition]) => definition.firesWhileMoving)
@@ -531,6 +538,12 @@ test("hexapod landship fires its independent weapons while moving", () => {
     simulation.addStructure("generator", "enemy", 150, 400),
     simulation.addStructure("generator", "enemy", 650, 400),
   ];
+  const aircraft = [
+    simulation.addUnit("interceptor_t2", "enemy", 520, 200, { holdPosition: true }),
+    simulation.addUnit("interceptor_t2", "enemy", 600, 300, { holdPosition: true }),
+    simulation.addUnit("interceptor_t2", "enemy", 600, 500, { holdPosition: true }),
+    simulation.addUnit("interceptor_t2", "enemy", 520, 600, { holdPosition: true }),
+  ];
   const startingEnergy = landship.energy;
   const startingX = landship.x;
 
@@ -540,12 +553,18 @@ test("hexapod landship fires its independent weapons while moving", () => {
   const attackEvents = simulation.events.filter(
     (event) => event.type === "attack" && event.sourceId === landship.id,
   );
-  assert.equal(attackEvents.length, 3);
+  assert.equal(attackEvents.length, 7);
   assert.ok(landship.x > startingX, "the landship should advance on the tick it fires");
-  assert.equal(new Set(attackEvents.map((event) => event.targetId)).size, 3);
+  assert.equal(new Set(attackEvents.map((event) => event.targetId)).size, 7);
+  const flakEvents = attackEvents.filter((event) => event.weaponSystemIndex >= 3);
+  assert.deepEqual(
+    flakEvents.map((event) => event.targetId).sort(),
+    aircraft.map((target) => target.id).sort(),
+  );
+  assert.ok(flakEvents.every((event) => event.tracksTarget));
   assert.deepEqual(
     landship.weaponSystems.map((weaponSystem) => weaponSystem.targetId).sort(),
-    targets.map((target) => target.id).sort(),
+    [...targets, ...aircraft].map((target) => target.id).sort(),
   );
   assert.deepEqual(
     landship.weaponSystems.map((weaponSystem) => weaponSystem.cooldownRemaining),
@@ -566,6 +585,18 @@ test("hexapod landship fires its independent weapons while moving", () => {
   assert.ok(
     targets.every(
       (target) => restored.getStructure(target.id).hp < STRUCTURE_DEFINITIONS.generator.maxHp,
+    ),
+  );
+  assert.ok(
+    aircraft.every(
+      (target) => {
+        const flak = UNIT_DEFINITIONS.hexapod_landship.weaponSystems.find(
+          (weapon) => weapon.weaponRole === "flak",
+        );
+        return restored.getUnit(target.id).hp ===
+          UNIT_DEFINITIONS.interceptor_t2.maxHp -
+            flak.attackDamage * flak.airDamageMultiplier;
+      },
     ),
   );
 });
