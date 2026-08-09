@@ -5,6 +5,7 @@ import {
   STRATEGIC_ICON_ZOOM_THRESHOLD,
   strategicIconWorldSize,
   strategicUnitCode,
+  strategicUnitMarkerRadius,
   strategicUnitWorldRadius,
   strategicViewActive,
   strategicZoomMinimum,
@@ -38,6 +39,12 @@ test("strategic unit markers preserve actual world size", () => {
     44 / 6,
   );
   assert.equal(strategicUnitWorldRadius({}), 1);
+
+  const fullyZoomedOutWorker = strategicUnitMarkerRadius(worker, 0.1);
+  const fullyZoomedOutBattleship = strategicUnitMarkerRadius(battleship, 0.1);
+  assert.equal(fullyZoomedOutWorker * 0.1, 3.5);
+  assert.equal(fullyZoomedOutBattleship, 44);
+  assert.ok(fullyZoomedOutBattleship > fullyZoomedOutWorker);
 });
 
 test("strategic unit tags identify role and tier with compact markers", () => {

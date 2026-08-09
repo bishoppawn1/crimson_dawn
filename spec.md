@@ -72,6 +72,10 @@ their actual radius, and buildings use their actual grid footprint. Mobile units
 small circles or aircraft triangles followed by a persistent role-and-tier code such
 as `W1` for a Tier 1 Worker, `TK2` for a Tier 2 Battle Tank, or `BM3` for a Tier 3
 Bomber. The code remains screen-readable while the marker scales with the world.
+At the dynamic whole-map minimum, mobile markers may use a provisional 3.5-pixel
+screen-radius floor so small workers and drones remain visible; larger units keep
+their true relative size above that floor. Buildings have no such floor and always
+shrink or grow with their actual footprint.
 Hovering a mobile symbol shows its complete unit name. Selection uses a thin outer
 ring without enlarging the underlying marker. Each Headquarters retains a ringed
 diamond inside its actual footprint. Team colors, selection highlighting, forgiving

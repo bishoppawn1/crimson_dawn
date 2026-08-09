@@ -1,5 +1,6 @@
 export const STRATEGIC_ICON_ZOOM_THRESHOLD = 0.45;
 export const STRATEGIC_UNIT_CODE_SCREEN_SIZE = 11;
+export const STRATEGIC_UNIT_MIN_SCREEN_RADIUS = 3.5;
 
 const STRATEGIC_UNIT_ROLE_CODES = Object.freeze({
   worker: "W",
@@ -59,4 +60,16 @@ export function strategicUnitWorldRadius(definition) {
   return Number.isFinite(definition?.radius) && definition.radius > 0
     ? definition.radius
     : 1;
+}
+
+export function strategicUnitMarkerRadius(
+  definition,
+  zoom,
+  minimumScreenRadius = STRATEGIC_UNIT_MIN_SCREEN_RADIUS,
+) {
+  const worldRadius = strategicUnitWorldRadius(definition);
+  if (!Number.isFinite(zoom) || zoom <= 0 || !Number.isFinite(minimumScreenRadius)) {
+    return worldRadius;
+  }
+  return Math.max(worldRadius, minimumScreenRadius / zoom);
 }

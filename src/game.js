@@ -51,7 +51,7 @@ const {
   STRATEGIC_UNIT_CODE_SCREEN_SIZE,
   strategicIconWorldSize,
   strategicUnitCode,
-  strategicUnitWorldRadius,
+  strategicUnitMarkerRadius,
   strategicViewActive,
   strategicZoomMinimum,
 } = await import(`./strategic-view.js${versionSuffix}`);
@@ -1463,7 +1463,7 @@ function drawStrategicEntities() {
     const definition = entity.kind === "unit" ? UNIT_DEFINITIONS[entity.type] : DRONE_DEFINITION;
     const palette = teamPalette(entity.team);
     const selected = selectedUnitIds.has(entity.id);
-    const size = strategicUnitWorldRadius(definition);
+    const size = strategicUnitMarkerRadius(definition, camera.zoom);
     const lineWidth = strategicIconWorldSize(camera.zoom, 0.75);
     context.save();
     context.translate(displayed.x, displayed.y);
