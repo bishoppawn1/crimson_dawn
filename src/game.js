@@ -477,8 +477,13 @@ for (const [groupName, definitions] of Object.entries(
 
 const buildButtons = new Map();
 const buildTierControls = new Map();
+const buildTierTabs = document.createElement("div");
+buildTierTabs.className = "build-tier-tabs";
+const buildTierPanels = document.createElement("div");
+buildTierPanels.className = "build-tier-panels";
+buildCommandGrid.append(buildTierTabs, buildTierPanels);
 for (const tier of [1, 2, 3]) {
-  const tierGroup = document.createElement("section");
+  const tierGroup = document.createElement("div");
   tierGroup.className = "build-tier-group";
   const tierToggle = document.createElement("button");
   tierToggle.type = "button";
@@ -508,8 +513,9 @@ for (const tier of [1, 2, 3]) {
     tierGrid.hidden = expanded;
   });
   buildTierControls.set(tier, { toggle: tierToggle, grid: tierGrid });
-  tierGroup.append(tierToggle, tierGrid);
-  buildCommandGrid.append(tierGroup);
+  tierGroup.append(tierToggle);
+  buildTierTabs.append(tierGroup);
+  buildTierPanels.append(tierGrid);
 
   for (const structureType of BUILD_MENU_BY_TIER[tier]) {
     const definition = STRUCTURE_DEFINITIONS[structureType];

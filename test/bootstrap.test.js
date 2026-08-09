@@ -198,9 +198,12 @@ test("worker controls upgrade one tier and keep only one construction tier open"
   ]);
 
   assert.match(index, /id="worker-upgrade-button"/);
+  assert.match(index, /id="build-command-grid"/);
   assert.match(game, /case "worker_upgrade"/);
   assert.match(game, /simulation\.upgradeWorkers\(/);
   assert.match(game, /type: "worker_upgrade"/);
+  assert.match(game, /className = "build-tier-tabs"/);
+  assert.match(game, /className = "build-tier-panels"/);
   assert.match(
     game,
     /for \(const \[otherTier, controls\] of buildTierControls\)[\s\S]*?controls\.toggle\.setAttribute\("aria-expanded", "false"\);[\s\S]*?controls\.grid\.hidden = true;/,

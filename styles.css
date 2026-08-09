@@ -466,7 +466,7 @@ h2 {
 
 .play-area {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(260px, 18vw, 300px);
+  grid-template-columns: minmax(0, 1fr) clamp(330px, 25vw, 420px);
   gap: 10px;
 }
 
@@ -563,7 +563,7 @@ canvas {
 }
 
 .command-panel section {
-  padding: 16px;
+  padding: 13px;
   border: 1px solid #302b32;
   border-radius: 8px;
   background: #121015;
@@ -806,8 +806,19 @@ canvas {
 }
 
 .build-tier-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+
+.build-tier-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.build-tier-panels {
+  min-width: 0;
 }
 
 .command-panel .build-tier-group {
@@ -821,14 +832,17 @@ canvas {
 .build-tier-toggle {
   display: flex;
   width: 100%;
+  min-height: 58px;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 11px;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 6px;
   border: 0;
   background: #24171c;
   color: #f2e9eb;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
 }
 
 .build-tier-toggle:hover,
@@ -851,20 +865,25 @@ canvas {
 
 .build-tier-chevron {
   color: #d75565;
-  font-size: 20px;
-  line-height: 0.7;
-  transform: rotate(0deg);
+  font-size: 14px;
+  line-height: 1;
+  transform: rotate(90deg);
   transition: transform 120ms ease;
 }
 
 .build-tier-toggle[aria-expanded="true"] .build-tier-chevron {
-  transform: rotate(90deg);
+  transform: rotate(-90deg);
 }
 
 .build-tier-grid {
-  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 8px 0 0;
   padding: 8px;
-  border-top: 1px solid #44373e;
+  border: 1px solid #44373e;
+  border-radius: 6px;
+  background: #171318;
 }
 
 .build-tier-grid[hidden] {

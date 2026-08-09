@@ -724,10 +724,11 @@ Worker construction capability is cumulative:
 - A Tier 3 Worker Drone inherits every Tier 1 and Tier 2 option, constructs every
   Tier 3 building, and constructs the Experimental Factory.
 
-The worker construction interface presents exactly three collapsible boxes labeled
-Tier 1, Tier 2, and Tier 3. Only one box may be open at a time: opening one closes
-the previously open box, while selecting the open box again closes it. Within an
-open box, structures the current worker selection can build and
+The worker construction interface presents exactly three compact, side-by-side
+tier tabs labeled Tier 1, Tier 2, and Tier 3. Only one tier panel may be open at a
+time: selecting a tab opens its panel and closes the previously open panel, while
+selecting the open tab again closes it. Within an open panel, structures the
+current worker selection can build and
 afford are displayed brightly, while structures blocked by worker tier or current
 crystal are dimmed but remain visible so the progression path stays clear.
 
