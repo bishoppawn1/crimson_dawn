@@ -3156,6 +3156,7 @@ export class Simulation {
         unit.alive &&
         unit.team === teamId &&
         isCombatUnitDefinition(definition) &&
+        !isMobileEnergySupportDefinition(definition) &&
         unit.attackTargetMode !== "explicit" &&
         !["advance", "retreat"].includes(unit.moveMode)
       );
@@ -3163,7 +3164,11 @@ export class Simulation {
     const queuedCombatCount = enemyFactories.reduce(
       (total, factory) =>
         total + factory.productionQueue.filter(
-          (order) => isCombatUnitDefinition(UNIT_DEFINITIONS[order.unitType]),
+          (order) => {
+            const definition = UNIT_DEFINITIONS[order.unitType];
+            return isCombatUnitDefinition(definition) &&
+              !isMobileEnergySupportDefinition(definition);
+          },
         ).length,
       0,
     );
@@ -3189,7 +3194,11 @@ export class Simulation {
         (unitType) => UNIT_DEFINITIONS[unitType].workerTier,
       );
       const combatTypes = factoryDefinition.production.filter(
-        (unitType) => isCombatUnitDefinition(UNIT_DEFINITIONS[unitType]),
+        (unitType) => {
+          const definition = UNIT_DEFINITIONS[unitType];
+          return isCombatUnitDefinition(definition) &&
+            !isMobileEnergySupportDefinition(definition);
+        },
       );
       const combatType = combatTypes
         .map((unitType, order) => ({
@@ -3208,23 +3217,29 @@ export class Simulation {
         }))
         .sort((left, right) => left.count - right.count || left.order - right.order)[0]
         ?.unitType;
-      const carrierType = factoryDefinition.production.find(
-        (unitType) => UNIT_DEFINITIONS[unitType].role === "carrier",
+      const supportType = factoryDefinition.production.find(
+        (unitType) => isMobileEnergySupportDefinition(UNIT_DEFINITIONS[unitType]),
       );
-      const carrierCount = this.units.filter(
+      const supportCount = this.units.filter(
         (unit) =>
           unit.alive &&
           unit.team === teamId &&
-          UNIT_DEFINITIONS[unit.type].role === "carrier",
+          isMobileEnergySupportDefinition(UNIT_DEFINITIONS[unit.type]),
       ).length + enemyFactories.reduce(
         (total, candidate) => total + candidate.productionQueue.filter(
-          (queued) => UNIT_DEFINITIONS[queued.unitType]?.role === "carrier",
+          (queued) => isMobileEnergySupportDefinition(UNIT_DEFINITIONS[queued.unitType]),
         ).length,
         0,
       );
       const combatPopulation = stagedCombatCount + queuedCombatCount;
-      const desiredCarrierCount = combatPopulation >= desiredWaveSize
-        ? Math.max(1, Math.floor(combatPopulation / 4))
+      const desiredSupportCount = combatPopulation >= desiredWaveSize
+        ? Math.min(
+          SIMULATION_RULES.enemyMaxMobileEnergySupport,
+          1 + Math.floor(
+            (combatPopulation - desiredWaveSize) /
+              SIMULATION_RULES.enemyCombatUnitsPerMobileEnergySupport,
+          ),
+        )
         : 0;
       const replacingWorker = enemyWorkers.length + queuedWorkerCount < 3;
       const highestWorkerTier = Math.max(
@@ -3236,11 +3251,11 @@ export class Simulation {
       );
       const advancesWorkerTier =
         workerType && UNIT_DEFINITIONS[workerType].workerTier > highestWorkerTier;
-      const needsCarrier = carrierType && carrierCount < desiredCarrierCount;
+      const needsSupport = supportType && supportCount < desiredSupportCount;
       const choice = replacingWorker || advancesWorkerTier
         ? workerType
-        : needsCarrier
-          ? carrierType
+        : needsSupport
+          ? supportType
           : combatType;
       if (!choice) continue;
       const productionCost = UNIT_DEFINITIONS[choice].metalCost;
@@ -5861,6 +5876,10 @@ function isCombatUnitDefinition(definition) {
     (definition.attackRange > 0 || definition.underbellyBeamRadius > 0) &&
     !definition.workerTier,
   );
+}
+
+function isMobileEnergySupportDefinition(definition) {
+  return Boolean(definition?.transferRate);
 }
 
 function isStaticDefenseTargetInRange(definition, defense, target) {

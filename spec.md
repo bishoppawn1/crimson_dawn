@@ -325,14 +325,16 @@ power is scarce, the charger shares the available energy fairly among all eligib
 units instead of charging them sequentially or allowing the first unit to consume
 the entire supply.
 
-Mobile energy suppliers carry a large reserve and automatically transfer energy to
+Mobile energy suppliers carry a large reserve, mount a modest defensive weapon,
+and automatically transfer energy to
 nearby friendly non-carrier units that are not full. Their per-second output is
 shared fairly among all eligible units in range, and every point delivered is
 deducted from the supplier's own reserve. A supplier stops transferring at its
 protected reserve and does not refill another mobile supplier. Selecting an Arc
 Energy Carrier shows its transfer radius, and active supply links identify the
-units currently receiving energy. Mobile suppliers are vulnerable logistical
-assets and should be valuable targets.
+units currently receiving energy. Arc Energy Carriers, Grid Tankers, and Energy
+Tenders all improve their defensive weapon across tiers, but remain logistical
+assets rather than primary combat units and should be valuable targets.
 
 ### 3.3 Shutdown and Stasis
 
@@ -1183,8 +1185,11 @@ reserves enough crystal for its highest-scoring current building need before que
 ordinary combat units. Replacing a missing worker and rebuilding a deployed or
 destroyed combat reserve take priority over that building reserve. Factories
 balance their available combat roles by current and queued roster counts, then add
-an energy carrier once a field army is large enough to need mobile support; they do
-not repeatedly produce only the first unit in the factory roster.
+mobile energy support once a field army is large enough to need it. Mobile support
+does not count as an ordinary combat role for production balancing. The AI fields
+one supplier with its first complete attack wave, adds at most one more per eight
+additional combat units, and never exceeds three living or queued mobile suppliers
+across its Mech, Vehicle, and Air branches. These support thresholds are provisional.
 
 After establishing its second generator and defense, the AI begins paid
 economic expansion instead of relying indefinitely on its starting harvester. It seeks

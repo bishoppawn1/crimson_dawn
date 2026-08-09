@@ -1616,20 +1616,18 @@ test("higher-tier unit sprites grow and armed variants add visible hardpoints", 
   }
 
   for (const definition of Object.values(UNIT_DEFINITIONS)) {
-    if (
-      definition.unitDomain !== "experimental" &&
-      definition.attackDamage > 0 &&
-      definition.tier > 1
-    ) {
-      assert.equal(definition.additionalWeaponHardpoints, definition.tier - 1);
-    } else {
-      assert.equal(definition.additionalWeaponHardpoints, 0);
-    }
+    const expectedHardpoints =
+      definition.unitDomain !== "experimental" && definition.attackDamage > 0
+        ? definition.transferRate
+          ? definition.tier
+          : Math.max(0, definition.tier - 1)
+        : 0;
+    assert.equal(definition.additionalWeaponHardpoints, expectedHardpoints);
   }
 
-  assert.equal(UNIT_DEFINITIONS.energy_carrier_t3.additionalWeaponHardpoints, 0);
-  assert.equal(UNIT_DEFINITIONS.grid_tanker_t3.additionalWeaponHardpoints, 0);
-  assert.equal(UNIT_DEFINITIONS.energy_tender_t3.additionalWeaponHardpoints, 0);
+  assert.equal(UNIT_DEFINITIONS.energy_carrier_t3.additionalWeaponHardpoints, 3);
+  assert.equal(UNIT_DEFINITIONS.grid_tanker_t3.additionalWeaponHardpoints, 3);
+  assert.equal(UNIT_DEFINITIONS.energy_tender_t3.additionalWeaponHardpoints, 3);
   assert.equal(UNIT_DEFINITIONS.dropship_t3.additionalWeaponHardpoints, 0);
 });
 
@@ -2351,6 +2349,42 @@ test("every mobile energy supplier transfers its matching output rate", () => {
 
     assert.ok(Math.abs((startingEnergy - carrier.energy) - definition.transferRate) < 0.0001);
     assert.ok(Math.abs((ally.energy - 10) - definition.transferRate) < 0.0001);
+  }
+});
+
+test("every mobile energy supplier carries a tier-improving defensive weapon", () => {
+  for (const family of [
+    ["energy_carrier", "energy_carrier_t2", "energy_carrier_t3"],
+    ["grid_tanker", "grid_tanker_t2", "grid_tanker_t3"],
+    ["energy_tender_t2", "energy_tender_t3"],
+  ]) {
+    const definitions = family.map((type) => UNIT_DEFINITIONS[type]);
+    assert.ok(definitions.every((definition) => definition.attackDamage > 0));
+    assert.ok(definitions.every((definition) => definition.attackRange > 0));
+    assert.ok(definitions.every((definition) => definition.attackEnergy > 0));
+    assert.ok(definitions.every((definition) => definition.additionalWeaponHardpoints >= 1));
+    for (let index = 1; index < definitions.length; index += 1) {
+      assert.ok(definitions[index].attackDamage > definitions[index - 1].attackDamage);
+      assert.ok(definitions[index].attackRange > definitions[index - 1].attackRange);
+    }
+  }
+
+  for (const supportType of ["energy_carrier", "grid_tanker", "energy_tender_t2"]) {
+    const simulation = new Simulation();
+    const definition = UNIT_DEFINITIONS[supportType];
+    const support = simulation.addUnit(supportType, "player", 100, 100);
+    const target = simulation.addUnit(
+      "raider",
+      "enemy",
+      100 + Math.min(100, definition.attackRange - 10),
+      100,
+    );
+    const startingHp = target.hp;
+
+    assert.equal(simulation.commandAttack([support.id], target.id), 1);
+    advance(simulation, 2);
+
+    assert.ok(target.hp < startingHp, `${definition.name} should fire its defensive weapon`);
   }
 });
 
@@ -5173,6 +5207,42 @@ test("enemy AI balances combat roles and adds energy support as its army grows",
   simulation.tick(1 / 30);
 
   assert.equal(factory.productionQueue[0]?.unitType, "energy_carrier");
+});
+
+test("enemy AI never exceeds three mobile energy suppliers across all branches", () => {
+  const simulation = new Simulation();
+  simulation.resources.enemy.metal = 50_000;
+  simulation.addUnit("worker_drone_t3", "enemy", 1200, 600);
+  simulation.addUnit("worker_drone_t3", "enemy", 1240, 600);
+  simulation.addUnit("worker_drone_t3", "enemy", 1280, 600);
+  for (let index = 0; index < 24; index += 1) {
+    simulation.addUnit("scout_mech_t3", "enemy", 1320 + index * 4, 600);
+  }
+  simulation.addUnit("grid_tanker_t3", "enemy", 1320, 660);
+  simulation.addUnit("energy_tender_t3", "enemy", 1360, 660);
+  const factories = [
+    simulation.addStructure("mech_factory_t3", "enemy", 1400, 700),
+    simulation.addStructure("vehicle_factory_t3", "enemy", 1520, 700),
+    simulation.addStructure("air_factory_t3", "enemy", 1640, 700),
+  ];
+
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+  simulation.aiThinkRemaining = 0;
+  simulation.tick(1 / 30);
+
+  const livingSupport = simulation.units.filter(
+    (unit) => unit.alive && unit.team === "enemy" && UNIT_DEFINITIONS[unit.type].transferRate,
+  ).length;
+  const queuedSupport = factories.reduce(
+    (total, factory) => total + factory.productionQueue.filter(
+      (order) => UNIT_DEFINITIONS[order.unitType].transferRate,
+    ).length,
+    0,
+  );
+  assert.equal(livingSupport, 2);
+  assert.equal(queuedSupport, 1);
+  assert.equal(livingSupport + queuedSupport, SIMULATION_RULES.enemyMaxMobileEnergySupport);
 });
 
 test("enemy AI reserves crystal for its next generator after fielding a combat force", () => {

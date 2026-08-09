@@ -435,24 +435,24 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
     attackCooldown: 1.8, metalCost: 390, productionTime: 19, supplyCost: 15,
   }),
   grid_tanker: provisionalFactoryUnit({
-    name: "Tier 1 Grid Tanker", role: "grid_tanker", roleDescription: "Armored mobile energy support",
+    name: "Tier 1 Grid Tanker", role: "grid_tanker", roleDescription: "Armed mobile energy support",
     unitDomain: "vehicle", tier: 1, radius: 13, maxHp: 190, maxEnergy: 3000, speed: 70,
-    movementEnergyPerUnit: 0.045, attackRange: 0, attackDamage: 0, attackEnergy: 0,
-    attackCooldown: 0, metalCost: 140, productionTime: 10, supplyCost: 6,
+    movementEnergyPerUnit: 0.045, attackRange: 135, attackDamage: 8, attackEnergy: 4,
+    attackCooldown: 0.86, metalCost: 140, productionTime: 10, supplyCost: 6,
     transferRange: 100, transferRate: 32, protectedReserve: 80,
   }),
   grid_tanker_t2: provisionalFactoryUnit({
-    name: "Tier 2 Grid Tanker", role: "grid_tanker", roleDescription: "Armored mobile energy support",
+    name: "Tier 2 Grid Tanker", role: "grid_tanker", roleDescription: "Armed mobile energy support",
     unitDomain: "vehicle", tier: 2, radius: 14, maxHp: 275, maxEnergy: 4200, speed: 75,
-    movementEnergyPerUnit: 0.04, attackRange: 0, attackDamage: 0, attackEnergy: 0,
-    attackCooldown: 0, metalCost: 210, productionTime: 13, supplyCost: 9,
+    movementEnergyPerUnit: 0.04, attackRange: 150, attackDamage: 12, attackEnergy: 5,
+    attackCooldown: 0.78, metalCost: 210, productionTime: 13, supplyCost: 9,
     transferRange: 120, transferRate: 48, protectedReserve: 110,
   }),
   grid_tanker_t3: provisionalFactoryUnit({
-    name: "Tier 3 Grid Tanker", role: "grid_tanker", roleDescription: "Armored mobile energy support",
+    name: "Tier 3 Grid Tanker", role: "grid_tanker", roleDescription: "Armed mobile energy support",
     unitDomain: "vehicle", tier: 3, radius: 15, maxHp: 380, maxEnergy: 6000, speed: 80,
-    movementEnergyPerUnit: 0.036, attackRange: 0, attackDamage: 0, attackEnergy: 0,
-    attackCooldown: 0, metalCost: 310, productionTime: 16, supplyCost: 13,
+    movementEnergyPerUnit: 0.036, attackRange: 170, attackDamage: 17, attackEnergy: 7,
+    attackCooldown: 0.7, metalCost: 310, productionTime: 16, supplyCost: 13,
     transferRange: 145, transferRate: 68, protectedReserve: 150,
   }),
   flak_crawler: provisionalFactoryUnit({
@@ -516,17 +516,17 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
     attackCooldown: 2.05, metalCost: 430, productionTime: 19, supplyCost: 16,
   }),
   energy_tender_t2: provisionalFactoryUnit({
-    name: "Tier 2 Energy Tender", role: "energy_tender", roleDescription: "Airborne mobile energy support",
+    name: "Tier 2 Energy Tender", role: "energy_tender", roleDescription: "Armed airborne energy support",
     unitDomain: "air", tier: 2, radius: 11, maxHp: 130, maxEnergy: 3900, speed: 210,
-    movementEnergyPerUnit: 0.085, attackRange: 0, attackDamage: 0, attackEnergy: 0,
-    attackCooldown: 0, metalCost: 220, productionTime: 12, supplyCost: 8,
+    movementEnergyPerUnit: 0.085, attackRange: 155, attackDamage: 9, attackEnergy: 5,
+    attackCooldown: 0.8, metalCost: 220, productionTime: 12, supplyCost: 8,
     transferRange: 125, transferRate: 45, protectedReserve: 100,
   }),
   energy_tender_t3: provisionalFactoryUnit({
-    name: "Tier 3 Energy Tender", role: "energy_tender", roleDescription: "Airborne mobile energy support",
+    name: "Tier 3 Energy Tender", role: "energy_tender", roleDescription: "Armed airborne energy support",
     unitDomain: "air", tier: 3, radius: 12, maxHp: 190, maxEnergy: 5700, speed: 235,
-    movementEnergyPerUnit: 0.075, attackRange: 0, attackDamage: 0, attackEnergy: 0,
-    attackCooldown: 0, metalCost: 330, productionTime: 15, supplyCost: 11,
+    movementEnergyPerUnit: 0.075, attackRange: 175, attackDamage: 14, attackEnergy: 7,
+    attackCooldown: 0.7, metalCost: 330, productionTime: 15, supplyCost: 11,
     transferRange: 150, transferRate: 65, protectedReserve: 140,
   }),
   dropship_t2: provisionalFactoryUnit({
@@ -961,10 +961,10 @@ const baseUnitDefinitions = {
     maxEnergy: 2520,
     speed: 62,
     movementEnergyPerUnit: 0.04,
-    attackRange: 0,
-    attackDamage: 0,
-    attackEnergy: 0,
-    attackCooldown: 0,
+    attackRange: 125,
+    attackDamage: 7,
+    attackEnergy: 4,
+    attackCooldown: 0.9,
     metalValue: 120,
     metalCost: 120,
     productionTime: 9,
@@ -983,10 +983,10 @@ const baseUnitDefinitions = {
     maxEnergy: 3600,
     speed: 66,
     movementEnergyPerUnit: 0.036,
-    attackRange: 0,
-    attackDamage: 0,
-    attackEnergy: 0,
-    attackCooldown: 0,
+    attackRange: 140,
+    attackDamage: 10,
+    attackEnergy: 5,
+    attackCooldown: 0.82,
     metalValue: 180,
     metalCost: 180,
     productionTime: 11,
@@ -1005,10 +1005,10 @@ const baseUnitDefinitions = {
     maxEnergy: 5100,
     speed: 70,
     movementEnergyPerUnit: 0.032,
-    attackRange: 0,
-    attackDamage: 0,
-    attackEnergy: 0,
-    attackCooldown: 0,
+    attackRange: 155,
+    attackDamage: 14,
+    attackEnergy: 6,
+    attackCooldown: 0.74,
     metalValue: 260,
     metalCost: 260,
     productionTime: 14,
@@ -1063,10 +1063,10 @@ export const UNIT_DEFINITIONS = Object.freeze(
             : 1 + Math.max(0, definition.tier - 1) * 0.1
         ),
         additionalWeaponHardpoints: definition.additionalWeaponHardpoints ?? (
-          definition.unitDomain !== "experimental" &&
-          definition.attackDamage > 0 &&
-          definition.tier > 1
-            ? definition.tier - 1
+          definition.unitDomain !== "experimental" && definition.attackDamage > 0
+            ? definition.transferRate
+              ? definition.tier
+              : Math.max(0, definition.tier - 1)
             : 0
         ),
         visionRange: definition.visionRange ?? Math.max(
@@ -1626,6 +1626,8 @@ export const SIMULATION_RULES = Object.freeze({
   enemyInitialThinkDelay: 1,
   enemyThinkInterval: 1,
   enemyAttackWaveSize: 3,
+  enemyMaxMobileEnergySupport: 3,
+  enemyCombatUnitsPerMobileEnergySupport: 8,
   enemyDifficultyProfiles: Object.freeze({
     easy: Object.freeze({ thinkInterval: 1.8, initialThinkDelay: 1.8, attackWaveSize: 5 }),
     medium: Object.freeze({ thinkInterval: 1, initialThinkDelay: 1, attackWaveSize: 3 }),
