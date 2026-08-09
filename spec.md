@@ -972,7 +972,12 @@ Each commander owns one irreplaceable **Command Headquarters**. Its provisional
 projects a 320-world-unit power grid, and stores 240 energy with 20/90 energy-per-second
 charge/discharge limits. It has a dedicated production queue containing only the
 Tier 1 Worker Drone; active Headquarters production draws 6 energy per second. A
-Headquarters cannot be constructed, upgraded, or replaced.
+Headquarters cannot be constructed, upgraded, or replaced. Its integrated defensive
+gun automatically engages hostiles at any distance out to the Tier 1 Mortar Turret's
+provisional 420-world-unit maximum range, without a close-range dead zone. The gun
+deals a deliberately weak 8 damage per shot, spends 4 capacitor energy, and reloads
+in 1.2 seconds, so it discourages unopposed harassment without replacing a dedicated
+static defense.
 
 Crystal Harvesters provide continuous income while connected to a functioning power
 network and passively consume 2 energy per second while operating. Other powered

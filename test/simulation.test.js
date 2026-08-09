@@ -71,6 +71,8 @@ test("the irreplaceable Command Headquarters provides economy and only Tier 1 wo
   assert.equal(definition.headquarters, true);
   assert.equal(definition.metalRate, 4);
   assert.equal(definition.generationRate, 20);
+  assert.equal(definition.attackRange, STRUCTURE_DEFINITIONS.mortar_turret.attackRange);
+  assert.ok(definition.attackDamage < STRUCTURE_DEFINITIONS.sentry_turret.attackDamage);
   assert.deepEqual(definition.production, ["worker_drone_t1"]);
   assert.equal(canWorkerTierBuildStructure(3, "headquarters"), false);
 
@@ -93,6 +95,29 @@ test("the irreplaceable Command Headquarters provides economy and only Tier 1 wo
   assert.equal(
     simulation.units.filter((unit) => unit.type === "worker_drone_t1").length,
     1,
+  );
+});
+
+test("the Command Headquarters automatically fires its long-range defensive gun", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  const headquarters = simulation.addStructure("headquarters", "player", 300, 300);
+  const target = simulation.addUnit("raider", "enemy", 700, 300);
+  const startingHp = target.hp;
+
+  simulation.updateStaticDefenses(0.25);
+
+  assert.equal(headquarters.defenseTargetId, target.id);
+  assert.equal(headquarters.defenseStatus, "firing");
+  assert.equal(
+    headquarters.weaponEnergy,
+    STRUCTURE_DEFINITIONS.headquarters.capacitorCapacity -
+      STRUCTURE_DEFINITIONS.headquarters.attackEnergy,
+  );
+  assert.equal(target.hp, startingHp);
+  advanceToScheduledImpacts(simulation);
+  assert.equal(
+    target.hp,
+    startingHp - STRUCTURE_DEFINITIONS.headquarters.attackDamage,
   );
 });
 

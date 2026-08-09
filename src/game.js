@@ -3607,6 +3607,27 @@ function drawHeadquartersBuilding(structure, footprint, powered, teamColor) {
   context.fill();
   context.stroke();
 
+  const target = presentedEntity(simulation.getEntity(structure.defenseTargetId));
+  context.save();
+  context.translate(0, -height * 0.2);
+  if (target?.alive) context.rotate(Math.atan2(target.y - structure.y, target.x - structure.x));
+  const firingAge = recentAttackAge(structure.id);
+  const recoil = firingAge === null ? 0 : Math.sin((firingAge / 0.18) * Math.PI) * 4;
+  context.fillStyle = "#29353a";
+  context.strokeStyle = "#0b1114";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.arc(0, 0, 7, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.fillRect(3, -2, 17 - recoil, 4);
+  context.strokeRect(3, -2, 17 - recoil, 4);
+  context.fillStyle = powered ? teamColor : "#745357";
+  context.beginPath();
+  context.arc(0, 0, 3, 0, Math.PI * 2);
+  context.fill();
+  context.restore();
+
   context.fillStyle = powered ? colors.energy : "#6b5558";
   context.shadowColor = powered ? colors.energy : "transparent";
   context.shadowBlur = powered ? 14 : 0;
