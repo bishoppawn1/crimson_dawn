@@ -33,6 +33,9 @@ const MAX_NAVIGATION_NODE_OBSTACLES = 32;
 const COMBAT_SPATIAL_CELL_SIZE = 160;
 const NAVIGATION_SEARCHES_PER_TICK = 4;
 const DRONE_NAVIGATION_SEARCHES_PER_TICK = 2;
+const TRAPPED_UNIT_RELOCATION_DELAY = 2;
+const TRAPPED_UNIT_REQUIRED_PROGRESS = 8;
+const TRAPPED_UNIT_RELOCATION_ATTEMPTS = 4096;
 const UNIT_SEPARATION_MAX_PASSES = 4;
 const MAX_COMBAT_TARGET_RADIUS = Math.max(
   DRONE_DEFINITION.radius,
@@ -346,6 +349,17 @@ export class Simulation {
         unit.patrolIndex >= 0 && unit.patrolIndex < unit.patrolRoute.length
         ? unit.patrolIndex
         : 0;
+      unit.navigationUnreachable = Boolean(unit.navigationUnreachable);
+      unit.trappedMovementTime = Number.isFinite(unit.trappedMovementTime)
+        ? Math.max(0, unit.trappedMovementTime)
+        : 0;
+      unit.trappedMovementDistance = Number.isFinite(unit.trappedMovementDistance)
+        ? unit.trappedMovementDistance
+        : null;
+      unit.trappedMovementTarget = Number.isFinite(unit.trappedMovementTarget?.x) &&
+        Number.isFinite(unit.trappedMovementTarget?.y)
+        ? { x: unit.trappedMovementTarget.x, y: unit.trappedMovementTarget.y }
+        : null;
     }
     simulation.structures = snapshot.structures || [];
     simulation.wrecks = snapshot.wrecks || [];
@@ -528,6 +542,10 @@ export class Simulation {
       navigationPath: [],
       navigationTarget: null,
       navigationReplanAt: this.time + navigationReplanPhase(unitId),
+      navigationUnreachable: false,
+      trappedMovementTime: 0,
+      trappedMovementDistance: null,
+      trappedMovementTarget: null,
       garrisonStructureId: null,
       transportTargetId: null,
       carriedById: null,
@@ -1476,10 +1494,18 @@ export class Simulation {
   resetUnitNavigation(unit, orderIndex = null, orderCount = 1) {
     unit.navigationPath = [];
     unit.navigationTarget = null;
+    unit.navigationUnreachable = false;
+    this.resetTrappedUnitMovement(unit);
     const phase = orderIndex === null
       ? navigationReplanPhase(unit.id)
       : (orderIndex / Math.max(1, orderCount)) * NAVIGATION_REPLAN_INTERVAL;
     unit.navigationReplanAt = this.time + phase;
+  }
+
+  resetTrappedUnitMovement(unit) {
+    unit.trappedMovementTime = 0;
+    unit.trappedMovementDistance = null;
+    unit.trappedMovementTarget = null;
   }
 
   advanceBuildQueue(worker) {
@@ -5405,6 +5431,8 @@ export class Simulation {
       }
       unit.navigationPath = [];
       unit.navigationTarget = null;
+      unit.navigationUnreachable = false;
+      this.resetTrappedUnitMovement(unit);
       return 0;
     }
 
@@ -5440,6 +5468,8 @@ export class Simulation {
       unit.energy = Math.max(0, unit.energy - traveled * energyCostPerUnit);
     }
 
+    this.updateTrappedUnitMovement(unit, target, delta, requestedDistance);
+
     if (
       unit.moveTarget &&
       !preserveMoveOrder &&
@@ -5449,6 +5479,98 @@ export class Simulation {
     }
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return traveled;
+  }
+
+  updateTrappedUnitMovement(unit, target, delta, requestedDistance) {
+    const definition = UNIT_DEFINITIONS[unit.type];
+    if (
+      definition.movementLayer === "air" ||
+      requestedDistance <= EPSILON ||
+      !unit.navigationUnreachable
+    ) {
+      this.resetTrappedUnitMovement(unit);
+      return false;
+    }
+
+    const remainingDistance = distance(unit, target);
+    const previousTarget = unit.trappedMovementTarget;
+    const targetChanged =
+      !previousTarget ||
+      Math.hypot(target.x - previousTarget.x, target.y - previousTarget.y) >
+        NAVIGATION_TARGET_TOLERANCE;
+    if (targetChanged || !Number.isFinite(unit.trappedMovementDistance)) {
+      unit.trappedMovementTime = 0;
+      unit.trappedMovementDistance = remainingDistance;
+      unit.trappedMovementTarget = { x: target.x, y: target.y };
+      return false;
+    }
+
+    if (
+      remainingDistance + TRAPPED_UNIT_REQUIRED_PROGRESS <=
+      unit.trappedMovementDistance
+    ) {
+      unit.trappedMovementTime = 0;
+      unit.trappedMovementDistance = remainingDistance;
+      return false;
+    }
+
+    unit.trappedMovementTime += delta;
+    if (unit.trappedMovementTime + EPSILON < TRAPPED_UNIT_RELOCATION_DELAY) return false;
+
+    const relocation = this.findTrappedUnitRelocation(unit, target);
+    if (!relocation) {
+      unit.trappedMovementTime = 0;
+      unit.trappedMovementDistance = remainingDistance;
+      return false;
+    }
+
+    unit.x = relocation.x;
+    unit.y = relocation.y;
+    unit.navigationObstacleId = null;
+    unit.navigationSide = null;
+    this.resetUnitNavigation(unit);
+    return true;
+  }
+
+  findTrappedUnitRelocation(unit, target) {
+    const definition = UNIT_DEFINITIONS[unit.type];
+    const excludedObstacleId = target.kind === "structure" ? target.id : null;
+    const obstacles = this.getGroundNavigationObstacles(
+      definition.radius,
+      excludedObstacleId,
+      { ignoreStructures: definition.stridesOverStructures },
+    );
+    const spacing = Math.max(
+      16,
+      definition.radius * 2 + SIMULATION_RULES.unitCollisionPadding,
+    );
+
+    for (let slot = 1; slot <= TRAPPED_UNIT_RELOCATION_ATTEMPTS; slot += 1) {
+      const offset = squareSpiralOffset(slot);
+      const candidate = {
+        x: unit.x + offset.x * spacing,
+        y: unit.y + offset.y * spacing,
+      };
+      if (!this.isUnitPositionClear(candidate, unit.type, { ignoreUnitIds: [unit.id] })) {
+        continue;
+      }
+      if (obstacles.some(({ bounds }) => pointInsideBounds(candidate, bounds))) continue;
+      if (
+        !navigationSegmentIsClear(candidate, target, obstacles) &&
+        !findNavigationPath(
+          candidate,
+          target,
+          obstacles,
+          definition.radius,
+          this.width,
+          this.height,
+        )
+      ) {
+        continue;
+      }
+      return candidate;
+    }
+    return null;
   }
 
   getGroundNavigationWaypoint(unit, target) {
@@ -5462,6 +5584,7 @@ export class Simulation {
     if (navigationSegmentIsClear(unit, target, obstacles)) {
       unit.navigationPath = [];
       unit.navigationTarget = { x: target.x, y: target.y, excludedObstacleId };
+      unit.navigationUnreachable = false;
       return target;
     }
 
@@ -5508,6 +5631,7 @@ export class Simulation {
       );
       unit.navigationPath = path ? path.slice(1) : [];
       unit.navigationTarget = { x: target.x, y: target.y, excludedObstacleId };
+      unit.navigationUnreachable = !path;
       unit.navigationReplanAt = this.time + NAVIGATION_REPLAN_INTERVAL;
     }
 

@@ -471,8 +471,13 @@ set of the nearest relevant obstacle corners. Every proposed route segment is st
 collision-tested against the complete obstacle set, so the bound cannot permit a
 unit to route through an omitted building or terrain obstacle. If no bounded
 visibility path is available, collision-time sliding and later staggered replanning
-remain the fallback. Move orders placed inside a structure resolve to the nearest
-reachable edge of its visible footprint.
+remain the fallback. If a ground unit has no valid route and makes no meaningful
+progress toward its destination for two continuous seconds, it relocates
+deterministically to the nearest clear position that has a route to that destination
+and continues its current order. This lets units escape pockets closed around them
+by later construction without teleporting units that are merely taking a valid
+detour. Move orders placed inside a structure resolve to the nearest reachable edge
+of its visible footprint.
 
 Aircraft use a separate air movement layer. They fly directly over impassable
 terrain, completed structures, and foundations, but remain constrained by the map

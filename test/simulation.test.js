@@ -1621,6 +1621,38 @@ test("ground units route around impassable terrain without entering it", () => {
   assert.equal(unit.moveTarget, null);
 });
 
+test("ground units relocate out of a structure pocket when no route remains", () => {
+  const simulation = new Simulation({ width: 800, height: 600 });
+  const unit = simulation.addUnit("scout_mech", "enemy", 400, 300);
+  const enclosingCenters = [
+    [360, 260], [400, 260], [440, 260],
+    [360, 300],             [440, 300],
+    [360, 340], [400, 340], [440, 340],
+  ];
+  for (const [x, y] of enclosingCenters) {
+    simulation.addStructure("sentry_turret", "enemy", x, y);
+  }
+
+  simulation.commandMove([unit.id], 700, 300);
+  advance(simulation, 1.5);
+  assert.ok(
+    Math.hypot(unit.x - 400, unit.y - 300) < 30,
+    "the unit should not relocate before obstruction is sustained",
+  );
+
+  advance(simulation, 1.5);
+
+  assert.ok(
+    Math.hypot(unit.x - 400, unit.y - 300) > 60,
+    `expected the unit outside the structure pocket, got (${unit.x}, ${unit.y})`,
+  );
+  assert.equal(
+    simulation.isUnitPositionClear(unit, unit.type, { ignoreUnitIds: [unit.id] }),
+    true,
+  );
+  assert.ok(unit.moveTarget, "relocation should preserve the unit's move order");
+});
+
 test("group movement staggers expensive path replans across simulation ticks", () => {
   const obstacle = { id: "long-ridge", x: 300, y: 200, width: 80, height: 320 };
   const simulation = new Simulation({ width: 700, height: 500, terrain: [obstacle] });
