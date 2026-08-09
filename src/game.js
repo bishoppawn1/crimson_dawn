@@ -48,11 +48,10 @@ const {
   PeerMultiplayerSession,
 } = await import(`./multiplayer.js${versionSuffix}`);
 const {
-  STRATEGIC_DRONE_MARKER_SCREEN_RADIUS,
   STRATEGIC_UNIT_CODE_SCREEN_SIZE,
-  STRATEGIC_UNIT_MARKER_SCREEN_RADIUS,
   strategicIconWorldSize,
   strategicUnitCode,
+  strategicUnitWorldRadius,
   strategicViewActive,
   strategicZoomMinimum,
 } = await import(`./strategic-view.js${versionSuffix}`);
@@ -1416,32 +1415,36 @@ function render(now = performance.now()) {
 function drawStrategicEntities() {
   const structureLineWidth = strategicIconWorldSize(camera.zoom, 1.5);
   for (const structure of simulation.structures) {
-    if (
-      !structure.alive ||
-      !entityIsVisibleToLocalTeam(structure) ||
-      !worldPointIsVisible(structure.x, structure.y, 100)
-    ) continue;
+    if (!structure.alive || !entityIsVisibleToLocalTeam(structure)) continue;
     const definition = STRUCTURE_DEFINITIONS[structure.type];
+    const footprint = structureFootprint(structure.type);
+    if (!worldPointIsVisible(
+      structure.x,
+      structure.y,
+      Math.max(100, footprint.width, footprint.height),
+    )) continue;
     const palette = teamPalette(structure.team);
-    const size = strategicIconWorldSize(camera.zoom, definition.headquarters ? 13 : 9);
     context.save();
     context.translate(structure.x, structure.y);
     context.fillStyle = palette.dark;
     context.strokeStyle = selectedStructureIds.has(structure.id) ? colors.selection : palette.bright;
     context.lineWidth = structureLineWidth;
     context.beginPath();
+    context.rect(-footprint.halfWidth, -footprint.halfHeight, footprint.width, footprint.height);
+    context.fill();
+    context.stroke();
     if (definition.headquarters) {
+      const size = Math.min(footprint.width, footprint.height) * 0.3;
+      context.beginPath();
       context.moveTo(0, -size);
       context.lineTo(size, 0);
       context.lineTo(0, size);
       context.lineTo(-size, 0);
       context.closePath();
-    } else {
-      context.rect(-size * 0.72, -size * 0.72, size * 1.44, size * 1.44);
-    }
-    context.fill();
-    context.stroke();
-    if (definition.headquarters) {
+      context.fillStyle = "#18252b";
+      context.fill();
+      context.strokeStyle = palette.bright;
+      context.stroke();
       context.beginPath();
       context.arc(0, 0, size * 1.35, 0, Math.PI * 2);
       context.stroke();
@@ -1460,10 +1463,7 @@ function drawStrategicEntities() {
     const definition = entity.kind === "unit" ? UNIT_DEFINITIONS[entity.type] : DRONE_DEFINITION;
     const palette = teamPalette(entity.team);
     const selected = selectedUnitIds.has(entity.id);
-    const size = strategicIconWorldSize(
-      camera.zoom,
-      drone ? STRATEGIC_DRONE_MARKER_SCREEN_RADIUS : STRATEGIC_UNIT_MARKER_SCREEN_RADIUS,
-    );
+    const size = strategicUnitWorldRadius(definition);
     const lineWidth = strategicIconWorldSize(camera.zoom, 0.75);
     context.save();
     context.translate(displayed.x, displayed.y);
@@ -1483,7 +1483,7 @@ function drawStrategicEntities() {
     context.stroke();
 
     if (selected) {
-      const selectionRadius = strategicIconWorldSize(camera.zoom, 4.25);
+      const selectionRadius = size + strategicIconWorldSize(camera.zoom, 2.25);
       context.strokeStyle = colors.selection;
       context.lineWidth = strategicIconWorldSize(camera.zoom, 0.9);
       context.beginPath();
@@ -1493,7 +1493,7 @@ function drawStrategicEntities() {
 
     const code = drone ? "REC" : strategicUnitCode(definition);
     const fontSize = strategicIconWorldSize(camera.zoom, STRATEGIC_UNIT_CODE_SCREEN_SIZE);
-    const labelX = strategicIconWorldSize(camera.zoom, 4.25);
+    const labelX = size + strategicIconWorldSize(camera.zoom, 4.25);
     context.font = `800 ${fontSize}px ui-monospace, monospace`;
     context.textAlign = "left";
     context.textBaseline = "middle";

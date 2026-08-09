@@ -1,6 +1,4 @@
 export const STRATEGIC_ICON_ZOOM_THRESHOLD = 0.45;
-export const STRATEGIC_UNIT_MARKER_SCREEN_RADIUS = 2.25;
-export const STRATEGIC_DRONE_MARKER_SCREEN_RADIUS = 1.5;
 export const STRATEGIC_UNIT_CODE_SCREEN_SIZE = 11;
 
 const STRATEGIC_UNIT_ROLE_CODES = Object.freeze({
@@ -55,4 +53,10 @@ export function strategicUnitCode(definition) {
     ? definition.tier
     : "";
   return `${roleCode}${tier}`;
+}
+
+export function strategicUnitWorldRadius(definition) {
+  return Number.isFinite(definition?.radius) && definition.radius > 0
+    ? definition.radius
+    : 1;
 }

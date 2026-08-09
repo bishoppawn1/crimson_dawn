@@ -67,12 +67,14 @@ The main battlefield camera also supports a seamless strategic zoom. Its dynamic
 minimum scale fits the complete active map inside the Canvas, while its maximum
 remains 200%. Zoom stays anchored beneath the mouse cursor. At 45% scale and below,
 fine terrain decoration, health bars, and detailed sprites give way to
-fixed-screen-size tactical symbols. Mobile units use very small circles or aircraft
-triangles followed by a persistent role-and-tier code such as `W1` for a Tier 1
-Worker, `TK2` for a Tier 2 Battle Tank, or `BM3` for a Tier 3 Bomber. Hovering a
-mobile symbol shows its complete unit name. Selection uses a thin outer ring without
-enlarging the underlying marker. Ordinary structures use squares and each
-Headquarters uses a ringed diamond. Team colors, selection highlighting, forgiving
+strategic symbols whose world-space geometry remains proportional: larger units use
+their actual radius, and buildings use their actual grid footprint. Mobile units use
+small circles or aircraft triangles followed by a persistent role-and-tier code such
+as `W1` for a Tier 1 Worker, `TK2` for a Tier 2 Battle Tank, or `BM3` for a Tier 3
+Bomber. The code remains screen-readable while the marker scales with the world.
+Hovering a mobile symbol shows its complete unit name. Selection uses a thin outer
+ring without enlarging the underlying marker. Each Headquarters retains a ringed
+diamond inside its actual footprint. Team colors, selection highlighting, forgiving
 hit testing, movement orders, and combat targeting remain usable in this whole-map
 view.
 On desktop displays, the battlefield expands across the available browser width;
@@ -1233,8 +1235,9 @@ after an interruption, then publishes only its newest state.
 Battlefields currently range from 5,200 by 3,200 world units for two commanders to
 8,560 by 6,280 for eight. `WASD` pans the camera, and the mouse wheel zooms from a
 dynamic whole-map fit to 200% around the world position beneath the pointer. The
-renderer switches to fixed-size tactical icons at 45% and below so all armies and
-bases remain readable at strategic scale. Camera movement remains available
+renderer switches to proportional strategic icons at 45% and below so large armies
+and bases remain readable at strategic scale without hiding their relative size.
+Camera movement remains available
 while the simulation is paused, and the camera is clamped to the active map's
 dimensions so it cannot expose space beyond the battlefield boundary.
 
