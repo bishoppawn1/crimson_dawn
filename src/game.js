@@ -4011,6 +4011,8 @@ function drawUnit(unit) {
   const teamColor = palette.bright;
   const darkColor = palette.dark;
   const selected = selectedUnitIds.has(unit.id);
+  const spriteScale = definition.spriteScale || 1;
+  const renderedRadius = definition.radius * spriteScale;
   const lowEnergy = energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio;
   const overdrive = unit.abilityActiveUntil.overdrive > simulation.time;
   const activeBuildTarget = getActiveConstructionTarget(unit);
@@ -4065,17 +4067,19 @@ function drawUnit(unit) {
     context.strokeStyle = colors.selection;
     context.lineWidth = 2;
     context.beginPath();
-    context.arc(0, 0, definition.radius + 7, 0, Math.PI * 2);
+    context.arc(0, 0, renderedRadius + 7, 0, Math.PI * 2);
     context.stroke();
   }
   if (overdrive) {
     context.strokeStyle = "#ff6d76a0";
     context.lineWidth = 4;
     context.beginPath();
-    context.arc(0, 0, definition.radius + 4 + Math.sin(simulation.time * 9) * 2, 0, Math.PI * 2);
+    context.arc(0, 0, renderedRadius + 4 + Math.sin(simulation.time * 9) * 2, 0, Math.PI * 2);
     context.stroke();
   }
 
+  context.save();
+  context.scale(spriteScale, spriteScale);
   drawUnitGroundShadow(definition);
   const pose = getUnitRenderPose(
     unit,
@@ -4086,6 +4090,8 @@ function drawUnit(unit) {
   context.rotate(pose.facing);
   context.translate(0, pose.recoil * definition.radius);
   drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis", pose);
+  drawTierWeaponAttachments(definition, teamColor, unit.state === "stasis");
+  context.restore();
   context.restore();
 
   if (activeBuildTarget) {
@@ -4096,11 +4102,11 @@ function drawUnit(unit) {
     drawWorkerConstructionEffect(unit, activeProductionAssistTarget, pose, teamColor);
   }
 
-  const barWidth = Math.max(24, definition.radius * 2.3);
-  drawBar(unit.x, unit.y - definition.radius - 12, barWidth, unit.hp / definition.maxHp, colors.health);
+  const barWidth = Math.max(24, renderedRadius * 2.3);
+  drawBar(unit.x, unit.y - renderedRadius - 12, barWidth, unit.hp / definition.maxHp, colors.health);
   drawBar(
     unit.x,
-    unit.y - definition.radius - 6,
+    unit.y - renderedRadius - 6,
     barWidth,
     unit.energy / definition.maxEnergy,
     lowEnergy ? colors.stasis : colors.energy,
@@ -4417,6 +4423,52 @@ function drawUnitSprite(definition, teamColor, darkColor, stasis, pose) {
     return;
   }
   drawMechSprite(definition, teamColor, darkColor, stasis, pose);
+}
+
+function drawTierWeaponAttachments(definition, teamColor, stasis) {
+  const hardpointCount = definition.additionalWeaponHardpoints || 0;
+  if (hardpointCount <= 0) return;
+
+  const outline = stasis ? "#292620" : "#151c21";
+  const armor = stasis ? "#555047" : "#69757a";
+  const armorLight = stasis ? "#777066" : "#d8ddd8";
+  const accent = stasis ? `${teamColor}88` : teamColor;
+  const mountOffset = definition.unitDomain === "vehicle" ? 0.52 : 0.62;
+  const mountXs = hardpointCount === 1
+    ? [-mountOffset]
+    : [-mountOffset, mountOffset];
+  const mountY = definition.unitDomain === "air" ? 0.02 : -0.04;
+  const muzzleY = definition.unitDomain === "air" ? -0.7 : -0.86;
+
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  for (const mountX of mountXs) {
+    context.fillStyle = armor;
+    context.strokeStyle = outline;
+    context.lineWidth = 0.065;
+    context.beginPath();
+    context.roundRect(mountX - 0.11, mountY - 0.15, 0.22, 0.3, 0.07);
+    context.fill();
+    context.stroke();
+
+    context.strokeStyle = outline;
+    context.lineWidth = 0.095;
+    context.beginPath();
+    context.moveTo(mountX, mountY - 0.08);
+    context.lineTo(mountX, muzzleY);
+    context.stroke();
+    context.strokeStyle = armorLight;
+    context.lineWidth = 0.035;
+    context.stroke();
+
+    context.fillStyle = accent;
+    context.fillRect(mountX - 0.07, mountY + 0.055, 0.14, 0.045);
+    context.fillStyle = outline;
+    context.fillRect(mountX - 0.055, muzzleY - 0.045, 0.11, 0.09);
+  }
+  context.restore();
 }
 
 function experimentalUnitPalette(teamColor, stasis) {

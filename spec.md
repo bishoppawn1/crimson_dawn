@@ -485,9 +485,14 @@ crawling. The Vanguard uses a narrow arrowhead chassis and long canopy, while th
 Bulwark uses a broad slab-sided hull, short wide canopy, shield, and twin cannon so
 the two roles remain distinct without relying mainly on scale.
 Vanguard, Bulwark, Skyguard, Carrier, and hostile combat silhouettes remain distinct at
-gameplay scale through their overhead equipment profiles. Layered armor plates,
-panel seams, joints, cooling vents, fasteners, and weapon or support housings add
-detail without enlarging unit footprints. Directional lighting, offset ground
+gameplay scale through their overhead equipment profiles. Each non-experimental
+higher-tier unit renders an additional 10% larger per tier on top of its data-defined
+footprint; this visual multiplier does not further change collision or movement.
+Armed Tier 2 units add one visible auxiliary weapon hardpoint,
+and armed Tier 3 units add two; these fittings communicate tier progression but do
+not perform separate attacks. Unarmed support units grow without receiving fake
+weapons. Layered armor plates, panel seams, joints, cooling vents, fasteners, and
+weapon or support housings add detail. Directional lighting, offset ground
 shadows, sparse edge wear, articulated movement, and units turning toward movement,
 construction, transfer, or combat targets give the machinery a grounded physical
 presence. Vehicles expose wheels or track rollers, engine grilles, exhausts, and

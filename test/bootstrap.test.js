@@ -137,6 +137,19 @@ test("the Hexapod renderer uses an elongated hull, tri-claw feet, and armored tu
   assert.match(renderer[0], /bodyHalfWidth: 0\.24/);
 });
 
+test("higher-tier armed sprites render their data-driven weapon attachments", async () => {
+  const [data, game] = await Promise.all([
+    source("../src/data.js"),
+    source("../src/game.js"),
+  ]);
+
+  assert.match(data, /spriteScale: definition\.spriteScale/);
+  assert.match(data, /additionalWeaponHardpoints: definition\.additionalWeaponHardpoints/);
+  assert.match(game, /context\.scale\(spriteScale, spriteScale\)/);
+  assert.match(game, /drawUnitSprite\([\s\S]*?drawTierWeaponAttachments\(/);
+  assert.match(game, /function drawTierWeaponAttachments\(/);
+});
+
 test("right-clicking an active friendly factory sends selected workers to assist production", async () => {
   const game = await source("../src/game.js");
 

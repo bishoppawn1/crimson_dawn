@@ -1051,6 +1051,18 @@ export const UNIT_DEFINITIONS = Object.freeze(
       type,
       Object.freeze({
         ...definition,
+        spriteScale: definition.spriteScale ?? (
+          definition.unitDomain === "experimental"
+            ? 1
+            : 1 + Math.max(0, definition.tier - 1) * 0.1
+        ),
+        additionalWeaponHardpoints: definition.additionalWeaponHardpoints ?? (
+          definition.unitDomain !== "experimental" &&
+          definition.attackDamage > 0 &&
+          definition.tier > 1
+            ? definition.tier - 1
+            : 0
+        ),
         visionRange: definition.visionRange ?? Math.max(
           definition.movementLayer === "air" ? 400 : 320,
           (definition.attackRange || definition.automaticTargetAcquisitionRange || 0) + 80,

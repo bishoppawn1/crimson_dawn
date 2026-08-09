@@ -1488,6 +1488,48 @@ test("vehicles are larger than same-tier mechs and tanks are larger than scouts"
   assert.ok(UNIT_DEFINITIONS.zenith_doughnut.radius > UNIT_DEFINITIONS.hexapod_landship.radius);
 });
 
+test("higher-tier unit sprites grow and armed variants add visible hardpoints", () => {
+  const factoryFamilies = [
+    ["mech_factory_t1", "mech_factory_t2", "mech_factory_t3"],
+    ["vehicle_factory_t1", "vehicle_factory_t2", "vehicle_factory_t3"],
+    ["air_factory_t2", "air_factory_t3"],
+  ];
+
+  for (const factoryTypes of factoryFamilies) {
+    const definitionsByRole = new Map();
+    for (const factoryType of factoryTypes) {
+      for (const unitType of STRUCTURE_DEFINITIONS[factoryType].production) {
+        const definition = UNIT_DEFINITIONS[unitType];
+        const previous = definitionsByRole.get(definition.role);
+        if (previous) {
+          assert.ok(
+            definition.radius * definition.spriteScale > previous.radius * previous.spriteScale,
+            `${definition.name} should render larger than ${previous.name}`,
+          );
+        }
+        definitionsByRole.set(definition.role, definition);
+      }
+    }
+  }
+
+  for (const definition of Object.values(UNIT_DEFINITIONS)) {
+    if (
+      definition.unitDomain !== "experimental" &&
+      definition.attackDamage > 0 &&
+      definition.tier > 1
+    ) {
+      assert.equal(definition.additionalWeaponHardpoints, definition.tier - 1);
+    } else {
+      assert.equal(definition.additionalWeaponHardpoints, 0);
+    }
+  }
+
+  assert.equal(UNIT_DEFINITIONS.energy_carrier_t3.additionalWeaponHardpoints, 0);
+  assert.equal(UNIT_DEFINITIONS.grid_tanker_t3.additionalWeaponHardpoints, 0);
+  assert.equal(UNIT_DEFINITIONS.energy_tender_t3.additionalWeaponHardpoints, 0);
+  assert.equal(UNIT_DEFINITIONS.dropship_t3.additionalWeaponHardpoints, 0);
+});
+
 test("Zenith Doughnuts are enormous and fast strategic aircraft", () => {
   const doughnut = UNIT_DEFINITIONS.zenith_doughnut;
 
