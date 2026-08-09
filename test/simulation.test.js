@@ -6369,18 +6369,24 @@ test("losing every player unit and building ends the match in defeat", () => {
   assert.equal(simulation.events.at(-1).winner, "enemy");
 });
 
-test("destroying a Headquarters instantly eliminates all of that commander's assets", () => {
+test("destroying a Headquarters leaves inert neutral units and destroys its buildings", () => {
   const simulation = new Simulation({ matchRulesEnabled: true });
   const headquarters = simulation.addStructure("headquarters", "player", 180, 180);
   simulation.addStructure("generator", "player", 340, 180);
   simulation.addStructure("mech_factory_t1", "player", 500, 180);
-  simulation.addUnit("worker_drone_t1", "player", 260, 300);
+  const worker = simulation.addUnit("worker_drone_t1", "player", 260, 300);
   simulation.addUnit("scout_mech", "enemy", 900, 500);
   simulation.addStructure("headquarters", "enemy", 1040, 500);
+  simulation.commandMove([worker.id], 600, 300);
 
   simulation.applyDamage(headquarters, headquarters.hp);
 
-  assert.ok(simulation.units.filter((unit) => unit.team === "player").every((unit) => !unit.alive));
+  assert.equal(worker.alive, true);
+  assert.equal(worker.team, "neutral");
+  assert.equal(worker.state, "neutral");
+  assert.equal(worker.moveTarget, null);
+  assert.equal(simulation.commandMove([worker.id], 700, 300), 0);
+  assert.equal(simulation.areHostileTeams(worker.team, "enemy"), true);
   assert.ok(
     simulation.structures
       .filter((structure) => structure.team === "player")
@@ -6389,6 +6395,34 @@ test("destroying a Headquarters instantly eliminates all of that commander's ass
   assert.equal(simulation.matchResult, "defeat");
   assert.equal(simulation.matchWinnerTeamId, "enemy");
   assert.equal(simulation.events.at(-1).type, "match_complete");
+
+  const inertSimulation = new Simulation({ enemyAiEnabled: false });
+  const enemyHeadquarters = inertSimulation.addStructure("headquarters", "enemy", 180, 180);
+  const salvageYard = inertSimulation.addStructure("salvage_yard", "enemy", 520, 300);
+  const derelict = inertSimulation.addUnit("scout_mech", "enemy", 300, 300);
+  const carrier = inertSimulation.addUnit("energy_carrier", "enemy", 360, 300);
+  const target = inertSimulation.addUnit("assault_mech", "player", 380, 300);
+  const reclamationDrone = salvageYard.drones[0];
+  const startingPosition = { x: derelict.x, y: derelict.y };
+  const startingDronePosition = { x: reclamationDrone.x, y: reclamationDrone.y };
+  const startingTargetHp = target.hp;
+  const startingCarrierEnergy = carrier.energy;
+  derelict.energy = UNIT_DEFINITIONS.scout_mech.maxEnergy / 10;
+  inertSimulation.commandAttack([derelict.id], target.id);
+
+  inertSimulation.applyDamage(enemyHeadquarters, enemyHeadquarters.hp);
+  advance(inertSimulation, 2);
+
+  assert.deepEqual({ x: derelict.x, y: derelict.y }, startingPosition);
+  assert.equal(reclamationDrone.alive, true);
+  assert.equal(reclamationDrone.team, "neutral");
+  assert.deepEqual({ x: reclamationDrone.x, y: reclamationDrone.y }, startingDronePosition);
+  assert.equal(target.hp, startingTargetHp);
+  assert.equal(derelict.energy, UNIT_DEFINITIONS.scout_mech.maxEnergy / 10);
+  assert.equal(carrier.energy, startingCarrierEnergy);
+  assert.deepEqual(carrier.energyTransferTargetIds, []);
+  assert.equal(inertSimulation.areHostileTeams("neutral", "player"), true);
+  assert.equal(inertSimulation.areHostileTeams("neutral", "enemy"), true);
 });
 
 test("field tests enable elimination while isolated simulations remain opt-in", () => {

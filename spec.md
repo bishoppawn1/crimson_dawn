@@ -997,7 +997,8 @@ Selecting one completed friendly building exposes a Destroy Building command.
 Destruction is immediate, grants no crystal refund, and follows the ordinary
 building-destruction rules, including losing stored energy and factory queues. A
 player may destroy their Command Headquarters, which immediately eliminates that
-commander and all of their remaining assets as it would if an opponent destroyed it.
+commander as it would if an opponent destroyed it. Their buildings and foundations
+are destroyed, while their surviving mobile units become neutral derelicts.
 
 ### 5.3 Economy and Static Defense Buildings
 
@@ -1085,12 +1086,18 @@ A player wins when the only commanders with living units or buildings belong to 
 player's selected team. The same rule causes defeat when only an opposing team has
 living assets. Active, stasis, and unfinished entities count while they remain
 alive; wrecks and reclamation drones do not postpone elimination. Destroying a
-commander's Headquarters immediately destroys all of that commander's remaining
-units, reclamation drones, completed structures, and foundations; allies remain in
-the match and can still win for their shared team. Normal match resolution then
-checks the surviving teams without waiting for another simulation tick. If the
-player's team and final opposing team are eliminated by the same resolution, the
-player receives a defeat.
+commander's Headquarters immediately destroys all of that commander's completed
+structures and foundations. Their surviving mobile units and reclamation drones
+instead join one neutral derelict faction. Derelicts retain their current integrity
+and position but clear every order, target, ability, and support assignment; they do
+not move, attack, repair, build, regenerate, transfer energy, or accept commands.
+They remain valid hostile targets for every surviving commander, while all neutral
+derelicts are non-hostile to one another. Because the neutral faction has no
+commander, its units do not postpone victory or defeat. Allies remain in the match
+and can still win for their shared team. Normal match resolution checks the
+surviving commanders without waiting for another simulation tick. If the player's
+team and final opposing team are eliminated by the same resolution, the player
+receives a defeat.
 
 The simulation stops advancing once the result is decided. The battlefield displays
 `You win.` or `You lose.` with an explanation and a restart button. Restarting creates

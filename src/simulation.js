@@ -25,6 +25,7 @@ const { createMatchTeams, getMatchMap, normalizeAiDifficulty } = await import(
 const { SIMULATION_STEP_SECONDS } = await import(`./determinism.js${versionSuffix}`);
 
 const EPSILON = 0.0001;
+const NEUTRAL_FACTION_ID = "neutral";
 const NAVIGATION_CORNER_MARGIN = 1;
 const NAVIGATION_REPLAN_INTERVAL = 0.75;
 const NAVIGATION_SEARCH_MARGIN = 400;
@@ -4970,6 +4971,7 @@ export class Simulation {
     for (const unit of this.units) {
       if (!unit.alive || unit.carriedById) continue;
       const definition = UNIT_DEFINITIONS[unit.type];
+      if (unit.state === "neutral") continue;
       if (definition.movementLayer !== "air" && !definition.stridesOverStructures) {
         this.resolveUnitStructureOverlap(unit);
       }
@@ -5135,7 +5137,12 @@ export class Simulation {
     }
     this.resolveUnitOverlaps();
     for (const unit of this.units) {
-      if (unit.alive && !unit.carriedById && UNIT_DEFINITIONS[unit.type].movementLayer !== "air") {
+      if (
+        unit.alive &&
+        !unit.carriedById &&
+        unit.state !== "neutral" &&
+        UNIT_DEFINITIONS[unit.type].movementLayer !== "air"
+      ) {
         this.resolveUnitTerrainOverlap(unit);
       }
     }
@@ -5199,8 +5206,8 @@ export class Simulation {
             if (!nearby) continue;
             for (const other of nearby) {
               if (!this.separateUnitPair(unit, other)) continue;
-              movedUnits.add(unit);
-              movedUnits.add(other);
+              if (unit.state !== "neutral") movedUnits.add(unit);
+              if (other.state !== "neutral") movedUnits.add(other);
             }
           }
         }
@@ -5241,9 +5248,16 @@ export class Simulation {
     }
 
     const overlap = minimumDistance - separation;
+    const firstIsNeutral = first.state === "neutral";
+    const secondIsNeutral = second.state === "neutral";
+    if (firstIsNeutral && secondIsNeutral) return false;
     const firstIsMoving = Boolean(first.moveTarget);
     const secondIsMoving = Boolean(second.moveTarget);
-    const firstShare = firstIsMoving === secondIsMoving ? 0.5 : firstIsMoving ? 0.2 : 0.8;
+    const firstShare = firstIsNeutral
+      ? 0
+      : secondIsNeutral
+        ? 1
+        : firstIsMoving === secondIsMoving ? 0.5 : firstIsMoving ? 0.2 : 0.8;
     const secondShare = 1 - firstShare;
     const firstRadius = firstDefinition.radius;
     const secondRadius = secondDefinition.radius;
@@ -6337,11 +6351,15 @@ export class Simulation {
 
   eliminateTeamAfterHeadquartersLoss(teamId, headquartersId) {
     for (const drone of this.getDrones()) {
-      if (drone.alive && drone.team === teamId) this.destroyDrone(drone);
+      if (!drone.alive || drone.team !== teamId) continue;
+      drone.team = NEUTRAL_FACTION_ID;
+      drone.mode = "neutral";
+      drone.targetWreckId = null;
+      this.resetDroneNavigation(drone);
     }
     for (const unit of this.units) {
       if (unit.alive && unit.team === teamId) {
-        this.destroyEntity(unit, { triggerHeadquartersLoss: false });
+        this.neutralizeUnitAfterHeadquartersLoss(unit);
       }
     }
     for (const structure of this.structures) {
@@ -6354,6 +6372,40 @@ export class Simulation {
       headquartersId,
     });
     this.updateMatchResult();
+  }
+
+  neutralizeUnitAfterHeadquartersLoss(unit) {
+    unit.team = NEUTRAL_FACTION_ID;
+    unit.state = "neutral";
+    unit.attackCooldownRemaining = 0;
+    unit.abilityActiveUntil = {};
+    unit.moveTarget = null;
+    unit.moveMode = null;
+    unit.moveQueue = [];
+    unit.patrolRoute = [];
+    unit.patrolIndex = 0;
+    unit.attackTargetId = null;
+    unit.attackTargetMode = null;
+    for (const weaponSystem of unit.weaponSystems || []) {
+      weaponSystem.targetId = null;
+      weaponSystem.cooldownRemaining = 0;
+    }
+    unit.buildTargetId = null;
+    unit.buildQueue = [];
+    unit.repairTargetId = null;
+    unit.productionAssistTargetId = null;
+    unit.transportTargetId = null;
+    unit.holdPosition = true;
+    unit.navigationObstacleId = null;
+    unit.navigationSide = null;
+    unit.navigationPath = [];
+    unit.navigationTarget = null;
+    unit.garrisonStructureId = null;
+    unit.energyTransferTargetIds = [];
+    unit.energyTransferredThisTick = 0;
+    unit.underbellyBeamActive = false;
+    unit.underbellyBeamTargetIds = [];
+    this.combatSpatialIndexDirty = true;
   }
 
   findProtectingShield(target) {

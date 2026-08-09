@@ -1544,10 +1544,10 @@ this catalog is out of date.
 
 **What it checks:** Runs the deterministic game simulation to confirm that losing every player unit and building ends the match in defeat.
 
-<!-- test-catalog-entry: ["test/simulation.test.js","destroying a Headquarters instantly eliminates all of that commander's assets"] -->
-### 251. destroying a Headquarters instantly eliminates all of that commander's assets
+<!-- test-catalog-entry: ["test/simulation.test.js","destroying a Headquarters leaves inert neutral units and destroys its buildings"] -->
+### 251. destroying a Headquarters leaves inert neutral units and destroys its buildings
 
-**What it checks:** Runs the deterministic game simulation to confirm that destroying a Headquarters instantly eliminates all of that commander's assets.
+**What it checks:** Runs the deterministic game simulation to confirm that destroying a Headquarters leaves inert neutral units and destroys its buildings.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","field tests enable elimination while isolated simulations remain opt-in"] -->
 ### 252. field tests enable elimination while isolated simulations remain opt-in

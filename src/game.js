@@ -320,8 +320,10 @@ const teamPalettes = Object.freeze([
   Object.freeze({ bright: "#ef7dc4", dark: "#7c3766" }),
   Object.freeze({ bright: "#d8e2e9", dark: "#63717b" }),
 ]);
+const neutralTeamPalette = Object.freeze({ bright: "#aab3b8", dark: "#4d565b" });
 
 function teamPalette(teamId) {
+  if (teamId === "neutral") return neutralTeamPalette;
   const cached = renderTeamPalettes.get(teamId);
   if (cached) return cached;
   if (teamId === localTeam) return teamPalettes[0];
@@ -4030,8 +4032,9 @@ function drawUnit(unit) {
   );
   context.rotate(pose.facing);
   context.translate(0, pose.recoil * definition.radius);
-  drawUnitSprite(definition, teamColor, darkColor, unit.state === "stasis", pose);
-  drawTierWeaponAttachments(definition, teamColor, unit.state === "stasis");
+  const visuallyInactive = unit.state === "stasis" || unit.state === "neutral";
+  drawUnitSprite(definition, teamColor, darkColor, visuallyInactive, pose);
+  drawTierWeaponAttachments(definition, teamColor, visuallyInactive);
   context.restore();
   context.restore();
 
@@ -4053,6 +4056,7 @@ function drawUnit(unit) {
     lowEnergy ? colors.stasis : colors.energy,
   );
   if (unit.state === "stasis") drawLabel(unit.x, unit.y + definition.radius + 17, "STASIS", false, colors.stasis);
+  if (unit.state === "neutral") drawLabel(unit.x, unit.y + definition.radius + 17, "NEUTRAL", false, neutralTeamPalette.bright);
 }
 
 function getActiveConstructionTarget(unit) {
@@ -6861,8 +6865,8 @@ function updateInterface() {
         : simulation.matchResult === "defeat";
     matchResultTitle.textContent = victory ? "You win." : "You lose.";
     matchResultDetails.textContent = victory
-      ? "All opposing buildings and units have been destroyed."
-      : "All of your buildings and units have been destroyed.";
+      ? "All opposing commanders have been eliminated."
+      : "Your commander has been eliminated.";
   }
   pauseButton.disabled = matchEnded || isMultiplayer();
 
@@ -7123,7 +7127,7 @@ function updateInterface() {
   destroyStructureButton.hidden = !canDestroyStructure;
   if (canDestroyStructure) {
     destroyStructureDetails.textContent = STRUCTURE_DEFINITIONS[selectedStructure.type].headquarters
-      ? "Eliminates this commander and all of their remaining assets"
+      ? "Eliminates this commander; surviving units become neutral derelicts"
       : "Immediate · no crystal refund";
   }
   const supplyDefinition = selectedStructure && STRUCTURE_DEFINITIONS[selectedStructure.type];
