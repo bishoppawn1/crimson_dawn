@@ -48,6 +48,7 @@ const {
   PeerMultiplayerSession,
 } = await import(`./multiplayer.js${versionSuffix}`);
 const {
+  reducedDetailViewActive,
   STRATEGIC_UNIT_CODE_SCREEN_SIZE,
   strategicIconWorldSize,
   strategicUnitCode,
@@ -191,6 +192,7 @@ const camera = {
 let renderViewBounds = null;
 let renderTeamPalettes = new Map();
 let renderVisionSources = [];
+let renderReducedDetail = false;
 let renderTimestamp = performance.now();
 const guestPositionSmoother = new SnapshotPositionSmoother();
 const cameraKeys = new Set();
@@ -1370,14 +1372,17 @@ function render(now = performance.now()) {
   context.scale(camera.zoom, camera.zoom);
   context.translate(-camera.x, -camera.y);
   const strategicView = strategicViewActive(camera.zoom);
-  drawTerrain();
-  drawCrystalDeposits();
+  renderReducedDetail = reducedDetailViewActive(camera.zoom, visibleRenderEntityCount());
+  drawTerrain(renderReducedDetail);
+  const occupiedDepositIds = drawCrystalDeposits();
   drawPowerNetwork();
   drawShieldFields();
   drawCommandIndicators();
 
   if (strategicView) {
     drawStrategicEntities();
+  } else if (renderReducedDetail) {
+    drawReducedDetailEntities();
   } else {
     for (const wreck of simulation.wrecks) {
       if (
@@ -1406,10 +1411,38 @@ function render(now = performance.now()) {
   }
   drawPlacementPreview();
   drawFogOfWar();
+  drawCrystalDepositBeacons(occupiedDepositIds);
   drawSelectionBox();
   context.restore();
   drawCameraHud();
   drawMinimap();
+}
+
+function visibleRenderEntityCount() {
+  let count = 0;
+  for (const structure of simulation.structures) {
+    if (!structure.alive) continue;
+    const footprint = structureFootprint(structure.type);
+    if (worldPointIsVisible(
+      structure.x,
+      structure.y,
+      Math.max(footprint.width, footprint.height),
+    )) count += 1;
+  }
+  for (const unit of simulation.units) {
+    if (
+      unit.alive &&
+      !unit.carriedById &&
+      worldPointIsVisible(unit.x, unit.y, 100)
+    ) count += 1;
+  }
+  for (const drone of simulation.getDrones()) {
+    if (drone.alive && worldPointIsVisible(drone.x, drone.y, 70)) count += 1;
+  }
+  for (const wreck of simulation.wrecks) {
+    if (worldPointIsVisible(wreck.x, wreck.y, 80)) count += 1;
+  }
+  return count;
 }
 
 function drawStrategicEntities() {
@@ -1544,6 +1577,191 @@ function drawStrategicMobileTooltip({ displayed, definition, code }) {
   context.fillStyle = "#eef7f8";
   context.fillText(label, 0, 0);
   context.restore();
+}
+
+function drawReducedDetailEntities() {
+  for (const wreck of simulation.wrecks) {
+    if (
+      pointIsVisibleToLocalTeam(wreck.x, wreck.y, 20) &&
+      worldPointIsVisible(wreck.x, wreck.y, 60)
+    ) drawReducedWreck(wreck);
+  }
+  for (const structure of simulation.structures) {
+    if (!structure.alive || !entityIsVisibleToLocalTeam(structure)) continue;
+    const footprint = structureFootprint(structure.type);
+    if (worldPointIsVisible(
+      structure.x,
+      structure.y,
+      Math.max(footprint.width, footprint.height),
+    )) drawReducedStructure(structure, footprint);
+  }
+  for (const drone of simulation.getDrones()) {
+    if (!drone.alive || !entityIsVisibleToLocalTeam(drone)) continue;
+    const displayed = presentedEntity(drone);
+    if (worldPointIsVisible(displayed.x, displayed.y, 45)) {
+      drawReducedMobile(displayed, DRONE_DEFINITION, true);
+    }
+  }
+  for (const unit of simulation.units) {
+    if (!unit.alive || unit.carriedById || !entityIsVisibleToLocalTeam(unit)) continue;
+    const displayed = presentedEntity(unit);
+    if (worldPointIsVisible(displayed.x, displayed.y, 70)) {
+      drawReducedMobile(displayed, UNIT_DEFINITIONS[unit.type]);
+    }
+  }
+  drawEvents();
+}
+
+function drawReducedStructure(structure, footprint) {
+  const definition = STRUCTURE_DEFINITIONS[structure.type];
+  const palette = teamPalette(structure.team);
+  const selected = selectedStructureIds.has(structure.id);
+  context.save();
+  context.translate(structure.x, structure.y);
+  context.globalAlpha = structure.complete ? 1 : 0.58;
+  context.fillStyle = structure.powered || definition.generationRate ? palette.dark : "#4b3438";
+  context.strokeStyle = selected ? colors.selection : palette.bright;
+  context.lineWidth = selected ? 3 : 2;
+  if (!structure.complete) context.setLineDash([7, 5]);
+  context.fillRect(
+    -footprint.halfWidth,
+    -footprint.halfHeight,
+    footprint.width,
+    footprint.height,
+  );
+  context.strokeRect(
+    -footprint.halfWidth,
+    -footprint.halfHeight,
+    footprint.width,
+    footprint.height,
+  );
+  context.setLineDash([]);
+  context.fillStyle = structure.powered ? colors.energy : colors.disconnected;
+  const coreSize = Math.max(5, Math.min(14, Math.min(footprint.width, footprint.height) * 0.13));
+  context.fillRect(-coreSize / 2, -coreSize / 2, coreSize, coreSize);
+  if (structure.complete && !definition.generationRate && !structure.connected) {
+    context.strokeStyle = colors.disconnected;
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(-9, -9);
+    context.lineTo(9, 9);
+    context.moveTo(9, -9);
+    context.lineTo(-9, 9);
+    context.stroke();
+  }
+  context.restore();
+
+  if (selected || structure.hp < definition.maxHp) {
+    drawBar(
+      structure.x,
+      structure.y - footprint.halfHeight - 8,
+      Math.max(32, Math.min(90, footprint.width)),
+      structure.hp / definition.maxHp,
+      colors.health,
+    );
+  }
+}
+
+function drawReducedMobile(entity, definition, drone = false) {
+  const palette = teamPalette(entity.team);
+  const selected = selectedUnitIds.has(entity.id);
+  const target = entity.moveTarget || simulation.getEntity(entity.attackTargetId);
+  const facing = target
+    ? Math.atan2(target.y - entity.y, target.x - entity.x) + Math.PI / 2
+    : 0;
+  const radius = definition.radius;
+  context.save();
+  context.translate(entity.x, entity.y);
+  context.rotate(facing);
+  context.globalAlpha = entity.state === "stasis" ? 0.55 : 1;
+  context.fillStyle = palette.dark;
+  context.strokeStyle = selected ? colors.selection : palette.bright;
+  context.lineWidth = selected ? 2.5 : 1.75;
+  context.beginPath();
+  if (drone) {
+    context.moveTo(0, -radius);
+    context.lineTo(radius * 0.8, 0);
+    context.lineTo(0, radius);
+    context.lineTo(-radius * 0.8, 0);
+    context.closePath();
+  } else if (definition.role === "zenith_doughnut") {
+    context.arc(0, 0, radius, 0, Math.PI * 2);
+  } else if (definition.movementLayer === "air") {
+    context.moveTo(0, -radius);
+    context.lineTo(radius * 0.88, radius * 0.72);
+    context.lineTo(0, radius * 0.42);
+    context.lineTo(-radius * 0.88, radius * 0.72);
+    context.closePath();
+  } else if (definition.unitDomain === "vehicle") {
+    context.roundRect(-radius * 0.72, -radius, radius * 1.44, radius * 2, radius * 0.35);
+  } else if (definition.unitDomain === "experimental") {
+    polygon(6, radius, Math.PI / 6);
+  } else {
+    context.moveTo(0, -radius);
+    context.lineTo(radius * 0.72, -radius * 0.15);
+    context.lineTo(radius * 0.52, radius * 0.74);
+    context.lineTo(0, radius * 0.5);
+    context.lineTo(-radius * 0.52, radius * 0.74);
+    context.lineTo(-radius * 0.72, -radius * 0.15);
+    context.closePath();
+  }
+  context.fill();
+  context.stroke();
+  if (definition.role === "zenith_doughnut") {
+    context.fillStyle = "#090d10";
+    context.beginPath();
+    context.arc(0, 0, radius * 0.43, 0, Math.PI * 2);
+    context.fill();
+  }
+  if (selected) {
+    context.beginPath();
+    context.arc(0, 0, radius + 6, 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.restore();
+
+  if (drone) {
+    if (entity.carry > 0) {
+      drawBar(
+        entity.x,
+        entity.y - radius - 7,
+        22,
+        entity.carry / DRONE_DEFINITION.carryCapacity,
+        colors.crystal,
+      );
+    }
+    return;
+  }
+  const damaged = entity.hp < definition.maxHp;
+  const lowEnergy = energyRatio(entity) <= SIMULATION_RULES.lowEnergyRatio;
+  if (selected || damaged) {
+    drawBar(entity.x, entity.y - radius - 9, Math.max(22, radius * 2), entity.hp / definition.maxHp, colors.health);
+  }
+  if (selected || lowEnergy) {
+    drawBar(
+      entity.x,
+      entity.y - radius - 4,
+      Math.max(22, radius * 2),
+      entity.energy / definition.maxEnergy,
+      lowEnergy ? colors.stasis : colors.energy,
+    );
+  }
+}
+
+function drawReducedWreck(wreck) {
+  const ratio = wreck.initialMetal > 0 ? wreck.metal / wreck.initialMetal : 0;
+  context.save();
+  context.translate(wreck.x, wreck.y);
+  context.strokeStyle = colors.crystal;
+  context.lineWidth = 3;
+  context.beginPath();
+  context.moveTo(-9, -9);
+  context.lineTo(9, 9);
+  context.moveTo(9, -9);
+  context.lineTo(-9, 9);
+  context.stroke();
+  context.restore();
+  drawBar(wreck.x, wreck.y - 15, 28, ratio, colors.crystal);
 }
 
 function drawShieldFields() {
@@ -1703,7 +1921,11 @@ function minimumCameraZoom() {
 }
 
 function drawCameraHud() {
-  const viewMode = strategicViewActive(camera.zoom) ? " · STRATEGIC ICONS" : "";
+  const viewMode = strategicViewActive(camera.zoom)
+    ? " · STRATEGIC ICONS"
+    : renderReducedDetail
+      ? " · PERFORMANCE DETAIL"
+      : "";
   const label = `WASD PAN · WHEEL ZOOM · ${Math.round(camera.zoom * 100)}%${viewMode}`;
   context.font = "700 12px ui-monospace, monospace";
   context.fillStyle = "#080a0dcc";
@@ -1835,7 +2057,7 @@ function drawMinimap() {
   context.restore();
 }
 
-function drawTerrain() {
+function drawTerrain(reducedDetail = false) {
   const theme = battlefieldThemePalette();
   const strategicView = strategicViewActive(camera.zoom);
   context.fillStyle = theme.background;
@@ -1857,7 +2079,7 @@ function drawTerrain() {
   }
 
   const visibleBounds = visibleWorldBounds(80);
-  if (!strategicView) {
+  if (!strategicView && !reducedDetail) {
     // Small deterministic mottles keep the field organic without shimmering as
     // the camera moves or introducing simulation-side randomness.
     context.fillStyle = theme.mottle;
@@ -1877,7 +2099,7 @@ function drawTerrain() {
     else drawCrystalRemnants(visibleBounds);
   }
 
-  const gridSize = strategicView && !placementIsActive()
+  const gridSize = (strategicView || reducedDetail) && !placementIsActive()
     ? SIMULATION_RULES.buildingGridSize * 5
     : SIMULATION_RULES.buildingGridSize;
   context.lineWidth = placementIsActive() ? 1.5 : 1;
@@ -1910,7 +2132,7 @@ function drawTerrain() {
     context.stroke();
   }
 
-  drawImpassableTerrain(strategicView);
+  drawImpassableTerrain(strategicView || reducedDetail);
 
   context.font = "700 12px ui-monospace, monospace";
   for (const team of simulation.teams) {
@@ -2337,9 +2559,8 @@ function drawPlacementPreview() {
   }
 }
 
-function drawCrystalDeposits() {
-  const placement = activeStructurePlacement();
-  const occupiedIds = new Set(
+function occupiedCrystalDepositIds() {
+  return new Set(
     simulation.structures
       .filter(
         (structure) =>
@@ -2347,6 +2568,11 @@ function drawCrystalDeposits() {
       )
       .map((structure) => structure.depositId),
   );
+}
+
+function drawCrystalDeposits() {
+  const placement = activeStructurePlacement();
+  const occupiedIds = occupiedCrystalDepositIds();
   for (const deposit of simulation.metalDeposits) {
     if (!worldPointIsVisible(deposit.x, deposit.y, 100)) continue;
     const available = !occupiedIds.has(deposit.id);
@@ -2427,6 +2653,37 @@ function drawCrystalDeposits() {
         emphasized ? colors.selection : rich ? "#ff8493" : "#df5267",
       );
     }
+  }
+  return occupiedIds;
+}
+
+function drawCrystalDepositBeacons(occupiedIds) {
+  for (const deposit of simulation.metalDeposits) {
+    if (!worldPointIsVisible(deposit.x, deposit.y, 80)) continue;
+    const rich = Boolean(deposit.rich);
+    const occupied = occupiedIds.has(deposit.id);
+    if (occupied) continue;
+    const size = strategicIconWorldSize(camera.zoom, rich ? 9 : 7);
+    const lineWidth = strategicIconWorldSize(camera.zoom, rich ? 2.25 : 1.75);
+    context.save();
+    context.translate(deposit.x, deposit.y);
+    context.fillStyle = rich ? "#ff4962" : "#ff2445";
+    context.strokeStyle = rich ? "#ffe4e8" : "#ff9aaa";
+    context.lineWidth = lineWidth;
+    context.beginPath();
+    context.moveTo(0, -size);
+    context.lineTo(size, 0);
+    context.lineTo(0, size);
+    context.lineTo(-size, 0);
+    context.closePath();
+    context.fill();
+    context.stroke();
+    context.strokeStyle = rich ? "#ff4962ee" : "#ff2445cc";
+    context.lineWidth = strategicIconWorldSize(camera.zoom, 1.25);
+    context.beginPath();
+    context.arc(0, 0, size * 1.55, 0, Math.PI * 2);
+    context.stroke();
+    context.restore();
   }
 }
 

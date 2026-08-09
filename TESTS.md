@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 277
+**Automated tests documented:** 278
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -1406,6 +1406,11 @@ this catalog is out of date.
 ### 4. strategic unit tags identify role and tier with compact markers
 
 **What it checks:** Calculates strategic-view presentation data to confirm that strategic unit tags identify role and tier with compact markers.
+
+<!-- test-catalog-entry: ["test/strategic-view.test.js","crowded or medium zoom views use the reduced-cost renderer"] -->
+### 5. crowded or medium zoom views use the reduced-cost renderer
+
+**What it checks:** Calculates strategic-view presentation data to confirm that crowded or medium zoom views use the reduced-cost renderer.
 
 ## [test/test-catalog.test.js](test/test-catalog.test.js)
 

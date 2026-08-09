@@ -92,6 +92,7 @@ test("the battlefield, minimap, effects, and targeting share fog visibility", as
 
   assert.match(game, /renderVisionSources = simulation\.getVisionSources\(localTeam\)/);
   assert.match(game, /drawFogOfWar\(\)/);
+  assert.match(game, /drawFogOfWar\(\);\s*drawCrystalDepositBeacons\(occupiedDepositIds\)/);
   assert.match(game, /fogContext\.globalCompositeOperation = "destination-out"/);
   assert.match(game, /context\.drawImage\(fogCanvas, 0, 0\)/);
   assert.match(game, /minimapFogContext\.globalCompositeOperation = "destination-out"/);
@@ -99,6 +100,8 @@ test("the battlefield, minimap, effects, and targeting share fog visibility", as
   assert.match(game, /pointIsVisibleToLocalTeam\(event\.x, event\.y, 20\)/);
   assert.match(game, /findEnemyAt[\s\S]*entityIsVisibleToLocalTeam\(entity\)/);
   assert.match(game, /command\.unitIds,[\s\S]*requireVision: true/);
+  assert.match(game, /reducedDetailViewActive\(camera\.zoom, visibleRenderEntityCount\(\)\)/);
+  assert.match(game, /drawReducedDetailEntities\(\)/);
   assert.match(index, /Fog of war hides enemy contacts/);
 });
 
