@@ -455,16 +455,21 @@ Air and ground units do not push one another apart, allowing aircraft to pass ov
 ground formations without displacing them. Aircraft emphasize speed over
 survivability: the standard air roster moves at 160–300 world units per second and
 has lower provisional integrity than its previous profiles. Interceptors remain the
-fastest standard aircraft, while gunships, bombers, dropships, and energy tenders
-retain their relative role differences. The experimental Zenith Doughnut is a much larger
+fastest standard aircraft and serve as dedicated air-superiority fighters, while
+gunships, bombers, dropships, and energy tenders retain their relative role
+differences. The experimental Zenith Doughnut is a much larger
 72-radius aircraft with a provisional movement speed of 375 world units per second.
 
 Ordinary weapons deal a provisional 0.55× damage multiplier against aircraft.
 Dedicated anti-air weapons instead deal 2× damage and automatically prefer an
 aircraft when both air and ground targets are in range. Skyguard Mechs, Flak
-Crawler vehicles, and Flak Turrets are the current dedicated counters. They may
-still fire at ground targets for their listed base damage, but an incidental ground
-target never pulls their automatic targeting away from an aircraft in range.
+Crawler vehicles, Flak Turrets, and Interceptors are the current dedicated counters.
+Ground-based anti-air weapons may still fire at ground targets for their listed base
+damage. Interceptors instead deal only a provisional 0.5× damage against ground
+units, structures, and other non-air targets, keeping them effective in dogfights
+without making them efficient ground-attack aircraft. An incidental ground target
+never pulls any dedicated anti-air unit's automatic targeting away from an aircraft
+in range.
 
 Mobile units use compact battlefield footprints so armies remain visually smaller
 than bases and defensive structures. Living units on the same movement layer,
@@ -588,7 +593,7 @@ Air Factories each produce matching-tier versions of six aircraft roles:
 
 | Production line | Battlefield role |
 | --- | --- |
-| Interceptor | Fast aerial combat |
+| Interceptor | Fast air-superiority fighter with strong anti-air and weak ground attack |
 | Gunship | Durable aerial assault |
 | Bomber | Heavy aerial strikes |
 | Energy Tender | Airborne mobile energy storage and transfer support |

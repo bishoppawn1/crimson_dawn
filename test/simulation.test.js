@@ -2052,6 +2052,53 @@ test("ordinary weapons deal reduced damage to aircraft", () => {
   );
 });
 
+test("Interceptors prioritize aircraft and trade ground damage for air superiority", () => {
+  function damageAgainst(interceptorType, targetKind) {
+    const simulation = new Simulation({ enemyAiEnabled: false });
+    const interceptor = simulation.addUnit(interceptorType, "player", 100, 100);
+    const target = targetKind === "structure"
+      ? simulation.addStructure("generator", "enemy", 150, 100)
+      : simulation.addUnit(targetKind, "enemy", 150, 100);
+    const startingHp = target.hp;
+
+    assert.equal(simulation.commandAttack([interceptor.id], target.id), 1);
+    simulation.tick(1 / 30);
+    assert.equal(target.hp, startingHp);
+    advanceToScheduledImpacts(simulation);
+    return startingHp - target.hp;
+  }
+
+  for (const interceptorType of ["interceptor_t2", "interceptor_t3"]) {
+    const definition = UNIT_DEFINITIONS[interceptorType];
+    assert.equal(definition.airDamageMultiplier, 2);
+    assert.equal(definition.groundDamageMultiplier, 0.5);
+    assert.equal(definition.preferredTargetLayer, "air");
+    assert.match(definition.roleDescription, /Air-superiority fighter/);
+    assert.equal(
+      damageAgainst(interceptorType, "gunship_t2"),
+      definition.attackDamage * definition.airDamageMultiplier,
+    );
+    assert.equal(
+      damageAgainst(interceptorType, "scout_mech"),
+      definition.attackDamage * definition.groundDamageMultiplier,
+    );
+    assert.equal(
+      damageAgainst(interceptorType, "structure"),
+      definition.attackDamage * definition.groundDamageMultiplier,
+    );
+  }
+
+  const targetingSimulation = new Simulation({ enemyAiEnabled: false });
+  const interceptor = targetingSimulation.addUnit("interceptor_t2", "player", 100, 100);
+  targetingSimulation.addUnit("scout_mech", "enemy", 120, 100);
+  const aircraft = targetingSimulation.addUnit("gunship_t2", "enemy", 150, 100);
+
+  targetingSimulation.tick(1 / 30);
+
+  assert.equal(interceptor.attackTargetId, aircraft.id);
+  assert.equal(interceptor.attackTargetMode, "automatic");
+});
+
 test("dedicated anti-air units deal bonus damage to aircraft", () => {
   function damageAgainst(targetType) {
     const simulation = new Simulation();

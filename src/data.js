@@ -480,16 +480,18 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
     airDamageMultiplier: 2, preferredTargetLayer: "air",
   }),
   interceptor_t2: provisionalFactoryUnit({
-    name: "Tier 2 Interceptor", role: "interceptor", roleDescription: "Fast aerial combat",
+    name: "Tier 2 Interceptor", role: "interceptor", roleDescription: "Air-superiority fighter",
     unitDomain: "air", tier: 2, radius: 9, maxHp: 105, maxEnergy: 900, speed: 270,
     movementEnergyPerUnit: 0.08, attackRange: 155, attackDamage: 18, attackEnergy: 8,
     attackCooldown: 0.55, metalCost: 150, productionTime: 8, supplyCost: 5,
+    airDamageMultiplier: 2, groundDamageMultiplier: 0.5, preferredTargetLayer: "air",
   }),
   interceptor_t3: provisionalFactoryUnit({
-    name: "Tier 3 Interceptor", role: "interceptor", roleDescription: "Fast aerial combat",
+    name: "Tier 3 Interceptor", role: "interceptor", roleDescription: "Air-superiority fighter",
     unitDomain: "air", tier: 3, radius: 10, maxHp: 150, maxEnergy: 1260, speed: 300,
     movementEnergyPerUnit: 0.072, attackRange: 175, attackDamage: 26, attackEnergy: 10,
     attackCooldown: 0.46, metalCost: 225, productionTime: 10, supplyCost: 7,
+    airDamageMultiplier: 2, groundDamageMultiplier: 0.5, preferredTargetLayer: "air",
   }),
   gunship_t2: provisionalFactoryUnit({
     name: "Tier 2 Gunship", role: "gunship", roleDescription: "Durable aerial assault",

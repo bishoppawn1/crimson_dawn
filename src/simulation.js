@@ -6137,11 +6137,14 @@ function damageMultiplierAgainstTarget(definition, target) {
   let multiplier = target.kind === "structure"
     ? definition.structureDamageMultiplier || 1
     : 1;
-  if (
+  const targetIsAircraft = Boolean(
     target.kind === "unit" &&
     UNIT_DEFINITIONS[target.type]?.movementLayer === "air"
-  ) {
+  );
+  if (targetIsAircraft) {
     multiplier *= definition.airDamageMultiplier || SIMULATION_RULES.normalAirDamageMultiplier;
+  } else {
+    multiplier *= definition.groundDamageMultiplier || 1;
   }
   return multiplier;
 }

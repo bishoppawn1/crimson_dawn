@@ -225,6 +225,13 @@ test("the interface and battlefield present the economy as crimson crystal", asy
   assert.match(styles, /\.crystal-icon/);
 });
 
+test("unit combat summaries disclose ground damage penalties", async () => {
+  const game = await source("../src/game.js");
+
+  assert.match(game, /definition\.groundDamageMultiplier[\s\S]*?× vs ground/);
+  assert.match(game, /definition\.groundDamageMultiplier[\s\S]*?× VS GROUND/);
+});
+
 test("match setup exposes per-AI difficulty and team assignment controls", async () => {
   const [index, game, maps] = await Promise.all([
     source("../index.html"),

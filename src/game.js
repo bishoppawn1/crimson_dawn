@@ -548,7 +548,7 @@ for (const unitType of producibleUnitTypes) {
   const combatSummary = definition.underbellyBeamRadius
     ? ` · ${definition.underbellyBeamDamagePerSecond}/s underbelly beam · ${definition.underbellyBeamRadius} radius${definition.automaticTargetAcquisitionRange ? ` · seeks ground targets within ${definition.automaticTargetAcquisitionRange}` : ""}${antiAirSummary}`
     : definition.attackRange
-      ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× vs air` : ""}`
+      ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× vs air` : ""}${definition.groundDamageMultiplier ? ` · ${definition.groundDamageMultiplier}× vs ground` : ""}`
       : "";
   button.innerHTML = `${definition.name}<small>${definition.metalCost} crystal · ${definition.supplyCost} supply${roleSummary}${combatSummary}</small>`;
   button.addEventListener("click", () => {
@@ -6784,7 +6784,7 @@ function updateInterface() {
       : definition.weaponSystems?.length
         ? ` · ${definition.weaponSystems.length} independent cannons · ${definition.attackDamage} combined damage · ${definition.attackRange} maximum range · ${definition.speed} speed`
       : definition.attackRange
-        ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}`
+        ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}${definition.groundDamageMultiplier ? ` · ${definition.groundDamageMultiplier}× VS GROUND` : ""}`
         : "";
     selectionName.textContent = definition.name;
     selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${visionText}${combatText}${emergencyRecoveryText}${supplyText}${transportText}${orderText}${repairText}${productionAssistText}${buildQueueText}${moveQueueText}`;
