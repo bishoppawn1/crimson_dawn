@@ -47,7 +47,8 @@ test("the tactical minimap routes right-clicks into selected-unit move orders", 
   ]);
 
   assert.match(game, /minimapWorldPoint\(minimapLayout, screenPoint\)/);
-  assert.match(game, /issueSelectedUnitMove\(minimapTarget\)/);
+  assert.match(game, /issueSelectedUnitMove\(minimapTarget, event\.shiftKey\)/);
+  assert.match(game, /queue: Boolean\(queue\)/);
   assert.match(game, /TACTICAL MAP · L:CENTER · R:MOVE/);
   assert.match(index, /right-click it with units selected to move them/);
 });

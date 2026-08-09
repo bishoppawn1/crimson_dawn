@@ -322,6 +322,15 @@ export class Simulation {
       unit.transportTargetId ||= null;
       unit.carriedById ||= null;
       unit.cargoUnitIds = Array.isArray(unit.cargoUnitIds) ? unit.cargoUnitIds : [];
+      unit.moveQueue = Array.isArray(unit.moveQueue) ? unit.moveQueue
+        .filter((order) => Number.isFinite(order?.x) && Number.isFinite(order?.y))
+        .map((order) => ({
+          x: order.x,
+          y: order.y,
+          mode: ["normal", "force", "advance", "retreat"].includes(order.mode)
+            ? order.mode
+            : "normal",
+        })) : [];
     }
     simulation.structures = snapshot.structures || [];
     simulation.wrecks = snapshot.wrecks || [];
@@ -488,6 +497,7 @@ export class Simulation {
       abilityActiveUntil: {},
       moveTarget: null,
       moveMode: null,
+      moveQueue: [],
       attackTargetId: null,
       attackTargetMode: null,
       buildTargetId: null,
@@ -521,6 +531,15 @@ export class Simulation {
     unit.hp = clamp(unit.hp, 0, definition.maxHp);
     unit.energy = clamp(unit.energy, 0, definition.maxEnergy);
     unit.buildQueue = Array.isArray(unit.buildQueue) ? [...unit.buildQueue] : [];
+    unit.moveQueue = Array.isArray(unit.moveQueue) ? unit.moveQueue
+      .filter((order) => Number.isFinite(order?.x) && Number.isFinite(order?.y))
+      .map((order) => ({
+        x: order.x,
+        y: order.y,
+        mode: ["normal", "force", "advance", "retreat"].includes(order.mode)
+          ? order.mode
+          : "normal",
+      })) : [];
     unit.cargoUnitIds = Array.isArray(unit.cargoUnitIds) ? [...unit.cargoUnitIds] : [];
     if (definition.weaponSystems?.length) {
       unit.weaponSystems = normalizeWeaponSystemState(unit.weaponSystems, definition);
@@ -723,7 +742,7 @@ export class Simulation {
     );
   }
 
-  commandMove(unitIds, x, y, { force = false, mode = "normal" } = {}) {
+  commandMove(unitIds, x, y, { force = false, mode = "normal", queue = false } = {}) {
     const orderedIds = [...unitIds];
     const movementMode = force
       ? "force"
@@ -751,8 +770,15 @@ export class Simulation {
           definition.radius,
           { ignoreStructures: definition.stridesOverStructures },
         );
+      if (queue && unit.moveTarget) {
+        unit.moveQueue = Array.isArray(unit.moveQueue) ? unit.moveQueue : [];
+        unit.moveQueue.push({ x: destination.x, y: destination.y, mode: movementMode });
+        accepted += 1;
+        continue;
+      }
       unit.moveTarget = { ...destination };
       unit.moveMode = movementMode;
+      unit.moveQueue = [];
       unit.attackTargetId = null;
       unit.attackTargetMode = null;
       unit.buildTargetId = null;
@@ -767,6 +793,23 @@ export class Simulation {
       accepted += 1;
     }
     return accepted;
+  }
+
+  advanceMoveQueue(unit) {
+    const next = Array.isArray(unit.moveQueue) ? unit.moveQueue.shift() : null;
+    if (!next) {
+      unit.moveTarget = null;
+      unit.moveMode = null;
+      unit.navigationPath = [];
+      unit.navigationTarget = null;
+      return false;
+    }
+    unit.moveTarget = { x: next.x, y: next.y };
+    unit.moveMode = next.mode;
+    unit.navigationObstacleId = null;
+    unit.navigationSide = null;
+    this.resetUnitNavigation(unit);
+    return true;
   }
 
   findNearestPassablePoint(x, y, radius = 0, { ignoreStructures = false } = {}) {
@@ -834,6 +877,7 @@ export class Simulation {
         unit.attackTargetMode = "explicit";
         unit.moveTarget = { x: target.x, y: target.y };
         unit.moveMode = "pursuit";
+        unit.moveQueue = [];
         unit.buildTargetId = null;
         unit.buildQueue = [];
         unit.repairTargetId = null;
@@ -851,6 +895,7 @@ export class Simulation {
       unit.attackTargetMode = "explicit";
       unit.moveTarget = null;
       unit.moveMode = null;
+      unit.moveQueue = [];
       unit.buildTargetId = null;
       unit.buildQueue = [];
       unit.repairTargetId = null;
@@ -872,6 +917,7 @@ export class Simulation {
       if (!unit || !unit.alive || unit.carriedById) continue;
       unit.moveTarget = null;
       unit.moveMode = null;
+      unit.moveQueue = [];
       unit.attackTargetId = null;
       unit.attackTargetMode = null;
       unit.buildTargetId = null;
@@ -943,6 +989,7 @@ export class Simulation {
       unit.transportTargetId = transport.id;
       unit.moveTarget = { x: transport.x, y: transport.y };
       unit.moveMode = "transport";
+      unit.moveQueue = [];
       unit.attackTargetId = null;
       unit.attackTargetMode = null;
       unit.buildTargetId = null;
@@ -1018,6 +1065,7 @@ export class Simulation {
         if (unit.moveMode === "transport") {
           unit.moveTarget = null;
           unit.moveMode = null;
+          unit.moveQueue = [];
         }
         continue;
       }
@@ -1035,6 +1083,7 @@ export class Simulation {
         if (unit.moveMode === "transport") {
           unit.moveTarget = null;
           unit.moveMode = null;
+          unit.moveQueue = [];
         }
         continue;
       }
@@ -1054,6 +1103,7 @@ export class Simulation {
       unit.y = transport.y;
       unit.moveTarget = null;
       unit.moveMode = null;
+      unit.moveQueue = [];
       unit.navigationPath = [];
       unit.navigationTarget = null;
       this.emit("transport_loaded", transport.x, transport.y, {
@@ -1119,6 +1169,7 @@ export class Simulation {
         unit.y = destination.y;
         unit.moveTarget = null;
         unit.moveMode = null;
+        unit.moveQueue = [];
         unit.attackTargetId = null;
         unit.attackTargetMode = null;
         unit.holdPosition = false;
@@ -1143,6 +1194,7 @@ export class Simulation {
     worker.attackTargetMode = null;
     worker.moveTarget = null;
     worker.moveMode = null;
+    worker.moveQueue = [];
     worker.holdPosition = false;
     worker.navigationObstacleId = null;
     worker.navigationSide = null;
@@ -1181,6 +1233,7 @@ export class Simulation {
       worker.productionAssistTargetId = null;
       worker.moveTarget = null;
       worker.moveMode = null;
+      worker.moveQueue = [];
       worker.attackTargetId = null;
       worker.attackTargetMode = null;
       worker.buildTargetId = null;
@@ -1217,6 +1270,7 @@ export class Simulation {
       worker.productionAssistTargetId = factory.id;
       worker.moveTarget = null;
       worker.moveMode = null;
+      worker.moveQueue = [];
       worker.attackTargetId = null;
       worker.attackTargetMode = null;
       worker.buildTargetId = null;
@@ -2882,10 +2936,7 @@ export class Simulation {
       unit.attackTargetMode = target ? "automatic" : null;
     }
     if (!target) {
-      if (unit.moveMode === "pursuit") {
-        unit.moveTarget = null;
-        unit.moveMode = null;
-      }
+      if (unit.moveMode === "pursuit") this.advanceMoveQueue(unit);
       return false;
     }
 
@@ -4309,6 +4360,7 @@ export class Simulation {
         );
         if (unit.energy + EPSILON >= SIMULATION_RULES.reactivationThreshold) {
           unit.state = "active";
+          if (!unit.moveTarget && unit.moveQueue?.length) this.advanceMoveQueue(unit);
           this.emit("reactivated", unit.x, unit.y, { unitId: unit.id });
         }
         continue;
@@ -4377,8 +4429,7 @@ export class Simulation {
           !canUnitAttackTarget(definition, attackTarget))
       ) {
         if (unit.moveMode === "pursuit") {
-          unit.moveTarget = null;
-          unit.moveMode = null;
+          this.advanceMoveQueue(unit);
         }
         unit.attackTargetId = null;
         unit.attackTargetMode = null;
@@ -4734,8 +4785,7 @@ export class Simulation {
     const targetSeparation = distance(unit, target);
     if (targetSeparation <= stopDistance + EPSILON) {
       if (unit.moveTarget && !preserveMoveOrder) {
-        unit.moveTarget = null;
-        unit.moveMode = null;
+        this.advanceMoveQueue(unit);
       }
       unit.navigationPath = [];
       unit.navigationTarget = null;
@@ -4779,8 +4829,7 @@ export class Simulation {
       !preserveMoveOrder &&
       distance(unit, target) <= stopDistance + EPSILON
     ) {
-      unit.moveTarget = null;
-      unit.moveMode = null;
+      this.advanceMoveQueue(unit);
     }
     if (unit.energy <= EPSILON) this.enterStasis(unit);
     return traveled;
@@ -5030,6 +5079,12 @@ export class Simulation {
     if (!unit.alive || unit.state === "stasis") return;
     unit.energy = 0;
     unit.state = "stasis";
+    if (unit.moveTarget) {
+      unit.moveQueue = [
+        { x: unit.moveTarget.x, y: unit.moveTarget.y, mode: unit.moveMode || "normal" },
+        ...(unit.moveQueue || []),
+      ];
+    }
     unit.moveTarget = null;
     unit.moveMode = null;
     unit.transportTargetId = null;

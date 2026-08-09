@@ -1252,7 +1252,10 @@ function applyAuthorizedCommand(command, team) {
         if (!Number.isFinite(order?.x) || !Number.isFinite(order?.y)) continue;
         const unitIds = ownedUnitIds([order.unitId], team);
         if (unitIds.length === 0) continue;
-        moved = simulation.commandMove(unitIds, order.x, order.y, { force: Boolean(command.force) }) || moved;
+        moved = simulation.commandMove(unitIds, order.x, order.y, {
+          force: Boolean(command.force),
+          queue: Boolean(command.queue),
+        }) || moved;
       }
       return moved;
     }
@@ -6664,6 +6667,9 @@ function updateInterface() {
     const buildQueueText = unit.buildQueue?.length
       ? ` · ${unit.buildQueue.length} BUILD${unit.buildQueue.length === 1 ? "" : "S"} QUEUED`
       : "";
+    const moveQueueText = unit.moveQueue?.length
+      ? ` · ${unit.moveQueue.length} MOVE${unit.moveQueue.length === 1 ? "" : "S"} QUEUED`
+      : "";
     const supplyText = definition.transferRate
       ? unit.energyTransferTargetIds?.length
         ? ` · SUPPLYING ${unit.energyTransferTargetIds.length} UNIT${unit.energyTransferTargetIds.length === 1 ? "" : "S"}`
@@ -6682,7 +6688,7 @@ function updateInterface() {
         ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}`
         : "";
     selectionName.textContent = definition.name;
-    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${visionText}${combatText}${emergencyRecoveryText}${supplyText}${transportText}${orderText}${repairText}${productionAssistText}${buildQueueText}`;
+    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${visionText}${combatText}${emergencyRecoveryText}${supplyText}${transportText}${orderText}${repairText}${productionAssistText}${buildQueueText}${moveQueueText}`;
   } else {
     const activeCount = selectedUnits.filter((unit) => unit.state === "active").length;
     const cargoCount = selectedUnits.reduce(
@@ -7244,7 +7250,7 @@ canvas.addEventListener("contextmenu", (event) => {
       !testerSpawnPlacement &&
       !placementStructureType
     ) {
-      issueSelectedUnitMove(minimapTarget);
+      issueSelectedUnitMove(minimapTarget, event.shiftKey);
     }
     return;
   }
@@ -7345,10 +7351,10 @@ canvas.addEventListener("contextmenu", (event) => {
     }
   }
 
-  issueSelectedUnitMove(point);
+  issueSelectedUnitMove(point, event.shiftKey);
 });
 
-function issueSelectedUnitMove(point) {
+function issueSelectedUnitMove(point, queue = false) {
   const selected = [...selectedUnitIds];
   if (selected.length === 0) return false;
   const forceMove = forceMoveArmed;
@@ -7360,7 +7366,12 @@ function issueSelectedUnitMove(point) {
     const offsetY = (row - (Math.ceil(selected.length / columns) - 1) / 2) * 44;
     return { unitId: id, x: point.x + offsetX, y: point.y + offsetY };
   });
-  const accepted = issueGameCommand({ type: "move", orders, force: forceMove });
+  const accepted = issueGameCommand({
+    type: "move",
+    orders,
+    force: forceMove,
+    queue: Boolean(queue),
+  });
   forceMoveArmed = false;
   updateInterface();
   return Boolean(accepted);

@@ -168,6 +168,7 @@ either player enters the battlefield.
 - Left-click a friendly unit or structure to select it.
 - Left-click and drag to box-select units, or matching factories of the same type and tier; hold Shift to add compatible selections.
 - Right-click terrain to move selected units.
+- Hold `Shift` while right-clicking terrain to append a move waypoint; queued waypoints run in order.
 - Press `G`, then right-click to force-move without engaging enemies en route.
 - Right-click a hostile unit to attack it.
 - Right-click an unfinished friendly building with selected workers to resume construction.

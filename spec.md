@@ -412,7 +412,11 @@ An explicit terrain move remains as a resumable route when a unit acquires a hos
 in weapon range. The unit stops in place, attacks while stationary—including between
 shots during its weapon cooldown—and continues toward the saved destination after
 the enemy is destroyed or leaves the engagement. A unit never fires and translates
-under its own movement in the same simulation tick. A force move, armed with `G`
+under its own movement in the same simulation tick. Holding Shift while issuing
+additional terrain move commands appends those destinations to the selected units'
+movement queues; each waypoint starts after the previous one is reached. A non-Shift
+move replaces the active destination and clears the queued waypoints. A force move,
+armed with `G`
 before right-clicking, ignores enemies until the units reach their destination.
 Direct attack commands still pursue their chosen target, stopping once they enter
 weapon range before firing.

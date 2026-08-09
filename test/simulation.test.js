@@ -1314,6 +1314,43 @@ test("impassable terrain rejects construction and redirects destinations inside 
   });
 });
 
+test("queued move orders hand units through each waypoint in order", () => {
+  const simulation = new Simulation({ width: 500, height: 300 });
+  const unit = simulation.addUnit("scout_mech", "player", 100, 100);
+
+  assert.equal(simulation.commandMove([unit.id], 180, 100), 1);
+  assert.equal(simulation.commandMove([unit.id], 260, 100, { queue: true }), 1);
+  assert.equal(simulation.commandMove([unit.id], 340, 100, { queue: true }), 1);
+  assert.deepEqual(unit.moveTarget, { x: 180, y: 100 });
+  assert.deepEqual(unit.moveQueue, [
+    { x: 260, y: 100, mode: "normal" },
+    { x: 340, y: 100, mode: "normal" },
+  ]);
+  const restored = Simulation.fromSnapshot(simulation.createSnapshot());
+  assert.deepEqual(restored.getUnit(unit.id).moveQueue, unit.moveQueue);
+
+  advance(simulation, 1);
+  assert.deepEqual(unit.moveTarget, { x: 260, y: 100 });
+  assert.deepEqual(unit.moveQueue, [{ x: 340, y: 100, mode: "normal" }]);
+
+  advance(simulation, 2);
+  assert.equal(unit.moveTarget, null);
+  assert.deepEqual(unit.moveQueue, []);
+  assert.ok(Math.abs(unit.x - 340) < 8);
+});
+
+test("ordinary move orders replace queued waypoints", () => {
+  const simulation = new Simulation({ width: 500, height: 300 });
+  const unit = simulation.addUnit("scout_mech", "player", 100, 100);
+
+  simulation.commandMove([unit.id], 180, 100);
+  simulation.commandMove([unit.id], 260, 100, { queue: true });
+  simulation.commandMove([unit.id], 340, 100);
+
+  assert.deepEqual(unit.moveTarget, { x: 340, y: 100 });
+  assert.deepEqual(unit.moveQueue, []);
+});
+
 test("ground units route around impassable terrain without entering it", () => {
   const obstacle = { id: "test-ridge", name: "Test Ridge", x: 200, y: 100, width: 80, height: 120 };
   const simulation = new Simulation({ width: 500, height: 300, terrain: [obstacle] });
