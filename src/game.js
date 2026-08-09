@@ -1604,7 +1604,7 @@ function describeStructureRole(definition) {
   }
   if (definition.metalRate) return `+${definition.metalRate} crystal/s`;
   if (definition.droneCount) {
-    return `${definition.droneCount} drones · ${definition.droneReplacementTime}s rebuild`;
+    return `${definition.droneCount} drones · ${definition.droneSpeed} speed · ${definition.droneCarryCapacity} capacity · ${definition.droneReplacementTime}s rebuild`;
   }
   if (definition.factoryBranch) {
     return `T${definition.tier} units · ${Math.round((definition.productionRate || 1) * 100)}% production speed`;
@@ -6194,6 +6194,9 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
 
 function drawDrone(drone) {
   const yard = simulation.getStructure(drone.yardId);
+  const carryCapacity = yard
+    ? STRUCTURE_DEFINITIONS[yard.type].droneCarryCapacity ?? DRONE_DEFINITION.carryCapacity
+    : DRONE_DEFINITION.carryCapacity;
   let flightTarget = null;
   if (drone.targetWreckId) {
     const wreck = simulation.getWreck(drone.targetWreckId);
@@ -6274,7 +6277,7 @@ function drawDrone(drone) {
       drone.x,
       drone.y - 14,
       24,
-      drone.carry / DRONE_DEFINITION.carryCapacity,
+      drone.carry / carryCapacity,
       colors.crystal,
     );
   }
@@ -6952,7 +6955,7 @@ function updateInterface() {
       ? ` · +${mineRate} crystal/s${mineDeposit?.rich ? " · RICH DEPOSIT" : ""}`
       : "";
     const salvageText = definition.droneCount
-      ? ` · ${definition.droneCount} reclamation drones · ${definition.droneReplacementTime}s rebuild`
+      ? ` · ${definition.droneCount} reclamation drones · ${definition.droneSpeed} speed · ${definition.droneCarryCapacity} crystal capacity · ${definition.droneReplacementTime}s rebuild`
       : "";
     const productionAssist = definition.production
       ? simulation.getFactoryProductionAssistState(selectedStructure.id)

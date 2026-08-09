@@ -6012,11 +6012,13 @@ export class Simulation {
   }
 
   updateDrone(drone, yard, delta) {
+    const carryCapacity = STRUCTURE_DEFINITIONS[yard.type].droneCarryCapacity ??
+      DRONE_DEFINITION.carryCapacity;
     let wreck = this.getWreck(drone.targetWreckId);
     if (wreck && wreck.metal <= EPSILON) wreck = null;
 
     if ((drone.mode === "idle" || drone.mode === "to_wreck") && !wreck) {
-      if (drone.carry + EPSILON < DRONE_DEFINITION.carryCapacity) {
+      if (drone.carry + EPSILON < carryCapacity) {
         wreck = this.findDroneTarget(drone);
       }
       drone.targetWreckId = wreck?.id || null;
@@ -6034,12 +6036,12 @@ export class Simulation {
 
     if (drone.mode === "collecting") {
       if (wreck) {
-        const capacity = DRONE_DEFINITION.carryCapacity - drone.carry;
+        const capacity = carryCapacity - drone.carry;
         const collected = Math.min(capacity, wreck.metal, DRONE_DEFINITION.collectionRate * delta);
         drone.carry += collected;
         wreck.metal -= collected;
       }
-      if (drone.carry + EPSILON >= DRONE_DEFINITION.carryCapacity) {
+      if (drone.carry + EPSILON >= carryCapacity) {
         drone.mode = "returning";
         drone.targetWreckId = null;
         this.resetDroneNavigation(drone);
@@ -6086,8 +6088,12 @@ export class Simulation {
     const separation = Math.hypot(dx, dy);
     const waypointStopDistance = waypoint === target ? stopDistance : 0;
     if (separation <= waypointStopDistance + EPSILON) return false;
+    const yard = this.getStructure(drone.yardId);
+    const speed = yard
+      ? STRUCTURE_DEFINITIONS[yard.type].droneSpeed ?? DRONE_DEFINITION.speed
+      : DRONE_DEFINITION.speed;
     const requestedDistance = Math.min(
-      DRONE_DEFINITION.speed * delta,
+      speed * delta,
       separation - waypointStopDistance,
     );
     this.moveDroneWithTerrainCollisions(

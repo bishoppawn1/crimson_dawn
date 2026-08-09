@@ -823,7 +823,7 @@ test("every higher-tier infrastructure building improves its defining function",
     shield_turret: ["shieldRadius", "shieldCapacity", "shieldRegenRate"],
     mortar_turret: ["attackRange", "attackDamage", "capacitorCapacity", "capacitorChargeRate"],
     flak_turret: ["attackRange", "attackDamage", "capacitorCapacity", "capacitorChargeRate"],
-    salvage_yard: ["droneCount"],
+    salvage_yard: ["droneCount", "droneSpeed", "droneCarryCapacity"],
   };
 
   for (const [family, stats] of Object.entries(increasingStatsByFamily)) {
@@ -2897,6 +2897,39 @@ test("a powered salvage yard automatically returns wreck crystal", () => {
 
   assert.ok(simulation.resources.player.metal > startingMetal);
   assert.ok(simulation.resources.player.metal <= startingMetal + 20.001);
+});
+
+test("upgrading a salvage yard immediately improves its existing drones", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  simulation.addStructure("mech_factory_t2", "player", 900, 700);
+  const yard = simulation.addStructure("salvage_yard", "player", 300, 300);
+  const drone = yard.drones[0];
+  const target = { x: 1_000, y: 500 };
+
+  drone.x = 500;
+  drone.y = 500;
+  simulation.moveDroneToward(drone, target, 1);
+  const tierOneDistance = drone.x - 500;
+  assert.equal(tierOneDistance, STRUCTURE_DEFINITIONS.salvage_yard.droneSpeed);
+
+  assert.equal(simulation.upgradeStructure(yard.id, "player"), true);
+  assert.equal(yard.type, "salvage_yard_t2");
+  assert.equal(yard.drones[0], drone);
+  drone.x = 500;
+  drone.y = 500;
+  simulation.moveDroneToward(drone, target, 1);
+  assert.equal(drone.x - 500, STRUCTURE_DEFINITIONS.salvage_yard_t2.droneSpeed);
+  assert.ok(drone.x - 500 > tierOneDistance);
+
+  const wreck = simulation.addWreck(drone.x, drone.y, 100);
+  drone.carry = STRUCTURE_DEFINITIONS.salvage_yard.droneCarryCapacity;
+  drone.mode = "collecting";
+  drone.targetWreckId = wreck.id;
+  simulation.updateDrone(drone, yard, 1);
+
+  assert.ok(drone.carry > STRUCTURE_DEFINITIONS.salvage_yard.droneCarryCapacity);
+  assert.ok(drone.carry <= STRUCTURE_DEFINITIONS.salvage_yard_t2.droneCarryCapacity);
 });
 
 test("multiple reclamation drones can harvest the same crystal scrap pile", () => {

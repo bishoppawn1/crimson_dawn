@@ -1383,6 +1383,8 @@ const structureDefinitions = {
     maxHp: 430,
     powerDemand: 2,
     droneCount: 3,
+    droneSpeed: 130,
+    droneCarryCapacity: 24,
     droneReplacementTime: 8,
     metalCost: 150,
     buildTime: 10,
@@ -1475,7 +1477,8 @@ Object.assign(structureDefinitions, {
   salvage_yard_t2: {
     ...structureDefinitions.salvage_yard, name: "Tier 2 Salvage Reclamation Yard", buildTier: 2,
     minimumWorkerTier: 2, radius: 52, footprint: [3, 3], maxHp: 620, powerDemand: 3,
-    droneCount: 4, droneReplacementTime: 7, metalCost: 280, buildTime: 16,
+    droneCount: 4, droneSpeed: 165, droneCarryCapacity: 36,
+    droneReplacementTime: 7, metalCost: 280, buildTime: 16,
     provisionalBalance: true,
   },
   generator_t3: {
@@ -1557,7 +1560,8 @@ Object.assign(structureDefinitions, {
   salvage_yard_t3: {
     ...structureDefinitions.salvage_yard, name: "Tier 3 Salvage Reclamation Yard", buildTier: 3,
     minimumWorkerTier: 3, radius: 52, footprint: [3, 3], maxHp: 900, powerDemand: 5,
-    droneCount: 5, droneReplacementTime: 6, metalCost: 500, buildTime: 24,
+    droneCount: 5, droneSpeed: 200, droneCarryCapacity: 48,
+    droneReplacementTime: 6, metalCost: 500, buildTime: 24,
     provisionalBalance: true,
   },
   experimental_factory: {

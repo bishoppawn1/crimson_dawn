@@ -810,7 +810,8 @@ Every higher tier must provide a visible functional improvement, not merely a
 larger model or more durability. Generators improve output and grid reach;
 batteries improve storage and transfer throughput; relays improve reach and
 buffering; chargers improve field size and recharge throughput; harvesters improve
-crystal income; reclamation yards field more drones with faster replacement; and
+crystal income; reclamation yards field more drones that move faster, carry more
+salvage, and rebuild faster; and
 factories gain provisional production-speed multipliers of 1.0×, 1.25×, and 1.5×.
 Sentry Turrets scale especially clearly: provisional Tier 1/Tier 2/Tier 3 weapon
 profiles are 18/34/60 damage, 185/265/360 range, and 0.75/0.68/0.55-second reloads.
@@ -1141,7 +1142,18 @@ The Salvage Reclamation Yard is an optional economy building intended to become
 more useful later in a match, when enough wreckage exists to justify automated
 recovery. It is not an essential early-game economy structure.
 
-Each yard controls three reclamation drones. Its default behavior is:
+Each Tier 1 yard controls three reclamation drones. Higher-tier yards add drones
+and improve each drone already assigned to them, including drones that are away
+from the yard when the upgrade completes. The provisional tier progression is:
+
+- Tier 1: three drones, 130 world units per second, 24 crystal capacity, and an
+  8-second replacement time.
+- Tier 2: four drones, 165 world units per second, 36 crystal capacity, and a
+  7-second replacement time.
+- Tier 3: five drones, 200 world units per second, 48 crystal capacity, and a
+  6-second replacement time.
+
+Their default behavior is:
 
 1. Find the nearest eligible unit wreck or crystal scrap pile with crystal remaining. More
    than one drone may choose the same pile.
@@ -1153,9 +1165,8 @@ Each yard controls three reclamation drones. Its default behavior is:
    eligible salvage remains.
 6. Repeat while eligible wreckage remains.
 
-Reclamation drones move at 130 world units per second and hover over starting-wall
-segments instead of routing through their gates. Rocky ridges, shelves, and crags
-remain impassable to the drones, so
+Reclamation drones hover over starting-wall segments instead of routing through
+their gates. Rocky ridges, shelves, and crags remain impassable to the drones, so
 those larger terrain features still shape salvage routes. Drones use deterministic
 visibility-path routing around impassable terrain on trips to wrecks and back to
 their yard, and recalculate when their target changes or an existing route becomes
@@ -1165,17 +1176,17 @@ yards cannot cause a single large frame-time spike.
 Reclamation drones can be targeted and destroyed. A yard automatically rebuilds a
 destroyed drone at no crystal or energy cost to the player. Replacement should take
 a defined amount of time, preventing instant replacement while preserving the
-building's low-maintenance automation role. A yard can never have more than three
-active or rebuilding drones.
+building's low-maintenance automation role. A yard can never have more active or
+rebuilding drones than its current tier allows.
 
 If a reclamation drone is destroyed while carrying crystal scrap, all carried
 crystal drops at the destruction location as a reclaimable crystal scrap pile. Its
 replacement begins empty.
 
-Carrying capacity, collection time, replacement time, and behavior when the yard
-loses power remain tuning decisions. Multiple drones may harvest the same wreck
-concurrently, but the implementation must preserve its finite crystal and prevent
-them from collecting more than the pile contains.
+Collection time and behavior when the yard loses power remain tuning decisions.
+Multiple drones may harvest the same wreck concurrently, but the implementation
+must preserve its finite crystal and prevent them from collecting more than the
+pile contains.
 
 ## 8. Enemy AI
 
