@@ -475,10 +475,10 @@ this catalog is out of date.
 
 **What it checks:** Runs the deterministic game simulation to confirm that reclamation drones fly directly over starting walls.
 
-<!-- test-catalog-entry: ["test/simulation.test.js","conventional mobile units stay compact while experimentals are exceptional"] -->
-### 56. conventional mobile units stay compact while experimentals are exceptional
+<!-- test-catalog-entry: ["test/simulation.test.js","vehicles are larger than same-tier mechs and tanks are larger than scouts"] -->
+### 56. vehicles are larger than same-tier mechs and tanks are larger than scouts
 
-**What it checks:** Runs the deterministic game simulation to confirm that conventional mobile units stay compact while experimentals are exceptional.
+**What it checks:** Runs the deterministic game simulation to confirm that vehicles are larger than same-tier mechs and tanks are larger than scouts.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Zenith Doughnuts are enormous and fast strategic aircraft"] -->
 ### 57. Zenith Doughnuts are enormous and fast strategic aircraft

@@ -1463,14 +1463,27 @@ test("reclamation drones fly directly over starting walls", () => {
   assert.ok(Math.abs(drone.y - target.y) < 0.001);
 });
 
-test("conventional mobile units stay compact while experimentals are exceptional", () => {
-  const radii = Object.values(UNIT_DEFINITIONS)
+test("vehicles are larger than same-tier mechs and tanks are larger than scouts", () => {
+  const conventionalRadii = Object.values(UNIT_DEFINITIONS)
     .filter((definition) => !["arsenal_colossus", "hexapod_landship", "zenith_doughnut"].includes(definition.role))
     .map((definition) => definition.radius);
 
-  assert.ok(Math.max(...radii) <= 13);
-  assert.ok(Math.min(...radii) >= 6);
-  assert.ok(UNIT_DEFINITIONS.arsenal_colossus.radius > Math.max(...radii));
+  for (const tier of [1, 2, 3]) {
+    const mechDefinitions = STRUCTURE_DEFINITIONS[`mech_factory_t${tier}`].production
+      .map((unitType) => UNIT_DEFINITIONS[unitType]);
+    const vehicleDefinitions = STRUCTURE_DEFINITIONS[`vehicle_factory_t${tier}`].production
+      .map((unitType) => UNIT_DEFINITIONS[unitType]);
+    const largestMechRadius = Math.max(...mechDefinitions.map((definition) => definition.radius));
+    const scout = vehicleDefinitions.find((definition) => definition.role === "vehicle_scout");
+    const tank = vehicleDefinitions.find((definition) => definition.role === "tank");
+
+    assert.ok(vehicleDefinitions.every((definition) => definition.radius > largestMechRadius));
+    assert.ok(tank.radius > scout.radius);
+    assert.equal(tank.radius, Math.max(...vehicleDefinitions.map((definition) => definition.radius)));
+  }
+
+  assert.ok(Math.min(...conventionalRadii) >= 6);
+  assert.ok(UNIT_DEFINITIONS.arsenal_colossus.radius > Math.max(...conventionalRadii));
   assert.ok(UNIT_DEFINITIONS.hexapod_landship.radius > UNIT_DEFINITIONS.arsenal_colossus.radius);
   assert.ok(UNIT_DEFINITIONS.zenith_doughnut.radius > UNIT_DEFINITIONS.hexapod_landship.radius);
 });

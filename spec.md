@@ -467,6 +467,13 @@ friendly or hostile, maintain physical separation. Dense ground formations and
 dense air formations spread around one another instead of occupying an unlimited
 stack at one position; units on different layers may overlap.
 
+Conventional vehicles use a larger physical and visual footprint than every
+same-tier conventional mech. Scout Vehicles, Pathfinder Radars, and Flak Crawlers
+form the smallest vehicle silhouettes; Mobile Artillery and Grid Tankers occupy the
+middle of the range; and Battle Tanks are the largest conventional vehicles at each
+tier. The provisional radii are 12/13/14 for the smallest vehicle group,
+13/14/15 for artillery and tankers, and 15/16/17 for battle tanks across Tiers 1–3.
+
 The Canvas battlefield uses role-readable, top-down mechanical sprites rather than
 generic diamonds or side-view silhouettes. A mech's cockpit roof, shoulder deck,
 dorsal armor, compact rear hip machinery, and forward-pointing weapons are visible
