@@ -166,6 +166,10 @@ const spawnIncomeUpgradeDetails = document.querySelector("#spawn-income-upgrade-
 const spawnIncomeStatus = document.querySelector("#spawn-income-status");
 const spawnPadUpgrades = document.querySelector("#spawn-pad-upgrades");
 const spawnPadUpgradeGrid = document.querySelector("#spawn-pad-upgrade-grid");
+const constructNuclearMissileButton = document.querySelector("#construct-nuclear-missile-button");
+const constructNuclearMissileDetails = document.querySelector("#construct-nuclear-missile-details");
+const launchNuclearMissileButton = document.querySelector("#launch-nuclear-missile-button");
+const launchNuclearMissileDetails = document.querySelector("#launch-nuclear-missile-details");
 const testerSpawnCommands = document.querySelector("#tester-spawn-commands");
 const testerSpawnTeam = document.querySelector("#tester-spawn-team");
 const testerSpawnStructure = document.querySelector("#tester-spawn-structure");
@@ -1571,6 +1575,19 @@ function applyAuthorizedCommand(command, team) {
       }
       return simulation.commandGroupRally(structureIds, command.x, command.y) === structures.length;
     }
+    case "nuclear_construct": {
+      const structure = ownedStructure(command.structureId, team);
+      return structure ? simulation.queueNuclearMissile(structure.id) : false;
+    }
+    case "nuclear_target": {
+      const structure = ownedStructure(command.structureId, team);
+      if (!structure || !Number.isFinite(command.x) || !Number.isFinite(command.y)) return false;
+      return simulation.setNuclearTarget(structure.id, command.x, command.y);
+    }
+    case "nuclear_launch": {
+      const structure = ownedStructure(command.structureId, team);
+      return structure ? Boolean(simulation.launchNuclearMissile(structure.id)) : false;
+    }
     case "ability": {
       if (command.abilityId !== "overdrive") return false;
       return simulation.activateAbility(
@@ -1730,6 +1747,13 @@ function describeStructureRole(definition) {
   if (definition.overseerZoneCount) {
     return `${definition.overseerZoneCount} remote vision zones · ${definition.overseerZoneRadius} radius · ${definition.overseerShiftInterval}s relocation`;
   }
+  if (definition.nuclearMissileCost) {
+    const outerBand = definition.nuclearDamageBands.at(-1);
+    return `10s strategic missile · ${outerBand.radius} blast radius · requires grid power`;
+  }
+  if (definition.antiNukeRange) {
+    return `${definition.antiNukeRange} intercept range · ${definition.antiNukeReloadTime}s powered reload`;
+  }
   if (definition.radarRange) return `${definition.radarRange} radar vision · requires grid power`;
   if (definition.shieldCapacity) {
     return `${definition.shieldCapacity} shield · ${definition.shieldRadius} radius · ${definition.shieldRegenRate}/s regen`;
@@ -1812,6 +1836,7 @@ function render(now = performance.now()) {
   drawPowerNetwork();
   drawShieldFields();
   drawCommandIndicators();
+  drawNuclearMissiles();
 
   if (strategicView) {
     drawStrategicEntities();
@@ -3114,6 +3139,30 @@ function drawCommandIndicators() {
     drawDestination(factory.rallyPoint.x, factory.rallyPoint.y, colors.selection);
   }
 
+  const selectedLauncher = getSelectedStructures().find((structure) =>
+    STRUCTURE_DEFINITIONS[structure.type].nuclearMissileCost && structure.nuclearTarget
+  );
+  if (selectedLauncher) {
+    const bands = STRUCTURE_DEFINITIONS[selectedLauncher.type].nuclearDamageBands;
+    context.save();
+    context.strokeStyle = "#ff725caa";
+    context.lineWidth = 2;
+    context.setLineDash([9, 7]);
+    context.beginPath();
+    context.moveTo(selectedLauncher.x, selectedLauncher.y);
+    context.lineTo(selectedLauncher.nuclearTarget.x, selectedLauncher.nuclearTarget.y);
+    context.stroke();
+    context.setLineDash([]);
+    for (const [index, band] of bands.entries()) {
+      context.strokeStyle = index === 0 ? "#fff2a8dd" : index === 1 ? "#ff9b58aa" : "#ef596477";
+      context.beginPath();
+      context.arc(selectedLauncher.nuclearTarget.x, selectedLauncher.nuclearTarget.y, band.radius, 0, Math.PI * 2);
+      context.stroke();
+    }
+    context.restore();
+    drawDestination(selectedLauncher.nuclearTarget.x, selectedLauncher.nuclearTarget.y, "#ff725c");
+  }
+
   if (patrolDraft?.points.length > 0) {
     const firstUnit = simulation.getUnit(patrolDraft.unitIds[0]);
     const firstPosition = firstUnit ? presentedPosition(firstUnit) : patrolDraft.points[0];
@@ -3990,6 +4039,56 @@ function drawOverseerSpireBuilding(footprint, powered, teamColor) {
   }
 }
 
+function drawNuclearLauncherBuilding(structure, footprint, powered, teamColor) {
+  const width = footprint.width * 0.78;
+  const height = footprint.height * 0.78;
+  drawRoofPanel(-width / 2, -height / 2, width, height, 8);
+  context.fillStyle = "#151b1f";
+  context.strokeStyle = powered ? `${teamColor}cc` : "#665155";
+  context.lineWidth = 3;
+  context.fillRect(-width * 0.18, -height * 0.42, width * 0.36, height * 0.84);
+  context.strokeRect(-width * 0.18, -height * 0.42, width * 0.36, height * 0.84);
+  context.fillStyle = structure.nuclearMissileReady ? "#f5e7c3" : "#31383b";
+  context.beginPath();
+  context.moveTo(0, -height * 0.36);
+  context.lineTo(width * 0.1, -height * 0.16);
+  context.lineTo(width * 0.08, height * 0.27);
+  context.lineTo(-width * 0.08, height * 0.27);
+  context.lineTo(-width * 0.1, -height * 0.16);
+  context.closePath();
+  context.fill();
+  context.strokeStyle = structure.nuclearMissileReady ? "#ff725c" : "#5d6568";
+  context.stroke();
+  context.fillStyle = structure.nuclearMissileReady ? "#ff725c" : "#4b5356";
+  context.fillRect(-width * 0.11, height * 0.18, width * 0.22, height * 0.09);
+  drawFasteners(-width / 2, -height / 2, width, height, powered ? colors.energy : "#70797b");
+}
+
+function drawAntiNukeBuilding(structure, footprint, powered, teamColor) {
+  const width = footprint.width * 0.78;
+  const height = footprint.height * 0.78;
+  drawRoofPanel(-width / 2, -height / 2, width, height, 6);
+  context.fillStyle = "#182126";
+  context.strokeStyle = powered ? "#75d9ff" : "#72575a";
+  context.lineWidth = 3;
+  context.beginPath();
+  context.arc(0, 0, Math.min(width, height) * 0.28, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.rotate(-Math.PI / 4);
+  for (const side of [-1, 1]) {
+    context.fillStyle = structure.antiNukeReloadRemaining <= 0 ? "#d9f6ff" : "#4f6067";
+    context.fillRect(-5, side * 11 - 18, 10, 36);
+    context.strokeRect(-5, side * 11 - 18, 10, 36);
+  }
+  context.rotate(Math.PI / 4);
+  context.fillStyle = powered ? teamColor : "#705357";
+  context.beginPath();
+  context.arc(0, 0, 6, 0, Math.PI * 2);
+  context.fill();
+  drawFasteners(-width / 2, -height / 2, width, height, powered ? "#75d9ff" : "#70797b");
+}
+
 function drawCompletedBuilding(structure, definition, footprint, family, powered, teamColor) {
   if (family === "headquarters") drawHeadquartersBuilding(structure, footprint, powered, teamColor);
   else if (family === "generator") drawGeneratorBuilding(definition, footprint, powered, teamColor);
@@ -4006,6 +4105,8 @@ function drawCompletedBuilding(structure, definition, footprint, family, powered
   else if (family === "mortar_turret") drawMortarBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "flak_turret") drawFlakBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "salvage_yard") drawSalvageYardBuilding(definition, footprint, powered, teamColor);
+  else if (family === "nuclear_launcher") drawNuclearLauncherBuilding(structure, footprint, powered, teamColor);
+  else if (family === "anti_nuke") drawAntiNukeBuilding(structure, footprint, powered, teamColor);
 }
 
 function drawStructure(structure) {
@@ -4080,6 +4181,16 @@ function drawStructure(structure) {
       context.fill();
       context.stroke();
     }
+    context.setLineDash([]);
+  }
+
+  if (definition.antiNukeRange && selectedStructureIds.has(structure.id)) {
+    context.strokeStyle = structure.powered ? "#75d9ff88" : `${colors.disconnected}88`;
+    context.lineWidth = 2;
+    context.setLineDash([14, 10]);
+    context.beginPath();
+    context.arc(0, 0, definition.antiNukeRange, 0, Math.PI * 2);
+    context.stroke();
     context.setLineDash([]);
   }
 
@@ -4195,6 +4306,22 @@ function drawStructure(structure) {
       structure.weaponEnergy / definition.capacitorCapacity,
       colors.energy,
     );
+  } else if (definition.nuclearMissileCost && structure.nuclearMissileProgress !== null) {
+    drawBar(
+      structure.x,
+      structure.y - footprint.halfHeight - 5,
+      structureBarWidth,
+      structure.nuclearMissileProgress / definition.nuclearMissileBuildTime,
+      "#ff725c",
+    );
+  } else if (definition.antiNukeRange && structure.antiNukeReloadRemaining > 0) {
+    drawBar(
+      structure.x,
+      structure.y - footprint.halfHeight - 5,
+      structureBarWidth,
+      1 - structure.antiNukeReloadRemaining / definition.antiNukeReloadTime,
+      "#75d9ff",
+    );
   }
   if (structure.complete && structure.powerStatus !== "online" && structure.powerStatus !== "generating") {
     const warning = structure.powerStatus === "disconnected" || structure.powerStatus === "no_energy";
@@ -4216,6 +4343,18 @@ function drawStructure(structure) {
       structure.defenseStatus,
       structure.defenseStatus !== "unpowered",
       structure.defenseStatus === "unpowered" ? colors.disconnected : colors.energy,
+    );
+  } else if (
+    structure.complete &&
+    definition.antiNukeRange &&
+    selectedStructureIds.has(structure.id)
+  ) {
+    drawLabel(
+      structure.x,
+      structure.y + footprint.halfHeight + 33,
+      structure.antiNukeStatus,
+      structure.antiNukeStatus !== "unpowered",
+      structure.antiNukeStatus === "unpowered" ? colors.disconnected : "#75d9ff",
     );
   }
 }
@@ -6691,6 +6830,47 @@ function drawWreck(wreck) {
   context.textAlign = "start";
 }
 
+function drawNuclearMissiles() {
+  for (const missile of simulation.nuclearMissiles) {
+    if (!worldPointIsVisible(missile.x, missile.y, 80)) continue;
+    const angle = Math.atan2(missile.targetY - missile.originY, missile.targetX - missile.originX);
+    const progress = Math.max(0, Math.min(1, missile.elapsed / missile.flightTime));
+    const altitude = Math.sin(progress * Math.PI);
+    context.save();
+    context.strokeStyle = "#ff725c55";
+    context.lineWidth = 3;
+    context.setLineDash([8, 10]);
+    context.beginPath();
+    context.moveTo(missile.originX, missile.originY);
+    context.lineTo(missile.x, missile.y);
+    context.stroke();
+    context.setLineDash([]);
+    context.translate(missile.x, missile.y);
+    context.rotate(angle);
+    context.shadowColor = "#ff8b4d";
+    context.shadowBlur = 12 + altitude * 16;
+    context.fillStyle = "#fff0cb";
+    context.strokeStyle = "#5b2022";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(18 + altitude * 8, 0);
+    context.lineTo(-10 - altitude * 3, -7);
+    context.lineTo(-5, 0);
+    context.lineTo(-10 - altitude * 3, 7);
+    context.closePath();
+    context.fill();
+    context.stroke();
+    context.fillStyle = "#ff5a45";
+    context.beginPath();
+    context.moveTo(-8, -4);
+    context.lineTo(-22 - altitude * 10, 0);
+    context.lineTo(-8, 4);
+    context.closePath();
+    context.fill();
+    context.restore();
+  }
+}
+
 function drawEvents() {
   for (const event of simulation.events) {
     const eventPosition = event.type === "attack"
@@ -6700,6 +6880,31 @@ function drawEvents() {
     const age = simulation.time - event.time;
     if (event.type === "attack") {
       drawAttackEvent(event, age);
+    } else if (event.type === "nuclear_detonation") {
+      const alpha = Math.max(0, 1 - age / 2.4);
+      context.save();
+      context.globalAlpha = alpha;
+      for (const [index, band] of [...event.damageBands.entries()].reverse()) {
+        const expansion = Math.min(1, age * (2.2 - index * 0.25));
+        context.fillStyle = index === 0 ? "#fff2a844" : index === 1 ? "#ff9b5833" : "#ef596422";
+        context.strokeStyle = index === 0 ? "#fff2a8" : index === 1 ? "#ff9b58" : "#ef5964";
+        context.lineWidth = Math.max(2, 7 - index * 2);
+        context.beginPath();
+        context.arc(event.x, event.y, band.radius * expansion, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+      }
+      context.restore();
+    } else if (event.type === "nuclear_intercept") {
+      const alpha = Math.max(0, 1 - age / 1.2);
+      context.save();
+      context.globalAlpha = alpha;
+      context.strokeStyle = "#75d9ff";
+      context.lineWidth = 4;
+      context.beginPath();
+      context.arc(event.x, event.y, 18 + age * 70, 0, Math.PI * 2);
+      context.stroke();
+      context.restore();
     } else {
       const alpha = Math.max(0, 1 - age / 1.2);
       const eventColor = event.type === "stasis"
@@ -7323,6 +7528,18 @@ function updateInterface() {
     const defenseText = definition.capacitorCapacity
       ? ` · ${definition.attackDamage} damage · ${definition.minimumAttackRange ? `${definition.minimumAttackRange}–` : ""}${definition.attackRange} range · ${(definition.attackDamage / definition.attackCooldown).toFixed(1)} DPS${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""} · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
       : "";
+    const nuclearText = definition.nuclearMissileCost
+      ? selectedStructure.nuclearMissileReady
+        ? selectedStructure.nuclearTarget
+          ? ` · MISSILE READY · TARGET ${Math.round(selectedStructure.nuclearTarget.x)},${Math.round(selectedStructure.nuclearTarget.y)}`
+          : " · MISSILE READY · RIGHT-CLICK TO TARGET"
+        : selectedStructure.nuclearMissileProgress !== null
+          ? ` · MISSILE ${Math.floor((selectedStructure.nuclearMissileProgress / definition.nuclearMissileBuildTime) * 100)}% CONSTRUCTED`
+          : " · MISSILE BAY EMPTY"
+      : "";
+    const antiNukeText = definition.antiNukeRange
+      ? ` · ${definition.antiNukeRange} INTERCEPT RANGE · ${definition.antiNukeReloadTime}s RELOAD · ${Math.ceil(selectedStructure.antiNukeReloadRemaining)}s REMAINING · ${selectedStructure.antiNukeStatus.toUpperCase()}`
+      : "";
     const shieldText = definition.shieldCapacity
       ? ` · ${Math.ceil(selectedStructure.shieldStrength)}/${definition.shieldCapacity} shield · ${definition.shieldRadius} field radius · ${definition.shieldRegenRate}/s regen · ${definition.shieldEnergyPerPoint} energy/point · ${selectedStructure.shieldStatus.toUpperCase()}`
       : "";
@@ -7367,7 +7584,7 @@ function updateInterface() {
         ? ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · UPGRADING TO ${selectedStructure.supplyUpgrade.targetLevel}`
         : ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · +${definition.supplyLevels[selectedStructure.supplyLevel - 1].capacity.toLocaleString()} capacity`
       : "";
-    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${radarText}${overseerText}${chargerText}${mineText}${demandText}${defenseText}${shieldText}${salvageText}${factoryText}${headquartersText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
+    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${radarText}${overseerText}${chargerText}${mineText}${demandText}${defenseText}${nuclearText}${antiNukeText}${shieldText}${salvageText}${factoryText}${headquartersText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
   } else if (selectedUnits.length === 0) {
     selectionName.textContent = "No units selected";
     selectionDetails.textContent = "Select friendly units or a structure on the battlefield.";
@@ -7553,9 +7770,39 @@ function updateInterface() {
       : buildingUpgrade.reason;
     buildingUpgradeButton.disabled = !buildingUpgrade.valid;
   }
+  const nuclearDefinition = selectedStructure && STRUCTURE_DEFINITIONS[selectedStructure.type];
+  const canShowNuclearControls = Boolean(
+    selectedStructures.length === 1 &&
+    selectedStructure?.complete &&
+    nuclearDefinition?.nuclearMissileCost,
+  );
+  constructNuclearMissileButton.hidden = !canShowNuclearControls;
+  launchNuclearMissileButton.hidden = !canShowNuclearControls;
+  if (canShowNuclearControls) {
+    const constructing = selectedStructure.nuclearMissileProgress !== null;
+    constructNuclearMissileButton.disabled =
+      constructing ||
+      selectedStructure.nuclearMissileReady ||
+      !selectedStructure.powered ||
+      (!unitTesterActive && localResources.metal < nuclearDefinition.nuclearMissileCost);
+    constructNuclearMissileDetails.textContent = constructing
+      ? `${Math.floor((selectedStructure.nuclearMissileProgress / nuclearDefinition.nuclearMissileBuildTime) * 100)}% · ${selectedStructure.powered ? "constructing" : "waiting for power"}`
+      : selectedStructure.nuclearMissileReady
+        ? "Missile ready"
+        : `${nuclearDefinition.nuclearMissileCost.toLocaleString()} crystal · ${nuclearDefinition.nuclearMissileBuildTime}s · +${nuclearDefinition.missileProductionPowerDemand} energy/s`;
+    launchNuclearMissileButton.disabled =
+      !selectedStructure.powered ||
+      !selectedStructure.nuclearMissileReady ||
+      !selectedStructure.nuclearTarget;
+    launchNuclearMissileDetails.textContent = selectedStructure.nuclearTarget
+      ? `Target ${Math.round(selectedStructure.nuclearTarget.x)},${Math.round(selectedStructure.nuclearTarget.y)} · 10s flight`
+      : selectedStructure.nuclearMissileReady
+        ? "Right-click the battlefield to select a target"
+        : "Construct a missile first";
+  }
   structureCommands.hidden =
     matchEnded ||
-    (!canCancelConstruction && !canDestroyStructure && !canShowSupplyUpgrade && !canShowBuildingUpgrade);
+    (!canCancelConstruction && !canDestroyStructure && !canShowSupplyUpgrade && !canShowBuildingUpgrade && !canShowNuclearControls);
 
   spawnWarsCommands.hidden = matchEnded || !spawnWarsActive || !selectedArchitect;
   if (spawnWarsActive && selectedArchitect) {
@@ -8120,6 +8367,7 @@ canvas.addEventListener("contextmenu", (event) => {
         recordPatrolPoint(minimapTarget);
         return;
       }
+      if (issueSelectedNuclearTarget(minimapTarget)) return;
       if (issueSelectedFactoryRally(minimapTarget)) return;
       if (selectedUnitIds.size > 0) {
         issueSelectedUnitMove(minimapTarget, event.shiftKey);
@@ -8141,6 +8389,7 @@ canvas.addEventListener("contextmenu", (event) => {
     recordPatrolPoint(point);
     return;
   }
+  if (issueSelectedNuclearTarget(point)) return;
   if (issueSelectedFactoryRally(point)) return;
   if (selectedUnitIds.size === 0) return;
   const forceMove = forceMoveArmed;
@@ -8217,6 +8466,26 @@ canvas.addEventListener("contextmenu", (event) => {
 
   issueSelectedUnitMove(point, event.shiftKey);
 });
+
+function issueSelectedNuclearTarget(point) {
+  const selectedStructures = getSelectedStructures();
+  if (selectedStructures.length !== 1) return false;
+  const launcher = selectedStructures[0];
+  const definition = STRUCTURE_DEFINITIONS[launcher.type];
+  if (
+    launcher.team !== localTeam ||
+    !definition.nuclearMissileCost ||
+    !launcher.nuclearMissileReady
+  ) return false;
+  const accepted = issueGameCommand({
+    type: "nuclear_target",
+    structureId: launcher.id,
+    x: point.x,
+    y: point.y,
+  });
+  if (accepted) updateInterface();
+  return Boolean(accepted);
+}
 
 function issueSelectedFactoryRally(point) {
   const selectedStructures = getSelectedStructures();
@@ -8424,6 +8693,18 @@ buildingUpgradeButton.addEventListener("click", () => {
   if (selectedStructureId) {
     issueGameCommand({ type: "structure_upgrade", structureId: selectedStructureId });
   }
+  updateInterface();
+});
+constructNuclearMissileButton.addEventListener("click", () => {
+  const launcher = simulation.getStructure(selectedStructureId);
+  if (!launcher) return;
+  issueGameCommand({ type: "nuclear_construct", structureId: launcher.id });
+  updateInterface();
+});
+launchNuclearMissileButton.addEventListener("click", () => {
+  const launcher = simulation.getStructure(selectedStructureId);
+  if (!launcher) return;
+  issueGameCommand({ type: "nuclear_launch", structureId: launcher.id });
   updateInterface();
 });
 workerUpgradeButton.addEventListener("click", () => {

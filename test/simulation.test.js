@@ -294,6 +294,181 @@ test("worker tiers expose the requested inherited construction matrix", () => {
   }
 });
 
+test("Tier 3 workers unlock the nuclear launcher and 2x2 anti-nuke turret", () => {
+  const launcher = STRUCTURE_DEFINITIONS.nuclear_missile_launcher;
+  const antiNuke = STRUCTURE_DEFINITIONS.anti_nuke_turret;
+
+  assert.ok(BUILD_MENU_BY_TIER[3].includes("nuclear_missile_launcher"));
+  assert.ok(BUILD_MENU_BY_TIER[3].includes("anti_nuke_turret"));
+  assert.equal(canWorkerTierBuildStructure(2, "nuclear_missile_launcher"), false);
+  assert.equal(canWorkerTierBuildStructure(3, "nuclear_missile_launcher"), true);
+  assert.equal(canWorkerTierBuildStructure(2, "anti_nuke_turret"), false);
+  assert.equal(canWorkerTierBuildStructure(3, "anti_nuke_turret"), true);
+  assert.deepEqual(antiNuke.footprint, [2, 2]);
+  assert.deepEqual(structureFootprint("anti_nuke_turret"), {
+    columns: 2,
+    rows: 2,
+    width: 80,
+    height: 80,
+    halfWidth: 40,
+    halfHeight: 40,
+  });
+  assert.equal(launcher.nuclearMissileFlightTime, 10);
+  assert.equal(antiNuke.antiNukeReloadTime, 60);
+  assert.equal(antiNuke.antiNukeRange, 600);
+  assert.ok(antiNuke.antiNukeReloadPowerDemand >= 40);
+});
+
+test("nuclear launchers construct one paid missile at a time and pause without power", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  simulation.addStructure("generator_t3", "player", 200, 200);
+  simulation.addStructure("generator_t3", "player", 260, 200);
+  const launcher = simulation.addStructure("nuclear_missile_launcher", "player", 400, 200);
+  const definition = STRUCTURE_DEFINITIONS.nuclear_missile_launcher;
+  simulation.resources.player.metal = definition.nuclearMissileCost + 100;
+  simulation.refreshPowerState(0);
+
+  assert.equal(launcher.powered, true);
+  assert.equal(simulation.queueNuclearMissile(launcher.id), true);
+  assert.equal(simulation.resources.player.metal, 100);
+  assert.equal(
+    simulation.getStructurePowerDemandRate(launcher),
+    definition.powerDemand + definition.missileProductionPowerDemand,
+  );
+  assert.equal(simulation.queueNuclearMissile(launcher.id), false);
+
+  launcher.powered = false;
+  simulation.updateNuclearLaunchers(30);
+  assert.equal(launcher.nuclearMissileProgress, 0);
+  launcher.powered = true;
+  simulation.updateNuclearLaunchers(definition.nuclearMissileBuildTime);
+  assert.equal(launcher.nuclearMissileProgress, null);
+  assert.equal(launcher.nuclearMissileReady, true);
+});
+
+test("nuclear missiles fly for exactly ten seconds and damage every team in three bands", () => {
+  const simulation = new Simulation({ testerTeams: ["player"], enemyAiEnabled: false });
+  simulation.addStructure("generator_t3", "player", 200, 200);
+  const launcher = simulation.addStructure("nuclear_missile_launcher", "player", 360, 200);
+  const innerTarget = simulation.addStructure("generator_t3", "enemy", 1200, 600);
+  const middleTarget = simulation.addStructure("experimental_factory", "enemy", 1450, 600);
+  const outerFriendly = simulation.addStructure("nuclear_missile_launcher", "player", 1630, 600);
+  simulation.refreshPowerState(0);
+  simulation.applyTesterTeamAdvantages();
+
+  assert.equal(simulation.queueNuclearMissile(launcher.id), true);
+  assert.equal(simulation.setNuclearTarget(launcher.id, 1200, 600), true);
+  const missile = simulation.launchNuclearMissile(launcher.id);
+  assert.ok(missile);
+  assert.equal(simulation.getEntity(missile.id), null, "the invulnerable missile is not a combat entity");
+
+  advance(simulation, 9.75, 0.25);
+  assert.equal(simulation.nuclearMissiles.length, 1);
+  assert.equal(innerTarget.hp, STRUCTURE_DEFINITIONS.generator_t3.maxHp);
+  advance(simulation, 0.25, 0.25);
+
+  assert.equal(simulation.nuclearMissiles.length, 0);
+  assert.equal(innerTarget.alive, false);
+  assert.equal(middleTarget.alive, false);
+  assert.equal(
+    outerFriendly.hp,
+    STRUCTURE_DEFINITIONS.nuclear_missile_launcher.maxHp - 500,
+    "outer-band damage includes friendly assets",
+  );
+  assert.ok(simulation.events.some((event) => event.type === "nuclear_detonation"));
+});
+
+test("powered anti-nuke turrets protect a 30x30-cell area and preserve interception vision", () => {
+  const simulation = new Simulation({ testerTeams: ["player"], enemyAiEnabled: false });
+  simulation.addStructure("generator_t3", "player", 200, 200);
+  const launcher = simulation.addStructure("nuclear_missile_launcher", "player", 360, 200);
+  const defense = simulation.addStructure("anti_nuke_turret", "enemy", 900, 200);
+  simulation.refreshPowerState(0);
+  simulation.applyTesterTeamAdvantages();
+  defense.powered = true;
+
+  simulation.queueNuclearMissile(launcher.id);
+  simulation.setNuclearTarget(launcher.id, 3000, 200);
+  const missile = simulation.launchNuclearMissile(launcher.id);
+  simulation.updateAntiNukeTurrets(0.25);
+
+  assert.ok(missile);
+  assert.equal(simulation.nuclearMissiles.length, 0);
+  assert.equal(defense.antiNukeReloadRemaining, 60);
+  assert.equal(defense.antiNukeStatus, "reloading");
+  assert.ok(simulation.events.some((event) => event.type === "nuclear_intercept"));
+  const aftermathVision = simulation.getVisionSources("player").find(
+    (source) => source.kind === "nuclear_intercept",
+  );
+  assert.ok(aftermathVision);
+  assert.equal(aftermathVision.x, missile.x);
+  assert.equal(aftermathVision.y, missile.y);
+  assert.equal(
+    aftermathVision.range,
+    STRUCTURE_DEFINITIONS.nuclear_missile_launcher.nuclearMissileVisionRange,
+  );
+  assert.equal(
+    simulation.getStructurePowerDemandRate(defense),
+    STRUCTURE_DEFINITIONS.anti_nuke_turret.powerDemand +
+      STRUCTURE_DEFINITIONS.anti_nuke_turret.antiNukeReloadPowerDemand,
+  );
+
+  defense.powered = false;
+  simulation.updateAntiNukeTurrets(10);
+  assert.equal(defense.antiNukeReloadRemaining, 60);
+  assert.equal(defense.antiNukeStatus, "unpowered");
+  defense.powered = true;
+  simulation.updateAntiNukeTurrets(59.9);
+  assert.ok(defense.antiNukeReloadRemaining > 0);
+  simulation.updateAntiNukeTurrets(0.1);
+  assert.equal(defense.antiNukeReloadRemaining, 0);
+  assert.equal(defense.antiNukeStatus, "ready");
+});
+
+test("a nuclear missile grants its launching alliance short-range moving vision", () => {
+  const simulation = new Simulation({ testerTeams: ["player"], enemyAiEnabled: false });
+  simulation.addStructure("generator_t3", "player", 200, 200);
+  const launcher = simulation.addStructure("nuclear_missile_launcher", "player", 360, 200);
+  simulation.refreshPowerState(0);
+  simulation.applyTesterTeamAdvantages();
+  simulation.queueNuclearMissile(launcher.id);
+  simulation.setNuclearTarget(launcher.id, 2360, 200);
+  const missile = simulation.launchNuclearMissile(launcher.id);
+  simulation.advanceNuclearMissiles(5);
+
+  const playerVision = simulation.getVisionSources("player").find(
+    (source) => source.id === missile.id,
+  );
+  assert.deepEqual(playerVision, {
+    id: missile.id,
+    kind: "nuclear_missile",
+    x: 1360,
+    y: 200,
+    range: STRUCTURE_DEFINITIONS.nuclear_missile_launcher.nuclearMissileVisionRange,
+  });
+  assert.equal(
+    simulation.getVisionSources("enemy").some((source) => source.id === missile.id),
+    false,
+  );
+});
+
+test("nuclear missile and launcher readiness survive multiplayer snapshots", () => {
+  const simulation = new Simulation({ testerTeams: ["player"], enemyAiEnabled: false });
+  simulation.addStructure("generator_t3", "player", 200, 200);
+  const launcher = simulation.addStructure("nuclear_missile_launcher", "player", 360, 200);
+  simulation.refreshPowerState(0);
+  simulation.applyTesterTeamAdvantages();
+  simulation.queueNuclearMissile(launcher.id);
+  simulation.setNuclearTarget(launcher.id, 2100, 900);
+  simulation.launchNuclearMissile(launcher.id);
+  simulation.advanceNuclearMissiles(3.5);
+
+  const restored = Simulation.fromSnapshot(structuredClone(simulation.createSnapshot()));
+  assert.deepEqual(restored.nuclearMissiles, simulation.nuclearMissiles);
+  assert.equal(restored.getStructure(launcher.id).nuclearMissileReady, false);
+  assert.equal(restored.getStructure(launcher.id).nuclearTarget, null);
+});
+
 test("unit tester advantages apply only to the designated human team", () => {
   const simulation = Simulation.createFieldTest({
     enemyAiEnabled: true,

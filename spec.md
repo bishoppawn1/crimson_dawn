@@ -804,7 +804,8 @@ Worker construction capability is cumulative:
   production, economy, logistics, and defense building, and constructs the Tier 3
   Mech Factory.
 - A Tier 3 Worker Drone inherits every Tier 1 and Tier 2 option, constructs every
-  Tier 3 building, and constructs the Experimental Factory.
+  Tier 3 building, and constructs the Experimental Factory, Nuclear Missile
+  Launcher, and Anti-Nuke Turret.
 
 The worker construction interface presents exactly three compact, side-by-side
 tier tabs labeled Tier 1, Tier 2, and Tier 3. Only one tier panel may be open at a
@@ -856,6 +857,53 @@ Flak Turrets scale from 8/13/20 base damage, 225/285/360 range, and
 0.38/0.32/0.27-second reloads while retaining their 2× aircraft multiplier.
 Build controls, upgrade controls, and selected-structure details display the
 role-defining statistics so these advantages are apparent before crystal is spent.
+
+### 5.4 Tier 3 Strategic Missiles
+
+The Nuclear Missile Launcher and Anti-Nuke Turret are dedicated Tier 3 structures;
+lower-tier workers cannot construct either one. Their balance values remain
+provisional. The Nuclear Missile Launcher costs 1,800 crystal, uses a 4×4 footprint,
+has 1,600 integrity, draws 18 energy per second while idle, and takes 42 base
+construction seconds before the global construction-duration multiplier. It does
+not behave as a unit factory and stores at most one completed missile.
+
+A completed, powered launcher can begin constructing a nuclear missile for 1,500
+crystal. Missile construction takes 90 seconds and adds 35 energy per second to the
+launcher's normal demand. Progress pauses when that complete demand is not powered.
+Once the missile is ready, right-clicking terrain on the battlefield or tactical
+minimap assigns or replaces its target. The selected launcher displays the target,
+the three blast boundaries, and the line from launcher to target. Launch remains a
+separate explicit button and is enabled only while the launcher is powered and has
+both a ready missile and a target.
+
+A launched nuclear missile travels linearly from the launcher to the selected point
+in exactly 10 simulation seconds, independent of distance. It is not a normal combat
+entity: units and ordinary weapons cannot select, target, collide with, damage, or
+otherwise delay it, and destroying the launcher does not remove a missile already in
+flight. A successful Anti-Nuke interception is the sole exception. The missile is
+visibly rendered throughout flight, grants its launching alliance a moving
+300-world-unit vision field, and is included in multiplayer snapshots.
+
+On arrival, the missile damages every damageable unit, structure, and reclamation
+drone whose physical radius or footprint overlaps one of three concentric bands.
+The innermost 120-world-unit radius deals 5,000 damage, the middle 280 radius deals
+1,800 damage, and the outer 480 radius deals 500 damage. Each target receives only
+the damage of the smallest band it overlaps. Nuclear damage affects allies and the
+launching player's own assets as well as enemies, and shield fields absorb it through
+the ordinary shield-damage rules.
+
+The Anti-Nuke Turret costs 1,200 crystal, uses the required 2×2 footprint, has 950
+integrity, draws 10 energy per second while ready, and takes 30 base construction
+seconds before the global duration multiplier. A completed, powered turret
+automatically intercepts the nearest hostile nuclear missile within its 600-world-
+unit circular range, a 30×30 construction-grid-cell diameter; ties resolve
+deterministically. The launching alliance retains the missile's 300-world-unit
+vision at the interception point for the full 1.2-second interception effect, so it
+sees the direct aftermath even though the missile itself is gone. The turret then reloads for 60 powered
+simulation seconds. Reloading adds 40 energy per second to its normal demand, so a
+power shortage pauses the reload and leaves the turret unable to intercept until its
+grid can support the full 50-energy-per-second load. Selected turrets display their
+range, reload progress, remaining time, and power/readiness state.
 
 A player upgrades one selected completed structure at a time. Each upgrade advances
 only one tier and costs the provisional difference between the target tier's crystal
@@ -1524,7 +1572,8 @@ Unit Tester is a separate single-player setup with the same two-through-eight-pl
 per-AI difficulty, team-assignment, and compatible-map choices. The human commander starts with Tier 3 Worker Drones
 and has unlimited crystal, grid energy, unit energy, and supply. Human foundations
 complete as soon as they are placed, and human factory orders finish on the next
-simulation step while retaining collision-safe factory exits. Normal placement,
+simulation step while retaining collision-safe factory exits. Human nuclear missile
+construction also completes immediately when ordered. Normal placement,
 footprint, crystal-deposit, factory-branch, and factory-tier restrictions still apply,
 so the tester exercises real gameplay definitions instead of bypassing them with
 synthetic entities. Every AI commander in a Unit Tester match retains its ordinary

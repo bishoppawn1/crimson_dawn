@@ -78,6 +78,24 @@ test("the Patrol command records an arbitrary closed route before issuing it", a
   assert.match(simulation, /commandPatrol\(unitIds, points\)/);
 });
 
+test("nuclear launcher controls authorize construction, targeting, and launch", async () => {
+  const [index, game] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+  ]);
+
+  assert.match(index, /id="construct-nuclear-missile-button"/);
+  assert.match(index, /id="launch-nuclear-missile-button"/);
+  assert.match(game, /case "nuclear_construct"/);
+  assert.match(game, /case "nuclear_target"/);
+  assert.match(game, /case "nuclear_launch"/);
+  assert.match(game, /issueSelectedNuclearTarget\(minimapTarget\)/);
+  assert.match(game, /issueSelectedNuclearTarget\(point\)/);
+  assert.match(game, /simulation\.queueNuclearMissile\(structure\.id\)/);
+  assert.match(game, /simulation\.setNuclearTarget\(structure\.id, command\.x, command\.y\)/);
+  assert.match(game, /simulation\.launchNuclearMissile\(structure\.id\)/);
+});
+
 test("unit command authorization accepts the complete simulated army", async () => {
   const game = await source("../src/game.js");
   const authorization = game.match(

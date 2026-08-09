@@ -1024,6 +1024,18 @@ canvas {
   color: #ff9cab;
 }
 
+.nuclear-launch-command {
+  border-color: #a84e35;
+  background: #321b17;
+  color: #ffd7ad;
+}
+
+.nuclear-launch-command:not(:disabled):hover,
+.nuclear-launch-command:not(:disabled):focus-visible {
+  border-color: #ff8b4d;
+  background: #49231a;
+}
+
 .command-button.active {
   border-color: #e05e70;
   background: #351b23;

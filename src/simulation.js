@@ -123,11 +123,13 @@ export class Simulation {
       .map((obstacle) => ({ ...obstacle, kind: "terrain" }));
     this.events = [];
     this.pendingImpacts = [];
+    this.nuclearMissiles = [];
     this.powerNetworks = [];
     this.powerLinks = [];
     this.lastPlacementError = null;
     this.lastProductionError = null;
     this.lastUpgradeError = null;
+    this.lastNuclearError = null;
     this.matchRulesEnabled = matchRulesEnabled;
     this.enemyAiEnabled = enemyAiEnabled;
     this.matchResult = null;
@@ -376,6 +378,7 @@ export class Simulation {
       terrain: this.terrain,
       events: this.events,
       pendingImpacts: this.pendingImpacts,
+      nuclearMissiles: this.nuclearMissiles,
       powerLinks: this.powerLinks,
       teams: this.teams,
       teamStarts: this.teamStarts,
@@ -456,12 +459,41 @@ export class Simulation {
       if (STRUCTURE_DEFINITIONS[structure.type]?.overseerZoneCount) {
         simulation.normalizeOverseerState(structure);
       }
+      const definition = STRUCTURE_DEFINITIONS[structure.type];
+      if (definition?.nuclearMissileCost) {
+        structure.nuclearMissileProgress = Number.isFinite(structure.nuclearMissileProgress)
+          ? Math.max(0, structure.nuclearMissileProgress)
+          : null;
+        structure.nuclearMissileReady = Boolean(structure.nuclearMissileReady);
+        structure.nuclearTarget = Number.isFinite(structure.nuclearTarget?.x) &&
+          Number.isFinite(structure.nuclearTarget?.y)
+          ? { x: structure.nuclearTarget.x, y: structure.nuclearTarget.y }
+          : null;
+      }
+      if (definition?.antiNukeRange) {
+        structure.antiNukeReloadRemaining = Number.isFinite(structure.antiNukeReloadRemaining)
+          ? Math.max(0, structure.antiNukeReloadRemaining)
+          : 0;
+        structure.antiNukeStatus = structure.antiNukeReloadRemaining > EPSILON
+          ? "reloading"
+          : "ready";
+      }
     }
     simulation.wrecks = snapshot.wrecks || [];
     simulation.rebuildEntityLookup();
     simulation.metalDeposits = snapshot.metalDeposits || [];
     simulation.events = snapshot.events || [];
     simulation.pendingImpacts = snapshot.pendingImpacts || [];
+    simulation.nuclearMissiles = (snapshot.nuclearMissiles || [])
+      .filter((missile) =>
+        missile &&
+        Number.isFinite(missile.originX) &&
+        Number.isFinite(missile.originY) &&
+        Number.isFinite(missile.targetX) &&
+        Number.isFinite(missile.targetY) &&
+        Number.isFinite(missile.elapsed)
+      )
+      .map((missile) => ({ ...missile }));
     simulation.powerLinks = snapshot.powerLinks || [];
     simulation.teamStarts = snapshot.teamStarts || {};
     simulation.aiStates = snapshot.aiStates
@@ -734,6 +766,11 @@ export class Simulation {
       overseerZones: definition.overseerZoneCount ? [] : null,
       overseerShiftRemaining: definition.overseerZoneCount ? 0 : null,
       overseerCycle: definition.overseerZoneCount ? 0 : null,
+      nuclearMissileProgress: definition.nuclearMissileCost ? null : undefined,
+      nuclearMissileReady: definition.nuclearMissileCost ? false : undefined,
+      nuclearTarget: definition.nuclearMissileCost ? null : undefined,
+      antiNukeReloadRemaining: definition.antiNukeRange ? 0 : undefined,
+      antiNukeStatus: definition.antiNukeRange ? "ready" : undefined,
       ...overrides,
     };
 
@@ -940,7 +977,36 @@ export class Simulation {
         range: definition.overseerZoneRadius,
       }));
     });
-    return [...this.getConventionalVisionSources(teamId), ...overseerSources];
+    const missileSources = this.nuclearMissiles
+      .filter((missile) => this.areAlliedTeams(missile.team, teamId))
+      .map((missile) => ({
+        id: missile.id,
+        kind: "nuclear_missile",
+        x: missile.x,
+        y: missile.y,
+        range: missile.visionRange || 0,
+      }))
+      .filter((source) => source.range > 0);
+    const interceptionSources = this.events
+      .filter((event) =>
+        event.type === "nuclear_intercept" &&
+        this.areAlliedTeams(event.missileTeam, teamId) &&
+        this.time - event.time < (event.visionDuration || 0)
+      )
+      .map((event) => ({
+        id: `intercept-vision:${event.missileId}:${event.time}`,
+        kind: "nuclear_intercept",
+        x: event.x,
+        y: event.y,
+        range: event.visionRange || 0,
+      }))
+      .filter((source) => source.range > 0);
+    return [
+      ...this.getConventionalVisionSources(teamId),
+      ...overseerSources,
+      ...missileSources,
+      ...interceptionSources,
+    ];
   }
 
   normalizeOverseerState(structure) {
@@ -1854,6 +1920,111 @@ export class Simulation {
     }
     if (this.isSpawnWars() && !STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer) return false;
     return this.destroyEntity(structure);
+  }
+
+  queueNuclearMissile(structureId) {
+    this.lastNuclearError = null;
+    const launcher = this.getStructure(structureId);
+    const definition = launcher && STRUCTURE_DEFINITIONS[launcher.type];
+    if (
+      !launcher?.alive ||
+      !launcher.complete ||
+      !definition?.nuclearMissileCost
+    ) {
+      this.lastNuclearError = "Select a completed nuclear missile launcher.";
+      return false;
+    }
+    if (launcher.nuclearMissileReady || launcher.nuclearMissileProgress !== null) {
+      this.lastNuclearError = "This launcher already has a missile available or under construction.";
+      return false;
+    }
+    if (!launcher.powered) {
+      this.lastNuclearError = "The nuclear missile launcher is unpowered.";
+      return false;
+    }
+    const account = this.resources[launcher.team];
+    const instant = this.isTesterTeam(launcher.team);
+    if (!instant && account.metal + EPSILON < definition.nuclearMissileCost) {
+      this.lastNuclearError = "Not enough crystal.";
+      return false;
+    }
+    if (!instant) account.metal -= definition.nuclearMissileCost;
+    launcher.nuclearMissileProgress = instant ? null : 0;
+    launcher.nuclearMissileReady = instant;
+    launcher.nuclearTarget = null;
+    if (instant) {
+      this.emit("nuclear_missile_complete", launcher.x, launcher.y, {
+        structureId: launcher.id,
+      });
+    }
+    return true;
+  }
+
+  setNuclearTarget(structureId, x, y) {
+    this.lastNuclearError = null;
+    const launcher = this.getStructure(structureId);
+    const definition = launcher && STRUCTURE_DEFINITIONS[launcher.type];
+    if (!launcher?.alive || !launcher.complete || !definition?.nuclearMissileCost) {
+      this.lastNuclearError = "Select a completed nuclear missile launcher.";
+      return false;
+    }
+    if (!launcher.nuclearMissileReady) {
+      this.lastNuclearError = "Construct a nuclear missile before selecting a target.";
+      return false;
+    }
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      this.lastNuclearError = "Select a valid launch location.";
+      return false;
+    }
+    launcher.nuclearTarget = {
+      x: clamp(x, 0, this.width),
+      y: clamp(y, 0, this.height),
+    };
+    return true;
+  }
+
+  launchNuclearMissile(structureId) {
+    this.lastNuclearError = null;
+    const launcher = this.getStructure(structureId);
+    const definition = launcher && STRUCTURE_DEFINITIONS[launcher.type];
+    if (!launcher?.alive || !launcher.complete || !definition?.nuclearMissileCost) {
+      this.lastNuclearError = "Select a completed nuclear missile launcher.";
+      return null;
+    }
+    if (!launcher.nuclearMissileReady || !launcher.nuclearTarget) {
+      this.lastNuclearError = "Construct a missile and select a target first.";
+      return null;
+    }
+    if (!launcher.powered) {
+      this.lastNuclearError = "The nuclear missile launcher is unpowered.";
+      return null;
+    }
+    const missile = {
+      id: this.createId("nuclear-missile"),
+      team: launcher.team,
+      launcherId: launcher.id,
+      originX: launcher.x,
+      originY: launcher.y,
+      targetX: launcher.nuclearTarget.x,
+      targetY: launcher.nuclearTarget.y,
+      x: launcher.x,
+      y: launcher.y,
+      elapsed: 0,
+      flightTime: definition.nuclearMissileFlightTime,
+      visionRange: definition.nuclearMissileVisionRange,
+      damageBands: definition.nuclearDamageBands.map((band) => ({ ...band })),
+    };
+    this.nuclearMissiles.push(missile);
+    launcher.nuclearMissileReady = false;
+    launcher.nuclearMissileProgress = null;
+    launcher.nuclearTarget = null;
+    this.emit("nuclear_launch", launcher.x, launcher.y, {
+      missileId: missile.id,
+      launcherId: launcher.id,
+      targetX: missile.targetX,
+      targetY: missile.targetY,
+    });
+    return missile;
   }
 
   queueProduction(structureId, unitType) {
@@ -3030,6 +3201,10 @@ export class Simulation {
     this.updateSpawnWars(delta);
     this.updateSupplyUpgrades(delta);
     this.updateProduction(delta);
+    this.updateNuclearLaunchers(delta);
+    this.advanceNuclearMissiles(delta);
+    this.updateAntiNukeTurrets(delta);
+    this.resolveNuclearDetonations();
     this.updateStaticDefenses(delta);
     this.updateShieldTurrets(delta);
     this.updateChargers(delta);
@@ -3041,7 +3216,9 @@ export class Simulation {
     this.events = this.events.filter((event) => {
       const retention = event.type === "attack"
         ? Math.max(1.2, (event.impactDelay || 0) + 1.2)
-        : 1.2;
+        : event.type === "nuclear_detonation"
+          ? 2.4
+          : 1.2;
       return this.time - event.time < retention;
     });
     for (const wreck of this.wrecks) {
@@ -3497,6 +3674,12 @@ export class Simulation {
         demand += definition.productionPowerDemand;
         demand += this.getFactoryProductionAssistState(structure.id).powerDemand;
       }
+    }
+    if (structure.nuclearMissileProgress !== null && definition.missileProductionPowerDemand) {
+      demand += definition.missileProductionPowerDemand;
+    }
+    if (structure.antiNukeReloadRemaining > EPSILON && definition.antiNukeReloadPowerDemand) {
+      demand += definition.antiNukeReloadPowerDemand;
     }
     return demand;
   }
@@ -5385,6 +5568,122 @@ export class Simulation {
     });
   }
 
+  updateNuclearLaunchers(delta) {
+    for (const launcher of this.structures) {
+      const definition = STRUCTURE_DEFINITIONS[launcher.type];
+      if (
+        !launcher.alive ||
+        !launcher.complete ||
+        !definition.nuclearMissileCost ||
+        launcher.nuclearMissileProgress === null ||
+        !launcher.powered
+      ) continue;
+      launcher.nuclearMissileProgress = Math.min(
+        definition.nuclearMissileBuildTime,
+        launcher.nuclearMissileProgress + delta,
+      );
+      if (launcher.nuclearMissileProgress + EPSILON < definition.nuclearMissileBuildTime) continue;
+      launcher.nuclearMissileProgress = null;
+      launcher.nuclearMissileReady = true;
+      this.emit("nuclear_missile_complete", launcher.x, launcher.y, {
+        structureId: launcher.id,
+      });
+    }
+  }
+
+  advanceNuclearMissiles(delta) {
+    for (const missile of this.nuclearMissiles) {
+      missile.elapsed = Math.min(missile.flightTime, missile.elapsed + delta);
+      const progress = clamp(missile.elapsed / missile.flightTime, 0, 1);
+      missile.x = missile.originX + (missile.targetX - missile.originX) * progress;
+      missile.y = missile.originY + (missile.targetY - missile.originY) * progress;
+    }
+  }
+
+  updateAntiNukeTurrets(delta) {
+    for (const defense of this.structures) {
+      const definition = STRUCTURE_DEFINITIONS[defense.type];
+      if (!defense.alive || !defense.complete || !definition.antiNukeRange) continue;
+      if (defense.antiNukeReloadRemaining > EPSILON) {
+        if (!defense.powered) {
+          defense.antiNukeStatus = "unpowered";
+          continue;
+        }
+        defense.antiNukeReloadRemaining = Math.max(
+          0,
+          defense.antiNukeReloadRemaining - delta,
+        );
+        if (defense.antiNukeReloadRemaining <= EPSILON) {
+          defense.antiNukeReloadRemaining = 0;
+        }
+        defense.antiNukeStatus = defense.antiNukeReloadRemaining > EPSILON
+          ? "reloading"
+          : "ready";
+        continue;
+      }
+      if (!defense.powered) {
+        defense.antiNukeStatus = "unpowered";
+        continue;
+      }
+      const target = this.nuclearMissiles
+        .filter((missile) =>
+          this.areHostileTeams(missile.team, defense.team) &&
+          distance(defense, missile) <= definition.antiNukeRange + EPSILON
+        )
+        .sort(
+          (left, right) =>
+            distance(defense, left) - distance(defense, right) ||
+            left.id.localeCompare(right.id),
+        )[0];
+      if (!target) {
+        defense.antiNukeStatus = "ready";
+        continue;
+      }
+      this.nuclearMissiles = this.nuclearMissiles.filter((missile) => missile.id !== target.id);
+      defense.antiNukeReloadRemaining = definition.antiNukeReloadTime;
+      defense.antiNukeStatus = "reloading";
+      this.emit("nuclear_intercept", target.x, target.y, {
+        missileId: target.id,
+        missileTeam: target.team,
+        visionRange: target.visionRange,
+        visionDuration: 1.2,
+        structureId: defense.id,
+      });
+    }
+  }
+
+  resolveNuclearDetonations() {
+    const detonating = this.nuclearMissiles.filter(
+      (missile) => missile.elapsed + EPSILON >= missile.flightTime,
+    );
+    if (detonating.length === 0) return;
+    const detonatingIds = new Set(detonating.map((missile) => missile.id));
+    this.nuclearMissiles = this.nuclearMissiles.filter(
+      (missile) => !detonatingIds.has(missile.id),
+    );
+    for (const missile of detonating) this.detonateNuclearMissile(missile);
+  }
+
+  detonateNuclearMissile(missile) {
+    const bands = [...missile.damageBands].sort((left, right) => left.radius - right.radius);
+    const targets = [
+      ...this.units.filter((unit) => unit.alive && !unit.carriedById),
+      ...this.structures.filter((structure) => structure.alive),
+      ...this.getDrones().filter((drone) => drone.alive),
+    ];
+    for (const target of targets) {
+      const surfaceDistance = Math.max(0, distance(missile, target) - entityRadius(target));
+      const band = bands.find((candidate) => surfaceDistance <= candidate.radius + EPSILON);
+      if (!band) continue;
+      this.applyDamage(target, band.damage, { team: missile.team }, { allowFriendlyFire: true });
+    }
+    this.emit("nuclear_detonation", missile.targetX, missile.targetY, {
+      missileId: missile.id,
+      team: missile.team,
+      damageBands: bands.map((band) => ({ ...band })),
+    });
+  }
+
   updateStaticDefenses(delta) {
     this.rebuildCombatSpatialIndex();
     for (const defense of this.structures) {
@@ -6869,11 +7168,11 @@ export class Simulation {
     }
   }
 
-  applyDamage(target, amount, source = null) {
+  applyDamage(target, amount, source = null, { allowFriendlyFire = false } = {}) {
     if (
       !target?.alive ||
       amount <= 0 ||
-      (source?.team && this.areAlliedTeams(source.team, target.team)) ||
+      (!allowFriendlyFire && source?.team && this.areAlliedTeams(source.team, target.team)) ||
       entityIsUntargetable(target)
     ) return;
     const shield = this.findProtectingShield(target);
@@ -7516,7 +7815,12 @@ function structureFamily(structure) {
 
 function plannedStructurePowerDemand(structureType) {
   const definition = STRUCTURE_DEFINITIONS[structureType];
-  return (definition.powerDemand || 0) + (definition.productionPowerDemand || 0);
+  return (
+    (definition.powerDemand || 0) +
+    (definition.productionPowerDemand || 0) +
+    (definition.missileProductionPowerDemand || 0) +
+    (definition.antiNukeReloadPowerDemand || 0)
+  );
 }
 
 function nearestReachablePowerNode(structure, nodes) {

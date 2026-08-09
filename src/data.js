@@ -1775,6 +1775,26 @@ Object.assign(structureDefinitions, {
     buildTime: 0,
     visionRange: 900,
   },
+  nuclear_missile_launcher: {
+    name: "Nuclear Missile Launcher", family: "nuclear_launcher",
+    buildTier: 3, minimumWorkerTier: 3, tier: 3, radius: 72, footprint: [4, 4],
+    maxHp: 1600, powerDemand: 18, missileProductionPowerDemand: 35,
+    nuclearMissileCost: 1500, nuclearMissileBuildTime: 90,
+    nuclearMissileFlightTime: 10, nuclearMissileVisionRange: 300,
+    nuclearDamageBands: Object.freeze([
+      Object.freeze({ radius: 120, damage: 5000 }),
+      Object.freeze({ radius: 280, damage: 1800 }),
+      Object.freeze({ radius: 480, damage: 500 }),
+    ]),
+    metalCost: 1800, buildTime: 42, provisionalBalance: true,
+  },
+  anti_nuke_turret: {
+    name: "Anti-Nuke Turret", family: "anti_nuke",
+    buildTier: 3, minimumWorkerTier: 3, tier: 3, radius: 28, footprint: [2, 2],
+    maxHp: 950, powerDemand: 10, antiNukeRange: 600,
+    antiNukeReloadTime: 60, antiNukeReloadPowerDemand: 40,
+    metalCost: 1200, buildTime: 30, provisionalBalance: true,
+  },
 });
 
 for (const [type, definition] of Object.entries(structureDefinitions)) {
@@ -1803,7 +1823,7 @@ export const BUILD_MENU_BY_TIER = Object.freeze({
     "generator_t3", "battery_t3", "power_tower_t3", "radar_tower_t3", "charger_t3", "metal_mine_t3",
     "mech_factory_t3", "vehicle_factory_t3", "air_factory_t3",
     "sentry_turret_t3", "shield_turret_t3", "mortar_turret_t3", "flak_turret_t3", "salvage_yard_t3",
-    "overseer_spire", "experimental_factory",
+    "overseer_spire", "experimental_factory", "nuclear_missile_launcher", "anti_nuke_turret",
   ]),
 });
 
