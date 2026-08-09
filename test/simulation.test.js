@@ -430,7 +430,14 @@ test("experimental factory exposes three distinct strategic units", () => {
     landship.attackEnergy,
   );
   assert.equal(landship.stridesOverStructures, true);
+  assert.equal(landship.firesWhileMoving, true);
   assert.equal(landship.movementLayer, "ground");
+  assert.deepEqual(
+    Object.entries(UNIT_DEFINITIONS)
+      .filter(([, definition]) => definition.firesWhileMoving)
+      .map(([unitType]) => unitType),
+    ["hexapod_landship"],
+  );
 
   const doughnut = UNIT_DEFINITIONS.zenith_doughnut;
   assert.equal(doughnut.movementLayer, "air");
@@ -516,7 +523,7 @@ test("hexapod landship shells deal damage on impact instead of before firing", (
   assert.equal(restored.pendingImpacts.length, 0);
 });
 
-test("hexapod landship weapon systems independently engage different targets", () => {
+test("hexapod landship fires its independent weapons while moving", () => {
   const simulation = new Simulation({ width: 1000, height: 800, enemyAiEnabled: false });
   const landship = simulation.addUnit("hexapod_landship", "player", 400, 400);
   const targets = [
@@ -525,14 +532,16 @@ test("hexapod landship weapon systems independently engage different targets", (
     simulation.addStructure("generator", "enemy", 650, 400),
   ];
   const startingEnergy = landship.energy;
+  const startingX = landship.x;
 
-  assert.equal(simulation.commandAttack([landship.id], targets[0].id), 1);
+  assert.equal(simulation.commandMove([landship.id], 850, 400), 1);
   simulation.tick(1 / 30);
 
   const attackEvents = simulation.events.filter(
     (event) => event.type === "attack" && event.sourceId === landship.id,
   );
   assert.equal(attackEvents.length, 3);
+  assert.ok(landship.x > startingX, "the landship should advance on the tick it fires");
   assert.equal(new Set(attackEvents.map((event) => event.targetId)).size, 3);
   assert.deepEqual(
     landship.weaponSystems.map((weaponSystem) => weaponSystem.targetId).sort(),
@@ -542,7 +551,14 @@ test("hexapod landship weapon systems independently engage different targets", (
     landship.weaponSystems.map((weaponSystem) => weaponSystem.cooldownRemaining),
     UNIT_DEFINITIONS.hexapod_landship.weaponSystems.map((weapon) => weapon.attackCooldown),
   );
-  assert.equal(startingEnergy - landship.energy, UNIT_DEFINITIONS.hexapod_landship.attackEnergy);
+  const movementDistance = landship.x - startingX;
+  assert.ok(
+    Math.abs(
+      startingEnergy - landship.energy -
+        UNIT_DEFINITIONS.hexapod_landship.attackEnergy -
+        movementDistance * UNIT_DEFINITIONS.hexapod_landship.movementEnergyPerUnit,
+    ) < 1e-6,
+  );
 
   const restored = Simulation.fromSnapshot(JSON.parse(JSON.stringify(simulation.createSnapshot())));
   assert.deepEqual(restored.getUnit(landship.id).weaponSystems, landship.weaponSystems);
@@ -554,28 +570,34 @@ test("hexapod landship weapon systems independently engage different targets", (
   );
 });
 
-test("Zenith Doughnut burns ground targets directly beneath it while moving", () => {
+test("Zenith Doughnut stops before firing its ground beam", () => {
   const simulation = new Simulation({ enemyAiEnabled: false });
   const doughnut = simulation.addUnit("zenith_doughnut", "player", 300, 300);
-  const enemyAircraft = simulation.addUnit("interceptor_t2", "enemy", 380, 300);
   const enemyStructure = simulation.addStructure("generator", "enemy", 330, 300);
   const distantGroundStructure = simulation.addStructure("generator", "enemy", 430, 300);
-  const aircraftStartingHp = enemyAircraft.hp;
   const structureStartingHp = enemyStructure.hp;
   const distantStructureStartingHp = distantGroundStructure.hp;
   const startingEnergy = doughnut.energy;
 
-  assert.equal(simulation.commandAttack([doughnut.id], enemyAircraft.id), 1);
   assert.equal(simulation.commandAttack([doughnut.id], enemyStructure.id), 1);
   assert.deepEqual(doughnut.moveTarget, {
     x: enemyStructure.x,
     y: enemyStructure.y,
   });
 
-  simulation.tick(1 / 30);
+  let positionBeforeFiring = null;
+  for (let tick = 0; tick < 10 && !doughnut.underbellyBeamActive; tick += 1) {
+    positionBeforeFiring = { x: doughnut.x, y: doughnut.y };
+    simulation.tick(1 / 30);
+  }
 
   const definition = UNIT_DEFINITIONS.zenith_doughnut;
-  assert.ok(doughnut.x > 300, "the aircraft should keep moving while its beam fires");
+  assert.ok(doughnut.x > 300, "the aircraft should approach its chosen ground target");
+  assert.deepEqual(
+    { x: doughnut.x, y: doughnut.y },
+    positionBeforeFiring,
+    "the aircraft must not translate on the tick its beam fires",
+  );
   assert.equal(doughnut.attackTargetId, enemyStructure.id);
   assert.equal(doughnut.attackTargetMode, "explicit");
   assert.equal(doughnut.underbellyBeamActive, true);
@@ -585,7 +607,6 @@ test("Zenith Doughnut burns ground targets directly beneath it while moving", ()
   );
   assert.ok(enemyStructure.hp < structureStartingHp);
   assert.equal(distantGroundStructure.hp, distantStructureStartingHp);
-  assert.equal(enemyAircraft.hp, aircraftStartingHp);
   assert.ok(
     doughnut.energy <= startingEnergy - definition.underbellyBeamEnergyPerSecond / 30,
   );
@@ -596,6 +617,7 @@ test("Zenith Doughnut burns ground targets directly beneath it while moving", ()
     "player",
     300,
     300,
+    { holdPosition: true },
   );
   const enemyUnit = groundTargetSimulation.addUnit(
     "worker_drone_t1",
@@ -623,7 +645,7 @@ test("Zenith Doughnut beam pursuit only auto-acquires nearby ground targets", ()
   const simulation = new Simulation({ width: 1600, height: 1000, enemyAiEnabled: false });
   const doughnut = simulation.addUnit("zenith_doughnut", "player", 200, 500);
   const acquisitionRange = UNIT_DEFINITIONS.zenith_doughnut.automaticTargetAcquisitionRange;
-  const nearbyAircraft = simulation.addUnit("interceptor_t2", "enemy", 260, 500, {
+  const nearbyAircraft = simulation.addUnit("interceptor_t2", "enemy", 300, 500, {
     holdPosition: true,
   });
   const firstTarget = simulation.addStructure("generator", "enemy", 560, 500, { hp: 10 });
@@ -635,7 +657,7 @@ test("Zenith Doughnut beam pursuit only auto-acquires nearby ground targets", ()
   assert.equal(doughnut.attackTargetId, firstTarget.id);
   assert.equal(doughnut.attackTargetMode, "automatic");
   assert.equal(doughnut.moveMode, "pursuit");
-  assert.ok(doughnut.x > 200, "the idle aircraft should approach a locally detected target");
+  assert.equal(doughnut.x, 200, "firing an AA battery should stop the aircraft for this tick");
   assert.equal(nearbyAircraft.hp, aircraftStartingHp, "the ground beam must ignore aircraft");
 
   advance(simulation, 3);

@@ -427,8 +427,10 @@ the nearby exact-type group to the current unit selection.
 An explicit terrain move remains as a resumable route when a unit acquires a hostile
 in weapon range. The unit stops in place, attacks while stationary—including between
 shots during its weapon cooldown—and continues toward the saved destination after
-the enemy is destroyed or leaves the engagement. A unit never fires and translates
-under its own movement in the same simulation tick. Holding Shift while issuing
+the enemy is destroyed or leaves the engagement. The Hexapod Landship is the sole
+exception: its three independent cannons can fire while its hull continues walking.
+No other unit fires and translates under its own movement in the same simulation
+tick. Holding Shift while issuing
 additional terrain move commands appends those destinations to the selected units'
 movement queues; each waypoint starts after the previous one is reached. A non-Shift
 move replaces the active destination and clears the queued waypoints. A force move,
@@ -701,7 +703,7 @@ The Tier 3 Experimental Factory produces exactly three enormous strategic units:
 | Production line | Battlefield role |
 | --- | --- |
 | Arsenal Colossus | Huge assault mech carrying eight visible weapon systems and firing a converging multi-projectile salvo |
-| Hexapod Landship | Six-legged walking battleship with three independently targeting siege cannons, extreme durability, and the ability to stride across living building footprints |
+| Hexapod Landship | Six-legged walking battleship with three independently targeting siege cannons that fire while moving, extreme durability, and the ability to stride across living building footprints |
 | Zenith Doughnut | Giant circular toroidal aircraft with a downward ground beam and twin independently targeting dorsal anti-air batteries |
 
 The Arsenal Colossus follows the same overhead leg language as conventional mechs:
@@ -710,7 +712,8 @@ machinery visible, and small alternating actuator and foot tips emerge while mov
 The Hexapod Landship remains a ground unit: impassable terrain and living units
 still constrain it, but buildings are excluded from its destination validation,
 path planning, and movement collisions. Its three cannon mounts select targets,
-track, cool down, and consume energy independently. An explicit attack order directs
+track, cool down, consume energy, and fire independently while the hull continues
+walking. It is the only unit that can fire while moving. An explicit attack order directs
 the main siege cannon while the two side cannons opportunistically engage other
 hostiles in range; all three may converge on one target when no alternatives exist.
 Shell damage resolves when each visible projectile reaches its target, not when the
@@ -727,18 +730,20 @@ beam fires, tracks moving targets, and only selects another target after a kill 
 that target is locally detectable from its new position. It never scans the whole
 battlefield or begins a cross-map pursuit without an explicit attack order. Explicit
 attack, movement, force-movement, and hold-position orders retain priority over
-autonomous pursuit. Its laser has no horizontal firing range, remains
-centered beneath the aircraft, and automatically damages
-every hostile ground unit or structure inside its 48-unit-radius footprint without
-stopping movement. Players can also attack by routing the aircraft over enemy
+autonomous pursuit. Its laser has no horizontal firing range, remains centered
+beneath the aircraft, and automatically damages every hostile ground unit or
+structure inside its 48-unit-radius footprint. The Doughnut stops before the beam
+damages anything beneath it and remains stationary for as long as the beam is
+active. Players can also attack by routing the aircraft over enemy
 assets; attack commands on ground targets track and pursue the chosen target. The
 laser cannot damage aircraft
 and consumes energy continuously while it is damaging at least one target. Two
 visible dorsal anti-air batteries cover the Doughnut out to a provisional
 340-world-unit range. Each battery independently selects only hostile aircraft,
 prefers a different target when multiple aircraft are available, and converges on
-one aircraft when necessary. They continue operating while the aircraft moves or
-uses its ground beam, except during force-movement. Each battery fires a tracking
+one aircraft when necessary. The Doughnut stops before either battery fires, while
+the batteries can continue operating alongside its ground beam. Force-movement
+prevents all of its weapons from firing. Each battery fires a tracking
 projectile for 18 base damage, applies the dedicated 2× anti-air multiplier,
 consumes 9 unit energy, and has a provisional 0.45-second cooldown. Players may
 explicitly order the Doughnut to attack an aircraft; if it is outside battery range,

@@ -574,11 +574,12 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
   }),
   hexapod_landship: provisionalFactoryUnit({
     name: "Hexapod Landship", role: "hexapod_landship",
-    roleDescription: "Six-legged walking battleship with three independently targeting cannons",
+    roleDescription: "Six-legged walking battleship whose three cannons fire while moving",
     unitDomain: "experimental", tier: 3, radius: 44, maxHp: 4200, maxEnergy: 7800,
     speed: 25, movementEnergyPerUnit: 0.16, attackRange: 370, attackDamage: 310,
     attackEnergy: 95, attackCooldown: 2.5, metalCost: 3000, productionTime: 72,
-    supplyCost: 120, legCount: 6, stridesOverStructures: true, weaponCount: 3,
+    supplyCost: 120, legCount: 6, stridesOverStructures: true, firesWhileMoving: true,
+    weaponCount: 3,
     salvoCount: 1, projectileSpeed: 520, minimumProjectileTravelTime: 0.14,
     structureDamageMultiplier: 1.6,
     weaponSystems: Object.freeze([
@@ -595,6 +596,7 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
     attackEnergy: 0, attackCooldown: 0, metalCost: 2500, productionTime: 62,
     supplyCost: 95, groundAttackOnly: true, underbellyBeamRadius: 48,
     underbellyBeamDamagePerSecond: 150, underbellyBeamEnergyPerSecond: 38,
+    underbellyBeamPursuitStopDistance: 4,
     automaticallyPursuesBeamTargets: true, automaticTargetAcquisitionRange: 400,
     weaponSystems: Object.freeze([
       Object.freeze({

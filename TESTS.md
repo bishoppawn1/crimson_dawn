@@ -384,15 +384,15 @@ this catalog is out of date.
 
 **What it checks:** Runs the deterministic game simulation to confirm that hexapod landship shells deal damage on impact instead of before firing.
 
-<!-- test-catalog-entry: ["test/simulation.test.js","hexapod landship weapon systems independently engage different targets"] -->
-### 19. hexapod landship weapon systems independently engage different targets
+<!-- test-catalog-entry: ["test/simulation.test.js","hexapod landship fires its independent weapons while moving"] -->
+### 19. hexapod landship fires its independent weapons while moving
 
-**What it checks:** Runs the deterministic game simulation to confirm that hexapod landship weapon systems independently engage different targets.
+**What it checks:** Runs the deterministic game simulation to confirm that hexapod landship fires its independent weapons while moving.
 
-<!-- test-catalog-entry: ["test/simulation.test.js","Zenith Doughnut burns ground targets directly beneath it while moving"] -->
-### 20. Zenith Doughnut burns ground targets directly beneath it while moving
+<!-- test-catalog-entry: ["test/simulation.test.js","Zenith Doughnut stops before firing its ground beam"] -->
+### 20. Zenith Doughnut stops before firing its ground beam
 
-**What it checks:** Runs the deterministic game simulation to confirm that Zenith Doughnut burns ground targets directly beneath it while moving.
+**What it checks:** Runs the deterministic game simulation to confirm that Zenith Doughnut stops before firing its ground beam.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Zenith Doughnut beam pursuit only auto-acquires nearby ground targets"] -->
 ### 21. Zenith Doughnut beam pursuit only auto-acquires nearby ground targets

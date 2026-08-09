@@ -5026,8 +5026,9 @@ export class Simulation {
         );
       }
 
+      let firedThisTick = false;
       if (definition.underbellyBeamRadius) {
-        this.updateUnderbellyBeam(unit, definition, delta);
+        firedThisTick = this.updateUnderbellyBeam(unit, definition, delta);
         if (unit.state !== "active") continue;
       }
 
@@ -5090,11 +5091,13 @@ export class Simulation {
 
       const hasIndependentWeapons = Boolean(definition.weaponSystems?.length);
       if (hasIndependentWeapons) {
-        this.updateIndependentWeaponSystems(unit, definition, attackTarget);
+        firedThisTick =
+          this.updateIndependentWeaponSystems(unit, definition, attackTarget) || firedThisTick;
         if (unit.state !== "active") continue;
       }
 
       if (unit.moveTarget) {
+        if (firedThisTick && !definition.firesWhileMoving) continue;
         const pursuingBeamTarget = Boolean(
           definition.underbellyBeamRadius &&
           unit.moveMode === "pursuit" &&
@@ -5107,7 +5110,7 @@ export class Simulation {
             unit,
             attackTarget,
             delta,
-            4,
+            definition.underbellyBeamPursuitStopDistance,
             { preserveMoveOrder: true },
           );
           continue;
@@ -5394,6 +5397,17 @@ export class Simulation {
   updateUnderbellyBeam(unit, definition, delta) {
     unit.underbellyBeamActive = false;
     unit.underbellyBeamTargetIds = [];
+    if (unit.moveMode === "force") return false;
+    const pursuitTarget = this.getEntity(unit.attackTargetId);
+    if (
+      unit.moveMode === "pursuit" &&
+      pursuitTarget?.alive &&
+      this.areHostileTeams(pursuitTarget.team, unit.team) &&
+      isUnderbellyBeamTarget(pursuitTarget) &&
+      distance(unit, pursuitTarget) > definition.underbellyBeamPursuitStopDistance + EPSILON
+    ) {
+      return false;
+    }
     const targets = this.getNearbyHostileTargets(unit, definition.underbellyBeamRadius)
       .filter(
         (target) =>
@@ -5444,6 +5458,7 @@ export class Simulation {
       unit.state === "active" &&
       unit.moveTarget &&
       unit.moveMode !== "force" &&
+      !definition?.firesWhileMoving &&
       target?.alive &&
       this.areHostileTeams(target.team, unit.team) &&
       isUnitTargetInWeaponRange(definition, unit, target)
