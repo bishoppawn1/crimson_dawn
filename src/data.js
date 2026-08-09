@@ -1597,6 +1597,16 @@ export function getNextStructureTierType(structureType) {
   return match?.[0] || null;
 }
 
+export function getNextWorkerTierType(unitType) {
+  const definition = UNIT_DEFINITIONS[unitType];
+  if (!definition?.workerTier) return null;
+  const nextTier = definition.workerTier + 1;
+  const match = Object.entries(UNIT_DEFINITIONS).find(
+    ([, candidate]) => candidate.workerTier === nextTier,
+  );
+  return match?.[0] || null;
+}
+
 export const DRONE_DEFINITION = Object.freeze({
   name: "Reclamation Drone",
   radius: 5,

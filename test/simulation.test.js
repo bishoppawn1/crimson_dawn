@@ -1061,6 +1061,66 @@ test("structure upgrade unlocks are team-specific and expanded footprints need c
   assert.equal(simulation.resources.enemy.metal, startingMetal);
 });
 
+test("selected workers upgrade only one tier while preserving their active state", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  const tierOneWorker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
+  const tierTwoWorker = simulation.addUnit("worker_drone_t2", "player", 140, 100);
+  const combatUnit = simulation.addUnit("scout_mech", "player", 180, 100);
+  tierOneWorker.hp = UNIT_DEFINITIONS.worker_drone_t1.maxHp / 2;
+  tierOneWorker.energy = 400;
+  tierOneWorker.moveTarget = { x: 500, y: 500 };
+  tierOneWorker.moveMode = "normal";
+
+  let upgrade = simulation.getWorkerUpgradeInfo(
+    [tierOneWorker.id, tierTwoWorker.id, combatUnit.id],
+    "player",
+  );
+  assert.equal(upgrade.valid, false);
+  assert.match(upgrade.reason, /Tier 2 Mech Factory/);
+  assert.equal(simulation.upgradeWorkers([combatUnit.id], "player"), 0);
+  assert.equal(combatUnit.type, "scout_mech");
+
+  simulation.addStructure("mech_factory_t2", "player", 320, 320);
+  upgrade = simulation.getWorkerUpgradeInfo(
+    [tierOneWorker.id, tierTwoWorker.id],
+    "player",
+  );
+  assert.equal(upgrade.valid, true);
+  assert.equal(upgrade.count, 1);
+  assert.equal(upgrade.targetTier, 2);
+
+  simulation.addStructure("mech_factory_t3", "player", 400, 400);
+  const startingCrystal = simulation.resources.player.metal;
+  upgrade = simulation.getWorkerUpgradeInfo(
+    [tierOneWorker.id, tierTwoWorker.id, combatUnit.id],
+    "player",
+  );
+  assert.equal(upgrade.valid, true);
+  assert.equal(upgrade.count, 2);
+  assert.equal(upgrade.metalCost, 75);
+  assert.equal(upgrade.supplyCost, 2);
+  assert.equal(
+    simulation.upgradeWorkers(
+      [tierOneWorker.id, tierTwoWorker.id, combatUnit.id],
+      "player",
+    ),
+    2,
+  );
+
+  assert.equal(tierOneWorker.type, "worker_drone_t2");
+  assert.equal(tierTwoWorker.type, "worker_drone_t3");
+  assert.equal(combatUnit.type, "scout_mech");
+  assert.equal(tierOneWorker.hp, UNIT_DEFINITIONS.worker_drone_t2.maxHp / 2);
+  assert.equal(tierOneWorker.energy, 400);
+  assert.deepEqual(tierOneWorker.moveTarget, { x: 500, y: 500 });
+  assert.equal(tierOneWorker.moveMode, "normal");
+  assert.equal(simulation.resources.player.metal, startingCrystal - 75);
+  assert.equal(
+    simulation.getWorkerUpgradeInfo([tierOneWorker.id], "player").targetTier,
+    3,
+  );
+});
+
 test("enemy AI structure upgrades keep its strategic crystal reserve", () => {
   const simulation = new Simulation();
   const generator = simulation.addStructure("generator", "enemy", 300, 300);

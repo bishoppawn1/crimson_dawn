@@ -179,6 +179,22 @@ test("right-clicking an active friendly factory sends selected workers to assist
   assert.match(game, /simulation\.isFactoryActivelyProducing\(friendlyStructure\.id\)/);
 });
 
+test("worker controls upgrade one tier and keep only one construction tier open", async () => {
+  const [index, game] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+  ]);
+
+  assert.match(index, /id="worker-upgrade-button"/);
+  assert.match(game, /case "worker_upgrade"/);
+  assert.match(game, /simulation\.upgradeWorkers\(/);
+  assert.match(game, /type: "worker_upgrade"/);
+  assert.match(
+    game,
+    /for \(const \[otherTier, controls\] of buildTierControls\)[\s\S]*?controls\.toggle\.setAttribute\("aria-expanded", "false"\);[\s\S]*?controls\.grid\.hidden = true;/,
+  );
+});
+
 test("the interface and battlefield present the economy as crimson crystal", async () => {
   const [index, game, data, styles] = await Promise.all([
     source("../index.html"),

@@ -709,11 +709,21 @@ Worker construction capability is cumulative:
 - A Tier 3 Worker Drone inherits every Tier 1 and Tier 2 option, constructs every
   Tier 3 building, and constructs the Experimental Factory.
 
-The worker construction interface presents exactly three independently collapsible
-boxes labeled Tier 1, Tier 2, and Tier 3. Players may open or close each box at any
-time. Within an open box, structures the current worker selection can build and
+The worker construction interface presents exactly three collapsible boxes labeled
+Tier 1, Tier 2, and Tier 3. Only one box may be open at a time: opening one closes
+the previously open box, while selecting the open box again closes it. Within an
+open box, structures the current worker selection can build and
 afford are displayed brightly, while structures blocked by worker tier or current
 crystal are dimmed but remain visible so the progression path stays clear.
+
+Selected Worker Drones expose an immediate unit-upgrade command; no other unit role
+can use it. Each use advances every eligible selected worker by exactly one tier and
+requires the team to have completed the matching-tier Mech Factory. The command
+costs the difference between the current and target worker's provisional crystal
+cost and requires enough free supply for the target worker. It preserves each
+worker's current orders, integrity percentage, and retained energy. Tier 3 workers
+are already fully upgraded and are ignored when lower-tier workers share the
+selection.
 
 Pulse Generators, Grid Batteries, Power Relay Towers, Induction Chargers, Crystal
 Harvesters, Sentry Turrets, Shield Turrets, Mortar Turrets, Flak Turrets, and

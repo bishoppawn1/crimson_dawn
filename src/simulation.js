@@ -6,6 +6,7 @@ const {
   DEFAULT_MAP_ID,
   DRONE_DEFINITION,
   getNextStructureTierType,
+  getNextWorkerTierType,
   MAP_DEFINITIONS,
   SIMULATION_RULES,
   STRUCTURE_DEFINITIONS,
@@ -1684,6 +1685,113 @@ export class Simulation {
       tier: upgrade.targetTier,
     });
     return true;
+  }
+
+  getWorkerUpgradeInfo(unitIds, expectedTeam = null) {
+    const workers = [...new Set(unitIds || [])]
+      .map((unitId) => this.getUnit(unitId))
+      .filter((unit) =>
+        unit?.alive &&
+        !unit.carriedById &&
+        (!expectedTeam || unit.team === expectedTeam) &&
+        UNIT_DEFINITIONS[unit.type]?.workerTier
+      );
+    const potentialUpgrades = workers.flatMap((unit) => {
+      const targetType = getNextWorkerTierType(unit.type);
+      if (!targetType) return [];
+      const currentDefinition = UNIT_DEFINITIONS[unit.type];
+      const targetDefinition = UNIT_DEFINITIONS[targetType];
+      return [{
+        unit,
+        targetType,
+        targetTier: targetDefinition.workerTier,
+        metalCost: Math.max(0, targetDefinition.metalCost - currentDefinition.metalCost),
+        supplyCost: Math.max(0, targetDefinition.supplyCost - currentDefinition.supplyCost),
+      }];
+    });
+    if (potentialUpgrades.length === 0) {
+      return {
+        valid: false,
+        count: 0,
+        metalCost: 0,
+        supplyCost: 0,
+        reason: workers.length > 0
+          ? "The selected workers are fully upgraded."
+          : "Select one or more Worker Drones.",
+      };
+    }
+
+    const team = potentialUpgrades[0].unit.team;
+    if (potentialUpgrades.some(({ unit }) => unit.team !== team)) {
+      return {
+        valid: false,
+        count: potentialUpgrades.length,
+        metalCost: 0,
+        supplyCost: 0,
+        reason: "Selected workers must belong to one commander.",
+      };
+    }
+    const unlockedTier = this.getUnlockedStructureTier(team);
+    const upgrades = potentialUpgrades.filter(
+      (upgrade) => upgrade.targetTier <= unlockedTier,
+    );
+    if (upgrades.length === 0) {
+      const targetTier = Math.min(
+        ...potentialUpgrades.map((upgrade) => upgrade.targetTier),
+      );
+      return {
+        valid: false,
+        count: potentialUpgrades.length,
+        targetTier,
+        metalCost: potentialUpgrades.reduce(
+          (total, upgrade) => total + upgrade.metalCost,
+          0,
+        ),
+        supplyCost: potentialUpgrades.reduce(
+          (total, upgrade) => total + upgrade.supplyCost,
+          0,
+        ),
+        upgrades: [],
+        reason: `Requires a completed Tier ${targetTier} Mech Factory.`,
+      };
+    }
+    const targetTier = Math.max(...upgrades.map((upgrade) => upgrade.targetTier));
+    const metalCost = upgrades.reduce((total, upgrade) => total + upgrade.metalCost, 0);
+    const supplyCost = upgrades.reduce((total, upgrade) => total + upgrade.supplyCost, 0);
+    const baseInfo = { count: upgrades.length, targetTier, metalCost, supplyCost, upgrades };
+    if (this.resources[team].metal + EPSILON < metalCost) {
+      return { ...baseInfo, valid: false, reason: "Not enough crystal." };
+    }
+    if (this.getSupplyState(team).remaining + EPSILON < supplyCost) {
+      return { ...baseInfo, valid: false, reason: "Supply limit reached." };
+    }
+    return { ...baseInfo, valid: true, reason: null };
+  }
+
+  upgradeWorkers(unitIds, expectedTeam = null) {
+    this.lastUpgradeError = null;
+    const upgrade = this.getWorkerUpgradeInfo(unitIds, expectedTeam);
+    if (!upgrade.valid) {
+      this.lastUpgradeError = upgrade.reason;
+      return 0;
+    }
+
+    const team = upgrade.upgrades[0].unit.team;
+    this.resources[team].metal -= upgrade.metalCost;
+    for (const { unit, targetType, targetTier } of upgrade.upgrades) {
+      const currentDefinition = UNIT_DEFINITIONS[unit.type];
+      const targetDefinition = UNIT_DEFINITIONS[targetType];
+      const hpRatio = clamp(unit.hp / currentDefinition.maxHp, 0, 1);
+      unit.type = targetType;
+      unit.hp = Math.max(1, targetDefinition.maxHp * hpRatio);
+      unit.energy = clamp(unit.energy, 0, targetDefinition.maxEnergy);
+      this.emit("worker_upgrade_complete", unit.x, unit.y, {
+        unitId: unit.id,
+        unitType: targetType,
+        tier: targetTier,
+      });
+    }
+    return upgrade.count;
   }
 
   findStructureUpgradePlacement(structure, targetType) {

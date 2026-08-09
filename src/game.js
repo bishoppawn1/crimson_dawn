@@ -113,6 +113,9 @@ const selectionName = document.querySelector("#selection-name");
 const selectionDetails = document.querySelector("#selection-details");
 const selectionQueue = document.querySelector("#selection-queue");
 const overdriveButton = document.querySelector("#overdrive-button");
+const workerUpgradeButton = document.querySelector("#worker-upgrade-button");
+const workerUpgradeTitle = document.querySelector("#worker-upgrade-title");
+const workerUpgradeDetails = document.querySelector("#worker-upgrade-details");
 const stopButton = document.querySelector("#stop-button");
 const holdButton = document.querySelector("#hold-button");
 const transportCommands = document.querySelector("#transport-commands");
@@ -473,6 +476,7 @@ for (const [groupName, definitions] of Object.entries(
 }
 
 const buildButtons = new Map();
+const buildTierControls = new Map();
 for (const tier of [1, 2, 3]) {
   const tierGroup = document.createElement("section");
   tierGroup.className = "build-tier-group";
@@ -495,9 +499,15 @@ for (const tier of [1, 2, 3]) {
   tierToggle.setAttribute("aria-controls", tierGrid.id);
   tierToggle.addEventListener("click", () => {
     const expanded = tierToggle.getAttribute("aria-expanded") === "true";
+    for (const [otherTier, controls] of buildTierControls) {
+      if (otherTier === tier) continue;
+      controls.toggle.setAttribute("aria-expanded", "false");
+      controls.grid.hidden = true;
+    }
     tierToggle.setAttribute("aria-expanded", String(!expanded));
     tierGrid.hidden = expanded;
   });
+  buildTierControls.set(tier, { toggle: tierToggle, grid: tierGrid });
   tierGroup.append(tierToggle, tierGrid);
   buildCommandGrid.append(tierGroup);
 
@@ -1395,6 +1405,11 @@ function applyAuthorizedCommand(command, team) {
       const structure = ownedStructure(command.structureId, team);
       return structure ? simulation.upgradeStructure(structure.id, team) : false;
     }
+    case "worker_upgrade":
+      return simulation.upgradeWorkers(
+        ownedUnitIds(command.unitIds, team),
+        team,
+      ) > 0;
     default:
       return false;
   }
@@ -6736,6 +6751,20 @@ function updateInterface() {
   );
 
   const selectedWorkers = selectedUnits.filter((unit) => UNIT_DEFINITIONS[unit.type].workerTier);
+  const workerUpgrade = simulation.getWorkerUpgradeInfo(
+    selectedWorkers.map((unit) => unit.id),
+    localTeam,
+  );
+  workerUpgradeButton.hidden = matchEnded || workerUpgrade.count === 0;
+  if (workerUpgrade.count > 0) {
+    workerUpgradeTitle.textContent = workerUpgrade.count === 1
+      ? `Upgrade Worker to Tier ${workerUpgrade.targetTier}`
+      : `Upgrade ${workerUpgrade.count} Workers`;
+    workerUpgradeDetails.textContent = workerUpgrade.valid
+      ? `${workerUpgrade.metalCost.toLocaleString()} crystal · +${workerUpgrade.supplyCost} supply · immediate · next tier only`
+      : workerUpgrade.reason;
+    workerUpgradeButton.disabled = !workerUpgrade.valid;
+  }
   buildCommands.hidden = matchEnded || selectedWorkers.length === 0;
   const selectedWorkerTier = selectedWorkers.reduce(
     (highest, unit) => Math.max(highest, UNIT_DEFINITIONS[unit.type].workerTier),
@@ -7481,6 +7510,13 @@ buildingUpgradeButton.addEventListener("click", () => {
   if (selectedStructureId) {
     issueGameCommand({ type: "structure_upgrade", structureId: selectedStructureId });
   }
+  updateInterface();
+});
+workerUpgradeButton.addEventListener("click", () => {
+  issueGameCommand({
+    type: "worker_upgrade",
+    unitIds: [...selectedUnitIds],
+  });
   updateInterface();
 });
 function armTesterSpawn(kind) {
