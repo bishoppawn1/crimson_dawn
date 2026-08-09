@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   describeConstructionQueue,
   describeProductionQueue,
+  describeSharedConstructionQueue,
 } from "../src/queue-status.js";
 
 const unitDefinitions = {
@@ -102,4 +103,58 @@ test("construction queue status shows foundation progress and placement order", 
     },
     upcoming: [{ name: "Grid Battery" }],
   });
+});
+
+test("a shared worker construction queue lists each foundation only once", () => {
+  const structures = new Map([
+    ["current", {
+      id: "current",
+      type: "generator",
+      alive: true,
+      complete: false,
+      constructionProgress: 6,
+    }],
+    ["next", {
+      id: "next",
+      type: "battery",
+      alive: true,
+      complete: false,
+      constructionProgress: 0,
+    }],
+  ]);
+  const workers = [
+    { buildTargetId: "current", buildQueue: ["next"] },
+    { buildTargetId: "current", buildQueue: ["next"] },
+    { buildTargetId: "current", buildQueue: ["next"] },
+  ];
+
+  assert.deepEqual(
+    describeSharedConstructionQueue(
+      workers,
+      { getStructure: (id) => structures.get(id) || null },
+      {
+        generator: { name: "Pulse Generator", buildTime: 12 },
+        battery: { name: "Grid Battery", buildTime: 8 },
+      },
+    ),
+    {
+      kind: "construction",
+      items: [
+        {
+          id: "current",
+          type: "generator",
+          name: "Pulse Generator",
+          progress: 50,
+          active: true,
+        },
+        {
+          id: "next",
+          type: "battery",
+          name: "Grid Battery",
+          progress: 0,
+          active: false,
+        },
+      ],
+    },
+  );
 });

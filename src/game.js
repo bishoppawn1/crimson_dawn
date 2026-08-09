@@ -36,7 +36,7 @@ const {
   DeterministicCommandScheduler,
   SIMULATION_STEP_SECONDS,
 } = await import(`./determinism.js${versionSuffix}`);
-const { describeConstructionQueue, describeProductionQueue } = await import(
+const { describeProductionQueue, describeSharedConstructionQueue } = await import(
   `./queue-status.js${versionSuffix}`
 );
 const {
@@ -112,6 +112,7 @@ const energyValue = document.querySelector("#energy-value");
 const supplyValue = document.querySelector("#supply-value");
 const selectionName = document.querySelector("#selection-name");
 const selectionDetails = document.querySelector("#selection-details");
+const selectionConstructionQueue = document.querySelector("#selection-construction-queue");
 const selectionQueue = document.querySelector("#selection-queue");
 const overdriveButton = document.querySelector("#overdrive-button");
 const workerUpgradeButton = document.querySelector("#worker-upgrade-button");
@@ -178,6 +179,7 @@ let selectedUnitIds = new Set();
 let selectedStructureId = null;
 let selectedStructureIds = new Set();
 let selectionQueueSignature = null;
+let selectionConstructionQueueSignature = null;
 let selectionDrag = null;
 let placementStructureType = null;
 let testerSpawnPlacement = null;
@@ -578,6 +580,7 @@ function resetPresentation() {
   selectedStructureId = null;
   selectedStructureIds = new Set();
   selectionQueueSignature = null;
+  selectionConstructionQueueSignature = null;
   selectionDrag = null;
   placementStructureType = null;
   testerSpawnPlacement = null;
@@ -6571,40 +6574,20 @@ function createQueueCard(label, queue) {
   return card;
 }
 
-function renderSelectionQueues(selectedStructures, selectedUnits) {
+function renderSelectionQueues(selectedStructures) {
   const factoryEntries = selectedStructures
     .filter((structure) => STRUCTURE_DEFINITIONS[structure.type].production)
     .map((structure) => ({
       structure,
       queue: describeProductionQueue(structure, UNIT_DEFINITIONS),
     }));
-  const workerEntries = selectedUnits
-    .filter((unit) => UNIT_DEFINITIONS[unit.type].workerTier)
-    .map((unit) => ({
-      unit,
-      queue: describeConstructionQueue(
-        unit,
-        simulation,
-        STRUCTURE_DEFINITIONS,
-      ),
-    }))
-    .filter((entry) => entry.queue);
-  const hasVisibleQueue =
-    factoryEntries.some((entry) => entry.queue) || workerEntries.length > 0;
-  const displayEntries = [
-    ...factoryEntries.map((entry, index) => ({
-      label: factoryEntries.length > 1
-        ? `${STRUCTURE_DEFINITIONS[entry.structure.type].name} ${index + 1}`
-        : "Production queue",
-      queue: entry.queue,
-    })),
-    ...workerEntries.map((entry, index) => ({
-      label: workerEntries.length > 1
-        ? `Worker queue ${index + 1}`
-        : "Construction queue",
-      queue: entry.queue,
-    })),
-  ];
+  const hasVisibleQueue = factoryEntries.some((entry) => entry.queue);
+  const displayEntries = factoryEntries.map((entry, index) => ({
+    label: factoryEntries.length > 1
+      ? `${STRUCTURE_DEFINITIONS[entry.structure.type].name} ${index + 1}`
+      : "Production queue",
+    queue: entry.queue,
+  }));
   const nextSignature = hasVisibleQueue ? JSON.stringify(displayEntries) : "";
   if (selectionQueueSignature === nextSignature) return;
   selectionQueueSignature = nextSignature;
@@ -6618,6 +6601,52 @@ function renderSelectionQueues(selectedStructures, selectedUnits) {
   const cards = displayEntries.map((entry) => createQueueCard(entry.label, entry.queue));
   selectionQueue.replaceChildren(...cards);
   selectionQueue.hidden = false;
+}
+
+function constructionQueueCode(item) {
+  const definition = STRUCTURE_DEFINITIONS[item.type];
+  const words = item.name
+    .replace(/tier\s*\d/gi, "")
+    .match(/[a-z]+/gi) || [];
+  const initials = words.map((word) => word[0]).join("").slice(0, 2).toUpperCase() || "B";
+  return `${initials}${definition?.buildTier || ""}`;
+}
+
+function renderSelectionConstructionQueue(selectedUnits) {
+  const workers = selectedUnits.filter(
+    (unit) => UNIT_DEFINITIONS[unit.type].workerTier,
+  );
+  const queue = describeSharedConstructionQueue(
+    workers,
+    simulation,
+    STRUCTURE_DEFINITIONS,
+  );
+  const nextSignature = queue ? JSON.stringify(queue) : "";
+  if (selectionConstructionQueueSignature === nextSignature) return;
+  selectionConstructionQueueSignature = nextSignature;
+
+  if (!queue) {
+    selectionConstructionQueue.replaceChildren();
+    selectionConstructionQueue.hidden = true;
+    return;
+  }
+
+  const icons = queue.items.map((item) => {
+    const icon = document.createElement("div");
+    icon.className = `construction-queue-icon${item.active ? " active" : ""}`;
+    icon.title = `${item.name} · ${item.progress}%${item.active ? " · building" : " · queued"}`;
+    icon.setAttribute("role", "img");
+    icon.setAttribute("aria-label", icon.title);
+    icon.style.setProperty("--construction-progress", `${item.progress}%`);
+    const code = document.createElement("strong");
+    code.textContent = constructionQueueCode(item);
+    const progress = document.createElement("span");
+    progress.textContent = `${item.progress}%`;
+    icon.append(code, progress);
+    return icon;
+  });
+  selectionConstructionQueue.replaceChildren(...icons);
+  selectionConstructionQueue.hidden = false;
 }
 
 function updateInterface() {
@@ -6755,68 +6784,25 @@ function updateInterface() {
   } else if (selectedUnits.length === 1) {
     const unit = selectedUnits[0];
     const definition = UNIT_DEFINITIONS[unit.type];
-    const emergencyRecoveryText =
-      unit.state === "active" && energyRatio(unit) < SIMULATION_RULES.lowEnergyRatio
-        ? ` · EMERGENCY REGEN +${SIMULATION_RULES.lowEnergyRegenerationRate}/s`
-        : "";
-    const buildTarget = simulation.getStructure(unit.buildTargetId);
-    const orderText = buildTarget?.alive && !buildTarget.complete
-      ? ` · BUILDING ${STRUCTURE_DEFINITIONS[buildTarget.type].name.toUpperCase()}`
-      : "";
-    const repairTarget = simulation.getEntity(unit.repairTargetId);
-    const repairDefinition = repairTarget?.kind === "unit"
-      ? UNIT_DEFINITIONS[repairTarget.type]
-      : repairTarget?.kind === "structure"
-        ? STRUCTURE_DEFINITIONS[repairTarget.type]
-        : null;
-    const repairText = repairTarget?.alive && repairDefinition
-      ? ` · REPAIRING ${repairDefinition.name.toUpperCase()}`
-      : "";
-    const productionAssistTarget = simulation.getStructure(unit.productionAssistTargetId);
-    const productionAssistText = productionAssistTarget?.alive
-      ? ` · ASSISTING ${STRUCTURE_DEFINITIONS[productionAssistTarget.type].name.toUpperCase()} PRODUCTION`
-      : "";
-    const buildQueueText = unit.buildQueue?.length
-      ? ` · ${unit.buildQueue.length} BUILD${unit.buildQueue.length === 1 ? "" : "S"} QUEUED`
-      : "";
-    const moveQueueText = unit.moveQueue?.length
-      ? ` · ${unit.moveQueue.length} MOVE${unit.moveQueue.length === 1 ? "" : "S"} QUEUED`
-      : "";
-    const supplyText = definition.transferRate
-      ? unit.energyTransferTargetIds?.length
-        ? ` · SUPPLYING ${unit.energyTransferTargetIds.length} UNIT${unit.energyTransferTargetIds.length === 1 ? "" : "S"}`
-        : ` · NO UNIT IN ${definition.transferRange} RANGE`
-      : "";
-    const transportText = definition.transportCapacity
-      ? ` · ${(unit.cargoUnitIds || []).length}/${definition.transportCapacity} CARGO`
-      : "";
-    const roleText = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
-    const visionText = ` · ${definition.visionRange} VISION${definition.radarRange ? " · RADAR" : ""}`;
-    const antiAirWeapons = (definition.weaponSystems || []).filter(
-      (weapon) => weapon.targetLayer === "air",
-    );
-    const antiAirText = antiAirWeapons.length
-      ? ` · ${antiAirWeapons.length} INDEPENDENT AA BATTERIES · ${antiAirWeapons[0].attackRange} AA RANGE · ${antiAirWeapons[0].airDamageMultiplier}× VS AIR`
-      : "";
-    const combatText = definition.underbellyBeamRadius
-      ? ` · ${definition.underbellyBeamDamagePerSecond} damage/s underbelly beam · ${definition.underbellyBeamRadius} radius · ${definition.speed} speed${definition.automaticTargetAcquisitionRange ? ` · ${definition.automaticTargetAcquisitionRange} LOCAL ACQUISITION` : ""}${antiAirText}`
-      : definition.weaponSystems?.length
-        ? ` · ${definition.weaponSystems.length} independent cannons · ${definition.attackDamage} combined damage · ${definition.attackRange} maximum range · ${definition.speed} speed`
-      : definition.attackRange
-        ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range · ${definition.speed} speed${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""}${definition.groundDamageMultiplier ? ` · ${definition.groundDamageMultiplier}× VS GROUND` : ""}`
-        : "";
     selectionName.textContent = definition.name;
-    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state.toUpperCase()}${roleText}${visionText}${combatText}${emergencyRecoveryText}${supplyText}${transportText}${orderText}${repairText}${productionAssistText}${buildQueueText}${moveQueueText}`;
+    selectionDetails.textContent = `${Math.ceil(unit.hp)}/${definition.maxHp} integrity · ${Math.ceil(unit.energy)}/${definition.maxEnergy} energy · ${unit.state === "stasis" ? "IN STASIS" : "ACTIVE"}`;
   } else {
     const activeCount = selectedUnits.filter((unit) => unit.state === "active").length;
-    const cargoCount = selectedUnits.reduce(
-      (total, unit) => total + (unit.cargoUnitIds || []).length,
+    const integrity = selectedUnits.reduce((total, unit) => total + Math.ceil(unit.hp), 0);
+    const maximumIntegrity = selectedUnits.reduce(
+      (total, unit) => total + UNIT_DEFINITIONS[unit.type].maxHp,
+      0,
+    );
+    const energy = selectedUnits.reduce((total, unit) => total + Math.ceil(unit.energy), 0);
+    const maximumEnergy = selectedUnits.reduce(
+      (total, unit) => total + UNIT_DEFINITIONS[unit.type].maxEnergy,
       0,
     );
     selectionName.textContent = `${selectedUnits.length} units selected`;
-    selectionDetails.textContent = `${activeCount} active · ${selectedUnits.length - activeCount} in stasis${cargoCount ? ` · ${cargoCount} cargo aboard` : ""}`;
+    selectionDetails.textContent = `${integrity}/${maximumIntegrity} integrity · ${energy}/${maximumEnergy} energy · ${activeCount} active · ${selectedUnits.length - activeCount} in stasis`;
   }
-  renderSelectionQueues(selectedStructures, selectedUnits);
+  renderSelectionConstructionQueue(selectedUnits);
+  renderSelectionQueues(selectedStructures);
 
   const canOverdrive = selectedUnits.some((unit) => {
     const ability = UNIT_DEFINITIONS[unit.type].abilities?.overdrive;

@@ -801,8 +801,16 @@ destroy a foundation while workers are still building it. Incomplete buildings
 remain vulnerable and are visible to an opponent only while inside that opponent's
 current vision.
 When one or more workers with construction orders are selected, the interface shows
-each worker's active foundation and its shared live construction percentage, followed
-by the remaining foundations in placement order.
+one shared construction sequence with every unique foundation listed exactly once,
+even when several selected workers contribute to it. Compact square building
+indicators sit beside the selection heading, show the active foundation's live
+construction percentage, and continue with the remaining foundations in placement
+order.
+Mobile-unit selection summaries remain intentionally concise. A single selected
+unit shows only its current and maximum integrity, current and maximum energy, and
+whether it is active or in stasis. A multiple-unit selection shows those integrity
+and energy totals plus the active and stasis counts; role, vision, combat, cargo,
+and current-order prose do not expand the summary.
 All unit production times and building foundation construction times use a global
 provisional 4× duration multiplier. This is twice as slow as the preceding 2×
 field-test timing. Worker build-rate improvements and higher-tier

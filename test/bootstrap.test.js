@@ -228,11 +228,34 @@ test("the interface and battlefield present the economy as crimson crystal", asy
   assert.match(styles, /\.crystal-icon/);
 });
 
-test("unit combat summaries disclose ground damage penalties", async () => {
+test("production controls disclose ground damage penalties", async () => {
   const game = await source("../src/game.js");
 
   assert.match(game, /definition\.groundDamageMultiplier[\s\S]*?× vs ground/);
-  assert.match(game, /definition\.groundDamageMultiplier[\s\S]*?× VS GROUND/);
+});
+
+test("unit selection is concise and uses one compact shared construction queue", async () => {
+  const [index, game, styles] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+    source("../styles.css"),
+  ]);
+  const singleUnitSummary = game.match(
+    /else if \(selectedUnits\.length === 1\) \{[\s\S]*?\n  \} else \{/,
+  );
+  const constructionQueue = game.match(
+    /function renderSelectionConstructionQueue[\s\S]*?function updateInterface/,
+  );
+
+  assert.ok(singleUnitSummary);
+  assert.match(singleUnitSummary[0], /integrity[^`]*energy[^`]*IN STASIS[^`]*ACTIVE/);
+  assert.doesNotMatch(singleUnitSummary[0], /roleDescription|visionRange|attackDamage|buildQueue/);
+  assert.ok(constructionQueue);
+  assert.match(constructionQueue[0], /describeSharedConstructionQueue/);
+  assert.match(constructionQueue[0], /className = `construction-queue-icon/);
+  assert.doesNotMatch(constructionQueue[0], /Worker queue/);
+  assert.match(index, /id="selection-construction-queue"/);
+  assert.match(styles, /\.construction-queue-icon[\s\S]*?width: 38px;[\s\S]*?height: 38px;/);
 });
 
 test("match setup exposes per-AI difficulty and team assignment controls", async () => {

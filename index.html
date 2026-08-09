@@ -164,7 +164,15 @@
         <aside class="command-panel">
           <section>
             <p class="panel-label">SELECTION</p>
-            <h2 id="selection-name">No units selected</h2>
+            <div class="selection-summary">
+              <h2 id="selection-name">No units selected</h2>
+              <div
+                id="selection-construction-queue"
+                class="selection-construction-queue"
+                aria-label="Selected workers' construction queue"
+                hidden
+              ></div>
+            </div>
             <p id="selection-details" class="muted">Select a friendly unit on the battlefield.</p>
             <div id="selection-queue" class="selection-queue" aria-label="Selected work queues" hidden></div>
           </section>

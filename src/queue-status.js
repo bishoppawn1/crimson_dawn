@@ -61,3 +61,29 @@ export function describeConstructionQueue(worker, simulation, structureDefinitio
     })),
   };
 }
+
+export function describeSharedConstructionQueue(workers, simulation, structureDefinitions) {
+  const activeIds = workers.map((worker) => worker?.buildTargetId);
+  const queuedIds = workers.flatMap((worker) => worker?.buildQueue || []);
+  const activeIdSet = new Set(activeIds.filter(Boolean));
+  const seen = new Set();
+  const items = [];
+
+  for (const structureId of [...activeIds, ...queuedIds]) {
+    if (!structureId || seen.has(structureId)) continue;
+    seen.add(structureId);
+    const structure = simulation.getStructure(structureId);
+    if (!structure?.alive || structure.complete) continue;
+    const definition = structureDefinitions[structure.type];
+    if (!definition) continue;
+    items.push({
+      id: structure.id,
+      type: structure.type,
+      name: definition.name,
+      progress: progressPercent(structure.constructionProgress, definition.buildTime),
+      active: activeIdSet.has(structure.id),
+    });
+  }
+
+  return items.length > 0 ? { kind: "construction", items } : null;
+}

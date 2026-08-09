@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 312
+**Automated tests documented:** 314
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -78,13 +78,18 @@ this catalog is out of date.
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the interface and battlefield present the economy as crimson crystal.
 
-<!-- test-catalog-entry: ["test/bootstrap.test.js","unit combat summaries disclose ground damage penalties"] -->
-### 14. unit combat summaries disclose ground damage penalties
+<!-- test-catalog-entry: ["test/bootstrap.test.js","production controls disclose ground damage penalties"] -->
+### 14. production controls disclose ground damage penalties
 
-**What it checks:** Inspects the browser entry point and interface wiring to confirm that unit combat summaries disclose ground damage penalties.
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that production controls disclose ground damage penalties.
+
+<!-- test-catalog-entry: ["test/bootstrap.test.js","unit selection is concise and uses one compact shared construction queue"] -->
+### 15. unit selection is concise and uses one compact shared construction queue
+
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that unit selection is concise and uses one compact shared construction queue.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","match setup exposes per-AI difficulty and team assignment controls"] -->
-### 15. match setup exposes per-AI difficulty and team assignment controls
+### 16. match setup exposes per-AI difficulty and team assignment controls
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that match setup exposes per-AI difficulty and team assignment controls.
 
@@ -215,6 +220,11 @@ this catalog is out of date.
 ### 3. construction queue status shows foundation progress and placement order
 
 **What it checks:** Builds queue status summaries to confirm that construction queue status shows foundation progress and placement order.
+
+<!-- test-catalog-entry: ["test/queue-status.test.js","a shared worker construction queue lists each foundation only once"] -->
+### 4. a shared worker construction queue lists each foundation only once
+
+**What it checks:** Builds queue status summaries to confirm that a shared worker construction queue lists each foundation only once.
 
 ## [test/simulation-clock.test.js](test/simulation-clock.test.js)
 
