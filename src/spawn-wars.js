@@ -15,6 +15,7 @@ export const SPAWN_WARS_RULES = Object.freeze({
   buildZoneInset: 240,
   buildZoneDepth: 900,
   killIncomeRatio: 0.2,
+  killIncomeUpgradeValuePerLevel: 0.1,
   minimumKillIncome: 8,
   padCostMultiplier: 2.5,
   padBuildTime: 6,
@@ -96,6 +97,26 @@ export function spawnWarsPadUpgradeCost(unitDefinition, category, currentLevel) 
   return Math.round(
     Math.max(70, (unitDefinition?.metalCost || 70) * upgrade.baseMultiplier) *
     tierWeight * roleWeight * (currentLevel + 1),
+  );
+}
+
+export function spawnWarsKillIncome(unitDefinition, upgradeLevels = {}) {
+  const totalUpgradeLevels = Object.keys(SPAWN_PAD_UPGRADES).reduce((total, category) => {
+    const level = Number.isFinite(upgradeLevels?.[category])
+      ? Math.floor(upgradeLevels[category])
+      : 0;
+    return total + Math.min(
+      SPAWN_WARS_RULES.maximumUpgradeLevel,
+      Math.max(0, level),
+    );
+  }, 0);
+  const baseValue = unitDefinition?.metalValue || unitDefinition?.metalCost || 0;
+  const upgradedValue = baseValue * (
+    1 + totalUpgradeLevels * SPAWN_WARS_RULES.killIncomeUpgradeValuePerLevel
+  );
+  return Math.max(
+    SPAWN_WARS_RULES.minimumKillIncome,
+    Math.round(upgradedValue * SPAWN_WARS_RULES.killIncomeRatio),
   );
 }
 

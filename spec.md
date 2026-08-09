@@ -1727,8 +1727,11 @@ after which spawned units will use them automatically.
 Every commander begins with 650 crystal. Every 30 seconds each living commander
 receives 120 crystal, increased by 35 percent of base for each of three purchasable
 income levels. Destroying a hostile spawned unit also awards the killing commander
-20 percent of its crystal value, with an eight-crystal minimum. Destroyed units do
-not leave reclaimable crystal scrap in Spawn Wars, regardless of their owner. A 240-world-unit
+20 percent of its crystal value, with an eight-crystal minimum. Each stat-upgrade
+level carried by that unit adds a provisional 10 percent of its base crystal value
+before the 20-percent kill reward is calculated, so upgrades purchased after a unit
+spawned do not retroactively change its bounty. Destroyed units do not leave
+reclaimable crystal scrap in Spawn Wars, regardless of their owner. A 240-world-unit
 capture band spans the arena center. The latest spawned unit to cross completely
 through that band toward the opposing side gives its alliance center control;
 every commander on the controlling alliance receives an additional 60 crystal on

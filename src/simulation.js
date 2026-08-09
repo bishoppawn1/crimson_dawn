@@ -29,6 +29,7 @@ const {
   createSpawnWarsTeams,
   spawnWarsBuildZone,
   spawnWarsInterval,
+  spawnWarsKillIncome,
   spawnWarsPadCost,
   spawnWarsPadUpgradeCost,
   spawnWarsSideForAlliance,
@@ -3436,6 +3437,12 @@ export class Simulation {
       spawnWarsArmorMultiplier: armorMultiplier,
       spawnWarsDamageMultiplier: damageMultiplier,
       spawnWarsAttackSpeedMultiplier: attackSpeedMultiplier,
+      spawnWarsUpgradeLevels: {
+        health: levels.health || 0,
+        armor: levels.armor || 0,
+        damage: levels.damage || 0,
+        attack_speed: levels.attack_speed || 0,
+      },
       spawnWarsCenterCrossingRecorded: false,
     });
     const opposingAllianceId = this.getAllianceId(pad.team) === "spawn-west"
@@ -7260,10 +7267,7 @@ export class Simulation {
 
     if (target.kind === "unit" && target.spawnWarsSpawned && source?.team) {
       const definition = UNIT_DEFINITIONS[target.type];
-      const reward = Math.max(
-        SPAWN_WARS_RULES.minimumKillIncome,
-        Math.round((definition.metalValue || definition.metalCost || 0) * SPAWN_WARS_RULES.killIncomeRatio),
-      );
+      const reward = spawnWarsKillIncome(definition, target.spawnWarsUpgradeLevels);
       if (this.resources[source.team]) this.resources[source.team].metal += reward;
       this.emit("spawn_kill_income", target.x, target.y, { team: source.team, amount: reward });
     }

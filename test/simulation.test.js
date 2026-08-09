@@ -24,6 +24,7 @@ import { distance, Simulation } from "../src/simulation.js";
 import {
   SPAWN_WARS_RULES,
   createSpawnWarsTeams,
+  spawnWarsKillIncome,
   spawnWarsPadCost,
   spawnWarsPadUpgradeCost,
 } from "../src/spawn-wars.js";
@@ -135,7 +136,26 @@ test("Spawn Wars platforms are limited to their owner's zone and spawn upgraded 
   const spawned = simulation.units.find((unit) => unit.spawnWarsPadId === pad.id);
   assert.ok(spawned);
   assert.equal(spawned.spawnWarsDamageMultiplier, 1.15);
+  assert.deepEqual(spawned.spawnWarsUpgradeLevels, {
+    health: 0,
+    armor: 0,
+    damage: 1,
+    attack_speed: 0,
+  });
   assert.equal(spawned.moveMode, "advance");
+
+  const baseKillIncome = spawnWarsKillIncome(unitDefinition);
+  const upgradedKillIncome = spawnWarsKillIncome(
+    unitDefinition,
+    spawned.spawnWarsUpgradeLevels,
+  );
+  const enemyCrystal = simulation.resources.enemy.metal;
+  const enemyAttacker = simulation.addUnit("scout_mech", "enemy", spawned.x + 100, spawned.y, {
+    spawnWarsSpawned: true,
+  });
+  simulation.applyDamage(spawned, spawned.hp, enemyAttacker);
+  assert.ok(upgradedKillIncome > baseKillIncome);
+  assert.equal(simulation.resources.enemy.metal, enemyCrystal + upgradedKillIncome);
 });
 
 test("Spawn Wars income, center control, equal speed, kill rewards, and objectives are deterministic", () => {
