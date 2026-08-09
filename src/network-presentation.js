@@ -1,14 +1,22 @@
 export const MULTIPLAYER_STATE_INTERVAL_SECONDS = 0.25;
 export const MULTIPLAYER_MOTION_INTERVAL_SECONDS = 1 / 15;
 export const GUEST_STATE_TRANSITION_MS = 120;
+export const GUEST_MAX_MOTION_COAST_MS = 500;
 const SIMULATION_TICKS_PER_SECOND = 30;
 
 export class SnapshotPositionSmoother {
-  constructor(transitionMs = GUEST_STATE_TRANSITION_MS) {
+  constructor(
+    transitionMs = GUEST_STATE_TRANSITION_MS,
+    maximumMotionCoastMs = GUEST_MAX_MOTION_COAST_MS,
+  ) {
     if (!Number.isFinite(transitionMs) || transitionMs < 0) {
       throw new Error("Network position transition must be non-negative.");
     }
+    if (!Number.isFinite(maximumMotionCoastMs) || maximumMotionCoastMs < 0) {
+      throw new Error("Network motion coast must be non-negative.");
+    }
     this.transitionMs = transitionMs;
+    this.maximumMotionCoastMs = maximumMotionCoastMs;
     this.transitions = new Map();
     this.latestSourceTick = null;
   }
@@ -97,10 +105,22 @@ export class SnapshotPositionSmoother {
     if (!transition || this.transitionMs <= 0) {
       return { x: entity.x, y: entity.y, velocityX: 0, velocityY: 0 };
     }
-    const progress = Math.min(
-      1,
-      Math.max(0, (nowMs - transition.startedAt) / this.transitionMs),
-    );
+    const elapsedMs = Math.max(0, nowMs - transition.startedAt);
+    if (elapsedMs >= this.transitionMs) {
+      const coastElapsedMs = Math.min(
+        this.maximumMotionCoastMs,
+        elapsedMs - this.transitionMs,
+      );
+      const coastSeconds = coastElapsedMs / 1000;
+      const stillCoasting = coastElapsedMs < this.maximumMotionCoastMs;
+      return {
+        x: transition.toX + transition.toVelocityX * coastSeconds,
+        y: transition.toY + transition.toVelocityY * coastSeconds,
+        velocityX: stillCoasting ? transition.toVelocityX : 0,
+        velocityY: stillCoasting ? transition.toVelocityY : 0,
+      };
+    }
+    const progress = elapsedMs / this.transitionMs;
     const progressSquared = progress * progress;
     const progressCubed = progressSquared * progress;
     const positionStart = 2 * progressCubed - 3 * progressSquared + 1;

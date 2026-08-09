@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createMultiplayerMotionUpdate,
+  GUEST_MAX_MOTION_COAST_MS,
   GUEST_STATE_TRANSITION_MS,
   multiplayerMotionUpdateIsValid,
   MULTIPLAYER_MOTION_INTERVAL_SECONDS,
@@ -15,8 +16,31 @@ test("multiplayer combines canonical snapshots with frequent overlapping motion 
   assert.equal(MULTIPLAYER_STATE_INTERVAL_SECONDS, 0.25);
   assert.equal(MULTIPLAYER_MOTION_INTERVAL_SECONDS, 1 / 15);
   assert.equal(GUEST_STATE_TRANSITION_MS, 120);
+  assert.equal(GUEST_MAX_MOTION_COAST_MS, 500);
   assert.ok(GUEST_STATE_TRANSITION_MS > MULTIPLAYER_MOTION_INTERVAL_SECONDS * 1000);
   assert.ok(GUEST_STATE_TRANSITION_MS < MULTIPLAYER_STATE_INTERVAL_SECONDS * 1000);
+});
+
+test("guest motion coasts smoothly through delayed host updates", () => {
+  const smoother = new SnapshotPositionSmoother(120, 500);
+  smoother.reset([{ id: "unit-1", x: 0, y: 0 }], 0, 0);
+  smoother.transitionTo([{ id: "unit-1", x: 10, y: 0 }], 100, 3);
+
+  assert.ok(
+    Math.abs(smoother.positionFor({ id: "unit-1", x: 10, y: 0 }, 220).x - 22) < 1e-9,
+  );
+  assert.ok(
+    Math.abs(smoother.positionFor({ id: "unit-1", x: 10, y: 0 }, 320).x - 32) < 1e-9,
+  );
+  assert.ok(
+    Math.abs(smoother.positionFor({ id: "unit-1", x: 10, y: 0 }, 1000).x - 72) < 1e-9,
+  );
+
+  const beforeCorrection = smoother.motionFor({ id: "unit-1", x: 10, y: 0 }, 320);
+  smoother.transitionTo([{ id: "unit-1", x: 40, y: 0 }], 320, 9);
+  const afterCorrection = smoother.motionFor({ id: "unit-1", x: 40, y: 0 }, 320);
+  assert.ok(Math.abs(afterCorrection.x - beforeCorrection.x) < 1e-9);
+  assert.ok(Math.abs(afterCorrection.velocityX - beforeCorrection.velocityX) < 1e-9);
 });
 
 test("guest mobile positions interpolate between authoritative snapshots", () => {

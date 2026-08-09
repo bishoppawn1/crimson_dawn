@@ -2,9 +2,9 @@ export const SPAWN_WARS_MIN_PLAYERS = 2;
 export const SPAWN_WARS_MAX_PLAYERS = 4;
 
 export const SPAWN_WARS_RULES = Object.freeze({
-  mapWidth: 3600,
+  mapWidth: 8400,
   mapHeight: 2000,
-  centerX: 1800,
+  centerX: 4200,
   centerCaptureHalfWidth: 120,
   incomeInterval: 30,
   baseIncome: 120,

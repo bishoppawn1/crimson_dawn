@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 349
+**Automated tests documented:** 350
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -216,38 +216,43 @@ this catalog is out of date.
 
 **What it checks:** Exercises remote-position smoothing to confirm that multiplayer combines canonical snapshots with frequent overlapping motion updates.
 
+<!-- test-catalog-entry: ["test/network-presentation.test.js","guest motion coasts smoothly through delayed host updates"] -->
+### 2. guest motion coasts smoothly through delayed host updates
+
+**What it checks:** Exercises remote-position smoothing to confirm that guest motion coasts smoothly through delayed host updates.
+
 <!-- test-catalog-entry: ["test/network-presentation.test.js","guest mobile positions interpolate between authoritative snapshots"] -->
-### 2. guest mobile positions interpolate between authoritative snapshots
+### 3. guest mobile positions interpolate between authoritative snapshots
 
 **What it checks:** Exercises remote-position smoothing to confirm that guest mobile positions interpolate between authoritative snapshots.
 
 <!-- test-catalog-entry: ["test/network-presentation.test.js","a new snapshot continues from the currently displayed point without jumping"] -->
-### 3. a new snapshot continues from the currently displayed point without jumping
+### 4. a new snapshot continues from the currently displayed point without jumping
 
 **What it checks:** Exercises remote-position smoothing to confirm that a new snapshot continues from the currently displayed point without jumping.
 
 <!-- test-catalog-entry: ["test/network-presentation.test.js","tick-timed motion updates preserve displayed velocity across corrections"] -->
-### 4. tick-timed motion updates preserve displayed velocity across corrections
+### 5. tick-timed motion updates preserve displayed velocity across corrections
 
 **What it checks:** Exercises remote-position smoothing to confirm that tick-timed motion updates preserve displayed velocity across corrections.
 
 <!-- test-catalog-entry: ["test/network-presentation.test.js","stale motion ticks cannot pull presentation backward"] -->
-### 5. stale motion ticks cannot pull presentation backward
+### 6. stale motion ticks cannot pull presentation backward
 
 **What it checks:** Exercises remote-position smoothing to confirm that stale motion ticks cannot pull presentation backward.
 
 <!-- test-catalog-entry: ["test/network-presentation.test.js","compact motion messages contain only validated mobile coordinates"] -->
-### 6. compact motion messages contain only validated mobile coordinates
+### 7. compact motion messages contain only validated mobile coordinates
 
 **What it checks:** Exercises remote-position smoothing to confirm that compact motion messages contain only validated mobile coordinates.
 
 <!-- test-catalog-entry: ["test/network-presentation.test.js","new mobile entities appear at their authoritative position"] -->
-### 7. new mobile entities appear at their authoritative position
+### 8. new mobile entities appear at their authoritative position
 
 **What it checks:** Exercises remote-position smoothing to confirm that new mobile entities appear at their authoritative position.
 
 <!-- test-catalog-entry: ["test/network-presentation.test.js","tracking shots stop following a destroyed reclamation drone back to its yard"] -->
-### 8. tracking shots stop following a destroyed reclamation drone back to its yard
+### 9. tracking shots stop following a destroyed reclamation drone back to its yard
 
 **What it checks:** Exercises remote-position smoothing to confirm that tracking shots stop following a destroyed reclamation drone back to its yard.
 

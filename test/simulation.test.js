@@ -82,6 +82,9 @@ test("Spawn Wars creates fixed human teams, architects, zones, and protected obj
   const westZone = simulation.spawnWars.buildZones.player;
   const westAllyZone = simulation.spawnWars.buildZones.enemy;
   assert.ok(westZone.bottom <= westAllyZone.top);
+  const eastZone = simulation.spawnWars.buildZones[simulation.teams.at(-1).id];
+  assert.equal(simulation.width, 8_400);
+  assert.ok(eastZone.left - westZone.right >= 6_000);
 });
 
 test("Spawn Wars platforms are limited to their owner's zone and spawn upgraded waves", () => {

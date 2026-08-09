@@ -1654,9 +1654,12 @@ reclamation drones receive compact, tick-numbered authoritative position updates
 to 15 times per second in addition to the complete four-per-second state snapshots.
 The guest derives motion velocity from canonical tick differences and uses a
 120-millisecond cubic transition that preserves both displayed position and velocity
-when a correction arrives. It projects only the visual endpoint across that short
-transition; it does not advance gameplay, combat, resources, or any second canonical
-simulation. Older motion ticks are ignored. Transient motion updates are dropped
+when a correction arrives. If the next update is delayed, the visual position
+continues at its last authoritative velocity for up to 500 milliseconds before
+holding, and the next correction begins from that displayed position without a snap.
+This presentation-only coasting does not advance gameplay, combat, resources, or any
+second canonical simulation. Older motion ticks are ignored. Transient motion
+updates are dropped
 rather than queued whenever a complete state is waiting or the outgoing channel is
 busy, so smoother rendering cannot delay authoritative synchronization. Selection,
 target hit-testing, and the tactical minimap use the same displayed positions so the
@@ -1687,7 +1690,9 @@ game is hosted on GitHub Pages. Two players form a fixed 1v1, three form a fixed
 Each human retains separate unit ownership, crystal, platform upgrades, and build
 commands even when allied.
 
-The mode uses a flat 3,600-by-2,000 arena. Every commander receives one
+The mode uses a flat 8,400-by-2,000 arena. The two 900-world-unit-deep phase-build
+zones retain their base-side positions, leaving more than 6,000 world units of open
+combat lane between their inner edges. Every commander receives one
 invulnerable, untargetable flying Spawn Architect and a bounded, visibly marked
 phase-build zone. Allied commanders receive separate vertical halves of their
 team's zone. Architects can move normally but cannot attack, be attacked, run out
