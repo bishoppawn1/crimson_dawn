@@ -3620,6 +3620,87 @@ test("powered radar arrays reveal long range and lose that coverage off-grid", (
   assert.equal(simulation.isEntityVisibleToTeam("player", enemy), false);
 });
 
+test("the Tier 3 Overseer Spire exposes five Tier 1 radar-sized orbital zones", () => {
+  assert.ok(BUILD_MENU_BY_TIER[3].includes("overseer_spire"));
+  assert.equal(canWorkerTierBuildStructure(2, "overseer_spire"), false);
+  assert.equal(canWorkerTierBuildStructure(3, "overseer_spire"), true);
+  assert.equal(STRUCTURE_DEFINITIONS.overseer_spire.name, "Overseer Spire");
+  assert.equal(STRUCTURE_DEFINITIONS.overseer_spire.overseerZoneCount, 5);
+  assert.equal(
+    STRUCTURE_DEFINITIONS.overseer_spire.overseerZoneRadius,
+    STRUCTURE_DEFINITIONS.radar_tower.radarRange,
+  );
+  assert.equal(STRUCTURE_DEFINITIONS.overseer_spire.overseerShiftInterval, 60);
+});
+
+test("Overseer orbital vision relocates without overlapping allied sight or other zones", () => {
+  const teams = [
+    { id: "player", name: "Player", kind: "human", slot: 0, allianceId: "allies" },
+    { id: "ally", name: "Ally", kind: "ai", slot: 1, allianceId: "allies" },
+    { id: "enemy", name: "Enemy", kind: "ai", slot: 2, allianceId: "enemy" },
+  ];
+  const simulation = new Simulation({
+    width: 5200,
+    height: 3200,
+    teams,
+    enemyAiEnabled: false,
+  });
+  simulation.addStructure("generator", "player", 600, 1600);
+  const spire = simulation.addStructure("overseer_spire", "player", 720, 1600);
+  simulation.addUnit("scout_mech", "ally", 2600, 1600);
+  const conventionalSources = simulation.getConventionalVisionSources("player");
+  const definition = STRUCTURE_DEFINITIONS.overseer_spire;
+
+  simulation.tick(0.25);
+
+  assert.equal(spire.powered, true);
+  assert.equal(spire.overseerZones.length, definition.overseerZoneCount);
+  assert.equal(spire.overseerShiftRemaining, definition.overseerShiftInterval);
+  assert.equal(
+    simulation.getVisionSources("ally").filter((source) => source.kind === "overseer_zone").length,
+    definition.overseerZoneCount,
+  );
+  for (const [index, zone] of spire.overseerZones.entries()) {
+    assert.ok(zone.x >= definition.overseerZoneRadius * 0.5);
+    assert.ok(zone.x <= simulation.width - definition.overseerZoneRadius * 0.5);
+    assert.ok(zone.y >= definition.overseerZoneRadius * 0.5);
+    assert.ok(zone.y <= simulation.height - definition.overseerZoneRadius * 0.5);
+    for (const source of conventionalSources) {
+      assert.ok(distance(zone, source) >= source.range - 0.001);
+    }
+    for (const otherZone of spire.overseerZones.slice(index + 1)) {
+      assert.ok(distance(zone, otherZone) >= definition.overseerZoneRadius * 2 - 0.001);
+    }
+  }
+
+  const firstZones = structuredClone(spire.overseerZones);
+  const revealedEnemy = simulation.addUnit(
+    "raider",
+    "enemy",
+    firstZones[0].x,
+    firstZones[0].y,
+  );
+  assert.equal(simulation.isEntityVisibleToTeam("ally", revealedEnemy), true);
+
+  spire.powered = false;
+  simulation.updateOverseerSpires(30);
+  assert.equal(spire.overseerShiftRemaining, definition.overseerShiftInterval);
+  assert.deepEqual(spire.overseerZones, firstZones);
+  assert.equal(simulation.isEntityVisibleToTeam("ally", revealedEnemy), false);
+
+  spire.powered = true;
+  simulation.updateOverseerSpires(definition.overseerShiftInterval);
+  assert.equal(spire.overseerCycle, 2);
+  assert.notDeepEqual(spire.overseerZones, firstZones);
+  assert.equal(spire.overseerZones.length, definition.overseerZoneCount);
+
+  const restored = Simulation.fromSnapshot(structuredClone(simulation.createSnapshot()));
+  const restoredSpire = restored.getStructure(spire.id);
+  assert.deepEqual(restoredSpire.overseerZones, spire.overseerZones);
+  assert.equal(restoredSpire.overseerCycle, spire.overseerCycle);
+  assert.equal(restoredSpire.overseerShiftRemaining, spire.overseerShiftRemaining);
+});
+
 test("radar towers and mobile radar units improve across every available branch tier", () => {
   const expectedMobileRadarDamage = {
     radar_mech: 6,

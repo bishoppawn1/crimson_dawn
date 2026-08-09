@@ -119,6 +119,26 @@ An incomplete array supplies no vision. A completed but disconnected or energy-s
 array retains only the ordinary 340-world-unit building sight range. Selecting a radar
 asset displays its current coverage circle, and the minimap applies the same coverage.
 
+The Tier 3 **Overseer Spire** is a separate strategic reconnaissance building. While
+completed and powered, it projects up to five remote orbital vision circles, each
+with the Tier 1 Radar Array's provisional 950-world-unit radius. Every 60 powered
+seconds, all of its circles relocate deterministically. At relocation time, each
+new circle's center must remain at least 475 world units inside the battlefield,
+stay outside conventional vision from the owner or an ally, and remain far enough
+from every other allied Overseer circle that the orbital circles do not overlap. A
+previous circle's replacement also moves at least 475 world units from that old
+position. Circle edges may extend beyond the battlefield boundary, where they have
+no effect. When battlefield geometry and existing allied vision leave fewer than
+five legal locations, the Spire uses only the legal circles it can place. Losing
+power hides every orbital circle and pauses the relocation timer;
+restoring power returns the same circles until their remaining timer expires.
+Orbital coverage is authoritative vision shared with allies, so it affects fog,
+targeting, the tactical minimap, snapshots, and multiplayer exactly like other
+vision sources. Selecting the Spire displays its active circles and relocation
+countdown. Its provisional profile is a 3×3 footprint, 900 integrity, 12 energy per
+second, 750 crystal, and a 30-second base construction time before the global
+construction-duration multiplier.
+
 Each map has a data-defined environmental theme that is preserved in multiplayer
 snapshots. **Grassland** maps use green fields, varied olive clearings, and sparse
 deterministic grass tufts without ambient crystal remnants. **Apocalypse** maps retain
@@ -810,6 +830,8 @@ The Strategic Supply Complex remains
 a Tier 1 construction option with
 its own internal upgrade levels rather than separate tiered foundations. All new
 factory and building-variant balance values are provisional.
+The standalone Overseer Spire is available only as a Tier 3 construction option;
+it is not an upgrade tier of the Radar Array family.
 
 Every higher tier must provide a visible functional improvement, not merely a
 larger model or more durability. Generators improve output and grid reach;

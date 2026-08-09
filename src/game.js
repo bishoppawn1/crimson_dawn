@@ -1585,6 +1585,9 @@ function runAuthoritativeSimulationHeartbeat(now = performance.now()) {
 }
 
 function describeStructureRole(definition) {
+  if (definition.overseerZoneCount) {
+    return `${definition.overseerZoneCount} remote vision zones · ${definition.overseerZoneRadius} radius · ${definition.overseerShiftInterval}s relocation`;
+  }
   if (definition.radarRange) return `${definition.radarRange} radar vision · requires grid power`;
   if (definition.shieldCapacity) {
     return `${definition.shieldCapacity} shield · ${definition.shieldRadius} radius · ${definition.shieldRegenRate}/s regen`;
@@ -3723,12 +3726,62 @@ function drawRadarArrayBuilding(definition, footprint, powered, teamColor) {
   }
 }
 
+function drawOverseerSpireBuilding(footprint, powered, teamColor) {
+  const width = footprint.width * 0.76;
+  const height = footprint.height * 0.76;
+  drawRoofPanel(-width / 2, -height / 2, width, height, 10);
+  drawFasteners(-width / 2, -height / 2, width, height);
+  context.strokeStyle = "#11191d";
+  context.lineWidth = 6;
+  for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+    context.beginPath();
+    context.moveTo(Math.cos(angle) * width * 0.08, Math.sin(angle) * height * 0.08);
+    context.lineTo(Math.cos(angle) * width * 0.38, Math.sin(angle) * height * 0.38);
+    context.stroke();
+  }
+  context.fillStyle = "#202a2f";
+  context.strokeStyle = powered ? teamColor : "#745357";
+  context.lineWidth = 3;
+  context.beginPath();
+  context.arc(0, 0, Math.min(width, height) * 0.21, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.strokeStyle = powered ? colors.energy : "#72575a";
+  context.lineWidth = 2;
+  for (let ring = 1; ring <= 3; ring += 1) {
+    context.beginPath();
+    context.arc(0, 0, Math.min(width, height) * (0.22 + ring * 0.09), 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.fillStyle = powered ? colors.energy : "#645053";
+  context.shadowColor = powered ? colors.energy : "transparent";
+  context.shadowBlur = powered ? 16 : 0;
+  context.beginPath();
+  context.arc(0, 0, 7, 0, Math.PI * 2);
+  context.fill();
+  context.shadowBlur = 0;
+  for (let satellite = 0; satellite < 5; satellite += 1) {
+    const angle = satellite * Math.PI * 2 / 5 - Math.PI / 2;
+    context.fillStyle = powered ? teamColor : "#745357";
+    context.beginPath();
+    context.arc(
+      Math.cos(angle) * width * 0.37,
+      Math.sin(angle) * height * 0.37,
+      4,
+      0,
+      Math.PI * 2,
+    );
+    context.fill();
+  }
+}
+
 function drawCompletedBuilding(structure, definition, footprint, family, powered, teamColor) {
   if (family === "headquarters") drawHeadquartersBuilding(structure, footprint, powered, teamColor);
   else if (family === "generator") drawGeneratorBuilding(definition, footprint, powered, teamColor);
   else if (family === "battery") drawBatteryBuilding(structure, definition, footprint, powered, teamColor);
   else if (family === "power_tower") drawRelayBuilding(definition, footprint, powered, teamColor);
   else if (family === "radar_tower") drawRadarArrayBuilding(definition, footprint, powered, teamColor);
+  else if (family === "overseer_spire") drawOverseerSpireBuilding(footprint, powered, teamColor);
   else if (family === "charger") drawChargerBuilding(footprint, powered, teamColor);
   else if (family === "metal_mine") drawCrystalHarvesterBuilding(definition, footprint, powered, teamColor);
   else if (family === "factory") drawFactoryBuilding(structure, definition, footprint, powered, teamColor);
@@ -3768,6 +3821,24 @@ function drawStructure(structure) {
     context.beginPath();
     context.arc(0, 0, radarRange, 0, Math.PI * 2);
     context.stroke();
+    context.setLineDash([]);
+  }
+
+  if (definition.overseerZoneCount && selectedStructureIds.has(structure.id) && structure.powered) {
+    context.strokeStyle = `${colors.energy}90`;
+    context.lineWidth = 2;
+    context.setLineDash([14, 12]);
+    for (const zone of structure.overseerZones || []) {
+      context.beginPath();
+      context.arc(
+        zone.x - structure.x,
+        zone.y - structure.y,
+        definition.overseerZoneRadius,
+        0,
+        Math.PI * 2,
+      );
+      context.stroke();
+    }
     context.setLineDash([]);
   }
 
@@ -6938,6 +7009,9 @@ function updateInterface() {
     const radarText = definition.radarRange
       ? ` · ${simulation.getEntityVisionRange(selectedStructure)} CURRENT VISION · ${definition.radarRange} POWERED RADAR RANGE`
       : ` · ${definition.visionRange} VISION`;
+    const overseerText = definition.overseerZoneCount
+      ? ` · ${(selectedStructure.overseerZones || []).length}/${definition.overseerZoneCount} ORBITAL VISION ZONES · ${definition.overseerZoneRadius} RADIUS · RELOCATES IN ${Math.ceil(selectedStructure.overseerShiftRemaining || 0)}s`
+      : "";
     const defenseText = definition.capacitorCapacity
       ? ` · ${definition.attackDamage} damage · ${definition.minimumAttackRange ? `${definition.minimumAttackRange}–` : ""}${definition.attackRange} range · ${(definition.attackDamage / definition.attackCooldown).toFixed(1)} DPS${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× VS AIR` : ""} · ${Math.floor(selectedStructure.weaponEnergy)}/${definition.capacitorCapacity} capacitor · ${selectedStructure.defenseStatus.toUpperCase()}`
       : "";
@@ -6985,7 +7059,7 @@ function updateInterface() {
         ? ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · UPGRADING TO ${selectedStructure.supplyUpgrade.targetLevel}`
         : ` · SUPPLY LEVEL ${selectedStructure.supplyLevel} · +${definition.supplyLevels[selectedStructure.supplyLevel - 1].capacity.toLocaleString()} capacity`
       : "";
-    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${radarText}${chargerText}${mineText}${demandText}${defenseText}${shieldText}${salvageText}${factoryText}${headquartersText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
+    selectionDetails.textContent = `${Math.ceil(selectedStructure.hp)}/${definition.maxHp} integrity · ${status}${storageText}${generatorText}${relayText}${radarText}${overseerText}${chargerText}${mineText}${demandText}${defenseText}${shieldText}${salvageText}${factoryText}${headquartersText}${supplyComplexText}${builderText}${queueText}${rallyText}`;
   } else if (selectedUnits.length === 0) {
     selectionName.textContent = "No units selected";
     selectionDetails.textContent = "Select friendly units or a structure on the battlefield.";

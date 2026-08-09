@@ -363,6 +363,11 @@ export class Simulation {
         : null;
     }
     simulation.structures = snapshot.structures || [];
+    for (const structure of simulation.structures) {
+      if (STRUCTURE_DEFINITIONS[structure.type]?.overseerZoneCount) {
+        simulation.normalizeOverseerState(structure);
+      }
+    }
     simulation.wrecks = snapshot.wrecks || [];
     simulation.rebuildEntityLookup();
     simulation.metalDeposits = snapshot.metalDeposits || [];
@@ -631,6 +636,9 @@ export class Simulation {
       defenseStatus: definition.capacitorCapacity ? "ready" : null,
       shieldStrength: definition.shieldCapacity ? definition.shieldCapacity : null,
       shieldStatus: definition.shieldCapacity ? "stable" : null,
+      overseerZones: definition.overseerZoneCount ? [] : null,
+      overseerShiftRemaining: definition.overseerZoneCount ? 0 : null,
+      overseerCycle: definition.overseerZoneCount ? 0 : null,
       ...overrides,
     };
 
@@ -647,6 +655,7 @@ export class Simulation {
         definition.supplyLevels.length,
       );
     }
+    if (definition.overseerZoneCount) this.normalizeOverseerState(structure);
 
     if (definition.droneCount && structure.complete) {
       for (let slot = 0; slot < definition.droneCount; slot += 1) {
@@ -798,7 +807,7 @@ export class Simulation {
     return definition.visionRange || 0;
   }
 
-  getVisionSources(teamId) {
+  getConventionalVisionSources(teamId) {
     return [
       ...this.units,
       ...this.structures,
@@ -807,11 +816,124 @@ export class Simulation {
       .filter((entity) => entity.alive && this.areAlliedTeams(entity.team, teamId))
       .map((entity) => ({
         id: entity.id,
+        kind: entity.kind,
         x: entity.x,
         y: entity.y,
         range: this.getEntityVisionRange(entity),
       }))
       .filter((source) => source.range > 0);
+  }
+
+  getVisionSources(teamId) {
+    const overseerSources = this.structures.flatMap((structure) => {
+      const definition = STRUCTURE_DEFINITIONS[structure.type];
+      if (
+        !structure.alive ||
+        !structure.complete ||
+        !structure.powered ||
+        !definition?.overseerZoneCount ||
+        !this.areAlliedTeams(structure.team, teamId)
+      ) {
+        return [];
+      }
+      return (structure.overseerZones || []).map((zone, index) => ({
+        id: `${structure.id}:overseer:${index}`,
+        kind: "overseer_zone",
+        structureId: structure.id,
+        x: zone.x,
+        y: zone.y,
+        range: definition.overseerZoneRadius,
+      }));
+    });
+    return [...this.getConventionalVisionSources(teamId), ...overseerSources];
+  }
+
+  normalizeOverseerState(structure) {
+    const definition = STRUCTURE_DEFINITIONS[structure.type];
+    if (!definition?.overseerZoneCount) return;
+    structure.overseerZones = Array.isArray(structure.overseerZones)
+      ? structure.overseerZones
+        .filter((zone) => Number.isFinite(zone?.x) && Number.isFinite(zone?.y))
+        .slice(0, definition.overseerZoneCount)
+        .map((zone) => ({ x: zone.x, y: zone.y }))
+      : [];
+    structure.overseerShiftRemaining = Number.isFinite(structure.overseerShiftRemaining)
+      ? Math.max(0, structure.overseerShiftRemaining)
+      : 0;
+    structure.overseerCycle = Number.isSafeInteger(structure.overseerCycle) &&
+      structure.overseerCycle >= 0
+      ? structure.overseerCycle
+      : 0;
+  }
+
+  updateOverseerSpires(delta) {
+    for (const structure of this.structures) {
+      const definition = STRUCTURE_DEFINITIONS[structure.type];
+      if (!definition?.overseerZoneCount) continue;
+      this.normalizeOverseerState(structure);
+      if (!structure.alive || !structure.complete || !structure.powered) continue;
+      structure.overseerShiftRemaining = Math.max(
+        0,
+        structure.overseerShiftRemaining - Math.max(0, delta),
+      );
+      if (structure.overseerZones.length && structure.overseerShiftRemaining > EPSILON) {
+        continue;
+      }
+      this.repositionOverseerZones(structure);
+      structure.overseerShiftRemaining = definition.overseerShiftInterval;
+    }
+  }
+
+  repositionOverseerZones(structure) {
+    const definition = STRUCTURE_DEFINITIONS[structure.type];
+    if (!definition?.overseerZoneCount) return [];
+    this.normalizeOverseerState(structure);
+    const radius = definition.overseerZoneRadius;
+    const samplingStep = Math.max(80, Math.round(radius / 4));
+    const edgeMargin = radius * 0.5;
+    const previousZones = structure.overseerZones;
+    const conventionalSources = this.getConventionalVisionSources(structure.team);
+    const reservedZones = this.structures.flatMap((other) => {
+      const otherDefinition = STRUCTURE_DEFINITIONS[other.type];
+      if (
+        other.id === structure.id ||
+        !other.alive ||
+        !other.complete ||
+        !other.powered ||
+        !otherDefinition?.overseerZoneCount ||
+        !this.areAlliedTeams(other.team, structure.team)
+      ) {
+        return [];
+      }
+      return other.overseerZones || [];
+    });
+    const xValues = overseerSamplingAxis(edgeMargin, this.width - edgeMargin, samplingStep);
+    const yValues = overseerSamplingAxis(edgeMargin, this.height - edgeMargin, samplingStep);
+    const candidates = yValues.flatMap((y, row) =>
+      xValues.map((x, column) => ({
+        x,
+        y,
+        score: deterministicHash(`${structure.id}:${structure.overseerCycle}:${column}:${row}`),
+      })))
+      .sort((left, right) => left.score - right.score || left.y - right.y || left.x - right.x);
+    const zones = [];
+    for (const candidate of candidates) {
+      if (
+        conventionalSources.some(
+          (source) => distance(candidate, source) + EPSILON < source.range,
+        ) ||
+        reservedZones.some((zone) => distance(candidate, zone) + EPSILON < radius * 2) ||
+        zones.some((zone) => distance(candidate, zone) + EPSILON < radius * 2) ||
+        previousZones.some((zone) => distance(candidate, zone) + EPSILON < radius * 0.5)
+      ) {
+        continue;
+      }
+      zones.push({ x: candidate.x, y: candidate.y });
+      if (zones.length >= definition.overseerZoneCount) break;
+    }
+    structure.overseerZones = zones;
+    structure.overseerCycle += 1;
+    return zones;
   }
 
   isPointVisibleToTeam(teamId, x, y, radius = 0, visionSources = null) {
@@ -2612,6 +2734,7 @@ export class Simulation {
 
     this.updatePendingImpacts();
     this.refreshPowerState(delta);
+    this.updateOverseerSpires(delta);
     this.applyTesterTeamAdvantages();
     if (this.enemyAiEnabled) this.updateEnemyAi(delta);
     this.updateTransportLoading();
@@ -6986,11 +7109,23 @@ function navigationReplanPhase(entityId) {
 }
 
 function deterministicPhase(entityId, interval) {
+  return (deterministicHash(entityId) % 997) / 997 * interval;
+}
+
+function deterministicHash(value) {
   let hash = 0;
-  for (let index = 0; index < entityId.length; index += 1) {
-    hash = (hash * 31 + entityId.charCodeAt(index)) >>> 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
   }
-  return (hash % 997) / 997 * interval;
+  return hash;
+}
+
+function overseerSamplingAxis(start, end, step) {
+  if (end + EPSILON < start) return [];
+  const values = [];
+  for (let value = start; value <= end + EPSILON; value += step) values.push(value);
+  if (end - values[values.length - 1] > EPSILON) values.push(end);
+  return values;
 }
 
 function nextDeterministicIntervalTime(entityId, currentTime, interval) {
