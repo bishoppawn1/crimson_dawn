@@ -4090,23 +4090,24 @@ function drawAntiNukeBuilding(structure, footprint, powered, teamColor) {
 }
 
 function drawCompletedBuilding(structure, definition, footprint, family, powered, teamColor) {
-  if (family === "headquarters") drawHeadquartersBuilding(structure, footprint, powered, teamColor);
-  else if (family === "generator") drawGeneratorBuilding(definition, footprint, powered, teamColor);
-  else if (family === "battery") drawBatteryBuilding(structure, definition, footprint, powered, teamColor);
-  else if (family === "power_tower") drawRelayBuilding(definition, footprint, powered, teamColor);
-  else if (family === "radar_tower") drawRadarArrayBuilding(definition, footprint, powered, teamColor);
-  else if (family === "overseer_spire") drawOverseerSpireBuilding(footprint, powered, teamColor);
-  else if (family === "charger") drawChargerBuilding(footprint, powered, teamColor);
-  else if (family === "metal_mine") drawCrystalHarvesterBuilding(definition, footprint, powered, teamColor);
-  else if (family === "factory") drawFactoryBuilding(structure, definition, footprint, powered, teamColor);
-  else if (family === "supply_complex") drawSupplyComplexBuilding(structure, footprint, powered, teamColor);
-  else if (family === "sentry_turret") drawSentryBuilding(structure, definition, footprint, powered, teamColor);
-  else if (family === "shield_turret") drawShieldTurretBuilding(structure, definition, footprint, powered, teamColor);
-  else if (family === "mortar_turret") drawMortarBuilding(structure, definition, footprint, powered, teamColor);
-  else if (family === "flak_turret") drawFlakBuilding(structure, definition, footprint, powered, teamColor);
-  else if (family === "salvage_yard") drawSalvageYardBuilding(definition, footprint, powered, teamColor);
-  else if (family === "nuclear_launcher") drawNuclearLauncherBuilding(structure, footprint, powered, teamColor);
-  else if (family === "anti_nuke") drawAntiNukeBuilding(structure, footprint, powered, teamColor);
+  const renderFamily = definition.renderFamily || family;
+  if (renderFamily === "headquarters") drawHeadquartersBuilding(structure, footprint, powered, teamColor);
+  else if (renderFamily === "generator") drawGeneratorBuilding(definition, footprint, powered, teamColor);
+  else if (renderFamily === "battery") drawBatteryBuilding(structure, definition, footprint, powered, teamColor);
+  else if (renderFamily === "power_tower") drawRelayBuilding(definition, footprint, powered, teamColor);
+  else if (renderFamily === "radar_tower") drawRadarArrayBuilding(definition, footprint, powered, teamColor);
+  else if (renderFamily === "overseer_spire") drawOverseerSpireBuilding(footprint, powered, teamColor);
+  else if (renderFamily === "charger") drawChargerBuilding(footprint, powered, teamColor);
+  else if (renderFamily === "metal_mine") drawCrystalHarvesterBuilding(definition, footprint, powered, teamColor);
+  else if (renderFamily === "factory") drawFactoryBuilding(structure, definition, footprint, powered, teamColor);
+  else if (renderFamily === "supply_complex") drawSupplyComplexBuilding(structure, footprint, powered, teamColor);
+  else if (renderFamily === "sentry_turret") drawSentryBuilding(structure, definition, footprint, powered, teamColor);
+  else if (renderFamily === "shield_turret") drawShieldTurretBuilding(structure, definition, footprint, powered, teamColor);
+  else if (renderFamily === "mortar_turret") drawMortarBuilding(structure, definition, footprint, powered, teamColor);
+  else if (renderFamily === "flak_turret") drawFlakBuilding(structure, definition, footprint, powered, teamColor);
+  else if (renderFamily === "salvage_yard") drawSalvageYardBuilding(definition, footprint, powered, teamColor);
+  else if (renderFamily === "nuclear_launcher") drawNuclearLauncherBuilding(structure, footprint, powered, teamColor);
+  else if (renderFamily === "anti_nuke") drawAntiNukeBuilding(structure, footprint, powered, teamColor);
 }
 
 function drawStructure(structure) {

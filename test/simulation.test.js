@@ -79,6 +79,17 @@ test("Spawn Wars creates fixed human teams, architects, zones, and protected obj
   assert.equal(simulation.units.filter((unit) => unit.spawnWarsArchitect).length, 3);
   assert.equal(simulation.structures.filter((structure) => structure.type === "spawn_fortress_turret").length, 2);
   assert.equal(simulation.structures.filter((structure) => structure.type === "spawn_command_hq").length, 2);
+  assert.deepEqual(structureFootprint("spawn_fortress_turret"), {
+    columns: 2,
+    rows: 2,
+    width: 80,
+    height: 80,
+    halfWidth: 40,
+    halfHeight: 40,
+  });
+  assert.equal(STRUCTURE_DEFINITIONS.spawn_fortress_turret.radius, 28);
+  assert.equal(STRUCTURE_DEFINITIONS.spawn_fortress_turret.attackRange, 480);
+  assert.equal(STRUCTURE_DEFINITIONS.spawn_fortress_turret.renderFamily, "sentry_turret");
   const westZone = simulation.spawnWars.buildZones.player;
   const westAllyZone = simulation.spawnWars.buildZones.enemy;
   assert.ok(westZone.bottom <= westAllyZone.top);

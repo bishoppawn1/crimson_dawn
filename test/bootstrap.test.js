@@ -96,6 +96,17 @@ test("nuclear launcher controls authorize construction, targeting, and launch", 
   assert.match(game, /simulation\.launchNuclearMissile\(structure\.id\)/);
 });
 
+test("the Frontline Annihilator uses the sentry turret renderer", async () => {
+  const [data, game] = await Promise.all([
+    source("../src/data.js"),
+    source("../src/game.js"),
+  ]);
+
+  assert.match(data, /spawn_fortress_turret:[\s\S]*?renderFamily: "sentry_turret"/);
+  assert.match(game, /const renderFamily = definition\.renderFamily \|\| family/);
+  assert.match(game, /renderFamily === "sentry_turret"\) drawSentryBuilding/);
+});
+
 test("unit command authorization accepts the complete simulated army", async () => {
   const game = await source("../src/game.js");
   const authorization = game.match(

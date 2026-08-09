@@ -1739,7 +1739,10 @@ each 30-second payment.
 
 Each side has an invulnerable-to-self-destruction but enemy-destructible Frontline
 Annihilator turret in front of its Spawn Command Core. Both objectives have
-independent, permanently powered long-range weapons. The Command Core cannot be
+independent, permanently powered long-range weapons. The Frontline Annihilator uses
+a compact 2×2 footprint and the same top-down twin-barrel appearance as a Tier 3
+Sentry Turret, while retaining its separate objective rules and 12,000 integrity.
+Its provisional weapon range is 480 world units. The Command Core cannot be
 targeted or damaged until its alliance's turret is destroyed. Destroying the Core
 eliminates that alliance and ends the match. The phrase “cannot be destroyed by
 enemies” applies to Spawn Platforms and Architects, not to these two sequential
