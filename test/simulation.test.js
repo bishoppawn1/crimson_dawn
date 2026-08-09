@@ -1535,6 +1535,59 @@ test("queued move orders hand units through each waypoint in order", () => {
   assert.ok(Math.abs(unit.x - 340) < 8);
 });
 
+test("patrol orders repeat every recorded point and survive snapshots", () => {
+  const simulation = new Simulation({ width: 500, height: 300 });
+  const unit = simulation.addUnit("scout_mech", "player", 100, 100);
+  const route = [
+    { x: 180, y: 100 },
+    { x: 260, y: 100 },
+    { x: 340, y: 100 },
+  ];
+
+  assert.equal(simulation.commandPatrol([unit.id], route), 1);
+  assert.deepEqual(unit.moveTarget, route[0]);
+  assert.deepEqual(unit.patrolRoute, route);
+  assert.equal(unit.patrolIndex, 0);
+
+  const restored = Simulation.fromSnapshot(simulation.createSnapshot());
+  const restoredUnit = restored.getUnit(unit.id);
+  assert.deepEqual(restoredUnit.patrolRoute, route);
+  assert.equal(restoredUnit.patrolIndex, 0);
+
+  const visitedIndices = [unit.patrolIndex];
+  for (let tick = 0; tick < 900 && visitedIndices.length < 4; tick += 1) {
+    simulation.tick(1 / 30);
+    if (unit.patrolIndex !== visitedIndices.at(-1)) {
+      visitedIndices.push(unit.patrolIndex);
+    }
+  }
+  assert.deepEqual(visitedIndices, [0, 1, 2, 0]);
+  assert.deepEqual(unit.moveTarget, route[0]);
+});
+
+test("patrol requires two points and explicit movement commands cancel it", () => {
+  const simulation = new Simulation({ width: 500, height: 300 });
+  const unit = simulation.addUnit("scout_mech", "player", 100, 100);
+  const route = [{ x: 180, y: 100 }, { x: 260, y: 100 }];
+
+  assert.equal(simulation.commandPatrol([unit.id], route.slice(0, 1)), 0);
+  assert.equal(simulation.commandPatrol([unit.id], route), 1);
+  simulation.commandMove([unit.id], 340, 100);
+  assert.deepEqual(unit.patrolRoute, []);
+
+  assert.equal(simulation.commandPatrol([unit.id], route), 1);
+  simulation.commandMove([unit.id], 340, 100, { queue: true });
+  assert.deepEqual(unit.moveTarget, { x: 340, y: 100 });
+  assert.deepEqual(unit.moveQueue, []);
+  assert.deepEqual(unit.patrolRoute, []);
+
+  assert.equal(simulation.commandPatrol([unit.id], route), 1);
+  simulation.commandStop([unit.id], true);
+  assert.deepEqual(unit.patrolRoute, []);
+  assert.equal(unit.moveTarget, null);
+  assert.equal(unit.holdPosition, true);
+});
+
 test("ordinary move orders replace queued waypoints", () => {
   const simulation = new Simulation({ width: 500, height: 300 });
   const unit = simulation.addUnit("scout_mech", "player", 100, 100);

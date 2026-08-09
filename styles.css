@@ -1012,6 +1012,10 @@ canvas {
   color: #fff;
 }
 
+.patrol-command {
+  grid-column: 1 / -1;
+}
+
 .build-command-button.locked {
   border-style: dashed;
 }

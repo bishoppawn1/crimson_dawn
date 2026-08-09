@@ -55,6 +55,27 @@ test("the tactical minimap routes right-clicks into unit moves and factory ralli
   assert.match(index, /right-click it with units selected to move them or with factories selected to set their rally point/);
 });
 
+test("the Patrol command records an arbitrary closed route before issuing it", async () => {
+  const [index, game, simulation] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+    source("../src/simulation.js"),
+  ]);
+
+  assert.match(index, /id="patrol-button"/);
+  assert.match(index, /Record a repeating route/);
+  assert.match(game, /function togglePatrolRecording\(\)/);
+  assert.match(game, /function recordPatrolPoint\(point\)/);
+  assert.match(game, /patrolDraft\.points\.push/);
+  assert.match(game, /patrolDraft\.points\.length < 2/);
+  assert.match(game, /issueGameCommand\(\{ type: "patrol", orders \}\)/);
+  assert.match(game, /patrolButton\.addEventListener\("click", togglePatrolRecording\)/);
+  assert.match(game, /if \(patrolDraft\) \{\s*recordPatrolPoint\(minimapTarget\)/);
+  assert.match(game, /movementOrderLoops\(unit\)/);
+  assert.match(game, /case "patrol"/);
+  assert.match(simulation, /commandPatrol\(unitIds, points\)/);
+});
+
 test("unit command authorization accepts the complete simulated army", async () => {
   const game = await source("../src/game.js");
   const authorization = game.match(

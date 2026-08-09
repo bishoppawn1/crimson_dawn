@@ -40,7 +40,7 @@ const {
 const { describeProductionQueue, describeSharedConstructionQueue } = await import(
   `./queue-status.js${versionSuffix}`
 );
-const { movementOrderDestinations } = await import(
+const { movementOrderDestinations, movementOrderLoops } = await import(
   `./command-indicators.js${versionSuffix}`
 );
 const {
@@ -124,6 +124,9 @@ const workerUpgradeTitle = document.querySelector("#worker-upgrade-title");
 const workerUpgradeDetails = document.querySelector("#worker-upgrade-details");
 const stopButton = document.querySelector("#stop-button");
 const holdButton = document.querySelector("#hold-button");
+const patrolButton = document.querySelector("#patrol-button");
+const patrolButtonTitle = patrolButton.querySelector("strong");
+const patrolButtonDetails = patrolButton.querySelector("small");
 const transportCommands = document.querySelector("#transport-commands");
 const transportDropButton = document.querySelector("#transport-drop-button");
 const unitCommands = document.querySelector("#unit-commands");
@@ -191,6 +194,7 @@ let placementMessage = null;
 let placementCursor = null;
 let pointerScreen = null;
 let forceMoveArmed = false;
+let patrolDraft = null;
 let paused = false;
 const fixedStep = SIMULATION_STEP_SECONDS;
 const authoritativeSimulationClock = new FixedStepSimulationClock({
@@ -531,6 +535,7 @@ for (const tier of [1, 2, 3]) {
     const roleSummary = describeStructureRole(definition);
     button.innerHTML = `${definition.name}<small>${definition.metalCost} crystal · T${definition.minimumWorkerTier} worker${roleSummary ? ` · ${roleSummary}` : ""}</small>`;
     button.addEventListener("click", () => {
+      patrolDraft = null;
       testerSpawnPlacement = null;
       placementStructureType = placementStructureType === structureType ? null : structureType;
       placementMessage = null;
@@ -592,6 +597,7 @@ function resetPresentation() {
   placementCursor = null;
   pointerScreen = null;
   forceMoveArmed = false;
+  patrolDraft = null;
   refreshTesterSpawnTeams();
   cameraKeys.clear();
   resetCamera();
@@ -1288,6 +1294,21 @@ function applyAuthorizedCommand(command, team) {
         }) || moved;
       }
       return moved;
+    }
+    case "patrol": {
+      if (!Array.isArray(command.orders)) return false;
+      let patrolling = false;
+      for (const order of boundedUnitCommandEntries(command.orders)) {
+        if (
+          !Array.isArray(order?.points) ||
+          order.points.length < 2 ||
+          order.points.some((point) => !Number.isFinite(point?.x) || !Number.isFinite(point?.y))
+        ) continue;
+        const unitIds = ownedUnitIds([order.unitId], team);
+        if (unitIds.length === 0) continue;
+        patrolling = simulation.commandPatrol(unitIds, order.points) || patrolling;
+      }
+      return patrolling;
     }
     case "attack": {
       const target = simulation.getEntity(command.targetId);
@@ -2873,6 +2894,26 @@ function drawCommandIndicators() {
     drawDestination(factory.rallyPoint.x, factory.rallyPoint.y, colors.selection);
   }
 
+  if (patrolDraft?.points.length > 0) {
+    const firstUnit = simulation.getUnit(patrolDraft.unitIds[0]);
+    const firstPosition = firstUnit ? presentedPosition(firstUnit) : patrolDraft.points[0];
+    context.save();
+    context.strokeStyle = `${colors.energy}95`;
+    context.lineWidth = 2;
+    context.setLineDash([7, 5]);
+    context.beginPath();
+    context.moveTo(firstPosition.x, firstPosition.y);
+    for (const point of patrolDraft.points) context.lineTo(point.x, point.y);
+    if (patrolDraft.points.length >= 2) {
+      context.lineTo(patrolDraft.points[0].x, patrolDraft.points[0].y);
+    }
+    context.stroke();
+    context.restore();
+    for (const point of patrolDraft.points) {
+      drawDestination(point.x, point.y, colors.energy);
+    }
+  }
+
   for (const unit of simulation.units) {
     if (!selectedUnitIds.has(unit.id) || !unit.alive || unit.carriedById) continue;
     const unitPosition = presentedPosition(unit);
@@ -2922,6 +2963,9 @@ function drawCommandIndicators() {
       context.moveTo(unitPosition.x, unitPosition.y);
       for (const destination of movementDestinations) {
         context.lineTo(destination.x, destination.y);
+      }
+      if (movementOrderLoops(unit)) {
+        context.lineTo(movementDestinations[0].x, movementDestinations[0].y);
       }
       context.stroke();
       context.restore();
@@ -6800,7 +6844,13 @@ function renderSelectionConstructionQueue(selectedUnits) {
   selectionConstructionQueue.hidden = false;
 }
 
+function patrolDraftMatchesSelection() {
+  if (!patrolDraft || patrolDraft.unitIds.length !== selectedUnitIds.size) return false;
+  return patrolDraft.unitIds.every((unitId) => selectedUnitIds.has(unitId));
+}
+
 function updateInterface() {
+  if (patrolDraft && !patrolDraftMatchesSelection()) patrolDraft = null;
   const matchEnded = Boolean(simulation.matchResult);
   matchResultPanel.hidden = !matchEnded;
   if (matchEnded) {
@@ -6961,6 +7011,18 @@ function updateInterface() {
   });
   overdriveButton.disabled = !canOverdrive;
   unitCommands.hidden = matchEnded || selectedUnits.length === 0;
+  const patrolRecording = Boolean(patrolDraft);
+  patrolButton.disabled = matchEnded || selectedUnits.length === 0 ||
+    (selectedUnits.length > 0 && !patrolRecording &&
+      !selectedUnits.some((unit) => unit.state === "active"));
+  patrolButton.classList.toggle("active", patrolRecording);
+  patrolButton.setAttribute("aria-pressed", String(patrolRecording));
+  patrolButtonTitle.textContent = patrolRecording ? "Finish Patrol" : "Patrol";
+  patrolButtonDetails.textContent = patrolRecording
+    ? patrolDraft.points.length >= 2
+      ? `${patrolDraft.points.length} points recorded · click to start loop`
+      : `${patrolDraft.points.length} point${patrolDraft.points.length === 1 ? "" : "s"} recorded · add ${2 - patrolDraft.points.length} more`
+    : "Record a repeating route";
   const selectedTransportUnits = selectedUnits.filter(
     (unit) =>
       unit.state === "active" &&
@@ -7133,6 +7195,11 @@ function updateInterface() {
   } else if (multiplayerSyncMessage) {
     statusBanner.hidden = false;
     statusBanner.textContent = multiplayerSyncMessage;
+  } else if (patrolDraft) {
+    statusBanner.hidden = false;
+    statusBanner.textContent = patrolDraft.points.length < 2
+      ? `PATROL ROUTE · ${patrolDraft.points.length} POINT${patrolDraft.points.length === 1 ? "" : "S"} · RIGHT-CLICK AT LEAST ${2 - patrolDraft.points.length} MORE · ESC TO CANCEL`
+      : `PATROL ROUTE · ${patrolDraft.points.length} POINTS · RIGHT-CLICK TO ADD MORE · CLICK PATROL TO START · ESC TO CANCEL`;
   } else if (forceMoveArmed) {
     statusBanner.hidden = false;
     statusBanner.textContent = "FORCE MOVE ARMED · RIGHT-CLICK DESTINATION · ESC TO CANCEL";
@@ -7546,6 +7613,10 @@ canvas.addEventListener("contextmenu", (event) => {
       !testerSpawnPlacement &&
       !placementStructureType
     ) {
+      if (patrolDraft) {
+        recordPatrolPoint(minimapTarget);
+        return;
+      }
       if (issueSelectedFactoryRally(minimapTarget)) return;
       if (selectedUnitIds.size > 0) {
         issueSelectedUnitMove(minimapTarget, event.shiftKey);
@@ -7562,6 +7633,10 @@ canvas.addEventListener("contextmenu", (event) => {
     return;
   }
   const point = canvasPoint(event);
+  if (patrolDraft) {
+    recordPatrolPoint(point);
+    return;
+  }
   if (issueSelectedFactoryRally(point)) return;
   if (selectedUnitIds.size === 0) return;
   const forceMove = forceMoveArmed;
@@ -7659,17 +7734,24 @@ function issueSelectedFactoryRally(point) {
   return Boolean(accepted);
 }
 
+function formationOffset(index, count) {
+  const columns = Math.ceil(Math.sqrt(count));
+  const rows = Math.ceil(count / columns);
+  const row = Math.floor(index / columns);
+  const column = index % columns;
+  return {
+    x: (column - (columns - 1) / 2) * 44,
+    y: (row - (rows - 1) / 2) * 44,
+  };
+}
+
 function issueSelectedUnitMove(point, queue = false) {
   const selected = [...selectedUnitIds];
   if (selected.length === 0) return false;
   const forceMove = forceMoveArmed;
-  const columns = Math.ceil(Math.sqrt(selected.length));
   const orders = selected.map((id, index) => {
-    const row = Math.floor(index / columns);
-    const column = index % columns;
-    const offsetX = (column - (columns - 1) / 2) * 44;
-    const offsetY = (row - (Math.ceil(selected.length / columns) - 1) / 2) * 44;
-    return { unitId: id, x: point.x + offsetX, y: point.y + offsetY };
+    const offset = formationOffset(index, selected.length);
+    return { unitId: id, x: point.x + offset.x, y: point.y + offset.y };
   });
   const accepted = issueGameCommand({
     type: "move",
@@ -7680,6 +7762,53 @@ function issueSelectedUnitMove(point, queue = false) {
   forceMoveArmed = false;
   updateInterface();
   return Boolean(accepted);
+}
+
+function recordPatrolPoint(point) {
+  if (!patrolDraft) return false;
+  patrolDraft.points.push({
+    x: clampValue(point.x, 0, simulation.width),
+    y: clampValue(point.y, 0, simulation.height),
+  });
+  updateInterface();
+  return true;
+}
+
+function togglePatrolRecording() {
+  if (patrolDraft) {
+    if (patrolDraft.points.length < 2) {
+      updateInterface();
+      return;
+    }
+    const completedDraft = patrolDraft;
+    patrolDraft = null;
+    const orders = completedDraft.unitIds.map((unitId, index) => {
+      const offset = formationOffset(index, completedDraft.unitIds.length);
+      return {
+        unitId,
+        points: completedDraft.points.map((point) => ({
+          x: point.x + offset.x,
+          y: point.y + offset.y,
+        })),
+      };
+    });
+    issueGameCommand({ type: "patrol", orders });
+    updateInterface();
+    return;
+  }
+
+  const unitIds = [...selectedUnitIds].filter((unitId) => {
+    const unit = simulation.getUnit(unitId);
+    return unit?.alive && !unit.carriedById;
+  });
+  if (!unitIds.some((unitId) => simulation.getUnit(unitId)?.state === "active")) return;
+  patrolDraft = { unitIds, points: [] };
+  testerSpawnPlacement = null;
+  placementStructureType = null;
+  placementMessage = null;
+  placementCursor = null;
+  forceMoveArmed = false;
+  updateInterface();
 }
 
 function selectedTransports() {
@@ -7801,6 +7930,7 @@ workerUpgradeButton.addEventListener("click", () => {
 });
 function armTesterSpawn(kind) {
   if (!simulation.isTesterTeam(localTeam) || !testerSpawnTeam.value) return;
+  patrolDraft = null;
   placementStructureType = null;
   testerSpawnPlacement = {
     kind,
@@ -7833,16 +7963,25 @@ testerSpawnUnit.addEventListener("change", () => {
     updateInterface();
   }
 });
-stopButton.addEventListener("click", () => issueGameCommand({
-  type: "stop",
-  unitIds: [...selectedUnitIds],
-  holdPosition: false,
-}));
-holdButton.addEventListener("click", () => issueGameCommand({
-  type: "stop",
-  unitIds: [...selectedUnitIds],
-  holdPosition: true,
-}));
+patrolButton.addEventListener("click", togglePatrolRecording);
+stopButton.addEventListener("click", () => {
+  patrolDraft = null;
+  issueGameCommand({
+    type: "stop",
+    unitIds: [...selectedUnitIds],
+    holdPosition: false,
+  });
+  updateInterface();
+});
+holdButton.addEventListener("click", () => {
+  patrolDraft = null;
+  issueGameCommand({
+    type: "stop",
+    unitIds: [...selectedUnitIds],
+    holdPosition: true,
+  });
+  updateInterface();
+});
 pauseButton.addEventListener("click", () => {
   if (isMultiplayer()) return;
   paused = !paused;
@@ -7944,6 +8083,7 @@ window.addEventListener("keydown", (event) => {
   }
   if (key === "c" && !event.repeat) cancelSelectedConstruction();
   if (key === "g" && !event.repeat) {
+    patrolDraft = null;
     forceMoveArmed = true;
     testerSpawnPlacement = null;
     placementStructureType = null;
@@ -7952,6 +8092,7 @@ window.addEventListener("keydown", (event) => {
     updateInterface();
   }
   if (event.key === "Escape") {
+    patrolDraft = null;
     forceMoveArmed = false;
     testerSpawnPlacement = null;
     placementStructureType = null;
