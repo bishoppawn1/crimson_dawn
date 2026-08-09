@@ -1867,13 +1867,21 @@ function drawFogOfWar() {
   fogContext.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
   fogContext.globalCompositeOperation = "destination-out";
   fogContext.fillStyle = "#000";
+  fogContext.beginPath();
   for (const source of renderVisionSources) {
     const screenX = canvas.width / 2 + (source.x - camera.x) * camera.zoom;
     const screenY = canvas.height / 2 + (source.y - camera.y) * camera.zoom;
-    fogContext.beginPath();
-    fogContext.arc(screenX, screenY, source.range * camera.zoom, 0, Math.PI * 2);
-    fogContext.fill();
+    const screenRadius = source.range * camera.zoom;
+    if (
+      screenX + screenRadius < 0 ||
+      screenX - screenRadius > canvas.width ||
+      screenY + screenRadius < 0 ||
+      screenY - screenRadius > canvas.height
+    ) continue;
+    fogContext.moveTo(screenX + screenRadius, screenY);
+    fogContext.arc(screenX, screenY, screenRadius, 0, Math.PI * 2);
   }
+  fogContext.fill();
   fogContext.globalCompositeOperation = "source-over";
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
@@ -2006,10 +2014,14 @@ function drawMinimap() {
   minimapFogContext.fillRect(0, 0, minimapFogWidth, minimapFogHeight);
   minimapFogContext.globalCompositeOperation = "destination-out";
   minimapFogContext.fillStyle = "#000";
+  minimapFogContext.beginPath();
   for (const source of renderVisionSources) {
     const point = minimapPoint(layout, source.x, source.y);
     const range = source.range * layout.scale;
-    minimapFogContext.beginPath();
+    minimapFogContext.moveTo(
+      point.x - layout.mapLeft + range,
+      point.y - layout.mapTop,
+    );
     minimapFogContext.arc(
       point.x - layout.mapLeft,
       point.y - layout.mapTop,
@@ -2017,8 +2029,8 @@ function drawMinimap() {
       0,
       Math.PI * 2,
     );
-    minimapFogContext.fill();
   }
+  minimapFogContext.fill();
   minimapFogContext.globalCompositeOperation = "source-over";
   context.drawImage(minimapFogCanvas, layout.mapLeft, layout.mapTop);
   drawMinimapCrystalDeposits(layout);

@@ -113,6 +113,23 @@ test("the battlefield, minimap, effects, and targeting share fog visibility", as
   assert.match(index, /Fog of war hides enemy contacts/);
 });
 
+test("fog masks batch large-army vision circles into one fill operation", async () => {
+  const game = await source("../src/game.js");
+  const battlefieldFog = game.match(
+    /function drawFogOfWar\(\) \{[\s\S]*?function worldRectIsVisible/,
+  );
+
+  assert.ok(battlefieldFog);
+  assert.match(
+    battlefieldFog[0],
+    /fogContext\.beginPath\(\);[\s\S]*?for \(const source of renderVisionSources\)[\s\S]*?fogContext\.arc\([\s\S]*?\n  \}[\s\S]*?fogContext\.fill\(\);/,
+  );
+  assert.match(
+    game,
+    /minimapFogContext\.beginPath\(\);[\s\S]*?for \(const source of renderVisionSources\)[\s\S]*?minimapFogContext\.arc\([\s\S]*?\n  \}[\s\S]*?minimapFogContext\.fill\(\);/,
+  );
+});
+
 test("completed Shield Turrets always render their cyan shield-strength bar", async () => {
   const game = await source("../src/game.js");
   const shieldBarBlock = game.match(

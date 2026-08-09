@@ -1688,6 +1688,52 @@ test("unit separation exits after one pass when no units overlap", () => {
   assert.equal(simulation.lastUnitSeparationPasses, 1);
 });
 
+test("finished ticks remove destroyed entity tombstones from active collections", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  const survivingUnit = simulation.addUnit("scout_mech", "player", 100, 100);
+  const destroyedUnits = Array.from({ length: 240 }, (_, index) =>
+    simulation.addUnit("scout_mech", "enemy", 600 + index * 2, 600),
+  );
+  const destroyedStructure = simulation.addStructure("generator", "enemy", 900, 900);
+
+  for (const unit of destroyedUnits) simulation.applyDamage(unit, unit.hp, survivingUnit);
+  simulation.applyDamage(destroyedStructure, destroyedStructure.hp, survivingUnit);
+  assert.equal(simulation.units.length, 241);
+  assert.equal(simulation.structures.length, 1);
+
+  simulation.tick(1 / 30);
+
+  assert.deepEqual(simulation.units, [survivingUnit]);
+  assert.equal(simulation.structures.length, 0);
+  assert.equal(simulation.getUnit(destroyedUnits[0].id), null);
+  assert.equal(simulation.getStructure(destroyedStructure.id), null);
+  assert.equal(simulation.wrecks.length, destroyedUnits.length);
+});
+
+test("idle armies stagger automatic target scans after their initial acquisition", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  for (let index = 0; index < 180; index += 1) {
+    simulation.addUnit("scout_mech", "player", 100 + index * 30, 100);
+  }
+  let targetSearches = 0;
+  const originalSearch = simulation.getNearbyHostileTargets.bind(simulation);
+  simulation.getNearbyHostileTargets = (...args) => {
+    targetSearches += 1;
+    return originalSearch(...args);
+  };
+
+  simulation.assignAutomaticTargets();
+  assert.equal(targetSearches, 180);
+  targetSearches = 0;
+  simulation.assignAutomaticTargets();
+  assert.equal(targetSearches, 0);
+
+  simulation.time += SIMULATION_RULES.automaticTargetScanInterval / 2;
+  simulation.assignAutomaticTargets();
+  assert.ok(targetSearches > 0);
+  assert.ok(targetSearches < 180);
+});
+
 test("movement consumes energy and an exhausted unit enters stasis", () => {
   const simulation = new Simulation();
   const unit = simulation.addUnit("scout_mech", "player", 20, 20, { energy: 1 });
@@ -6016,6 +6062,27 @@ test("AI difficulty changes deterministic decision cadence and attack preparatio
     [1.8, 1, 0.55],
   );
   assert.deepEqual(aiTeams.map((team) => simulation.getEnemyAttackWaveSize(team.id)), [5, 3, 3]);
+});
+
+test("eliminated AI commanders stop running strategic decisions", () => {
+  const simulation = new Simulation({ teams: createMatchTeams(3) });
+  for (let index = 0; index < 300; index += 1) {
+    simulation.addUnit("scout_mech", "player", 100 + index * 20, 100);
+  }
+  let strategicEvaluations = 0;
+  simulation.getEnemyStrategicConstructionRequest = () => {
+    strategicEvaluations += 1;
+    return null;
+  };
+  simulation.aiStates.enemy.thinkRemaining = 0;
+
+  simulation.updateAiTeam("enemy", 0);
+
+  assert.equal(strategicEvaluations, 0);
+  assert.equal(
+    simulation.aiStates.enemy.thinkRemaining,
+    SIMULATION_RULES.enemyDifficultyProfiles.medium.thinkInterval,
+  );
 });
 
 test("allied commanders share vision, reject friendly fire, and win together", () => {

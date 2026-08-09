@@ -83,6 +83,7 @@ export class Simulation {
     this.entityById = new Map();
     this.droneCache = [];
     this.combatSpatialIndex = new Map();
+    this.combatSpatialIndexDirty = true;
     this.groundNavigationObstacleCache = new Map();
     this.lastUnitSeparationPasses = 0;
     this.navigationSearchesRemaining = NAVIGATION_SEARCHES_PER_TICK;
@@ -500,6 +501,7 @@ export class Simulation {
       moveQueue: [],
       attackTargetId: null,
       attackTargetMode: null,
+      nextAutomaticTargetScanAt: this.time,
       buildTargetId: null,
       buildQueue: [],
       repairTargetId: null,
@@ -547,6 +549,7 @@ export class Simulation {
     if (unit.energy <= EPSILON) unit.state = "stasis";
     this.units.push(unit);
     this.entityById.set(unit.id, unit);
+    this.combatSpatialIndexDirty = true;
     return unit;
   }
 
@@ -582,6 +585,7 @@ export class Simulation {
       supplyLevel: definition.supplyLevels ? 1 : null,
       supplyUpgrade: null,
       attackCooldownRemaining: 0,
+      nextAutomaticTargetScanAt: this.time,
       weaponEnergy: definition.capacitorCapacity ? definition.capacitorCapacity : null,
       defenseTargetId: null,
       defenseStatus: definition.capacitorCapacity ? "ready" : null,
@@ -612,6 +616,7 @@ export class Simulation {
 
     this.structures.push(structure);
     this.entityById.set(structure.id, structure);
+    this.combatSpatialIndexDirty = true;
     if (structure.complete) this.recordStructureTierUnlock(structure);
     return structure;
   }
@@ -642,6 +647,7 @@ export class Simulation {
     };
     this.entityById.set(drone.id, drone);
     this.droneCache.push(drone);
+    this.combatSpatialIndexDirty = true;
     return drone;
   }
 
@@ -2305,7 +2311,24 @@ export class Simulation {
       if (wreck.metal <= EPSILON) this.entityById.delete(wreck.id);
     }
     this.wrecks = this.wrecks.filter((wreck) => wreck.metal > EPSILON);
+    this.pruneDestroyedEntities();
     this.updateMatchResult();
+  }
+
+  pruneDestroyedEntities() {
+    const retainedUnits = [];
+    for (const unit of this.units) {
+      if (unit.alive) retainedUnits.push(unit);
+      else this.entityById.delete(unit.id);
+    }
+    this.units = retainedUnits;
+
+    const retainedStructures = [];
+    for (const structure of this.structures) {
+      if (structure.alive || structure.drones?.length) retainedStructures.push(structure);
+      else this.entityById.delete(structure.id);
+    }
+    this.structures = retainedStructures;
   }
 
   fixedTick() {
@@ -2764,9 +2787,14 @@ export class Simulation {
       if (occupants) occupants.push(entity);
       else this.combatSpatialIndex.set(key, [entity]);
     }
+    this.combatSpatialIndexDirty = false;
   }
 
-  getNearbyHostileTargets(origin, range) {
+  ensureCombatSpatialIndex() {
+    if (this.combatSpatialIndexDirty) this.rebuildCombatSpatialIndex();
+  }
+
+  getNearbySpatialEntities(origin, range) {
     const searchRadius = range + MAX_COMBAT_TARGET_RADIUS;
     const minimumCellX = Math.floor((origin.x - searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
     const maximumCellX = Math.floor((origin.x + searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
@@ -2776,39 +2804,37 @@ export class Simulation {
     for (let cellY = minimumCellY; cellY <= maximumCellY; cellY += 1) {
       for (let cellX = minimumCellX; cellX <= maximumCellX; cellX += 1) {
         const occupants = this.combatSpatialIndex.get(`${cellX},${cellY}`);
-        if (!occupants) continue;
-        for (const target of occupants) {
-          if (this.areHostileTeams(target.team, origin.team) && target.alive) {
-            candidates.push(target);
-          }
-        }
+        if (occupants) candidates.push(...occupants);
       }
     }
     return candidates;
   }
 
+  getNearbyHostileTargets(origin, range) {
+    return this.getNearbySpatialEntities(origin, range).filter(
+      (target) => this.areHostileTeams(target.team, origin.team) && target.alive,
+    );
+  }
+
   getNearbyAutomaticRepairTargets(worker, range) {
-    const searchRadius = range + MAX_COMBAT_TARGET_RADIUS;
-    const minimumCellX = Math.floor((worker.x - searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
-    const maximumCellX = Math.floor((worker.x + searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
-    const minimumCellY = Math.floor((worker.y - searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
-    const maximumCellY = Math.floor((worker.y + searchRadius) / COMBAT_SPATIAL_CELL_SIZE);
-    const candidates = [];
-    for (let cellY = minimumCellY; cellY <= maximumCellY; cellY += 1) {
-      for (let cellX = minimumCellX; cellX <= maximumCellX; cellX += 1) {
-        const occupants = this.combatSpatialIndex.get(`${cellX},${cellY}`);
-        if (!occupants) continue;
-        for (const target of occupants) {
-          if (
-            isValidRepairTarget(worker, target) &&
-            distanceToEntitySurface(worker, target) <= range + EPSILON
-          ) {
-            candidates.push(target);
-          }
-        }
-      }
+    return this.getNearbySpatialEntities(worker, range).filter(
+      (target) =>
+        isValidRepairTarget(worker, target) &&
+        distanceToEntitySurface(worker, target) <= range + EPSILON,
+    );
+  }
+
+  automaticTargetScanDue(entity, interval) {
+    if (!Number.isFinite(entity.nextAutomaticTargetScanAt)) {
+      entity.nextAutomaticTargetScanAt = this.time;
     }
-    return candidates;
+    if (this.time + EPSILON < entity.nextAutomaticTargetScanAt) return false;
+    entity.nextAutomaticTargetScanAt = nextDeterministicIntervalTime(
+      entity.id,
+      this.time,
+      interval,
+    );
+    return true;
   }
 
   assignAutomaticTargets() {
@@ -2842,11 +2868,22 @@ export class Simulation {
           ["explicit", "retaliation"].includes(unit.attackTargetMode)
         )
       );
+      const canAcquireAutomaticTarget = Boolean(
+        (definition.workerTier && definition.automaticRepairRange > 0) ||
+        definition.automaticallyPursuesBeamTargets ||
+        definition.attackRange > 0
+      );
+      const staggeredScanDue = canAcquireAutomaticTarget && this.automaticTargetScanDue(
+        unit,
+        SIMULATION_RULES.automaticTargetScanInterval,
+      );
+      const automaticScanDue = Boolean(definition.workerTier || unit.moveTarget || staggeredScanDue);
       if (
         definition.workerTier &&
         definition.automaticRepairRange > 0 &&
         !isValidRepairTarget(unit, repairTarget) &&
-        !hasPriorityWorkerOrder
+        !hasPriorityWorkerOrder &&
+        automaticScanDue
       ) {
         repairTarget = nearestBySurfaceDistance(
           unit,
@@ -2876,7 +2913,9 @@ export class Simulation {
         continue;
       }
       if (definition.automaticallyPursuesBeamTargets) {
-        this.assignAutomaticBeamPursuit(unit, definition, existingTarget);
+        if (existingTarget?.alive || automaticScanDue) {
+          this.assignAutomaticBeamPursuit(unit, definition, existingTarget);
+        }
         continue;
       }
       if (definition.attackRange <= 0) continue;
@@ -2899,6 +2938,7 @@ export class Simulation {
       }
       unit.attackTargetId = null;
       unit.attackTargetMode = null;
+      if (!automaticScanDue) continue;
       const potentialTargets = this.getNearbyHostileTargets(unit, definition.attackRange)
         .filter(
           (target) =>
@@ -2962,6 +3002,10 @@ export class Simulation {
     aiState.thinkRemaining -= delta;
     if (aiState.thinkRemaining > 0) return;
     aiState.thinkRemaining = this.getAiDifficultyProfile(teamId).thinkInterval;
+    const hasLivingAssets =
+      this.units.some((unit) => unit.alive && unit.team === teamId) ||
+      this.structures.some((structure) => structure.alive && structure.team === teamId);
+    if (!hasLivingAssets) return;
 
     const enemyFactories = this.structures.filter((structure) =>
       structure.alive &&
@@ -2969,9 +3013,8 @@ export class Simulation {
       structure.team === teamId &&
       STRUCTURE_DEFINITIONS[structure.type].production?.length > 0
     );
-    const enemyWorkers = this.units.filter(
-      (unit) => unit.alive && unit.team === teamId && UNIT_DEFINITIONS[unit.type].workerTier,
-    );
+    const enemyUnits = this.units.filter((unit) => unit.alive && unit.team === teamId);
+    const enemyWorkers = enemyUnits.filter((unit) => UNIT_DEFINITIONS[unit.type].workerTier);
     this.reassignEnemyConstruction(enemyWorkers, teamId);
 
     const enemyAnchor = this.structures.find(
@@ -3080,6 +3123,7 @@ export class Simulation {
           constructionRequest.type,
         ),
     );
+    let constructionStarted = false;
     if (
       constructionRequest &&
       availableWorker &&
@@ -3109,7 +3153,10 @@ export class Simulation {
           site.y,
         )
         : null;
-      if (construction) aiState.decisionIndex += 1;
+      if (construction) {
+        aiState.decisionIndex += 1;
+        constructionStarted = true;
+      }
     }
 
     const nextSupplyComplex = this.structures.find(
@@ -3121,12 +3168,16 @@ export class Simulation {
     const nextSupplyRequest = supplyIsLow && !nextSupplyComplex
       ? { type: "supply_complex", ...planPoint(360, -480) }
       : null;
-    const reservedPlan = nextSupplyRequest || this.getEnemyStrategicConstructionRequest(
-      teamId,
-      enemyAnchor,
-      playerTargets,
-      planPoint,
-      aiState.decisionIndex,
+    const reservedPlan = nextSupplyRequest || (
+      !constructionStarted && !needsSupplyUpgrade
+        ? strategicRequest
+        : this.getEnemyStrategicConstructionRequest(
+          teamId,
+          enemyAnchor,
+          playerTargets,
+          planPoint,
+          aiState.decisionIndex,
+        )
     );
     const reservedPlanMetal = reservedPlan
       ? STRUCTURE_DEFINITIONS[reservedPlan.type].metalCost
@@ -3150,11 +3201,9 @@ export class Simulation {
     const reservedMetal = Math.max(reservedPlanMetal, supplyUpgradeDefinition?.metalCost || 0) + (
       needsReservedGenerator ? STRUCTURE_DEFINITIONS.generator.metalCost : 0
     );
-    const stagedCombatCount = this.units.filter((unit) => {
+    const stagedCombatCount = enemyUnits.filter((unit) => {
       const definition = UNIT_DEFINITIONS[unit.type];
       return (
-        unit.alive &&
-        unit.team === teamId &&
         isCombatUnitDefinition(definition) &&
         !isMobileEnergySupportDefinition(definition) &&
         unit.attackTargetMode !== "explicit" &&
@@ -3173,10 +3222,14 @@ export class Simulation {
       0,
     );
     const stagedFieldUnits = this.getEnemyStagedCombatUnits(teamId);
+    const preflightAssaultPlan = stagedFieldUnits.length >= desiredWaveSize &&
+      playerTargets.length > 0
+      ? this.getEnemyAssaultPlan(stagedFieldUnits, playerTargets, desiredWaveSize)
+      : null;
     const assaultBlocked = Boolean(
       stagedFieldUnits.length >= desiredWaveSize &&
       playerTargets.length > 0 &&
-      !this.getEnemyAssaultPlan(stagedFieldUnits, playerTargets, desiredWaveSize)
+      !preflightAssaultPlan
     );
     const needsCombatForce =
       stagedCombatCount + queuedCombatCount < desiredWaveSize + desiredGarrisonCount ||
@@ -3186,6 +3239,33 @@ export class Simulation {
         (order) => UNIT_DEFINITIONS[order.unitType]?.workerTier,
       ).length,
       0,
+    );
+    const liveUnitTypeCounts = new Map();
+    for (const unit of enemyUnits) {
+      liveUnitTypeCounts.set(unit.type, (liveUnitTypeCounts.get(unit.type) || 0) + 1);
+    }
+    const queuedUnitTypeCounts = new Map();
+    for (const factory of enemyFactories) {
+      for (const order of factory.productionQueue) {
+        queuedUnitTypeCounts.set(
+          order.unitType,
+          (queuedUnitTypeCounts.get(order.unitType) || 0) + 1,
+        );
+      }
+    }
+    let supportCount = enemyUnits.filter(
+      (unit) => isMobileEnergySupportDefinition(UNIT_DEFINITIONS[unit.type]),
+    ).length + [...queuedUnitTypeCounts.entries()].reduce(
+      (total, [unitType, count]) =>
+        total + (isMobileEnergySupportDefinition(UNIT_DEFINITIONS[unitType]) ? count : 0),
+      0,
+    );
+    let highestWorkerTier = Math.max(
+      0,
+      ...enemyWorkers.map((worker) => UNIT_DEFINITIONS[worker.type].workerTier),
+      ...[...queuedUnitTypeCounts.keys()].map(
+        (unitType) => UNIT_DEFINITIONS[unitType]?.workerTier || 0,
+      ),
     );
     for (const factory of enemyFactories) {
       if (factory.productionQueue.length >= 2) continue;
@@ -3204,32 +3284,13 @@ export class Simulation {
         .map((unitType, order) => ({
           unitType,
           order,
-          count:
-            this.units.filter(
-              (unit) => unit.alive && unit.team === teamId && unit.type === unitType,
-            ).length +
-            enemyFactories.reduce(
-              (total, candidate) => total + candidate.productionQueue.filter(
-                (queued) => queued.unitType === unitType,
-              ).length,
-              0,
-            ),
+          count: (liveUnitTypeCounts.get(unitType) || 0) +
+            (queuedUnitTypeCounts.get(unitType) || 0),
         }))
         .sort((left, right) => left.count - right.count || left.order - right.order)[0]
         ?.unitType;
       const supportType = factoryDefinition.production.find(
         (unitType) => isMobileEnergySupportDefinition(UNIT_DEFINITIONS[unitType]),
-      );
-      const supportCount = this.units.filter(
-        (unit) =>
-          unit.alive &&
-          unit.team === teamId &&
-          isMobileEnergySupportDefinition(UNIT_DEFINITIONS[unit.type]),
-      ).length + enemyFactories.reduce(
-        (total, candidate) => total + candidate.productionQueue.filter(
-          (queued) => isMobileEnergySupportDefinition(UNIT_DEFINITIONS[queued.unitType]),
-        ).length,
-        0,
       );
       const combatPopulation = stagedCombatCount + queuedCombatCount;
       const desiredSupportCount = combatPopulation >= desiredWaveSize
@@ -3242,13 +3303,6 @@ export class Simulation {
         )
         : 0;
       const replacingWorker = enemyWorkers.length + queuedWorkerCount < 3;
-      const highestWorkerTier = Math.max(
-        0,
-        ...enemyWorkers.map((worker) => UNIT_DEFINITIONS[worker.type].workerTier),
-        ...enemyFactories.flatMap((candidate) => candidate.productionQueue.map(
-          (queued) => UNIT_DEFINITIONS[queued.unitType]?.workerTier || 0,
-        )),
-      );
       const advancesWorkerTier =
         workerType && UNIT_DEFINITIONS[workerType].workerTier > highestWorkerTier;
       const needsSupport = supportType && supportCount < desiredSupportCount;
@@ -3263,8 +3317,16 @@ export class Simulation {
         ? 0
         : reservedMetal;
       if (this.resources[teamId].metal + EPSILON < productionCost + requiredReserve) continue;
-      if (this.queueProduction(factory.id, choice) && UNIT_DEFINITIONS[choice].workerTier) {
-        queuedWorkerCount += 1;
+      if (this.queueProduction(factory.id, choice)) {
+        queuedUnitTypeCounts.set(choice, (queuedUnitTypeCounts.get(choice) || 0) + 1);
+        if (UNIT_DEFINITIONS[choice].workerTier) {
+          queuedWorkerCount += 1;
+          highestWorkerTier = Math.max(
+            highestWorkerTier,
+            UNIT_DEFINITIONS[choice].workerTier,
+          );
+        }
+        if (isMobileEnergySupportDefinition(UNIT_DEFINITIONS[choice])) supportCount += 1;
       }
     }
 
@@ -3288,12 +3350,16 @@ export class Simulation {
     // single newly produced defender across the map. Keep the response
     // immediate once a force is ready while requiring the same minimum
     // coordinated wave as a normal assault.
+    const stagedUnitsUnchanged = stagedUnits.length === stagedFieldUnits.length &&
+      stagedUnits.every((unit, index) => unit.id === stagedFieldUnits[index]?.id);
     const assaultPlan = rushTargets.length > 0 && stagedUnits.length >= desiredWaveSize
       ? {
         target: nearest(stagedUnits[0], rushTargets),
         wave: stagedUnits,
       }
-      : this.getEnemyAssaultPlan(stagedUnits, playerTargets, desiredWaveSize);
+      : stagedUnitsUnchanged
+        ? preflightAssaultPlan
+        : this.getEnemyAssaultPlan(stagedUnits, playerTargets, desiredWaveSize);
     if (assaultPlan) {
       const { target, wave } = assaultPlan;
       const waveCenter = {
@@ -3957,27 +4023,54 @@ export class Simulation {
         distance(armyCenter, left) - distance(armyCenter, right) ||
         left.id.localeCompare(right.id),
     );
+    const evaluationRadius = SIMULATION_RULES.enemyAssaultEvaluationRadius;
+    const targetCells = new Set();
+    const representativeTargets = [];
+    for (const target of orderedTargets) {
+      const cellKey = `${Math.floor(target.x / evaluationRadius)},${Math.floor(target.y / evaluationRadius)}`;
+      if (targetCells.has(cellKey)) continue;
+      targetCells.add(cellKey);
+      representativeTargets.push(target);
+      if (
+        representativeTargets.length >=
+        SIMULATION_RULES.enemyAssaultTargetEvaluationLimit
+      ) break;
+    }
     const orderedAttackers = [...stagedUnits].sort(
       (left, right) =>
         combatStrength(right) - combatStrength(left) || left.id.localeCompare(right.id),
     );
+    const defenderCells = new Map();
+    for (const entity of playerTargets) {
+      const definition = entity.kind === "unit"
+        ? UNIT_DEFINITIONS[entity.type]
+        : STRUCTURE_DEFINITIONS[entity.type];
+      if (
+        (entity.kind === "unit" &&
+          (entity.state !== "active" || !isCombatUnitDefinition(definition))) ||
+        (entity.kind === "structure" && (!entity.complete || !(definition?.attackRange > 0)))
+      ) continue;
+      const cellKey = `${Math.floor(entity.x / evaluationRadius)},${Math.floor(entity.y / evaluationRadius)}`;
+      const occupants = defenderCells.get(cellKey);
+      if (occupants) occupants.push(entity);
+      else defenderCells.set(cellKey, [entity]);
+    }
 
-    for (const target of orderedTargets) {
-      const nearbyDefenders = playerTargets.filter((entity) => {
-        const definition = entity.kind === "unit"
-          ? UNIT_DEFINITIONS[entity.type]
-          : STRUCTURE_DEFINITIONS[entity.type];
-        return (
-          (entity.kind !== "unit" || entity.state === "active") &&
-          (entity.kind !== "structure" || entity.complete) &&
-          (
-            entity.kind === "unit"
-              ? isCombatUnitDefinition(definition)
-              : definition?.attackRange > 0
-          ) &&
-          distance(entity, target) <= SIMULATION_RULES.enemyAssaultEvaluationRadius
-        );
-      });
+    for (const target of representativeTargets) {
+      const targetCellX = Math.floor(target.x / evaluationRadius);
+      const targetCellY = Math.floor(target.y / evaluationRadius);
+      const nearbyDefenders = [];
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          const occupants = defenderCells.get(
+            `${targetCellX + offsetX},${targetCellY + offsetY}`,
+          );
+          if (!occupants) continue;
+          for (const entity of occupants) {
+            if (distance(entity, target) <= evaluationRadius) nearbyDefenders.push(entity);
+          }
+        }
+      }
       const hostileStrength = nearbyDefenders.reduce(
         (total, entity) => total + combatStrength(entity),
         0,
@@ -4266,8 +4359,8 @@ export class Simulation {
       const definition = STRUCTURE_DEFINITIONS[defense.type];
       if (!defense.alive || !defense.complete || !definition.capacitorCapacity) continue;
       defense.attackCooldownRemaining = Math.max(0, defense.attackCooldownRemaining - delta);
-      defense.defenseTargetId = null;
       if (!defense.powered) {
+        defense.defenseTargetId = null;
         defense.defenseStatus = "unpowered";
         continue;
       }
@@ -4280,14 +4373,28 @@ export class Simulation {
         defense.weaponEnergy += this.takeStructureEnergy(defense, chargeRequest);
       }
 
-      const nearbyTargets = this.getNearbyHostileTargets(defense, definition.attackRange)
-        .filter(
-          (target) => distance(defense, target) <= definition.attackRange + entityRadius(target),
+      const existingTarget = this.getEntity(defense.defenseTargetId);
+      let target = existingTarget?.alive &&
+        this.areHostileTeams(existingTarget.team, defense.team) &&
+        isStaticDefenseTargetInRange(definition, defense, existingTarget)
+        ? existingTarget
+        : null;
+      let nearbyTargets = [];
+      if (this.automaticTargetScanDue(
+        defense,
+        SIMULATION_RULES.staticDefenseTargetScanInterval,
+      )) {
+        nearbyTargets = this.getNearbyHostileTargets(defense, definition.attackRange)
+          .filter(
+            (candidate) =>
+              distance(defense, candidate) <= definition.attackRange + entityRadius(candidate),
+          );
+        const targets = nearbyTargets.filter((candidate) =>
+          isStaticDefenseTargetInRange(definition, defense, candidate)
         );
-      const targets = nearbyTargets.filter((target) =>
-        isStaticDefenseTargetInRange(definition, defense, target)
-      );
-      const target = nearest(defense, preferredTargets(definition, targets));
+        target = nearest(defense, preferredTargets(definition, targets));
+      }
+      defense.defenseTargetId = target?.id || null;
       if (!target) {
         const targetInsideDeadZone = nearbyTargets.some((candidate) =>
           distance(defense, candidate) + EPSILON < (definition.minimumAttackRange || 0)
@@ -4515,6 +4622,7 @@ export class Simulation {
       }
     }
     this.syncTransportCargoPositions();
+    this.combatSpatialIndexDirty = true;
   }
 
   updateUnitRepair(worker, target, definition, delta) {
@@ -5114,12 +5222,14 @@ export class Simulation {
   }
 
   updateChargers(delta) {
+    this.ensureCombatSpatialIndex();
     for (const charger of this.structures) {
       const definition = STRUCTURE_DEFINITIONS[charger.type];
       if (!charger.alive || !definition.chargeRadius || !charger.powered) continue;
-      const recipients = this.units
+      const recipients = this.getNearbySpatialEntities(charger, definition.chargeRadius)
         .filter(
           (unit) =>
+            unit.kind === "unit" &&
             unit.alive &&
             !unit.carriedById &&
             unit.team === charger.team &&
@@ -5159,6 +5269,7 @@ export class Simulation {
   }
 
   updateEnergyCarriers(delta) {
+    this.ensureCombatSpatialIndex();
     const carriers = this.units.filter(
       (unit) =>
         unit.alive &&
@@ -5175,9 +5286,10 @@ export class Simulation {
       let remainingBudget = Math.min(definition.transferRate * delta, availableEnergy);
       if (remainingBudget <= EPSILON) continue;
 
-      const recipients = this.units
+      const recipients = this.getNearbySpatialEntities(carrier, definition.transferRange)
         .filter((unit) => {
           if (
+            unit.kind !== "unit" ||
             !unit.alive ||
             unit.carriedById ||
             unit.id === carrier.id ||
@@ -5503,6 +5615,7 @@ export class Simulation {
     const cargoIds = [...(unit.cargoUnitIds || [])];
     unit.cargoUnitIds = [];
     unit.alive = false;
+    this.combatSpatialIndexDirty = true;
     unit.hp = 0;
     unit.state = "destroyed";
     unit.carriedById = null;
@@ -5590,6 +5703,7 @@ export class Simulation {
     if (target.kind === "structure") this.recordAiConstructionLoss(target);
     target.hp = 0;
     target.alive = false;
+    this.combatSpatialIndexDirty = true;
     target.powered = false;
     target.connected = false;
     target.powerStatus = "destroyed";
@@ -5702,6 +5816,7 @@ export class Simulation {
     const destroyedAt = { x: drone.x, y: drone.y };
     const droppedMetal = drone.carry;
     drone.alive = false;
+    this.combatSpatialIndexDirty = true;
     drone.hp = 0;
     drone.carry = 0;
     drone.mode = "rebuilding";
@@ -5721,6 +5836,7 @@ export class Simulation {
   replaceDrone(drone, yard) {
     const angle = (drone.slot / STRUCTURE_DEFINITIONS[yard.type].droneCount) * Math.PI * 2;
     drone.alive = true;
+    this.combatSpatialIndexDirty = true;
     drone.hp = DRONE_DEFINITION.maxHp;
     drone.x = yard.x + Math.cos(angle) * 28;
     drone.y = yard.y + Math.sin(angle) * 28;
@@ -6075,6 +6191,12 @@ function deterministicPhase(entityId, interval) {
     hash = (hash * 31 + entityId.charCodeAt(index)) >>> 0;
   }
   return (hash % 997) / 997 * interval;
+}
+
+function nextDeterministicIntervalTime(entityId, currentTime, interval) {
+  const phase = deterministicPhase(entityId, interval);
+  const completedIntervals = Math.floor((currentTime - phase) / interval) + 1;
+  return Math.max(currentTime + EPSILON, phase + completedIntervals * interval);
 }
 
 function footprintOverlapsTerrain(x, y, footprint, obstacle) {

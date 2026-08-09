@@ -1211,16 +1211,18 @@ time, power demand, and destruction all use normal simulation rules. The crystal
 decision thresholds are provisional.
 
 Enemy combat units stage until three active attackers are ready, then launch as a
-coordinated wave only after a preflight strength check. For each candidate target,
-the AI totals active hostile combat units and completed armed structures within a
-provisional 520-world-unit defense radius. It selects the nearest target whose
-local defensive strength does not exceed the staged wave's strength by more than a
-provisional factor of 1.5. If the ordinary three-unit wave is outmatched, the units
-remain staged while production prioritizes reinforcements; once enough attackers
-are present, the AI sends the smallest safe wave. If the nearest objective is too
-strongly defended but another valid target is safe, the wave attacks the safer
-objective instead. The AI does not send an ordinary wave and then reverse it into
-a strategic retreat; a dispatched formation continues its assault.
+coordinated wave only after a preflight strength check. Targets in the same
+provisional 520-world-unit defense region share one nearest representative, and an
+AI evaluates at most 64 such regions in one decision. For each representative, the
+AI totals active hostile combat units and completed armed structures within the
+same defense radius. It selects the nearest target whose local defensive strength
+does not exceed the staged wave's strength by more than a provisional factor of
+1.5. If the ordinary three-unit wave is outmatched, the units remain staged while
+production prioritizes reinforcements; once enough attackers are present, the AI
+sends the smallest safe wave. If the nearest objective is too strongly defended
+but another evaluated region is safe, the wave attacks the safer objective instead.
+The AI does not send an ordinary wave and then reverse it into a strategic retreat;
+a dispatched formation continues its assault.
 
 Advancing formations retain that strategic destination while stopping to fire at
 any hostile unit or structure that enters weapon range; they resume the advance
@@ -1291,10 +1293,24 @@ or simulation module with a newly deployed menu after reload.
 Combat acquisition uses a spatial index rather than all-to-all scans. Physical unit
 separation stops as soon as a solver pass finds no overlap and is capped at four
 passes per tick, allowing unusually dense formations to finish spreading over
-successive ticks instead of monopolizing one frame. The HTML status interface
-refreshes at ten updates per second, while Canvas motion still renders every frame.
-The independent authoritative heartbeat can catch up as many as 30 fixed steps
-after an interruption, then publishes only its newest state.
+successive ticks instead of monopolizing one frame. Units without a current target
+stagger new automatic acquisition scans across a provisional 0.2-second interval;
+moving units and workers remain immediately responsive, and existing targets are
+validated continuously. Static defenses stagger new acquisition across 0.1 seconds.
+Chargers and mobile energy carriers query nearby units through the same bounded
+spatial index instead of rescanning the complete army for every supplier.
+Destroyed units and ordinary destroyed structures are removed from active entity
+collections and ID lookup at the end of the tick after their wreckage and effects
+are created, so old casualties do not enlarge later simulation work or multiplayer
+snapshots. Destroyed reclamation yards remain only while needed to preserve their
+drone state. An AI commander with no living units or structures skips its strategic
+decision, and each decision reuses its preflight and population counts rather than
+repeating identical large-army scans. The HTML status interface refreshes at ten
+updates per second, while Canvas motion still renders every frame. Main-map and
+minimap fog combine their visible vision circles into one mask fill per surface and
+discard main-map circles wholly outside the viewport. The independent authoritative
+heartbeat can catch up as many as 30 fixed steps after an interruption, then
+publishes only its newest state.
 
 Battlefields currently range from 5,200 by 3,200 world units for two commanders to
 8,560 by 6,280 for eight. `WASD` pans the camera, and the mouse wheel zooms from a
