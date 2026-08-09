@@ -4173,13 +4173,29 @@ export class Simulation {
     );
     if (!undefendedMine) return null;
     const home = this.teamStarts[teamId] || enemyAnchor;
-    const towardHomeX = home.x - undefendedMine.x;
-    const towardHomeY = home.y - undefendedMine.y;
-    const towardHomeLength = Math.hypot(towardHomeX, towardHomeY) || 1;
+    const hostileStart = nearest(
+      undefendedMine,
+      this.teams
+        .filter((team) => this.areHostileTeams(team.id, teamId))
+        .map((team) => this.teamStarts[team.id])
+        .filter(Boolean),
+    );
+    let towardEnemyX = hostileStart
+      ? hostileStart.x - undefendedMine.x
+      : undefendedMine.x - home.x;
+    let towardEnemyY = hostileStart
+      ? hostileStart.y - undefendedMine.y
+      : undefendedMine.y - home.y;
+    let towardEnemyLength = Math.hypot(towardEnemyX, towardEnemyY);
+    if (towardEnemyLength <= EPSILON) {
+      towardEnemyX = undefendedMine.x - home.x;
+      towardEnemyY = undefendedMine.y - home.y;
+      towardEnemyLength = Math.hypot(towardEnemyX, towardEnemyY) || 1;
+    }
     return {
       type: sentryType,
-      x: undefendedMine.x + (towardHomeX / towardHomeLength) * 80,
-      y: undefendedMine.y + (towardHomeY / towardHomeLength) * 80,
+      x: undefendedMine.x + (towardEnemyX / towardEnemyLength) * 80,
+      y: undefendedMine.y + (towardEnemyY / towardEnemyLength) * 80,
       advancesPlan: false,
       outpostMineId: undefendedMine.id,
     };

@@ -5698,8 +5698,9 @@ test("fortified opposition accelerates AI expansion beyond two harvesters", () =
   assert.ok(Math.hypot(request.x - openDeposit.x, request.y - openDeposit.y) <= 220);
 });
 
-test("AI strategy requests a sentry at every undefended remote harvester", () => {
+test("AI places each remote harvester sentry on its enemy-facing side", () => {
   const simulation = new Simulation({ width: 2200, height: 1400 });
+  simulation.teamStarts.player = { x: 220, y: 380 };
   simulation.teamStarts.enemy = { x: 1800, y: 700 };
   const anchor = simulation.addStructure("generator", "enemy", 1800, 700);
   simulation.addStructure("generator", "enemy", 760, 700);
@@ -5719,6 +5720,23 @@ test("AI strategy requests a sentry at every undefended remote harvester", () =>
 
   assert.equal(request.type, "sentry_turret");
   assert.equal(request.outpostMineId, mine.id);
+  const towardPlayer = {
+    x: simulation.teamStarts.player.x - mine.x,
+    y: simulation.teamStarts.player.y - mine.y,
+  };
+  const towardTurret = { x: request.x - mine.x, y: request.y - mine.y };
+  assert.ok(
+    towardTurret.x * towardPlayer.x + towardTurret.y * towardPlayer.y > 0,
+    "the sentry should stand between the harvester and the nearest hostile start",
+  );
+  const towardHome = {
+    x: simulation.teamStarts.enemy.x - mine.x,
+    y: simulation.teamStarts.enemy.y - mine.y,
+  };
+  assert.ok(
+    towardTurret.x * towardHome.x + towardTurret.y * towardHome.y < 0,
+    "the sentry should not be placed behind the harvester toward its own base",
+  );
   assert.ok(
     Math.hypot(request.x - mine.x, request.y - mine.y) <=
       SIMULATION_RULES.enemyOutpostDefenseRadius,

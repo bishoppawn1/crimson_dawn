@@ -1385,10 +1385,10 @@ this catalog is out of date.
 
 **What it checks:** Runs the deterministic game simulation to confirm that fortified opposition accelerates AI expansion beyond two harvesters.
 
-<!-- test-catalog-entry: ["test/simulation.test.js","AI strategy requests a sentry at every undefended remote harvester"] -->
-### 229. AI strategy requests a sentry at every undefended remote harvester
+<!-- test-catalog-entry: ["test/simulation.test.js","AI places each remote harvester sentry on its enemy-facing side"] -->
+### 229. AI places each remote harvester sentry on its enemy-facing side
 
-**What it checks:** Runs the deterministic game simulation to confirm that AI strategy requests a sentry at every undefended remote harvester.
+**What it checks:** Runs the deterministic game simulation to confirm that AI places each remote harvester sentry on its enemy-facing side.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","AI outpost garrisons stay out of attack waves and answer local threats"] -->
 ### 230. AI outpost garrisons stay out of attack waves and answer local threats

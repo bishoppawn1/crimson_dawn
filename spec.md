@@ -1311,7 +1311,8 @@ minimum wave size are provisional.
 Every completed AI harvester at least 480 world units from its starting command point is
 treated as an outpost rather than an unprotected income structure. The building AI
 prioritizes a powered Sentry Turret within 300 world units of each undefended
-outpost. Two combat units are assigned to each outpost, excluded from ordinary
+outpost and places it on the harvester's side facing the nearest hostile command
+start rather than behind the harvester toward its own base. Two combat units are assigned to each outpost, excluded from ordinary
 attack waves, and ordered to remain near the harvester. They immediately attack hostile
 units or structures within 520 world units and return to their guard positions once
 the local threat is gone. Production counts these garrisons in addition to the
