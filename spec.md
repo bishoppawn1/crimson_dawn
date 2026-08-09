@@ -604,6 +604,14 @@ factory's matching tier:
 | Grid Tanker | Armored mobile energy storage and transfer support |
 | Pathfinder Radar | Long-range mobile vision with a defensive cannon |
 
+Mobile Artillery is vulnerable fire support rather than a cheaper substitute for a
+Battle Tank. Its provisional Tier 1/Tier 2/Tier 3 firing bands are 160–400,
+180–480, and 200–560 world units. It cannot acquire or fire at a target whose
+center is inside that dead zone. A same-tier Battle Tank can therefore engage from
+inside the artillery's minimum range, while artillery gains substantially more
+reach when screened and positioned correctly. Selecting Mobile Artillery shows
+both range boundaries, and its factory control lists the complete firing band.
+
 Air production begins at Tier 2; there is no Tier 1 Air Factory. Tier 2 and Tier 3
 Air Factories each produce matching-tier versions of six aircraft roles:
 

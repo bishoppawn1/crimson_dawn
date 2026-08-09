@@ -3128,7 +3128,7 @@ export class Simulation {
         (
           unit.attackTargetMode === "explicit" ||
           unit.attackTargetMode === "retaliation" ||
-          distance(unit, existingTarget) <= definition.attackRange + entityRadius(existingTarget)
+          isUnitTargetInWeaponRange(definition, unit, existingTarget)
         )
       ) {
         continue;
@@ -3140,7 +3140,7 @@ export class Simulation {
         .filter(
           (target) =>
             canUnitAttackTarget(definition, target) &&
-            distance(unit, target) <= definition.attackRange + entityRadius(target),
+            isUnitTargetInWeaponRange(definition, unit, target),
         );
       const target = nearest(unit, preferredTargets(definition, potentialTargets));
       unit.attackTargetId = target?.id || null;
@@ -4979,13 +4979,17 @@ export class Simulation {
           unit.attackTargetMode === "retaliation"
         ) {
           const attackRange = unitAttackRangeAgainstTarget(definition, attackTarget);
-          this.moveUnitToward(
-            unit,
-            attackTarget,
-            delta,
-            attackRange + entityRadius(attackTarget) * 0.75,
-            { preserveMoveOrder: true },
-          );
+          if (distance(unit, attackTarget) + EPSILON < (definition.minimumAttackRange || 0)) {
+            this.moveUnitToward(unit, unit.moveTarget, delta, 4);
+          } else {
+            this.moveUnitToward(
+              unit,
+              attackTarget,
+              delta,
+              attackRange + entityRadius(attackTarget) * 0.75,
+              { preserveMoveOrder: true },
+            );
+          }
         } else if (unit.state === "active" && unit.moveTarget) {
           this.moveUnitToward(unit, unit.moveTarget, delta, 4);
         }
@@ -4993,11 +4997,14 @@ export class Simulation {
         const separation = distance(unit, attackTarget);
         const targetRadius = entityRadius(attackTarget);
         const attackRange = unitAttackRangeAgainstTarget(definition, attackTarget);
-        if (separation <= attackRange + targetRadius) {
+        if (isUnitTargetInWeaponRange(definition, unit, attackTarget)) {
           if (!hasIndependentWeapons) this.tryAttack(unit, attackTarget, definition);
         } else if (
-          unit.attackTargetMode === "explicit" ||
-          unit.attackTargetMode === "retaliation"
+          separation + EPSILON >= (definition.minimumAttackRange || 0) &&
+          (
+            unit.attackTargetMode === "explicit" ||
+            unit.attackTargetMode === "retaliation"
+          )
         ) {
           this.moveUnitToward(unit, attackTarget, delta, attackRange + targetRadius * 0.75);
         } else {
@@ -5129,6 +5136,7 @@ export class Simulation {
 
   tryAttack(unit, target, definition) {
     if (definition.attackDamage <= 0 || unit.attackCooldownRemaining > EPSILON) return false;
+    if (!isPrimaryWeaponTargetInRange(definition, unit, target)) return false;
     if (unit.energy + EPSILON < definition.attackEnergy) return false;
 
     unit.energy = Math.max(0, unit.energy - definition.attackEnergy);
@@ -5282,11 +5290,9 @@ export class Simulation {
       unit.state === "active" &&
       unit.moveTarget &&
       unit.moveMode !== "force" &&
-      unitAttackRangeAgainstTarget(definition, target) > 0 &&
       target?.alive &&
       this.areHostileTeams(target.team, unit.team) &&
-      distance(unit, target) <=
-        unitAttackRangeAgainstTarget(definition, target) + entityRadius(target)
+      isUnitTargetInWeaponRange(definition, unit, target)
     );
   }
 
@@ -6315,6 +6321,26 @@ function unitAttackRangeAgainstTarget(definition, target) {
   return Math.max(
     canPrimaryWeaponAttackTarget(definition, target) ? definition.attackRange || 0 : 0,
     ...weaponRanges,
+  );
+}
+
+function isPrimaryWeaponTargetInRange(definition, source, target) {
+  if (!canPrimaryWeaponAttackTarget(definition, target)) return false;
+  const separation = distance(source, target);
+  return (
+    separation + EPSILON >= (definition.minimumAttackRange || 0) &&
+    separation <= (definition.attackRange || 0) + entityRadius(target)
+  );
+}
+
+function isUnitTargetInWeaponRange(definition, source, target) {
+  if (isPrimaryWeaponTargetInRange(definition, source, target)) return true;
+  const separation = distance(source, target);
+  return (definition.weaponSystems || []).some(
+    (weaponDefinition) =>
+      canWeaponSystemAttackTarget(definition, weaponDefinition, target) &&
+      separation + EPSILON >= (weaponDefinition.minimumAttackRange || 0) &&
+      separation <= weaponDefinition.attackRange + entityRadius(target),
   );
 }
 

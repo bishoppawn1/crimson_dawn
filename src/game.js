@@ -561,7 +561,7 @@ for (const unitType of producibleUnitTypes) {
   const combatSummary = definition.underbellyBeamRadius
     ? ` · ${definition.underbellyBeamDamagePerSecond}/s underbelly beam · ${definition.underbellyBeamRadius} radius${definition.automaticTargetAcquisitionRange ? ` · seeks ground targets within ${definition.automaticTargetAcquisitionRange}` : ""}${antiAirSummary}`
     : definition.attackRange
-      ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× vs air` : ""}${definition.groundDamageMultiplier ? ` · ${definition.groundDamageMultiplier}× vs ground` : ""}`
+      ? ` · ${definition.attackDamage} damage · ${definition.minimumAttackRange ? `${definition.minimumAttackRange}–` : ""}${definition.attackRange} range${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× vs air` : ""}${definition.groundDamageMultiplier ? ` · ${definition.groundDamageMultiplier}× vs ground` : ""}`
       : "";
   button.innerHTML = `${definition.name}<small>${definition.metalCost} crystal · ${definition.supplyCost} supply${roleSummary}${combatSummary}</small>`;
   button.addEventListener("click", () => {
@@ -3900,6 +3900,23 @@ function drawUnit(unit) {
     context.setLineDash([9, 8]);
     context.beginPath();
     context.arc(unit.x, unit.y, antiAirRange, 0, Math.PI * 2);
+    context.stroke();
+    context.restore();
+  }
+
+  if (selected && definition.minimumAttackRange) {
+    context.save();
+    context.strokeStyle = "#ef596455";
+    context.lineWidth = 1.5;
+    context.setLineDash([7, 9]);
+    context.beginPath();
+    context.arc(unit.x, unit.y, definition.attackRange, 0, Math.PI * 2);
+    context.stroke();
+    context.strokeStyle = "#ffc46b88";
+    context.fillStyle = "#ffc46b0b";
+    context.beginPath();
+    context.arc(unit.x, unit.y, definition.minimumAttackRange, 0, Math.PI * 2);
+    context.fill();
     context.stroke();
     context.restore();
   }
