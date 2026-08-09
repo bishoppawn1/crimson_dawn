@@ -335,8 +335,11 @@ deducted from the supplier's own reserve. A supplier stops transferring at its
 protected reserve and does not refill another mobile supplier. Selecting an Arc
 Energy Carrier shows its transfer radius, and active supply links identify the
 units currently receiving energy. Arc Energy Carriers, Grid Tankers, and Energy
-Tenders all improve their defensive weapon across tiers, but remain logistical
-assets rather than primary combat units and should be valuable targets.
+Tenders all improve their defensive weapon across tiers, but those weapons remain
+deliberately weak so the suppliers are logistical assets and valuable targets rather
+than efficient combat units. Their provisional damage per shot is 5/7/10 for Tier
+1/2/3 Arc Energy Carriers, 5/8/11 for Tier 1/2/3 Grid Tankers, and 6/9 for Tier 2/3
+Energy Tenders.
 
 ### 3.3 Shutdown and Stasis
 
@@ -612,8 +615,10 @@ Air Factories each produce matching-tier versions of six aircraft roles:
 Watchman Radar Mechs provide provisional 650/800/950 vision at Tiers 1/2/3, while
 Pathfinder Radar vehicles provide 700/850/1,000. Skywatch Radar aircraft begin with
 the Air branch and provide 900/1,100 vision at Tiers 2/3. Every radar unit carries a
-modest weapon but has substantially more vision than weapon range, making scouting
-and coverage its primary role. AI factory balancing includes the radar production
+low-damage defensive weapon but has substantially more vision than weapon range,
+making scouting and coverage its primary role. Provisional damage per shot is
+6/9/13 for Tier 1/2/3 Watchmen, 7/10/14 for Tier 1/2/3 Pathfinders, and 7/11 for Tier
+2/3 Skywatches. AI factory balancing includes the radar production
 lines, and AI commanders construct and upgrade Radar Arrays after securing an
 initial assault wave and enough units to defend their expansions.
 

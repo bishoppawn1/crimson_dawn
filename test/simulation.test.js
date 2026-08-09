@@ -2624,12 +2624,25 @@ test("every mobile energy supplier transfers its matching output rate", () => {
 });
 
 test("every mobile energy supplier carries a tier-improving defensive weapon", () => {
+  const expectedDamage = {
+    energy_carrier: 5,
+    energy_carrier_t2: 7,
+    energy_carrier_t3: 10,
+    grid_tanker: 5,
+    grid_tanker_t2: 8,
+    grid_tanker_t3: 11,
+    energy_tender_t2: 6,
+    energy_tender_t3: 9,
+  };
   for (const family of [
     ["energy_carrier", "energy_carrier_t2", "energy_carrier_t3"],
     ["grid_tanker", "grid_tanker_t2", "grid_tanker_t3"],
     ["energy_tender_t2", "energy_tender_t3"],
   ]) {
     const definitions = family.map((type) => UNIT_DEFINITIONS[type]);
+    for (const type of family) {
+      assert.equal(UNIT_DEFINITIONS[type].attackDamage, expectedDamage[type]);
+    }
     assert.ok(definitions.every((definition) => definition.attackDamage > 0));
     assert.ok(definitions.every((definition) => definition.attackRange > 0));
     assert.ok(definitions.every((definition) => definition.attackEnergy > 0));
@@ -3394,15 +3407,31 @@ test("powered radar arrays reveal long range and lose that coverage off-grid", (
 });
 
 test("radar towers and mobile radar units improve across every available branch tier", () => {
+  const expectedMobileRadarDamage = {
+    radar_mech: 6,
+    radar_mech_t2: 9,
+    radar_mech_t3: 13,
+    radar_vehicle: 7,
+    radar_vehicle_t2: 10,
+    radar_vehicle_t3: 14,
+    radar_aircraft_t2: 7,
+    radar_aircraft_t3: 11,
+  };
   for (const tier of [1, 2, 3]) {
     const suffix = tier === 1 ? "" : `_t${tier}`;
     assert.ok(BUILD_MENU_BY_TIER[tier].includes(`radar_tower${suffix}`));
-    assert.ok(UNIT_DEFINITIONS[`radar_mech${suffix}`].attackDamage > 0);
-    assert.ok(UNIT_DEFINITIONS[`radar_vehicle${suffix}`].attackDamage > 0);
+    assert.equal(
+      UNIT_DEFINITIONS[`radar_mech${suffix}`].attackDamage,
+      expectedMobileRadarDamage[`radar_mech${suffix}`],
+    );
+    assert.equal(
+      UNIT_DEFINITIONS[`radar_vehicle${suffix}`].attackDamage,
+      expectedMobileRadarDamage[`radar_vehicle${suffix}`],
+    );
   }
   for (const tier of [2, 3]) {
     const definition = UNIT_DEFINITIONS[`radar_aircraft_t${tier}`];
-    assert.ok(definition.attackDamage > 0);
+    assert.equal(definition.attackDamage, expectedMobileRadarDamage[`radar_aircraft_t${tier}`]);
     assert.ok(definition.radarRange > definition.attackRange * 4);
   }
   assert.equal(getNextStructureTierType("radar_tower"), "radar_tower_t2");
