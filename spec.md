@@ -541,10 +541,9 @@ The Canvas battlefield uses role-readable, top-down mechanical sprites rather th
 generic diamonds or side-view silhouettes. A mech's cockpit roof, shoulder deck,
 dorsal armor, compact rear hip machinery, and forward-pointing weapons are visible
 from above. The torso occludes the lower walking assembly while stationary. During
-movement, only small alternating rear actuator and foot tips briefly emerge from
-beneath the chassis; they travel along the direction of movement rather than
-swinging laterally, so the mech never reads as swimming, paddling, prone, or
-crawling. The Vanguard uses a narrow arrowhead chassis and long canopy, while the
+movement, the walking assembly remains fully hidden beneath the chassis, so no rear
+feet protrude and the mech never reads as swimming, paddling, prone, or crawling.
+The Vanguard uses a narrow arrowhead chassis and long canopy, while the
 Bulwark uses a broad slab-sided hull, short wide canopy, shield, and twin cannon so
 the two roles remain distinct without relying mainly on scale.
 Vanguard, Bulwark, Skyguard, Carrier, and hostile combat silhouettes remain distinct at
@@ -727,8 +726,8 @@ The Tier 3 Experimental Factory produces exactly three enormous strategic units:
 | Zenith Doughnut | Giant circular toroidal aircraft with a downward ground beam and twin independently targeting dorsal anti-air batteries |
 
 The Arsenal Colossus follows the same overhead leg language as conventional mechs:
-its hull hides the walking assembly while stationary, leaving only compact rear hip
-machinery visible, and small alternating actuator and foot tips emerge while moving.
+its hull hides the walking assembly while stationary and moving, leaving only
+compact rear hip machinery visible and no protruding feet.
 The Hexapod Landship remains a ground unit: impassable terrain and living units
 still constrain it, but buildings are excluded from its destination validation,
 path planning, and movement collisions. Its three heavy cannon mounts and four

@@ -4886,33 +4886,6 @@ function drawArsenalColossusSprite(definition, teamColor, stasis, pose) {
   context.lineCap = "round";
   context.lineJoin = "round";
 
-  // Like conventional mechs, the Colossus carries its walking assembly beneath
-  // the hull. Only compact rear actuator and foot tips emerge while it moves;
-  // fully extended legs made the overhead sprite read like a side-view figure.
-  if (pose.moving) {
-    for (const side of [-1, 1]) {
-      const step = Math.max(0, side * pose.stride);
-      const footY = 0.5 + step * 0.2;
-      context.fillStyle = "#080c0f70";
-      context.beginPath();
-      context.ellipse(side * 0.34, footY + 0.22, 0.2, 0.1, 0, 0, Math.PI * 2);
-      context.fill();
-      context.fillStyle = palette.armorDark;
-      context.strokeStyle = palette.outline;
-      context.lineWidth = 0.1;
-      context.beginPath();
-      context.roundRect(side * 0.34 - 0.14, footY - 0.08, 0.28, 0.38, 0.08);
-      context.fill();
-      context.stroke();
-      context.strokeStyle = palette.armorLight;
-      context.lineWidth = 0.05;
-      context.beginPath();
-      context.moveTo(side * 0.34 - 0.1, footY + 0.21);
-      context.lineTo(side * 0.34 + 0.1, footY + 0.21);
-      context.stroke();
-    }
-  }
-
   context.fillStyle = palette.armorDark;
   context.strokeStyle = palette.outline;
   context.lineWidth = 0.09;
@@ -6251,33 +6224,6 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
   context.lineJoin = "bevel";
   context.strokeStyle = outline;
   context.lineWidth = 0.1;
-
-  // From directly above, the chassis hides almost the entire walking assembly.
-  // Movement briefly exposes alternating rear actuator and foot tips without
-  // swinging anything sideways, avoiding the old swimming/paddling silhouette.
-  if (pose.moving) {
-    for (const side of [-1, 1]) {
-      const step = Math.max(0, side * pose.stride);
-      const footY = 0.53 + step * 0.24;
-      context.fillStyle = "#080c0f70";
-      context.beginPath();
-      context.ellipse(side * 0.27, footY + 0.14, 0.16, 0.09, 0, 0, Math.PI * 2);
-      context.fill();
-      context.strokeStyle = outline;
-      context.lineWidth = 0.08;
-      context.fillStyle = armorDark;
-      context.beginPath();
-      context.roundRect(side * 0.27 - 0.11, footY - 0.08, 0.22, 0.3, 0.07);
-      context.fill();
-      context.stroke();
-      context.strokeStyle = armorLight;
-      context.lineWidth = 0.045;
-      context.beginPath();
-      context.moveTo(side * 0.19, footY + 0.14);
-      context.lineTo(side * 0.35, footY + 0.14);
-      context.stroke();
-    }
-  }
 
   // The rear hip bar remains a small overhead machinery cue, but the torso
   // overlaps its roots so it no longer reads as a pair of exposed legs.

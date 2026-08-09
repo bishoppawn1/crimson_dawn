@@ -224,6 +224,21 @@ test("the Hexapod renderer uses an elongated hull, tri-claw feet, and armored tu
   assert.match(renderer[0], /for \(const barrelX of \[-0\.038, 0\.038\]\)/);
 });
 
+test("conventional mechs and the Arsenal Colossus keep their feet hidden while moving", async () => {
+  const game = await source("../src/game.js");
+  const conventionalRenderer = game.match(
+    /function drawMechSprite[\s\S]*?(?=\nfunction drawDrone)/,
+  );
+  const colossusRenderer = game.match(
+    /function drawArsenalColossusSprite[\s\S]*?(?=\nconst HEXAPOD_FOOT_CLAW_COUNT)/,
+  );
+
+  assert.ok(conventionalRenderer);
+  assert.ok(colossusRenderer);
+  assert.doesNotMatch(conventionalRenderer[0], /pose\.moving|pose\.stride|footY/);
+  assert.doesNotMatch(colossusRenderer[0], /pose\.moving|pose\.stride|footY/);
+});
+
 test("the Zenith Doughnut renderer shows two dorsal anti-air batteries", async () => {
   const game = await source("../src/game.js");
   const renderer = game.match(

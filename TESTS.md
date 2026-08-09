@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 346
+**Automated tests documented:** 347
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -68,48 +68,53 @@ this catalog is out of date.
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the Hexapod renderer uses an elongated hull, tri-claw feet, and armored turrets.
 
+<!-- test-catalog-entry: ["test/bootstrap.test.js","conventional mechs and the Arsenal Colossus keep their feet hidden while moving"] -->
+### 12. conventional mechs and the Arsenal Colossus keep their feet hidden while moving
+
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that conventional mechs and the Arsenal Colossus keep their feet hidden while moving.
+
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the Zenith Doughnut renderer shows two dorsal anti-air batteries"] -->
-### 12. the Zenith Doughnut renderer shows two dorsal anti-air batteries
+### 13. the Zenith Doughnut renderer shows two dorsal anti-air batteries
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the Zenith Doughnut renderer shows two dorsal anti-air batteries.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","higher-tier armed sprites render their data-driven weapon attachments"] -->
-### 13. higher-tier armed sprites render their data-driven weapon attachments
+### 14. higher-tier armed sprites render their data-driven weapon attachments
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that higher-tier armed sprites render their data-driven weapon attachments.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","right-clicking an active friendly factory sends selected workers to assist production"] -->
-### 14. right-clicking an active friendly factory sends selected workers to assist production
+### 15. right-clicking an active friendly factory sends selected workers to assist production
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that right-clicking an active friendly factory sends selected workers to assist production.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","worker controls upgrade one tier and keep only one construction tier open"] -->
-### 15. worker controls upgrade one tier and keep only one construction tier open
+### 16. worker controls upgrade one tier and keep only one construction tier open
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that worker controls upgrade one tier and keep only one construction tier open.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","selected completed buildings expose an authorized destroy command"] -->
-### 16. selected completed buildings expose an authorized destroy command
+### 17. selected completed buildings expose an authorized destroy command
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that selected completed buildings expose an authorized destroy command.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the interface and battlefield present the economy as crimson crystal"] -->
-### 17. the interface and battlefield present the economy as crimson crystal
+### 18. the interface and battlefield present the economy as crimson crystal
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the interface and battlefield present the economy as crimson crystal.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","production controls disclose ground damage penalties"] -->
-### 18. production controls disclose ground damage penalties
+### 19. production controls disclose ground damage penalties
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that production controls disclose ground damage penalties.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","unit selection is concise and uses one compact shared construction queue"] -->
-### 19. unit selection is concise and uses one compact shared construction queue
+### 20. unit selection is concise and uses one compact shared construction queue
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that unit selection is concise and uses one compact shared construction queue.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","match setup exposes per-AI difficulty and team assignment controls"] -->
-### 20. match setup exposes per-AI difficulty and team assignment controls
+### 21. match setup exposes per-AI difficulty and team assignment controls
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that match setup exposes per-AI difficulty and team assignment controls.
 
