@@ -28,6 +28,7 @@ const {
   SPAWN_WARS_RULES,
   createSpawnWarsTeams,
   spawnWarsBuildZone,
+  spawnWarsIncomeUpgradeCost,
   spawnWarsInterval,
   spawnWarsKillIncome,
   spawnWarsPadCost,
@@ -2847,11 +2848,7 @@ export class Simulation {
     this.lastUpgradeError = null;
     if (!this.isSpawnWars() || !this.resources[teamId]) return false;
     const currentLevel = this.spawnWars.incomeLevels[teamId] || 0;
-    const cost = SPAWN_WARS_RULES.incomeUpgradeCosts[currentLevel];
-    if (!Number.isFinite(cost)) {
-      this.lastUpgradeError = "Income is already fully upgraded.";
-      return false;
-    }
+    const cost = spawnWarsIncomeUpgradeCost(currentLevel);
     if (this.resources[teamId].metal + EPSILON < cost) {
       this.lastUpgradeError = "Not enough crystal.";
       return false;

@@ -251,13 +251,16 @@ test("conventional mechs and the Arsenal Colossus keep their feet hidden while m
   assert.doesNotMatch(colossusRenderer[0], /pose\.moving|pose\.stride|footY/);
 });
 
-test("Spawn Wars controls show synchronized waves and uncapped platform upgrades", async () => {
+test("Spawn Wars controls show synchronized waves and uncapped upgrades", async () => {
   const game = await source("../src/game.js");
 
   assert.match(game, /spawns with each \$\{spawnWarsInterval\(unitDefinition\)\}s income payment/);
   assert.match(game, /next income \+ synchronized wave/);
   assert.match(game, /\$\{SPAWN_PAD_UPGRADES\[category\]\.label\} · Level \$\{level\}/);
   assert.match(game, /affects future spawns · no level cap/);
+  assert.match(game, /const incomeCost = spawnWarsIncomeUpgradeCost\(incomeLevel\)/);
+  assert.match(game, /raise income to level \$\{incomeLevel \+ 1\}/);
+  assert.doesNotMatch(game, /Income level 3 maximum reached/);
   assert.doesNotMatch(game, /maximumUpgradeLevel/);
 });
 

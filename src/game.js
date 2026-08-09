@@ -24,6 +24,7 @@ const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix
 const {
   SPAWN_PAD_UPGRADES,
   SPAWN_WARS_RULES,
+  spawnWarsIncomeUpgradeCost,
   spawnWarsPadCost,
   spawnWarsPadDestroyRefund,
   spawnWarsPadUpgradeCost,
@@ -7783,11 +7784,9 @@ function updateInterface() {
       : "Tier 3 maximum reached";
     spawnArchitectUpgradeButton.disabled = !Number.isFinite(architectCost) || localResources.metal < architectCost;
     const incomeLevel = simulation.spawnWars.incomeLevels[localTeam] || 0;
-    const incomeCost = SPAWN_WARS_RULES.incomeUpgradeCosts[incomeLevel];
-    spawnIncomeUpgradeDetails.textContent = Number.isFinite(incomeCost)
-      ? `${incomeCost.toLocaleString()} crystal · raises each 30s payment by 35% of base`
-      : "Income level 3 maximum reached";
-    spawnIncomeUpgradeButton.disabled = !Number.isFinite(incomeCost) || localResources.metal < incomeCost;
+    const incomeCost = spawnWarsIncomeUpgradeCost(incomeLevel);
+    spawnIncomeUpgradeDetails.textContent = `${incomeCost.toLocaleString()} crystal · raise income to level ${incomeLevel + 1}`;
+    spawnIncomeUpgradeButton.disabled = localResources.metal < incomeCost;
     const controlsCenter = simulation.spawnWars.controlAllianceId === simulation.getAllianceId(localTeam);
     spawnIncomeStatus.textContent = `Income level ${incomeLevel} · next income + synchronized wave ${Math.ceil(simulation.spawnWars.incomeRemaining)}s · center ${controlsCenter ? "+60 crystal controlled" : "not controlled"}`;
   }

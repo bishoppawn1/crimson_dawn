@@ -27,7 +27,8 @@ export const SPAWN_WARS_RULES = Object.freeze({
   padUpgradeHeavyRoleMultiplier: 1.15,
   padUpgradeLevelCostGrowth: 0.2,
   architectUpgradeCosts: Object.freeze([100, 200]),
-  incomeUpgradeCosts: Object.freeze([125, 200, 300]),
+  incomeUpgradeBaseCost: 125,
+  incomeUpgradeCostGrowth: 25,
   incomeUpgradeMultiplier: 0.35,
 });
 
@@ -100,6 +101,14 @@ export function spawnWarsPadDestroyRefund(padCost) {
 
 export function spawnWarsInterval() {
   return SPAWN_WARS_RULES.incomeInterval;
+}
+
+export function spawnWarsIncomeUpgradeCost(currentLevel = 0) {
+  const level = Number.isFinite(currentLevel)
+    ? Math.max(0, Math.floor(currentLevel))
+    : 0;
+  return SPAWN_WARS_RULES.incomeUpgradeBaseCost +
+    level * SPAWN_WARS_RULES.incomeUpgradeCostGrowth;
 }
 
 export function spawnWarsPadUpgradeCost(unitDefinition, category, currentLevel) {

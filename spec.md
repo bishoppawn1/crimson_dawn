@@ -1735,8 +1735,9 @@ upgrade is visibly reserved but disabled: later work will define those abilities
 after which spawned units will use them automatically.
 
 Every commander begins with 650 crystal. Every 30 seconds each living commander
-receives 120 crystal, increased by 35 percent of base for each of three purchasable
-income levels costing 125, 200, and 300 crystal. Destroying a hostile spawned unit also awards the killing commander
+receives 120 crystal, increased by 35 percent of base for each income level. Income
+upgrades have no maximum level: Level 1 costs 125 crystal and each later level costs
+only 25 crystal more than the previous one. Destroying a hostile spawned unit also awards the killing commander
 20 percent of its crystal value, with an eight-crystal minimum. Each stat-upgrade
 level carried by that unit adds a provisional 10 percent of its base crystal value
 before the 20-percent kill reward is calculated, so upgrades purchased after a unit

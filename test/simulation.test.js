@@ -24,6 +24,7 @@ import { distance, Simulation } from "../src/simulation.js";
 import {
   SPAWN_WARS_RULES,
   createSpawnWarsTeams,
+  spawnWarsIncomeUpgradeCost,
   spawnWarsKillIncome,
   spawnWarsInterval,
   spawnWarsPadCost,
@@ -180,7 +181,10 @@ test("Spawn Wars platforms and repeated upgrades use the discounted economy", ()
   const experimental = UNIT_DEFINITIONS.arsenal_colossus;
 
   assert.deepEqual(SPAWN_WARS_RULES.architectUpgradeCosts, [100, 200]);
-  assert.deepEqual(SPAWN_WARS_RULES.incomeUpgradeCosts, [125, 200, 300]);
+  assert.deepEqual(
+    [0, 1, 2, 10, 100].map(spawnWarsIncomeUpgradeCost),
+    [125, 150, 175, 375, 2_625],
+  );
   assert.equal(spawnWarsPadCost(vanguard), 43);
   assert.equal(spawnWarsPadCost(bulwark), 70);
   assert.equal(spawnWarsPadCost(tierThreeVanguard), 124);
@@ -196,6 +200,30 @@ test("Spawn Wars platforms and repeated upgrades use the discounted economy", ()
     spawnWarsPadUpgradeCost(tierThreeVanguard, "damage", 0) > damageCosts[0],
   );
   assert.ok(spawnWarsPadUpgradeCost(bulwark, "damage", 0) > damageCosts[0]);
+});
+
+test("Spawn Wars income upgrades remain affordable and uncapped", () => {
+  const simulation = Simulation.createSpawnWars({ playerCount: 2 });
+  simulation.resources.player.metal = 100_000;
+  const startingCrystal = simulation.resources.player.metal;
+  let totalCost = 0;
+
+  for (let level = 0; level < 25; level += 1) {
+    totalCost += spawnWarsIncomeUpgradeCost(level);
+    assert.equal(simulation.upgradeSpawnWarsIncome("player"), true);
+  }
+
+  assert.equal(simulation.spawnWars.incomeLevels.player, 25);
+  assert.equal(simulation.resources.player.metal, startingCrystal - totalCost);
+  const beforeIncome = simulation.resources.player.metal;
+  simulation.updateSpawnWars(SPAWN_WARS_RULES.incomeInterval);
+  assert.equal(
+    simulation.resources.player.metal,
+    beforeIncome + Math.round(
+      SPAWN_WARS_RULES.baseIncome *
+      (1 + 25 * SPAWN_WARS_RULES.incomeUpgradeMultiplier),
+    ),
+  );
 });
 
 test("Spawn Wars platforms synchronize every wave with the income payment", () => {
