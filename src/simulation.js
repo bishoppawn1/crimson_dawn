@@ -3593,6 +3593,49 @@ export class Simulation {
         structure.team === teamId &&
         Boolean(STRUCTURE_DEFINITIONS[structure.type].production?.length),
     )).filter((factory) => isActivelyProducingFactory(factory));
+
+    const reservedWorkerIds = new Set(
+      [...workers]
+        .sort(
+          (left, right) =>
+            UNIT_DEFINITIONS[right.type].workerTier - UNIT_DEFINITIONS[left.type].workerTier ||
+            right.id.localeCompare(left.id),
+        )
+        .slice(0, SIMULATION_RULES.enemyMinimumFreeWorkers)
+        .map((worker) => worker.id),
+    );
+    const validAssistants = [];
+    for (const worker of workers) {
+      if (!worker.productionAssistTargetId) continue;
+      const factory = this.getStructure(worker.productionAssistTargetId);
+      if (
+        !reservedWorkerIds.has(worker.id) &&
+        factory &&
+        factories.includes(factory) &&
+        isValidProductionAssistTarget(worker, factory)
+      ) {
+        validAssistants.push(worker);
+      } else {
+        worker.productionAssistTargetId = null;
+        this.resetUnitNavigation(worker);
+      }
+    }
+    const maximumAssistantCount = Math.max(
+      0,
+      workers.length - SIMULATION_RULES.enemyMinimumFreeWorkers,
+    );
+    const excessAssistantCount = Math.max(0, validAssistants.length - maximumAssistantCount);
+    validAssistants
+      .sort(
+        (left, right) =>
+          UNIT_DEFINITIONS[right.type].workerTier - UNIT_DEFINITIONS[left.type].workerTier ||
+          right.id.localeCompare(left.id),
+      )
+      .slice(0, excessAssistantCount)
+      .forEach((worker) => {
+        worker.productionAssistTargetId = null;
+        this.resetUnitNavigation(worker);
+      });
     if (workers.length <= SIMULATION_RULES.enemyMinimumFreeWorkers || factories.length === 0) {
       return 0;
     }
@@ -3634,7 +3677,8 @@ export class Simulation {
           !worker.transportTargetId &&
           !worker.attackTargetId &&
           !worker.moveTarget &&
-          !worker.holdPosition,
+          !worker.holdPosition &&
+          !reservedWorkerIds.has(worker.id),
       )
       .sort(
         (left, right) =>
@@ -3886,7 +3930,7 @@ export class Simulation {
     }
 
     if (coreBaseReady && radarForceReady && radarCount === 0) {
-      addCandidate(83, "radar_tower", planPoint(20, sideSign * 300));
+      addCandidate(109, "radar_tower", planPoint(20, sideSign * 300));
     }
 
     const desiredSentryCount = Math.min(
@@ -3908,7 +3952,13 @@ export class Simulation {
       }
     }
 
-    const desiredShieldCount = coreBaseReady
+    const productionBranchesReady =
+      hasFactoryBranchAtTier("vehicle", operationalTier) &&
+      (operationalTier < 2 || hasFactoryBranchAtTier("air", operationalTier));
+    const desiredShieldCount =
+      coreBaseReady &&
+      mineCount >= 2 &&
+      (productionBranchesReady || nearbyCombatThreats.length > 0)
       ? Math.min(
         3,
         1 + Math.floor(Math.max(0, mineCount - 2) / 2) +
@@ -3917,7 +3967,7 @@ export class Simulation {
       : 0;
     if (shieldCount < desiredShieldCount) {
       addCandidate(
-        nearbyCombatThreats.length > 0 ? 121 : 79,
+        nearbyCombatThreats.length > 0 ? 121 : 102,
         tieredType("shield_turret", operationalTier),
         planPoint(20 + shieldCount * 80, -sideSign * (140 + shieldCount * 110)),
       );
@@ -3954,7 +4004,7 @@ export class Simulation {
         y: chargerDemandUnits.reduce((total, unit) => total + unit.y, 0) /
           chargerDemandUnits.length,
       };
-      addCandidate(84, tieredType("charger", operationalTier), demandCenter);
+      addCandidate(110, tieredType("charger", operationalTier), demandCenter);
     }
 
     const fortifiedOpposition = this.hasEnemyHeavyDefenseCluster(teamId);

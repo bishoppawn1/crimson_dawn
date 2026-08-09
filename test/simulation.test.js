@@ -6523,6 +6523,19 @@ test("enemy AI assigns spare workers to powered factory production", () => {
     STRUCTURE_DEFINITIONS.mech_factory_t1.productionRate +
       UNIT_DEFINITIONS.worker_drone_t1.productionAssistRate * 2,
   );
+
+  const extraWorker = simulation.addUnit("worker_drone_t2", "enemy", 384, 320);
+  assert.equal(simulation.commandAssistProduction([extraWorker.id], factory.id), 1);
+  workers.find((worker) => !worker.productionAssistTargetId).alive = false;
+  simulation.assignEnemyProductionAssistants("enemy", [...workers, extraWorker], [factory]);
+  const livingWorkers = [...workers, extraWorker].filter((worker) => worker.alive);
+  assert.equal(livingWorkers.filter((worker) => worker.productionAssistTargetId).length, 2);
+  assert.equal(livingWorkers.filter((worker) => !worker.productionAssistTargetId).length, 1);
+  assert.equal(extraWorker.productionAssistTargetId, null);
+
+  factory.productionQueue[0].progress = UNIT_DEFINITIONS.scout_mech.productionTime;
+  simulation.assignEnemyProductionAssistants("enemy", livingWorkers, [factory]);
+  assert.equal(livingWorkers.filter((worker) => worker.productionAssistTargetId).length, 0);
 });
 
 test("enemy AI adds shield coverage after establishing its core force", () => {
@@ -6531,6 +6544,7 @@ test("enemy AI adds shield coverage after establishing its core force", () => {
   const anchor = simulation.addStructure("generator", "enemy", 300, 300);
   simulation.addStructure("generator", "enemy", 300, 500);
   simulation.addStructure("mech_factory_t1", "enemy", 500, 300);
+  const vehicleFactory = simulation.addStructure("vehicle_factory_t1", "enemy", 500, 500);
   simulation.addStructure("sentry_turret", "enemy", 440, 440);
   simulation.addStructure("metal_mine", "enemy", 220, 300);
   simulation.addStructure("metal_mine", "enemy", 220, 500);
@@ -6546,4 +6560,14 @@ test("enemy AI adds shield coverage after establishing its core force", () => {
   );
 
   assert.equal(request.type, "shield_turret");
+
+  vehicleFactory.alive = false;
+  const nearbyThreat = simulation.addUnit("scout_mech", "player", 620, 420);
+  const urgentRequest = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [nearbyThreat],
+    (forward, side = 0) => ({ x: anchor.x + forward, y: anchor.y + side }),
+  );
+  assert.equal(urgentRequest.type, "shield_turret");
 });

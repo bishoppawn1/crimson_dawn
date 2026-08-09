@@ -1180,13 +1180,15 @@ routine unit orders can consume that surplus, and it does not upgrade a consumer
 when the resulting maximum demand would exceed its generation headroom. Normal
 footprint-clearance rules can postpone an upgrade.
 
-After its second generator, first Sentry Turret, and first complete combat wave are
-established, the AI adds powered Shield Turrets to its construction scoring. It
-maintains one core shield initially, scales toward three as its mining footprint
-grows, and raises shield priority when armed enemies threaten its infrastructure. It uses
-the highest shield tier supported by its completed Mech Factory and available
-worker, pays the ordinary crystal and energy costs, and upgrades existing shields
-through the same structure-upgrade rules.
+After its second generator, second harvester, first Sentry Turret, first complete
+combat wave, and diversified production branches are established, the AI adds
+powered Shield Turrets to its construction scoring. Armed threats can make shield
+coverage urgent before production diversification is complete. It maintains one
+core shield initially, scales toward three as its mining footprint grows, and raises
+shield priority when armed enemies threaten its infrastructure. It uses the highest
+shield tier supported by its completed Mech Factory and available worker, pays the
+ordinary crystal and energy costs, and upgrades existing shields through the same
+structure-upgrade rules.
 
 Aircraft observed near an AI base add a Flak Turret request to that same strategic
 scoring system. AI mech and vehicle factories also produce Skyguards and Flak
