@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 285
+**Automated tests documented:** 286
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -43,18 +43,23 @@ this catalog is out of date.
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that completed Shield Turrets always render their cyan shield-strength bar.
 
+<!-- test-catalog-entry: ["test/bootstrap.test.js","the Hexapod renderer uses an elongated hull, tri-claw feet, and armored turrets"] -->
+### 7. the Hexapod renderer uses an elongated hull, tri-claw feet, and armored turrets
+
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that the Hexapod renderer uses an elongated hull, tri-claw feet, and armored turrets.
+
 <!-- test-catalog-entry: ["test/bootstrap.test.js","right-clicking an active friendly factory sends selected workers to assist production"] -->
-### 7. right-clicking an active friendly factory sends selected workers to assist production
+### 8. right-clicking an active friendly factory sends selected workers to assist production
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that right-clicking an active friendly factory sends selected workers to assist production.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the interface and battlefield present the economy as crimson crystal"] -->
-### 8. the interface and battlefield present the economy as crimson crystal
+### 9. the interface and battlefield present the economy as crimson crystal
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the interface and battlefield present the economy as crimson crystal.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","match setup exposes per-AI difficulty and team assignment controls"] -->
-### 9. match setup exposes per-AI difficulty and team assignment controls
+### 10. match setup exposes per-AI difficulty and team assignment controls
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that match setup exposes per-AI difficulty and team assignment controls.
 

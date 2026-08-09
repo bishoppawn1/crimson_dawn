@@ -4363,6 +4363,7 @@ function drawWorkerConstructionEffect(unit, structure, pose, teamColor) {
 function drawUnitGroundShadow(definition) {
   const airborne = definition.unitDomain === "air";
   const circularAircraft = definition.role === "zenith_doughnut";
+  const elongatedLandship = definition.role === "hexapod_landship";
   context.save();
   context.translate(airborne ? 7 : 3, airborne ? 10 : 5);
   context.fillStyle = airborne ? "#10151038" : "#10151070";
@@ -4370,8 +4371,10 @@ function drawUnitGroundShadow(definition) {
   context.ellipse(
     0,
     0,
-    definition.radius * (airborne ? 1.05 : 0.86),
-    definition.radius * (circularAircraft ? 0.94 : airborne ? 0.58 : 0.62),
+    definition.radius * (airborne ? 1.05 : elongatedLandship ? 0.95 : 0.86),
+    definition.radius * (
+      circularAircraft ? 0.94 : airborne ? 0.58 : elongatedLandship ? 0.86 : 0.62
+    ),
     -0.18,
     0,
     Math.PI * 2,
@@ -4527,6 +4530,150 @@ function drawArsenalColossusSprite(definition, teamColor, stasis, pose) {
   context.restore();
 }
 
+const HEXAPOD_FOOT_CLAW_COUNT = 3;
+const HEXAPOD_HULL_FRONT = -1.2;
+const HEXAPOD_HULL_REAR = 1.18;
+
+function drawHexapodFoot(palette, footX, footY, rotation) {
+  context.save();
+  context.translate(footX, footY);
+  context.rotate(rotation);
+  context.lineJoin = "round";
+
+  for (let clawIndex = 0; clawIndex < HEXAPOD_FOOT_CLAW_COUNT; clawIndex += 1) {
+    const clawAngle = clawIndex * ((Math.PI * 2) / HEXAPOD_FOOT_CLAW_COUNT);
+    context.save();
+    context.rotate(clawAngle);
+    context.fillStyle = palette.armorDark;
+    context.strokeStyle = palette.outline;
+    context.lineWidth = 0.045;
+    context.beginPath();
+    context.moveTo(-0.075, -0.055);
+    context.lineTo(-0.042, -0.25);
+    context.lineTo(0.042, -0.25);
+    context.lineTo(0.075, -0.055);
+    context.closePath();
+    context.fill();
+    context.stroke();
+    context.strokeStyle = palette.armorLight;
+    context.lineWidth = 0.018;
+    context.beginPath();
+    context.moveTo(0, -0.085);
+    context.lineTo(0, -0.21);
+    context.stroke();
+    context.restore();
+  }
+
+  context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.055;
+  context.beginPath();
+  context.arc(0, 0, 0.12, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.fillStyle = palette.accent;
+  context.beginPath();
+  context.arc(0, 0, 0.043, 0, Math.PI * 2);
+  context.fill();
+  context.restore();
+}
+
+function drawHexapodTurret(palette, cannon, facing, recoil) {
+  context.save();
+  context.translate(cannon.x, cannon.mountY);
+  context.rotate(facing);
+  context.lineJoin = "round";
+
+  context.fillStyle = palette.joint;
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.06;
+  context.beginPath();
+  context.arc(0, 0, cannon.baseRadius, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.strokeStyle = palette.armorLight;
+  context.lineWidth = 0.025;
+  context.beginPath();
+  context.arc(0, 0, cannon.baseRadius * 0.68, 0, Math.PI * 2);
+  context.stroke();
+
+  const muzzleY = -cannon.barrelLength + recoil;
+  context.fillStyle = palette.armorDark;
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.045;
+  context.beginPath();
+  context.moveTo(-cannon.barrelHalfWidth * 1.15, -cannon.bodyLength * 0.42);
+  context.lineTo(-cannon.barrelHalfWidth * 0.72, muzzleY);
+  context.lineTo(cannon.barrelHalfWidth * 0.72, muzzleY);
+  context.lineTo(cannon.barrelHalfWidth * 1.15, -cannon.bodyLength * 0.42);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = palette.armorLight;
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.035;
+  context.beginPath();
+  context.roundRect(
+    -cannon.barrelHalfWidth * 1.32,
+    -cannon.bodyLength * 0.92,
+    cannon.barrelHalfWidth * 2.64,
+    cannon.bodyLength * 0.34,
+    0.035,
+  );
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = palette.outline;
+  context.beginPath();
+  context.roundRect(
+    -cannon.barrelHalfWidth * 1.65,
+    muzzleY - 0.06,
+    cannon.barrelHalfWidth * 3.3,
+    0.12,
+    0.025,
+  );
+  context.fill();
+
+  context.fillStyle = unitSurfaceGradient(palette.armorLight, palette.armor, palette.armorDark);
+  context.strokeStyle = palette.outline;
+  context.lineWidth = 0.06;
+  context.beginPath();
+  context.moveTo(-cannon.bodyHalfWidth * 0.8, -cannon.bodyLength * 0.56);
+  context.lineTo(cannon.bodyHalfWidth * 0.8, -cannon.bodyLength * 0.56);
+  context.lineTo(cannon.bodyHalfWidth, cannon.bodyLength * 0.12);
+  context.lineTo(cannon.bodyHalfWidth * 0.7, cannon.bodyLength * 0.48);
+  context.lineTo(-cannon.bodyHalfWidth * 0.7, cannon.bodyLength * 0.48);
+  context.lineTo(-cannon.bodyHalfWidth, cannon.bodyLength * 0.12);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = palette.armorDark;
+  context.beginPath();
+  context.roundRect(
+    -cannon.bodyHalfWidth * 0.72,
+    cannon.bodyLength * 0.18,
+    cannon.bodyHalfWidth * 1.44,
+    cannon.bodyLength * 0.28,
+    0.045,
+  );
+  context.fill();
+  context.stroke();
+  context.fillStyle = palette.accent;
+  context.fillRect(
+    -cannon.bodyHalfWidth * 0.72,
+    -cannon.bodyLength * 0.2,
+    cannon.bodyHalfWidth * 1.44,
+    cannon.bodyLength * 0.1,
+  );
+  context.fillStyle = palette.joint;
+  context.beginPath();
+  context.arc(0, cannon.bodyLength * 0.06, cannon.bodyHalfWidth * 0.25, 0, Math.PI * 2);
+  context.fill();
+  context.restore();
+}
+
 function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
   const palette = experimentalUnitPalette(teamColor, stasis);
   context.save();
@@ -4534,7 +4681,7 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
   context.lineCap = "round";
   context.lineJoin = "round";
 
-  const legStations = [-0.62, 0, 0.62];
+  const legStations = [-0.76, 0, 0.76];
   for (const side of [-1, 1]) {
     legStations.forEach((legY, index) => {
       const stepPhase = pose.landshipStep === null
@@ -4573,14 +4720,12 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
         context.arc(footX, footY, 0.23, 0.15 * Math.PI, 0.85 * Math.PI);
         context.stroke();
       }
-      context.fillStyle = palette.outline;
-      context.beginPath();
-      context.ellipse(footX, footY, 0.18, 0.11, 0, 0, Math.PI * 2);
-      context.fill();
-      context.fillStyle = palette.armorDark;
-      context.beginPath();
-      context.ellipse(footX, footY - 0.01, 0.1, 0.055, 0, 0, Math.PI * 2);
-      context.fill();
+      drawHexapodFoot(
+        palette,
+        footX,
+        footY,
+        side * Math.PI * 0.12 + index * Math.PI * 0.08,
+      );
     });
   }
 
@@ -4588,65 +4733,55 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
   context.strokeStyle = palette.outline;
   context.lineWidth = 0.1;
   context.beginPath();
-  context.moveTo(0, -1.08);
-  context.lineTo(0.5, -0.76);
-  context.lineTo(0.6, 0.8);
-  context.lineTo(0.34, 1.05);
-  context.lineTo(-0.34, 1.05);
-  context.lineTo(-0.6, 0.8);
-  context.lineTo(-0.5, -0.76);
+  context.moveTo(0, HEXAPOD_HULL_FRONT);
+  context.lineTo(0.5, -0.9);
+  context.lineTo(0.61, 0.88);
+  context.lineTo(0.36, HEXAPOD_HULL_REAR);
+  context.lineTo(-0.36, HEXAPOD_HULL_REAR);
+  context.lineTo(-0.61, 0.88);
+  context.lineTo(-0.5, -0.9);
   context.closePath();
   context.fill();
   context.stroke();
   context.fillStyle = palette.accent;
-  context.fillRect(-0.51, 0.68, 1.02, 0.12);
+  context.fillRect(-0.51, 0.83, 1.02, 0.12);
 
   context.fillStyle = palette.armorDark;
-  context.fillRect(-0.43, -0.3, 0.86, 0.7);
+  context.beginPath();
+  context.roundRect(-0.43, -0.48, 0.86, 1.08, 0.1);
+  context.fill();
   const cannons = [
-    { x: 0, mountY: -0.34, muzzleY: -1.5, width: 0.24 },
-    { x: -0.34, mountY: 0.1, muzzleY: -1.18, width: 0.17 },
-    { x: 0.34, mountY: 0.1, muzzleY: -1.18, width: 0.17 },
+    {
+      x: 0, mountY: -0.48, baseRadius: 0.27, bodyHalfWidth: 0.24,
+      bodyLength: 0.48, barrelHalfWidth: 0.075, barrelLength: 1.12,
+    },
+    {
+      x: -0.34, mountY: 0.23, baseRadius: 0.19, bodyHalfWidth: 0.17,
+      bodyLength: 0.34, barrelHalfWidth: 0.052, barrelLength: 0.91,
+    },
+    {
+      x: 0.34, mountY: 0.23, baseRadius: 0.19, bodyHalfWidth: 0.17,
+      bodyLength: 0.34, barrelHalfWidth: 0.052, barrelLength: 0.91,
+    },
   ];
   for (const [index, cannon] of cannons.entries()) {
-    context.save();
-    context.translate(cannon.x, cannon.mountY);
-    context.rotate(pose.weaponSystemFacings?.[index] || 0);
-    context.fillStyle = palette.joint;
-    context.strokeStyle = palette.outline;
-    context.lineWidth = 0.07;
-    context.beginPath();
-    context.arc(0, 0, cannon.width * 0.95, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
-    context.strokeStyle = palette.outline;
-    context.lineWidth = cannon.width;
-    context.beginPath();
-    context.moveTo(0, -0.05);
-    context.lineTo(0, cannon.muzzleY - cannon.mountY + (pose.weaponSystemRecoils?.[index] || 0));
-    context.stroke();
-    context.strokeStyle = palette.armorLight;
-    context.lineWidth = cannon.width * 0.48;
-    context.stroke();
-    context.fillStyle = palette.outline;
-    context.fillRect(
-      -cannon.width * 0.7,
-      cannon.muzzleY - cannon.mountY - 0.07 + (pose.weaponSystemRecoils?.[index] || 0),
-      cannon.width * 1.4,
-      0.14,
+    drawHexapodTurret(
+      palette,
+      cannon,
+      pose.weaponSystemFacings?.[index] || 0,
+      pose.weaponSystemRecoils?.[index] || 0,
     );
-    context.restore();
   }
 
   for (const side of [-1, 1]) {
     context.strokeStyle = palette.outline;
     context.lineWidth = 0.08;
     context.beginPath();
-    context.moveTo(side * 0.5, -0.54);
-    context.lineTo(side * 0.5, 0.52);
+    context.moveTo(side * 0.5, -0.68);
+    context.lineTo(side * 0.5, 0.7);
     context.stroke();
     context.fillStyle = palette.accent;
-    context.fillRect(side * 0.49 - 0.09, 0.46, 0.18, 0.09);
+    context.fillRect(side * 0.49 - 0.09, 0.64, 0.18, 0.09);
   }
   context.restore();
 }

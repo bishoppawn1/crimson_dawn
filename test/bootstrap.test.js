@@ -119,6 +119,24 @@ test("completed Shield Turrets always render their cyan shield-strength bar", as
   assert.doesNotMatch(shieldBarBlock[0], /selectedStructureIds/);
 });
 
+test("the Hexapod renderer uses an elongated hull, tri-claw feet, and armored turrets", async () => {
+  const game = await source("../src/game.js");
+  const renderer = game.match(
+    /const HEXAPOD_FOOT_CLAW_COUNT[\s\S]*?function drawZenithDoughnutSprite/,
+  );
+
+  assert.ok(renderer);
+  assert.match(renderer[0], /HEXAPOD_FOOT_CLAW_COUNT = 3/);
+  assert.match(renderer[0], /clawIndex \* \(\(Math\.PI \* 2\) \/ HEXAPOD_FOOT_CLAW_COUNT\)/);
+  assert.match(renderer[0], /function drawHexapodFoot/);
+  assert.match(renderer[0], /context\.arc\(0, 0, 0\.12, 0, Math\.PI \* 2\)/);
+  assert.match(renderer[0], /HEXAPOD_HULL_FRONT = -1\.2/);
+  assert.match(renderer[0], /HEXAPOD_HULL_REAR = 1\.18/);
+  assert.match(renderer[0], /function drawHexapodTurret/);
+  assert.match(renderer[0], /baseRadius: 0\.27/);
+  assert.match(renderer[0], /bodyHalfWidth: 0\.24/);
+});
+
 test("right-clicking an active friendly factory sends selected workers to assist production", async () => {
   const game = await source("../src/game.js");
 

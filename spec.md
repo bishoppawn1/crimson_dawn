@@ -648,7 +648,10 @@ hostiles in range; all three may converge on one target when no alternatives exi
 Shell damage resolves when each visible projectile reaches its target, not when the
 firing order begins. Its six legs retain their deliberate pull-step gait, but the
 two sides use offset phases and shortened travel lanes so neighboring feet do not
-cross. Solid armored foot pads replace the former protruding toe rods. The Zenith
+cross. Its slightly elongated walking-battleship hull carries three visibly complete,
+independently rotating armored turret assemblies instead of bare cannon sticks. Each
+foot ends in a circular armored hub with three trapezoidal claws spaced exactly 120
+degrees apart. The Zenith
 Doughnut ignores terrain, structures, and ground-unit separation. When idle, it
 automatically selects the nearest hostile ground target within a provisional
 400-world-unit local acquisition radius, flies directly over it, hovers while the
