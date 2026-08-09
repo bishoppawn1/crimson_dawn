@@ -2290,12 +2290,32 @@ export class Simulation {
   }
 
   clearFriendlyUnitsFromConstructionSite(structure) {
+    this.groundNavigationObstacleCache.clear();
     for (const unit of this.units) {
-      if (!unit.alive || unit.team !== structure.team) continue;
-      const padding = UNIT_DEFINITIONS[unit.type].radius + SIMULATION_RULES.structureCollisionPadding;
+      const definition = UNIT_DEFINITIONS[unit.type];
+      if (
+        !unit.alive ||
+        unit.carriedById ||
+        unit.team !== structure.team ||
+        definition.movementLayer === "air" ||
+        definition.stridesOverStructures
+      ) {
+        continue;
+      }
+      const padding = definition.radius + SIMULATION_RULES.structureCollisionPadding;
       if (!pointInsideBounds(unit, expandedStructureBounds(structure, padding))) continue;
-      this.resolveUnitStructureOverlap(unit);
+      const relocation = this.findUnitRelocation(unit, { escapeFrom: structure });
+      if (!relocation) {
+        this.destroyUnit(unit);
+        continue;
+      }
+      unit.x = relocation.x;
+      unit.y = relocation.y;
+      unit.navigationObstacleId = null;
+      unit.navigationSide = null;
+      this.resetUnitNavigation(unit);
     }
+    this.combatSpatialIndexDirty = true;
   }
 
   findNearestValidBuildSite(
@@ -5547,8 +5567,12 @@ export class Simulation {
   }
 
   findTrappedUnitRelocation(unit, target) {
+    return this.findUnitRelocation(unit, { target });
+  }
+
+  findUnitRelocation(unit, { target = null, escapeFrom = null } = {}) {
     const definition = UNIT_DEFINITIONS[unit.type];
-    const excludedObstacleId = target.kind === "structure" ? target.id : null;
+    const excludedObstacleId = target?.kind === "structure" ? target.id : null;
     const obstacles = this.getGroundNavigationObstacles(
       definition.radius,
       excludedObstacleId,
@@ -5558,7 +5582,6 @@ export class Simulation {
       16,
       definition.radius * 2 + SIMULATION_RULES.unitCollisionPadding,
     );
-
     for (let slot = 1; slot <= TRAPPED_UNIT_RELOCATION_ATTEMPTS; slot += 1) {
       const offset = squareSpiralOffset(slot);
       const candidate = {
@@ -5569,18 +5592,36 @@ export class Simulation {
         continue;
       }
       if (obstacles.some(({ bounds }) => pointInsideBounds(candidate, bounds))) continue;
-      if (
-        !navigationSegmentIsClear(candidate, target, obstacles) &&
-        !findNavigationPath(
-          candidate,
-          target,
-          obstacles,
-          definition.radius,
-          this.width,
-          this.height,
-        )
-      ) {
-        continue;
+      if (target) {
+        const targetIsReachable =
+          navigationSegmentIsClear(candidate, target, obstacles) ||
+          findNavigationPath(
+            candidate,
+            target,
+            obstacles,
+            definition.radius,
+            this.width,
+            this.height,
+          );
+        if (!targetIsReachable) continue;
+      }
+      if (escapeFrom) {
+        const awayX = candidate.x - escapeFrom.x;
+        const awayY = candidate.y - escapeFrom.y;
+        const awayDistance = Math.hypot(awayX, awayY);
+        if (awayDistance <= EPSILON) continue;
+        const escapePoint = {
+          x: candidate.x + awayX / awayDistance * spacing,
+          y: candidate.y + awayY / awayDistance * spacing,
+        };
+        if (
+          !this.isUnitPositionClear(escapePoint, unit.type, {
+            ignoreUnitIds: [unit.id],
+          }) ||
+          !navigationSegmentIsClear(candidate, escapePoint, obstacles)
+        ) {
+          continue;
+        }
       }
       return candidate;
     }

@@ -4881,6 +4881,41 @@ test("friendly units vacate a construction site when its foundation is placed", 
   assert.ok(structure.constructionProgress > 0);
 });
 
+test("new foundations immediately relocate idle units pinned against a factory", () => {
+  const simulation = new Simulation({ width: 900, height: 600 });
+  const factory = simulation.addStructure("mech_factory_t1", "player", 400, 320);
+  const factorySpawn = simulation.findUnitSpawn(factory, "scout_mech");
+  assert.deepEqual(factorySpawn, { x: 461, y: 320 });
+  const idleUnit = simulation.addUnit(
+    "scout_mech",
+    "player",
+    factorySpawn.x,
+    factorySpawn.y,
+  );
+  const builder = simulation.addUnit("worker_drone_t2", "player", 100, 100);
+
+  const foundation = simulation.startConstruction(
+    [builder.id],
+    "sentry_turret_t2",
+    480,
+    320,
+  );
+
+  assert.ok(foundation);
+  assert.equal(idleUnit.alive, true);
+  assert.equal(idleUnit.moveTarget, null);
+  assert.equal(
+    simulation.isUnitPositionClear(idleUnit, idleUnit.type, {
+      ignoreUnitIds: [idleUnit.id],
+    }),
+    true,
+  );
+  assert.ok(
+    Math.hypot(idleUnit.x - factorySpawn.x, idleUnit.y - factorySpawn.y) > 40,
+    `expected the idle unit to leave the factory gap, got (${idleUnit.x}, ${idleUnit.y})`,
+  );
+});
+
 test("construction placement still rejects sites occupied by hostile units", () => {
   const simulation = new Simulation();
   const builder = simulation.addUnit("worker_drone_t1", "player", 100, 100);

@@ -956,8 +956,10 @@ from compact one-cell towers and turrets to multi-cell factories. A foundation
 cannot overlap a living building, unfinished foundation, hostile unit, or
 reclamation drone. Friendly player-controlled units do not block placement. When a
 foundation is confirmed beneath friendly workers or combat units, those units are
-moved to the nearest clear edge outside its collision footprint; assigned builders
-then begin construction from outside the foundation. Crystal Harvesters instead snap to
+immediately relocated to the nearest clear, locally escapable position outside the
+new foundation, even if they are idle. A unit is destroyed only if no valid recovery
+position exists; assigned builders otherwise begin construction from outside the
+foundation. Crystal Harvesters instead snap to
 their required deposit location. Invalid placement does not spend crystal and reports
 the reason to the player. The player sees a green or red footprint preview before
 confirming placement, and the enemy AI searches nearby grid cells when its preferred
