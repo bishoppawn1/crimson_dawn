@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 317
+**Automated tests documented:** 318
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -238,8 +238,13 @@ this catalog is out of date.
 
 **What it checks:** Runs the automated suite to confirm that exact-type selection excludes other tiers, teams, cargo, and destroyed units.
 
+<!-- test-catalog-entry: ["test/selection.test.js","exact-type selection includes the local boundary and excludes distant groups"] -->
+### 2. exact-type selection includes the local boundary and excludes distant groups
+
+**What it checks:** Runs the automated suite to confirm that exact-type selection includes the local boundary and excludes distant groups.
+
 <!-- test-catalog-entry: ["test/selection.test.js","exact-type selection rejects incomplete requests"] -->
-### 2. exact-type selection rejects incomplete requests
+### 3. exact-type selection rejects incomplete requests
 
 **What it checks:** Runs the automated suite to confirm that exact-type selection rejects incomplete requests.
 

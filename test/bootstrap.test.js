@@ -75,10 +75,12 @@ test("double-click selection uses exact unit type without crossing tiers", async
 
   assert.match(game, /`\.\/selection\.js\$\{versionSuffix\}`/);
   assert.match(game, /canvas\.addEventListener\("dblclick"/);
-  assert.match(game, /selectableUnitIdsByExactType\(simulation\.units/);
+  assert.match(game, /selectableUnitIdsByExactTypeNear\(simulation\.units/);
   assert.match(game, /type: unit\.type/);
+  assert.match(game, /x: unit\.x/);
+  assert.match(game, /y: unit\.y/);
   assert.match(game, /if \(!event\.shiftKey\) selectedUnitIds\.clear\(\)/);
-  assert.match(index, /Double-click a unit to select every deployed unit of that exact type and tier/);
+  assert.match(index, /Double-click a unit to select nearby deployed units of that exact type and tier/);
 });
 
 test("Dropship fill commands stay on keyboard shortcuts while Drop All remains contextual", async () => {

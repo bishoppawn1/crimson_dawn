@@ -21,7 +21,7 @@ const {
   normalizeAiDifficulty,
 } = await import(`./maps.js${versionSuffix}`);
 const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix}`);
-const { selectableUnitIdsByExactType } = await import(`./selection.js${versionSuffix}`);
+const { selectableUnitIdsByExactTypeNear } = await import(`./selection.js${versionSuffix}`);
 const { FixedStepSimulationClock } = await import(`./simulation-clock.js${versionSuffix}`);
 const {
   createMultiplayerMotionUpdate,
@@ -7360,9 +7360,11 @@ canvas.addEventListener("dblclick", (event) => {
 
   const unit = findUnitAt(screenToWorld(pointerScreen), localTeam);
   if (!unit) return;
-  const matchingUnitIds = selectableUnitIdsByExactType(simulation.units, {
+  const matchingUnitIds = selectableUnitIdsByExactTypeNear(simulation.units, {
     team: localTeam,
     type: unit.type,
+    x: unit.x,
+    y: unit.y,
   });
   if (!event.shiftKey) selectedUnitIds.clear();
   for (const unitId of matchingUnitIds) selectedUnitIds.add(unitId);

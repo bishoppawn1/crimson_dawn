@@ -419,9 +419,11 @@ host bounds incoming multiplayer unit lists by the current simulation population
 before validating ownership, so malformed payloads remain finite without truncating
 real armies.
 Double-clicking a living owned unit selects every living, deployed unit with that
-exact unit type across the battlefield. Tier variants are separate types: double-clicking
-a Tier 1 unit does not select its Tier 2 or Tier 3 counterparts. Carried units are
-excluded, and holding Shift adds the exact-type group to the current unit selection.
+exact unit type within a 700-world-unit radius centered on the clicked unit. This
+large local area gathers a nearby formation without also selecting distant groups.
+Tier variants are separate types: double-clicking a Tier 1 unit does not select its
+Tier 2 or Tier 3 counterparts. Carried units are excluded, and holding Shift adds
+the nearby exact-type group to the current unit selection.
 An explicit terrain move remains as a resumable route when a unit acquires a hostile
 in weapon range. The unit stops in place, attacks while stationary—including between
 shots during its weapon cooldown—and continues toward the saved destination after
