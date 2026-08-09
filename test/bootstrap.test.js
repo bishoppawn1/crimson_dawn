@@ -232,6 +232,19 @@ test("worker controls upgrade one tier and keep only one construction tier open"
   );
 });
 
+test("selected completed buildings expose an authorized destroy command", async () => {
+  const [index, game] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+  ]);
+
+  assert.match(index, /id="destroy-structure-button"[\s\S]*?Destroy Building/);
+  assert.match(game, /case "destroy_structure"[\s\S]*?simulation\.destroyStructure\(structure\.id, team\)/);
+  assert.match(game, /selectedStructures\.length === 1 && selectedStructure\?\.complete/);
+  assert.match(game, /type: "destroy_structure"/);
+  assert.match(game, /destroyStructureButton\.addEventListener\("click", destroySelectedStructure\)/);
+});
+
 test("the interface and battlefield present the economy as crimson crystal", async () => {
   const [index, game, data, styles] = await Promise.all([
     source("../index.html"),

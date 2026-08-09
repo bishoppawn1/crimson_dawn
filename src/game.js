@@ -134,6 +134,8 @@ const productionCommandGrid = document.querySelector("#production-command-grid")
 const structureCommands = document.querySelector("#structure-commands");
 const cancelConstructionButton = document.querySelector("#cancel-construction-button");
 const cancelRefundValue = document.querySelector("#cancel-refund-value");
+const destroyStructureButton = document.querySelector("#destroy-structure-button");
+const destroyStructureDetails = document.querySelector("#destroy-structure-details");
 const supplyUpgradeButton = document.querySelector("#supply-upgrade-button");
 const supplyUpgradeTitle = document.querySelector("#supply-upgrade-title");
 const supplyUpgradeDetails = document.querySelector("#supply-upgrade-details");
@@ -1414,6 +1416,10 @@ function applyAuthorizedCommand(command, team) {
     case "cancel_construction": {
       const structure = ownedStructure(command.structureId, team);
       return structure ? simulation.cancelConstruction(structure.id, team) : false;
+    }
+    case "destroy_structure": {
+      const structure = ownedStructure(command.structureId, team);
+      return structure ? simulation.destroyStructure(structure.id, team) : false;
     }
     case "supply_upgrade": {
       const structure = ownedStructure(command.structureId, team);
@@ -6913,6 +6919,15 @@ function updateInterface() {
       SIMULATION_RULES.constructionCancelRefundRate,
     ).toLocaleString();
   }
+  const canDestroyStructure = Boolean(
+    selectedStructures.length === 1 && selectedStructure?.complete,
+  );
+  destroyStructureButton.hidden = !canDestroyStructure;
+  if (canDestroyStructure) {
+    destroyStructureDetails.textContent = STRUCTURE_DEFINITIONS[selectedStructure.type].headquarters
+      ? "Eliminates this commander and all of their remaining assets"
+      : "Immediate · no crystal refund";
+  }
   const supplyDefinition = selectedStructure && STRUCTURE_DEFINITIONS[selectedStructure.type];
   const canShowSupplyUpgrade = Boolean(
     selectedStructures.length === 1 &&
@@ -6950,7 +6965,8 @@ function updateInterface() {
     buildingUpgradeButton.disabled = !buildingUpgrade.valid;
   }
   structureCommands.hidden =
-    matchEnded || (!canCancelConstruction && !canShowSupplyUpgrade && !canShowBuildingUpgrade);
+    matchEnded ||
+    (!canCancelConstruction && !canDestroyStructure && !canShowSupplyUpgrade && !canShowBuildingUpgrade);
 
   const lowEnergyUnits = simulation.units.filter(
     (unit) =>
@@ -7612,9 +7628,22 @@ function cancelSelectedConstruction() {
   return true;
 }
 
+function destroySelectedStructure() {
+  if (!selectedStructureId) return false;
+  const result = issueGameCommand({
+    type: "destroy_structure",
+    structureId: selectedStructureId,
+  });
+  if (!result) return false;
+  selectStructures([]);
+  updateInterface();
+  return true;
+}
+
 overdriveButton.addEventListener("click", activateOverdrive);
 transportDropButton.addEventListener("click", unloadSelectedTransports);
 cancelConstructionButton.addEventListener("click", cancelSelectedConstruction);
+destroyStructureButton.addEventListener("click", destroySelectedStructure);
 supplyUpgradeButton.addEventListener("click", () => {
   if (selectedStructureId) {
     issueGameCommand({ type: "supply_upgrade", structureId: selectedStructureId });

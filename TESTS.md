@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 320
+**Automated tests documented:** 322
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -78,23 +78,28 @@ this catalog is out of date.
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that worker controls upgrade one tier and keep only one construction tier open.
 
+<!-- test-catalog-entry: ["test/bootstrap.test.js","selected completed buildings expose an authorized destroy command"] -->
+### 14. selected completed buildings expose an authorized destroy command
+
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that selected completed buildings expose an authorized destroy command.
+
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the interface and battlefield present the economy as crimson crystal"] -->
-### 14. the interface and battlefield present the economy as crimson crystal
+### 15. the interface and battlefield present the economy as crimson crystal
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the interface and battlefield present the economy as crimson crystal.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","production controls disclose ground damage penalties"] -->
-### 15. production controls disclose ground damage penalties
+### 16. production controls disclose ground damage penalties
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that production controls disclose ground damage penalties.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","unit selection is concise and uses one compact shared construction queue"] -->
-### 16. unit selection is concise and uses one compact shared construction queue
+### 17. unit selection is concise and uses one compact shared construction queue
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that unit selection is concise and uses one compact shared construction queue.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","match setup exposes per-AI difficulty and team assignment controls"] -->
-### 17. match setup exposes per-AI difficulty and team assignment controls
+### 18. match setup exposes per-AI difficulty and team assignment controls
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that match setup exposes per-AI difficulty and team assignment controls.
 
@@ -1484,118 +1489,123 @@ this catalog is out of date.
 
 **What it checks:** Runs the deterministic game simulation to confirm that cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal.
 
+<!-- test-catalog-entry: ["test/simulation.test.js","a commander can destroy one completed building without a refund"] -->
+### 242. a commander can destroy one completed building without a refund
+
+**What it checks:** Runs the deterministic game simulation to confirm that a commander can destroy one completed building without a refund.
+
 <!-- test-catalog-entry: ["test/simulation.test.js","destroying every enemy unit and building ends the match in victory"] -->
-### 242. destroying every enemy unit and building ends the match in victory
+### 243. destroying every enemy unit and building ends the match in victory
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroying every enemy unit and building ends the match in victory.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","losing every player unit and building ends the match in defeat"] -->
-### 243. losing every player unit and building ends the match in defeat
+### 244. losing every player unit and building ends the match in defeat
 
 **What it checks:** Runs the deterministic game simulation to confirm that losing every player unit and building ends the match in defeat.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","destroying a Headquarters instantly eliminates all of that commander's assets"] -->
-### 244. destroying a Headquarters instantly eliminates all of that commander's assets
+### 245. destroying a Headquarters instantly eliminates all of that commander's assets
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroying a Headquarters instantly eliminates all of that commander's assets.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","field tests enable elimination while isolated simulations remain opt-in"] -->
-### 245. field tests enable elimination while isolated simulations remain opt-in
+### 246. field tests enable elimination while isolated simulations remain opt-in
 
 **What it checks:** Runs the deterministic game simulation to confirm that field tests enable elimination while isolated simulations remain opt-in.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","multiplayer field tests disable the enemy commander AI"] -->
-### 246. multiplayer field tests disable the enemy commander AI
+### 247. multiplayer field tests disable the enemy commander AI
 
 **What it checks:** Runs the deterministic game simulation to confirm that multiplayer field tests disable the enemy commander AI.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","simulation snapshots restore a playable multiplayer client state"] -->
-### 247. simulation snapshots restore a playable multiplayer client state
+### 248. simulation snapshots restore a playable multiplayer client state
 
 **What it checks:** Runs the deterministic game simulation to confirm that simulation snapshots restore a playable multiplayer client state.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","mixed human and AI matches continue until only one command team remains"] -->
-### 248. mixed human and AI matches continue until only one command team remains
+### 249. mixed human and AI matches continue until only one command team remains
 
 **What it checks:** Runs the deterministic game simulation to confirm that mixed human and AI matches continue until only one command team remains.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","multiplayer lobby codes are exactly ten uppercase letters and numbers"] -->
-### 249. multiplayer lobby codes are exactly ten uppercase letters and numbers
+### 250. multiplayer lobby codes are exactly ten uppercase letters and numbers
 
 **What it checks:** Runs the deterministic game simulation to confirm that multiplayer lobby codes are exactly ten uppercase letters and numbers.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every player count offers multiple dense and selectable battlefield layouts"] -->
-### 250. every player count offers multiple dense and selectable battlefield layouts
+### 251. every player count offers multiple dense and selectable battlefield layouts
 
 **What it checks:** Runs the deterministic game simulation to confirm that every player count offers multiple dense and selectable battlefield layouts.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the three-player ancient ruins map is a dense ruin complex"] -->
-### 251. the three-player ancient ruins map is a dense ruin complex
+### 252. the three-player ancient ruins map is a dense ruin complex
 
 **What it checks:** Runs the deterministic game simulation to confirm that the three-player ancient ruins map is a dense ruin complex.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","an eight-player match gives every commander the standard starting package"] -->
-### 252. an eight-player match gives every commander the standard starting package
+### 253. an eight-player match gives every commander the standard starting package
 
 **What it checks:** Runs the deterministic game simulation to confirm that an eight-player match gives every commander the standard starting package.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","match teams preserve per-AI difficulty and player-selected alliances"] -->
-### 253. match teams preserve per-AI difficulty and player-selected alliances
+### 254. match teams preserve per-AI difficulty and player-selected alliances
 
 **What it checks:** Runs the deterministic game simulation to confirm that match teams preserve per-AI difficulty and player-selected alliances.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","AI difficulty changes deterministic decision cadence and attack preparation"] -->
-### 254. AI difficulty changes deterministic decision cadence and attack preparation
+### 255. AI difficulty changes deterministic decision cadence and attack preparation
 
 **What it checks:** Runs the deterministic game simulation to confirm that AI difficulty changes deterministic decision cadence and attack preparation.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","eliminated AI commanders stop running strategic decisions"] -->
-### 255. eliminated AI commanders stop running strategic decisions
+### 256. eliminated AI commanders stop running strategic decisions
 
 **What it checks:** Runs the deterministic game simulation to confirm that eliminated AI commanders stop running strategic decisions.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","allied commanders share vision, reject friendly fire, and win together"] -->
-### 256. allied commanders share vision, reject friendly fire, and win together
+### 257. allied commanders share vision, reject friendly fire, and win together
 
 **What it checks:** Runs the deterministic game simulation to confirm that allied commanders share vision, reject friendly fire, and win together.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","snapshots preserve AI difficulties and commander alliances"] -->
-### 257. snapshots preserve AI difficulties and commander alliances
+### 258. snapshots preserve AI difficulties and commander alliances
 
 **What it checks:** Runs the deterministic game simulation to confirm that snapshots preserve AI difficulties and commander alliances.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every AI commander makes decisions with independent state and resources"] -->
-### 258. every AI commander makes decisions with independent state and resources
+### 259. every AI commander makes decisions with independent state and resources
 
 **What it checks:** Runs the deterministic game simulation to confirm that every AI commander makes decisions with independent state and resources.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","victory waits until every AI commander has been eliminated"] -->
-### 259. victory waits until every AI commander has been eliminated
+### 260. victory waits until every AI commander has been eliminated
 
 **What it checks:** Runs the deterministic game simulation to confirm that victory waits until every AI commander has been eliminated.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","snapshots preserve multi-AI teams, starts, maps, and decision state"] -->
-### 260. snapshots preserve multi-AI teams, starts, maps, and decision state
+### 261. snapshots preserve multi-AI teams, starts, maps, and decision state
 
 **What it checks:** Runs the deterministic game simulation to confirm that snapshots preserve multi-AI teams, starts, maps, and decision state.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","tactical minimap crystal markers use bright fog-independent colors"] -->
-### 261. tactical minimap crystal markers use bright fog-independent colors
+### 262. tactical minimap crystal markers use bright fog-independent colors
 
 **What it checks:** Runs the deterministic game simulation to confirm that tactical minimap crystal markers use bright fog-independent colors.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","mortar shells travel faster and keep tracking moving targets"] -->
-### 262. mortar shells travel faster and keep tracking moving targets
+### 263. mortar shells travel faster and keep tracking moving targets
 
 **What it checks:** Runs the deterministic game simulation to confirm that mortar shells travel faster and keep tracking moving targets.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI assigns spare workers to powered factory production"] -->
-### 263. enemy AI assigns spare workers to powered factory production
+### 264. enemy AI assigns spare workers to powered factory production
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI assigns spare workers to powered factory production.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI adds shield coverage after establishing its core force"] -->
-### 264. enemy AI adds shield coverage after establishing its core force
+### 265. enemy AI adds shield coverage after establishing its core force
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI adds shield coverage after establishing its core force.
 

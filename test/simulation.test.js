@@ -6112,6 +6112,29 @@ test("cancelling construction removes the foundation, clears workers, and refund
   assert.equal(simulation.events.at(-1).type, "construction_cancelled");
 });
 
+test("a commander can destroy one completed building without a refund", () => {
+  const simulation = new Simulation();
+  const factory = simulation.addStructure("mech_factory_t1", "player", 200, 200);
+  const foundation = simulation.addStructure("battery", "player", 360, 200, {
+    complete: false,
+    constructionProgress: 3,
+  });
+  simulation.queueProduction(factory.id, "scout_mech");
+  const startingMetal = simulation.resources.player.metal;
+  const startingReservedSupply = simulation.getSupplyState("player").reservedSupply;
+
+  assert.ok(startingReservedSupply > 0);
+  assert.equal(simulation.destroyStructure(factory.id, "enemy"), false);
+  assert.equal(simulation.destroyStructure(foundation.id, "player"), false);
+  assert.equal(simulation.destroyStructure(factory.id, "player"), true);
+
+  assert.equal(factory.alive, false);
+  assert.equal(simulation.resources.player.metal, startingMetal);
+  assert.equal(simulation.getSupplyState("player").reservedSupply, 0);
+  assert.equal(simulation.events.at(-1).type, "destroyed");
+  assert.equal(simulation.events.at(-1).targetId, factory.id);
+});
+
 test("destroying every enemy unit and building ends the match in victory", () => {
   const simulation = new Simulation({ matchRulesEnabled: true });
   simulation.addUnit("worker_drone_t1", "player", 100, 100);

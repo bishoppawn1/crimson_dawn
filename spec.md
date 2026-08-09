@@ -959,6 +959,12 @@ its assigned workers, and refunds 75% of the crystal represented by its unbuilt
 progress. Crystal already represented by completed progress is not refundable. The
 75% refund rate is provisional.
 
+Selecting one completed friendly building exposes a Destroy Building command.
+Destruction is immediate, grants no crystal refund, and follows the ordinary
+building-destruction rules, including losing stored energy and factory queues. A
+player may destroy their Command Headquarters, which immediately eliminates that
+commander and all of their remaining assets as it would if an opponent destroyed it.
+
 ### 5.3 Economy and Static Defense Buildings
 
 Each commander owns one irreplaceable **Command Headquarters**. Its provisional

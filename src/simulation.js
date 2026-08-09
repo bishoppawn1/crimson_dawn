@@ -1492,6 +1492,18 @@ export class Simulation {
     return { structureId: structure.id, refund };
   }
 
+  destroyStructure(structureId, team = null) {
+    const structure = this.getStructure(structureId);
+    if (
+      !structure?.alive ||
+      !structure.complete ||
+      (team && structure.team !== team)
+    ) {
+      return false;
+    }
+    return this.destroyEntity(structure);
+  }
+
   queueProduction(structureId, unitType) {
     this.lastProductionError = null;
     const factory = this.getStructure(structureId);
