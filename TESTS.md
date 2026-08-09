@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 311
+**Automated tests documented:** 312
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -193,6 +193,11 @@ this catalog is out of date.
 ### 7. new mobile entities appear at their authoritative position
 
 **What it checks:** Exercises remote-position smoothing to confirm that new mobile entities appear at their authoritative position.
+
+<!-- test-catalog-entry: ["test/network-presentation.test.js","tracking shots stop following a destroyed reclamation drone back to its yard"] -->
+### 8. tracking shots stop following a destroyed reclamation drone back to its yard
+
+**What it checks:** Exercises remote-position smoothing to confirm that tracking shots stop following a destroyed reclamation drone back to its yard.
 
 ## [test/queue-status.test.js](test/queue-status.test.js)
 

@@ -27,6 +27,7 @@ const {
   multiplayerMotionUpdateIsValid,
   MULTIPLAYER_MOTION_INTERVAL_SECONDS,
   MULTIPLAYER_STATE_INTERVAL_SECONDS,
+  resolveAttackEventTargetPosition,
   SnapshotPositionSmoother,
 } = await import(`./network-presentation.js${versionSuffix}`);
 const {
@@ -6156,11 +6157,11 @@ function attackEventTargetPosition(event) {
   const target = event.tracksTarget
     ? simulation.getEntity(event.targetId)
     : null;
-  if (target) return presentedPosition(target);
-  return {
-    x: event.targetX ?? event.x,
-    y: event.targetY ?? event.y,
-  };
+  return resolveAttackEventTargetPosition(
+    event,
+    target,
+    target ? presentedPosition(target) : null,
+  );
 }
 
 function drawAttackEvent(event, age) {

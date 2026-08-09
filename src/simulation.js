@@ -645,6 +645,8 @@ export class Simulation {
       navigationTarget: null,
       navigationReplanAt: this.time + navigationReplanPhase(droneId),
       replacementRemaining: 0,
+      destroyedAtX: null,
+      destroyedAtY: null,
     };
     this.entityById.set(drone.id, drone);
     this.droneCache.push(drone);
@@ -6184,6 +6186,8 @@ export class Simulation {
     drone.carry = 0;
     drone.mode = "rebuilding";
     drone.targetWreckId = null;
+    drone.destroyedAtX = destroyedAt.x;
+    drone.destroyedAtY = destroyedAt.y;
     this.resetDroneNavigation(drone);
     drone.replacementRemaining = yard
       ? STRUCTURE_DEFINITIONS[yard.type].droneReplacementTime
@@ -6206,6 +6210,8 @@ export class Simulation {
     drone.mode = "idle";
     drone.carry = 0;
     drone.targetWreckId = null;
+    drone.destroyedAtX = null;
+    drone.destroyedAtY = null;
     this.resetDroneNavigation(drone);
     drone.replacementRemaining = 0;
     this.emit("drone_replaced", drone.x, drone.y, { droneId: drone.id });

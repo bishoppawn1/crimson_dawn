@@ -7,6 +7,7 @@ import {
   multiplayerMotionUpdateIsValid,
   MULTIPLAYER_MOTION_INTERVAL_SECONDS,
   MULTIPLAYER_STATE_INTERVAL_SECONDS,
+  resolveAttackEventTargetPosition,
   SnapshotPositionSmoother,
 } from "../src/network-presentation.js";
 
@@ -95,4 +96,34 @@ test("new mobile entities appear at their authoritative position", () => {
   smoother.transitionTo([reinforcement], 1000, 30);
 
   assert.deepEqual(smoother.positionFor(reinforcement, 1000), { x: 700, y: 420 });
+});
+
+test("tracking shots stop following a destroyed reclamation drone back to its yard", () => {
+  const event = {
+    tracksTarget: true,
+    targetX: 420,
+    targetY: 310,
+  };
+  const drone = {
+    alive: true,
+    x: 470,
+    y: 330,
+    destroyedAtX: null,
+    destroyedAtY: null,
+  };
+
+  assert.deepEqual(resolveAttackEventTargetPosition(event, drone, { x: 468, y: 329 }), {
+    x: 468,
+    y: 329,
+  });
+
+  drone.alive = false;
+  drone.x = 720;
+  drone.y = 600;
+  drone.destroyedAtX = 485;
+  drone.destroyedAtY = 342;
+  assert.deepEqual(resolveAttackEventTargetPosition(event, drone, drone), {
+    x: 485,
+    y: 342,
+  });
 });

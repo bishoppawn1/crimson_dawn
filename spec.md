@@ -389,7 +389,10 @@ rapid weapons. Ordinary projectile effects use the authoritative attack event's
 firing-time positions; they do not stretch from a shooter or target that moves
 after the shot. Mortar shells are the exception: their arc continually adjusts
 toward the chosen target's current presented position so a moving unit is struck
-where it is now rather than where it was when the turret fired. Every weapon
+where it is now rather than where it was when the turret fired. If that target is
+destroyed before impact, the remaining visual flight ends at the target's
+destruction location instead of following a rebuilding reclamation drone back to
+its yard. Every weapon
 represented by a moving tracer, missile, or shell applies its damage only when that
 projectile arrives. Projectile speed and minimum travel time are shared by the
 simulation and renderer so damage cannot precede the visible hit.

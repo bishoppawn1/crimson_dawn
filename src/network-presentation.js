@@ -171,6 +171,39 @@ export function multiplayerMotionUpdateIsValid(message) {
   return true;
 }
 
+export function resolveAttackEventTargetPosition(
+  event,
+  trackedTarget = null,
+  presentedTargetPosition = trackedTarget,
+) {
+  if (
+    event?.tracksTarget &&
+    trackedTarget?.alive &&
+    Number.isFinite(presentedTargetPosition?.x) &&
+    Number.isFinite(presentedTargetPosition?.y)
+  ) {
+    return {
+      x: presentedTargetPosition.x,
+      y: presentedTargetPosition.y,
+    };
+  }
+  if (
+    event?.tracksTarget &&
+    !trackedTarget?.alive &&
+    Number.isFinite(trackedTarget?.destroyedAtX) &&
+    Number.isFinite(trackedTarget?.destroyedAtY)
+  ) {
+    return {
+      x: trackedTarget.destroyedAtX,
+      y: trackedTarget.destroyedAtY,
+    };
+  }
+  return {
+    x: event?.targetX ?? event?.x,
+    y: event?.targetY ?? event?.y,
+  };
+}
+
 function hasPosition(entity) {
   return Boolean(
     entity?.id &&

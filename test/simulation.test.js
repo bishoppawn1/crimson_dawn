@@ -4394,6 +4394,10 @@ test("destroyed reclamation drones drop their carried crystal scrap at the death
   assert.ok(droppedScrap);
   assert.equal(droppedScrap.metal, 17);
   assert.equal(drone.carry, 0);
+  assert.deepEqual(
+    { x: drone.destroyedAtX, y: drone.destroyedAtY },
+    { x: 300, y: 240 },
+  );
 });
 
 test("both sides start with a Headquarters, three workers, a Tier 1 factory, a generator, and a powered Crystal Harvester", () => {
