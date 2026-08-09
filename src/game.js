@@ -7754,7 +7754,7 @@ function updateInterface() {
     const unitType = spawnUnitSelect.value;
     const unitDefinition = UNIT_DEFINITIONS[unitType];
     const padCost = spawnWarsPadCost(unitDefinition);
-    spawnPadCost.textContent = `${padCost.toLocaleString()} crystal · ${unitDefinition.unitDomain === "experimental" ? "3×3" : "2×2"} phase platform · spawns every ${spawnWarsInterval(unitDefinition)}s`;
+    spawnPadCost.textContent = `${padCost.toLocaleString()} crystal · ${unitDefinition.unitDomain === "experimental" ? "3×3" : "2×2"} phase platform · spawns with each ${spawnWarsInterval(unitDefinition)}s income payment`;
     spawnPlacePadButton.disabled = localResources.metal < padCost;
     const architectCost = SPAWN_WARS_RULES.architectUpgradeCosts[architectTier - 1];
     spawnArchitectUpgradeDetails.textContent = Number.isFinite(architectCost)
@@ -7768,7 +7768,7 @@ function updateInterface() {
       : "Income level 3 maximum reached";
     spawnIncomeUpgradeButton.disabled = !Number.isFinite(incomeCost) || localResources.metal < incomeCost;
     const controlsCenter = simulation.spawnWars.controlAllianceId === simulation.getAllianceId(localTeam);
-    spawnIncomeStatus.textContent = `Income level ${incomeLevel} · next payment ${Math.ceil(simulation.spawnWars.incomeRemaining)}s · center ${controlsCenter ? "+60 crystal controlled" : "not controlled"}`;
+    spawnIncomeStatus.textContent = `Income level ${incomeLevel} · next income + synchronized wave ${Math.ceil(simulation.spawnWars.incomeRemaining)}s · center ${controlsCenter ? "+60 crystal controlled" : "not controlled"}`;
   }
 
   const selectedSpawnPad = selectedStructure?.complete &&
@@ -7782,9 +7782,8 @@ function updateInterface() {
     for (const [category, button] of spawnPadUpgradeButtons) {
       const level = selectedSpawnPad.spawnUpgradeLevels?.[category] || 0;
       const cost = spawnWarsPadUpgradeCost(unitDefinition, category, level);
-      const maximum = level >= SPAWN_WARS_RULES.maximumUpgradeLevel;
-      button.innerHTML = `<strong>${SPAWN_PAD_UPGRADES[category].label} · ${level}/3</strong><small>${maximum ? "Maximum level" : `${cost.toLocaleString()} crystal · affects future spawns`}</small>`;
-      button.disabled = maximum || localResources.metal < cost;
+      button.innerHTML = `<strong>${SPAWN_PAD_UPGRADES[category].label} · Level ${level}</strong><small>${cost.toLocaleString()} crystal · affects future spawns · no level cap</small>`;
+      button.disabled = localResources.metal < cost;
     }
   }
 

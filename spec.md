@@ -1706,25 +1706,26 @@ target them, and damage cannot affect them. Platforms cannot overlap other phase
 platforms or leave their owner's build zone. The owner may select and destroy a
 completed platform with no refund.
 
-Each completed platform automatically creates its configured unit on a repeating
-timer. A provisional ordinary Tier 1 interval is 32 seconds, increases by 14
-seconds per tier, Bulwark Mechs instead use 40/55/70 seconds, and experimental
-units use 120 seconds. New units initially attack-move toward the opposing Command
-Core but remain fully selectable and controllable, allowing a player to stop and
-save a wave. Every spawned combat unit uses the same provisional 105-world-unit
-movement speed in this mode. Normal unit identity, health, weapons, firing range,
-target restrictions, and collision remain intact; unit energy is continuously
-available so the mode's automatic lane battle does not stall on the standard
-logistics loop.
+Every completed platform creates its configured unit on the shared 30-second income
+clock. Each income payment and platform wave resolve together, so platforms built
+at different times and platforms producing different unit roles or tiers all join
+the same synchronized wave. New units initially attack-move toward the opposing
+Command Core but remain fully selectable and controllable, allowing a player to
+stop and save a wave. Every spawned combat unit uses the same provisional
+105-world-unit movement speed in this mode. Normal unit identity, health, weapons,
+firing range, target restrictions, and collision remain intact; unit energy is
+continuously available so the mode's automatic lane battle does not stall on the
+standard logistics loop.
 
-Selecting an owned completed platform exposes three levels each of Integrity,
-Armor, Weapon Damage, and Attack Speed upgrades. These upgrades affect only units
-spawned after the purchase. Their discounted base prices use 15/18/22/20 percent
-of normal unit value for Integrity/Armor/Weapon Damage/Attack Speed, with a
-20-crystal minimum. Higher tiers add 25 percent of that base per tier and Bulwarks
-and experimental units add 15 percent. Repeated levels cost only 1.0x, 1.2x, and
-1.4x the resulting base rather than doubling and tripling, while a Tier 3 or Bulwark
-damage upgrade still costs more than a Tier 1 light-unit damage upgrade. A Special Ability
+Selecting an owned completed platform exposes uncapped Integrity, Armor, Weapon
+Damage, and Attack Speed upgrades. A player may purchase each category indefinitely
+and independently for every platform. These upgrades affect only units spawned
+after the purchase. Their discounted base prices use 15/18/22/20 percent of normal
+unit value for Integrity/Armor/Weapon Damage/Attack Speed, with a 20-crystal
+minimum. Higher tiers add 25 percent of that base per tier and Bulwarks and
+experimental units add 15 percent. Every repeated level increases its category's
+cost by another 20 percent of the resulting base, while a Tier 3 or Bulwark damage
+upgrade still costs more than a Tier 1 light-unit damage upgrade. A Special Ability
 upgrade is visibly reserved but disabled: later work will define those abilities,
 after which spawned units will use them automatically.
 

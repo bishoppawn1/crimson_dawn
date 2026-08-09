@@ -21,7 +21,6 @@ export const SPAWN_WARS_RULES = Object.freeze({
   minimumPadCost: 25,
   padTierCostGrowth: 0.15,
   padBuildTime: 6,
-  maximumUpgradeLevel: 3,
   minimumPadUpgradeCost: 20,
   padUpgradeTierCostGrowth: 0.25,
   padUpgradeHeavyRoleMultiplier: 1.15,
@@ -94,10 +93,8 @@ export function spawnWarsPadCost(unitDefinition) {
   );
 }
 
-export function spawnWarsInterval(unitDefinition) {
-  if (unitDefinition?.unitDomain === "experimental") return 120;
-  if (unitDefinition?.role === "bulwark") return 40 + Math.max(0, (unitDefinition.tier || 1) - 1) * 15;
-  return 32 + Math.max(0, (unitDefinition?.tier || 1) - 1) * 14;
+export function spawnWarsInterval() {
+  return SPAWN_WARS_RULES.incomeInterval;
 }
 
 export function spawnWarsPadUpgradeCost(unitDefinition, category, currentLevel) {
@@ -124,10 +121,7 @@ export function spawnWarsKillIncome(unitDefinition, upgradeLevels = {}) {
     const level = Number.isFinite(upgradeLevels?.[category])
       ? Math.floor(upgradeLevels[category])
       : 0;
-    return total + Math.min(
-      SPAWN_WARS_RULES.maximumUpgradeLevel,
-      Math.max(0, level),
-    );
+    return total + Math.max(0, level);
   }, 0);
   const baseValue = unitDefinition?.metalValue || unitDefinition?.metalCost || 0;
   const upgradedValue = baseValue * (

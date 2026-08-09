@@ -25,6 +25,7 @@ import {
   SPAWN_WARS_RULES,
   createSpawnWarsTeams,
   spawnWarsKillIncome,
+  spawnWarsInterval,
   spawnWarsPadCost,
   spawnWarsPadUpgradeCost,
 } from "../src/spawn-wars.js";
@@ -99,7 +100,7 @@ test("Spawn Wars creates fixed human teams, architects, zones, and protected obj
   assert.ok(eastZone.left - westZone.right >= 6_000);
 });
 
-test("Spawn Wars platforms are limited to their owner's zone and spawn upgraded waves", () => {
+test("Spawn Wars platforms are limited to their owner's zone and accept uncapped upgrades", () => {
   const simulation = Simulation.createSpawnWars({ playerCount: 2 });
   const architect = simulation.units.find((unit) => unit.team === "player");
   const zone = simulation.spawnWars.buildZones.player;
@@ -128,19 +129,28 @@ test("Spawn Wars platforms are limited to their owner's zone and spawn upgraded 
   advance(simulation, SPAWN_WARS_RULES.padBuildTime + 0.2);
   assert.equal(pad.complete, true);
 
-  simulation.resources.player.metal = 10_000;
-  const damageCost = spawnWarsPadUpgradeCost(unitDefinition, "damage", 0);
-  assert.equal(simulation.upgradeSpawnPad(pad.id, "damage", "player"), true);
-  assert.equal(simulation.resources.player.metal, 10_000 - damageCost);
-  advance(simulation, pad.spawnInterval + 0.2);
+  simulation.resources.player.metal = 1_000_000;
+  let totalUpgradeCost = 0;
+  for (const category of ["health", "armor", "damage", "attack_speed"]) {
+    for (let level = 0; level < 4; level += 1) {
+      totalUpgradeCost += spawnWarsPadUpgradeCost(unitDefinition, category, level);
+      assert.equal(simulation.upgradeSpawnPad(pad.id, category, "player"), true);
+    }
+    assert.equal(pad.spawnUpgradeLevels[category], 4);
+  }
+  assert.equal(simulation.resources.player.metal, 1_000_000 - totalUpgradeCost);
+  advance(simulation, simulation.spawnWars.incomeRemaining + 0.2);
   const spawned = simulation.units.find((unit) => unit.spawnWarsPadId === pad.id);
   assert.ok(spawned);
-  assert.equal(spawned.spawnWarsDamageMultiplier, 1.15);
+  assert.equal(spawned.spawnWarsMaximumHp, unitDefinition.maxHp * 1.72);
+  assert.equal(spawned.spawnWarsArmorMultiplier, 1 / 1.48);
+  assert.equal(spawned.spawnWarsDamageMultiplier, 1.6);
+  assert.equal(spawned.spawnWarsAttackSpeedMultiplier, 1.48);
   assert.deepEqual(spawned.spawnWarsUpgradeLevels, {
-    health: 0,
-    armor: 0,
-    damage: 1,
-    attack_speed: 0,
+    health: 4,
+    armor: 4,
+    damage: 4,
+    attack_speed: 4,
   });
   assert.equal(spawned.moveMode, "advance");
 
@@ -153,7 +163,11 @@ test("Spawn Wars platforms are limited to their owner's zone and spawn upgraded 
   const enemyAttacker = simulation.addUnit("scout_mech", "enemy", spawned.x + 100, spawned.y, {
     spawnWarsSpawned: true,
   });
-  simulation.applyDamage(spawned, spawned.hp, enemyAttacker);
+  simulation.applyDamage(
+    spawned,
+    spawned.hp / spawned.spawnWarsArmorMultiplier + 1,
+    enemyAttacker,
+  );
   assert.ok(upgradedKillIncome > baseKillIncome);
   assert.equal(simulation.resources.enemy.metal, enemyCrystal + upgradedKillIncome);
 });
@@ -181,6 +195,51 @@ test("Spawn Wars platforms and repeated upgrades use the discounted economy", ()
     spawnWarsPadUpgradeCost(tierThreeVanguard, "damage", 0) > damageCosts[0],
   );
   assert.ok(spawnWarsPadUpgradeCost(bulwark, "damage", 0) > damageCosts[0]);
+});
+
+test("Spawn Wars platforms synchronize every wave with the income payment", () => {
+  const simulation = Simulation.createSpawnWars({ playerCount: 2 });
+  const architect = simulation.units.find((unit) => unit.team === "player");
+  const zone = simulation.spawnWars.buildZones.player;
+  simulation.resources.player.metal = 100_000;
+
+  const firstPad = simulation.startSpawnPadConstruction(
+    [architect.id],
+    "scout_mech",
+    zone.left + 200,
+    (zone.top + zone.bottom) / 2,
+  );
+  const secondPad = simulation.startSpawnPadConstruction(
+    [architect.id],
+    "assault_mech",
+    zone.left + 400,
+    (zone.top + zone.bottom) / 2,
+    { queue: true },
+  );
+  advance(simulation, SPAWN_WARS_RULES.padBuildTime * 2 + 0.2);
+
+  assert.equal(firstPad.complete, true);
+  assert.equal(secondPad.complete, true);
+  assert.equal(spawnWarsInterval(UNIT_DEFINITIONS.scout_mech), SPAWN_WARS_RULES.incomeInterval);
+  assert.equal(spawnWarsInterval(UNIT_DEFINITIONS.assault_mech), SPAWN_WARS_RULES.incomeInterval);
+  assert.equal(spawnWarsInterval(UNIT_DEFINITIONS.hexapod_landship), SPAWN_WARS_RULES.incomeInterval);
+
+  const beforePayment = simulation.resources.player.metal;
+  const beforeWaveUnits = simulation.units.filter((unit) => unit.spawnWarsPadId).length;
+  simulation.updateSpawnWars(simulation.spawnWars.incomeRemaining - 0.05);
+  assert.equal(simulation.units.filter((unit) => unit.spawnWarsPadId).length, beforeWaveUnits);
+  assert.ok(Math.abs(firstPad.spawnRemaining - 0.05) < 1e-6);
+  assert.ok(Math.abs(secondPad.spawnRemaining - 0.05) < 1e-6);
+
+  simulation.updateSpawnWars(0.05);
+  assert.equal(
+    simulation.resources.player.metal,
+    beforePayment + SPAWN_WARS_RULES.baseIncome,
+  );
+  assert.equal(simulation.units.filter((unit) => unit.spawnWarsPadId === firstPad.id).length, 1);
+  assert.equal(simulation.units.filter((unit) => unit.spawnWarsPadId === secondPad.id).length, 1);
+  assert.equal(firstPad.spawnRemaining, SPAWN_WARS_RULES.incomeInterval);
+  assert.equal(secondPad.spawnRemaining, SPAWN_WARS_RULES.incomeInterval);
 });
 
 test("Spawn Wars income, center control, equal speed, kill rewards, and objectives are deterministic", () => {
@@ -261,10 +320,7 @@ test("Spawn Wars unit deaths never create crystal scrap for either alliance", ()
   simulation.applyDamage(eastVictim, eastVictim.hp, westAttacker);
   simulation.applyDamage(westVictim, westVictim.hp, eastAttacker);
 
-  const killReward = Math.max(
-    SPAWN_WARS_RULES.minimumKillIncome,
-    Math.round(UNIT_DEFINITIONS.scout_mech.metalValue * SPAWN_WARS_RULES.killIncomeRatio),
-  );
+  const killReward = spawnWarsKillIncome(UNIT_DEFINITIONS.scout_mech);
   assert.equal(eastVictim.alive, false);
   assert.equal(westVictim.alive, false);
   assert.equal(simulation.resources.player.metal, westCrystal + killReward);

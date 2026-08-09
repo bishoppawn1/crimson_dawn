@@ -2745,7 +2745,7 @@ export class Simulation {
       powerStatus: "constructing",
       spawnUnitType: unitType,
       spawnInterval: spawnWarsInterval(unitDefinition),
-      spawnRemaining: spawnWarsInterval(unitDefinition),
+      spawnRemaining: this.spawnWars.incomeRemaining,
       spawnUpgradeLevels: { health: 0, armor: 0, damage: 0, attack_speed: 0 },
       constructionStartedAt: this.time,
     });
@@ -2817,10 +2817,6 @@ export class Simulation {
     ) return false;
     pad.spawnUpgradeLevels ||= { health: 0, armor: 0, damage: 0, attack_speed: 0 };
     const level = pad.spawnUpgradeLevels[category] || 0;
-    if (level >= SPAWN_WARS_RULES.maximumUpgradeLevel) {
-      this.lastUpgradeError = `${SPAWN_PAD_UPGRADES[category].label} is already fully upgraded.`;
-      return false;
-    }
     const cost = spawnWarsPadUpgradeCost(unitDefinition, category, level);
     if (this.resources[teamId].metal + EPSILON < cost) {
       this.lastUpgradeError = "Not enough crystal.";
@@ -3385,16 +3381,19 @@ export class Simulation {
         this.emit("spawn_income", this.teamStarts[team.id]?.x || this.width / 2,
           this.teamStarts[team.id]?.y || this.height / 2, { team: team.id, amount, control });
       }
+      for (const pad of this.structures) {
+        const definition = STRUCTURE_DEFINITIONS[pad.type];
+        if (!pad.alive || !pad.complete || !definition?.phaseLayer || !pad.spawnUnitType) continue;
+        this.spawnSpawnWarsUnit(pad);
+      }
       this.spawnWars.incomeRemaining += SPAWN_WARS_RULES.incomeInterval;
     }
 
     for (const pad of this.structures) {
       const definition = STRUCTURE_DEFINITIONS[pad.type];
       if (!pad.alive || !pad.complete || !definition?.phaseLayer || !pad.spawnUnitType) continue;
-      pad.spawnRemaining = Math.max(0, (pad.spawnRemaining ?? pad.spawnInterval) - delta);
-      if (pad.spawnRemaining > EPSILON) continue;
-      this.spawnSpawnWarsUnit(pad);
-      pad.spawnRemaining += pad.spawnInterval;
+      pad.spawnInterval = SPAWN_WARS_RULES.incomeInterval;
+      pad.spawnRemaining = Math.max(0, this.spawnWars.incomeRemaining);
     }
 
     for (const unit of this.units) {
