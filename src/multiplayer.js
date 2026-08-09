@@ -350,8 +350,7 @@ export class PeerMultiplayerSession {
     const targets = this.targetConnections(connectionId);
     let sent = targets.length > 0;
     for (const [targetId] of targets) {
-      const state = this.connectionStates.get(targetId);
-      if (state?.pendingState || this.stateChannelBusy(targetId)) {
+      if (this.stateChannelBusy(targetId)) {
         sent = false;
         continue;
       }

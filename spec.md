@@ -1656,9 +1656,11 @@ continues at its last authoritative velocity for up to 500 milliseconds before
 holding, and the next correction begins from that displayed position without a snap.
 This presentation-only coasting does not advance gameplay, combat, resources, or any
 second canonical simulation. Older motion ticks are ignored. Transient motion
-updates are dropped
-rather than queued whenever a complete state is waiting or the outgoing channel is
-busy, so smoother rendering cannot delay authoritative synchronization. Selection,
+updates continue while a newer complete state is merely waiting for the preceding
+state's acknowledgement, preventing acknowledgement latency from reducing guest
+motion to the snapshot cadence. They are dropped rather than queued while the
+outgoing channel is actually busy, so smoother rendering cannot build a delivery
+backlog or delay authoritative synchronization. Selection,
 target hit-testing, and the tactical minimap use the same displayed positions so the
 visual and interactive surfaces remain aligned. When the outgoing channel is congested,
 the host retains only the newest waiting snapshot; stale snapshots may not build an

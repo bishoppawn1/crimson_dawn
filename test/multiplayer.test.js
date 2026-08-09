@@ -301,7 +301,7 @@ test("host state delivery keeps one snapshot in flight until the guest acknowled
   guest.session.close();
 });
 
-test("transient motion updates yield to a waiting canonical snapshot", async () => {
+test("motion updates continue while a canonical snapshot awaits acknowledgement", async () => {
   FakePeer.peers.clear();
   const guestMessages = [];
   const host = await PeerMultiplayerSession.createHost(
@@ -317,16 +317,26 @@ test("transient motion updates yield to a waiting canonical snapshot", async () 
 
   assert.equal(host.session.sendState({ type: "state", sequence: 1 }), true);
   assert.equal(host.session.sendState({ type: "state", sequence: 2 }), true);
-  assert.equal(host.session.sendMotion({ type: "motion", tick: 3, entities: [] }), false);
-  assert.equal(guest.session.send({ type: "state_ack", sequence: 1 }), true);
-  await new Promise((resolve) => setTimeout(resolve, 0));
-
-  assert.equal(host.session.sendMotion({ type: "motion", tick: 4, entities: [] }), true);
+  assert.equal(host.session.sendMotion({ type: "motion", tick: 3, entities: [] }), true);
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(guestMessages, [
     { type: "state", sequence: 1 },
+    { type: "motion", tick: 3, entities: [] },
+  ]);
+
+  host.session.connection.dataChannel.bufferedAmount = 128 * 1024;
+  assert.equal(host.session.sendMotion({ type: "motion", tick: 4, entities: [] }), false);
+  host.session.connection.dataChannel.bufferedAmount = 0;
+  assert.equal(guest.session.send({ type: "state_ack", sequence: 1 }), true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(host.session.sendMotion({ type: "motion", tick: 5, entities: [] }), true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(guestMessages, [
+    { type: "state", sequence: 1 },
+    { type: "motion", tick: 3, entities: [] },
     { type: "state", sequence: 2 },
-    { type: "motion", tick: 4, entities: [] },
+    { type: "motion", tick: 5, entities: [] },
   ]);
 
   guest.session.send({ type: "state_ack", sequence: 2 });

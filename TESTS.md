@@ -204,10 +204,10 @@ this catalog is out of date.
 
 **What it checks:** Exercises lobby and peer-session behavior to confirm that host state delivery keeps one snapshot in flight until the guest acknowledges it.
 
-<!-- test-catalog-entry: ["test/multiplayer.test.js","transient motion updates yield to a waiting canonical snapshot"] -->
-### 7. transient motion updates yield to a waiting canonical snapshot
+<!-- test-catalog-entry: ["test/multiplayer.test.js","motion updates continue while a canonical snapshot awaits acknowledgement"] -->
+### 7. motion updates continue while a canonical snapshot awaits acknowledgement
 
-**What it checks:** Exercises lobby and peer-session behavior to confirm that transient motion updates yield to a waiting canonical snapshot.
+**What it checks:** Exercises lobby and peer-session behavior to confirm that motion updates continue while a canonical snapshot awaits acknowledgement.
 
 <!-- test-catalog-entry: ["test/multiplayer.test.js","a signaling broker error does not close an established direct match"] -->
 ### 8. a signaling broker error does not close an established direct match
