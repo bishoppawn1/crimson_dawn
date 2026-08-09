@@ -17,19 +17,25 @@ export const SPAWN_WARS_RULES = Object.freeze({
   killIncomeRatio: 0.2,
   killIncomeUpgradeValuePerLevel: 0.1,
   minimumKillIncome: 8,
-  padCostMultiplier: 2.5,
+  padCostMultiplier: 0.5,
+  minimumPadCost: 25,
+  padTierCostGrowth: 0.15,
   padBuildTime: 6,
   maximumUpgradeLevel: 3,
-  architectUpgradeCosts: Object.freeze([350, 800]),
-  incomeUpgradeCosts: Object.freeze([450, 950, 1750]),
+  minimumPadUpgradeCost: 20,
+  padUpgradeTierCostGrowth: 0.25,
+  padUpgradeHeavyRoleMultiplier: 1.15,
+  padUpgradeLevelCostGrowth: 0.2,
+  architectUpgradeCosts: Object.freeze([100, 200]),
+  incomeUpgradeCosts: Object.freeze([125, 200, 300]),
   incomeUpgradeMultiplier: 0.35,
 });
 
 export const SPAWN_PAD_UPGRADES = Object.freeze({
-  health: Object.freeze({ label: "Integrity", baseMultiplier: 0.55 }),
-  armor: Object.freeze({ label: "Armor", baseMultiplier: 0.65 }),
-  damage: Object.freeze({ label: "Weapon Damage", baseMultiplier: 0.8 }),
-  attack_speed: Object.freeze({ label: "Attack Speed", baseMultiplier: 0.75 }),
+  health: Object.freeze({ label: "Integrity", baseMultiplier: 0.15 }),
+  armor: Object.freeze({ label: "Armor", baseMultiplier: 0.18 }),
+  damage: Object.freeze({ label: "Weapon Damage", baseMultiplier: 0.22 }),
+  attack_speed: Object.freeze({ label: "Attack Speed", baseMultiplier: 0.2 }),
 });
 
 export function spawnWarsAllianceForSlot(slot, playerCount) {
@@ -77,8 +83,15 @@ export function spawnWarsBuildZone(team, playerCount) {
 }
 
 export function spawnWarsPadCost(unitDefinition) {
-  const tierMultiplier = 1 + Math.max(0, (unitDefinition?.tier || 1) - 1) * 0.35;
-  return Math.max(80, Math.round((unitDefinition?.metalCost || 80) * SPAWN_WARS_RULES.padCostMultiplier * tierMultiplier));
+  const tierMultiplier = 1 +
+    Math.max(0, (unitDefinition?.tier || 1) - 1) * SPAWN_WARS_RULES.padTierCostGrowth;
+  return Math.max(
+    SPAWN_WARS_RULES.minimumPadCost,
+    Math.round(
+      (unitDefinition?.metalCost || SPAWN_WARS_RULES.minimumPadCost) *
+      SPAWN_WARS_RULES.padCostMultiplier * tierMultiplier,
+    ),
+  );
 }
 
 export function spawnWarsInterval(unitDefinition) {
@@ -90,13 +103,19 @@ export function spawnWarsInterval(unitDefinition) {
 export function spawnWarsPadUpgradeCost(unitDefinition, category, currentLevel) {
   const upgrade = SPAWN_PAD_UPGRADES[category];
   if (!upgrade) return Infinity;
-  const tierWeight = 1 + Math.max(0, (unitDefinition?.tier || 1) - 1) * 0.65;
+  const tierWeight = 1 +
+    Math.max(0, (unitDefinition?.tier || 1) - 1) *
+    SPAWN_WARS_RULES.padUpgradeTierCostGrowth;
   const roleWeight = unitDefinition?.role === "bulwark" || unitDefinition?.unitDomain === "experimental"
-    ? 1.35
+    ? SPAWN_WARS_RULES.padUpgradeHeavyRoleMultiplier
     : 1;
+  const levelWeight = 1 + currentLevel * SPAWN_WARS_RULES.padUpgradeLevelCostGrowth;
   return Math.round(
-    Math.max(70, (unitDefinition?.metalCost || 70) * upgrade.baseMultiplier) *
-    tierWeight * roleWeight * (currentLevel + 1),
+    Math.max(
+      SPAWN_WARS_RULES.minimumPadUpgradeCost,
+      (unitDefinition?.metalCost || SPAWN_WARS_RULES.minimumPadUpgradeCost) *
+        upgrade.baseMultiplier * tierWeight * roleWeight,
+    ) * levelWeight,
   );
 }
 

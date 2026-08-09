@@ -1694,10 +1694,11 @@ invulnerable, untargetable flying Spawn Architect and a bounded, visibly marked
 phase-build zone. Allied commanders receive separate vertical halves of their
 team's zone. Architects can move normally but cannot attack, be attacked, run out
 of energy, or construct the standard economy and production tree. Tier upgrades
-cost 350 and 800 crystal and unlock matching unit-platform tiers.
+cost 100 and 200 crystal and unlock matching unit-platform tiers.
 
-An Architect places a unit-specific Spawn Platform for a crystal price derived
-from that unit's normal value, tier, and role. Ordinary platforms occupy a 2x2
+An Architect places a unit-specific Spawn Platform at a deeply discounted crystal
+price: 50 percent of that unit's normal value, increased by only 15 percent of that
+base for each tier above Tier 1, with a 25-crystal minimum. Ordinary platforms occupy a 2x2
 placement footprint; experimental-unit platforms occupy 3x3. They take six seconds
 to construct. Platforms exist on a separate phase layer: units may pass over them,
 they do not participate in ground or air collision/pathfinding, enemies do not
@@ -1718,15 +1719,18 @@ logistics loop.
 
 Selecting an owned completed platform exposes three levels each of Integrity,
 Armor, Weapon Damage, and Attack Speed upgrades. These upgrades affect only units
-spawned after the purchase. Costs increase with each level and scale upward for
-higher tiers, Bulwarks, and experimental units, so a Tier 3 or Bulwark damage
-upgrade costs more than a Tier 1 light-unit damage upgrade. A Special Ability
+spawned after the purchase. Their discounted base prices use 15/18/22/20 percent
+of normal unit value for Integrity/Armor/Weapon Damage/Attack Speed, with a
+20-crystal minimum. Higher tiers add 25 percent of that base per tier and Bulwarks
+and experimental units add 15 percent. Repeated levels cost only 1.0x, 1.2x, and
+1.4x the resulting base rather than doubling and tripling, while a Tier 3 or Bulwark
+damage upgrade still costs more than a Tier 1 light-unit damage upgrade. A Special Ability
 upgrade is visibly reserved but disabled: later work will define those abilities,
 after which spawned units will use them automatically.
 
 Every commander begins with 650 crystal. Every 30 seconds each living commander
 receives 120 crystal, increased by 35 percent of base for each of three purchasable
-income levels. Destroying a hostile spawned unit also awards the killing commander
+income levels costing 125, 200, and 300 crystal. Destroying a hostile spawned unit also awards the killing commander
 20 percent of its crystal value, with an eight-crystal minimum. Each stat-upgrade
 level carried by that unit adds a provisional 10 percent of its base crystal value
 before the 20-percent kill reward is calculated, so upgrades purchased after a unit

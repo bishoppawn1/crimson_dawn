@@ -158,6 +158,31 @@ test("Spawn Wars platforms are limited to their owner's zone and spawn upgraded 
   assert.equal(simulation.resources.enemy.metal, enemyCrystal + upgradedKillIncome);
 });
 
+test("Spawn Wars platforms and repeated upgrades use the discounted economy", () => {
+  const vanguard = UNIT_DEFINITIONS.scout_mech;
+  const bulwark = UNIT_DEFINITIONS.assault_mech;
+  const tierThreeVanguard = UNIT_DEFINITIONS.scout_mech_t3;
+  const experimental = UNIT_DEFINITIONS.arsenal_colossus;
+
+  assert.deepEqual(SPAWN_WARS_RULES.architectUpgradeCosts, [100, 200]);
+  assert.deepEqual(SPAWN_WARS_RULES.incomeUpgradeCosts, [125, 200, 300]);
+  assert.equal(spawnWarsPadCost(vanguard), 43);
+  assert.equal(spawnWarsPadCost(bulwark), 70);
+  assert.equal(spawnWarsPadCost(tierThreeVanguard), 124);
+  assert.equal(spawnWarsPadCost(experimental), 1_170);
+
+  const damageCosts = [0, 1, 2].map((level) => (
+    spawnWarsPadUpgradeCost(vanguard, "damage", level)
+  ));
+  assert.deepEqual(damageCosts, [20, 24, 28]);
+  assert.ok(damageCosts[1] < damageCosts[0] * 1.25);
+  assert.ok(damageCosts[2] < damageCosts[1] * 1.2);
+  assert.ok(
+    spawnWarsPadUpgradeCost(tierThreeVanguard, "damage", 0) > damageCosts[0],
+  );
+  assert.ok(spawnWarsPadUpgradeCost(bulwark, "damage", 0) > damageCosts[0]);
+});
+
 test("Spawn Wars income, center control, equal speed, kill rewards, and objectives are deterministic", () => {
   const simulation = Simulation.createSpawnWars({ playerCount: 2 });
   const westStart = simulation.resources.player.metal;
