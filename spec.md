@@ -597,7 +597,7 @@ reserved. Assigned units pursue the transport and board when they reach its hull
 
 Carried units are hidden, cannot move, attack, build, repair, recharge, transfer
 energy, be selected, or be targeted, and remain at their current integrity and energy
-until deployed. Selecting one or more Dropships and pressing `D` attempts to unload
+until deployed. Selecting one or more Dropships and pressing `U` attempts to unload
 all cargo into deterministic clear ground positions around each aircraft. A unit
 remains aboard if terrain, structures, map edges, and deployed ground units leave no
 valid nearby position. If a Dropship is destroyed, every unit aboard is destroyed

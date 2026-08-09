@@ -7086,17 +7086,15 @@ window.addEventListener("keydown", (event) => {
   if (matchMode === "menu") return;
   const key = event.key.toLowerCase();
   if (simulation.matchResult) return;
-  const transportHotkeyActive = key === "d" && selectedTransports().length > 0;
-  if (["w", "a", "s", "d"].includes(key) && !transportHotkeyActive) {
+  if (["w", "a", "s", "d"].includes(key)) {
     event.preventDefault();
     cameraKeys.add(key);
   }
   if (key === "q" && !event.repeat) activateOverdrive();
   if (key === "f" && !event.repeat) fillOneSelectedTransport();
   if (key === "l" && !event.repeat) fillAllSelectedTransports();
-  if (key === "d" && transportHotkeyActive && !event.repeat) {
+  if (key === "u" && selectedTransports().length > 0 && !event.repeat) {
     event.preventDefault();
-    cameraKeys.delete("d");
     unloadSelectedTransports();
   }
   if (key === "c" && !event.repeat) cancelSelectedConstruction();

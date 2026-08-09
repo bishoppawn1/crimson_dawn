@@ -73,13 +73,15 @@ test("Dropship controls expose explicit, balanced, and unload command paths", as
 
   assert.match(index, /id="transport-load-button"[^>]*>[\s\S]*?F · Fill One/);
   assert.match(index, /id="transport-fill-button"[^>]*>[\s\S]*?L · Fill All/);
-  assert.match(index, /id="transport-drop-button"[^>]*>[\s\S]*?D · Drop All/);
+  assert.match(index, /id="transport-drop-button"[^>]*>[\s\S]*?U · Drop All/);
   assert.match(game, /case "load"/);
   assert.match(game, /case "fill_transports"/);
   assert.match(game, /case "unload_transports"/);
   assert.match(game, /key === "f"[\s\S]*?fillOneSelectedTransport/);
   assert.match(game, /key === "l"[\s\S]*?fillAllSelectedTransports/);
-  assert.match(game, /key === "d"[\s\S]*?unloadSelectedTransports/);
+  assert.match(game, /key === "u"[\s\S]*?unloadSelectedTransports/);
+  assert.match(game, /\["w", "a", "s", "d"\]\.includes\(key\)[\s\S]*?cameraKeys\.add\(key\)/);
+  assert.doesNotMatch(game, /key === "d"[\s\S]*?unloadSelectedTransports/);
 });
 
 test("the battlefield, minimap, effects, and targeting share fog visibility", async () => {
