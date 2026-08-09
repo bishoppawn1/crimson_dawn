@@ -6607,10 +6607,10 @@ function updateInterface() {
       : "";
     const productionAssist = definition.production
       ? simulation.getFactoryProductionAssistState(selectedStructure.id)
-      : { workerCount: 0, productionRate: 0 };
-    const factoryText = definition.factoryBranch
+      : { workerCount: 0, productionRate: 0, powerDemand: 0 };
+    const factoryText = definition.production
       ? productionAssist.workerCount > 0
-        ? ` · ${Math.round((definition.productionRate || 1) * 100)}% base production speed · ${productionAssist.workerCount} worker${productionAssist.workerCount === 1 ? "" : "s"} assisting · ${Math.round(((definition.productionRate || 1) + productionAssist.productionRate) * 100)}% current speed`
+        ? ` · ${Math.round((definition.productionRate || 1) * 100)}% base production speed · ${productionAssist.workerCount} worker${productionAssist.workerCount === 1 ? "" : "s"} assisting · ${Math.round(((definition.productionRate || 1) + productionAssist.productionRate) * 100)}% assisted speed · +${productionAssist.powerDemand} energy/s assist draw`
         : ` · ${Math.round((definition.productionRate || 1) * 100)}% production speed`
       : "";
     const headquartersText = definition.headquarters
@@ -6624,8 +6624,9 @@ function updateInterface() {
       : builderCount > 0
         ? ` · ${builderCount} worker${builderCount === 1 ? "" : "s"} assigned`
         : " · paused—right-click with a worker to resume";
-    const demandText = definition.powerDemand
-      ? ` · ${simulation.getStructurePowerDemandRate(selectedStructure)} energy/s demand`
+    const currentPowerDemand = simulation.getStructurePowerDemandRate(selectedStructure);
+    const demandText = currentPowerDemand
+      ? ` · ${currentPowerDemand} energy/s demand`
       : "";
     const supplyComplexText = definition.supplyLevels
       ? selectedStructure.supplyUpgrade

@@ -853,7 +853,18 @@ test("higher-tier factories have progressively faster production throughput", ()
   assert.equal(tierThree.productionQueue[0].progress, 1.5);
 });
 
-test("workers add their tier-specific build rates to active factory production", () => {
+test("workers provide reduced tier-specific factory assistance at an added grid cost", () => {
+  assert.deepEqual(
+    ["worker_drone_t1", "worker_drone_t2", "worker_drone_t3"].map((type) => ({
+      rate: UNIT_DEFINITIONS[type].productionAssistRate,
+      demand: UNIT_DEFINITIONS[type].productionAssistPowerDemand,
+    })),
+    [
+      { rate: 0.25, demand: 6 },
+      { rate: 0.4, demand: 10 },
+      { rate: 0.65, demand: 16 },
+    ],
+  );
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;
   simulation.addStructure("generator", "player", 80, 200);
@@ -872,17 +883,65 @@ test("workers add their tier-specific build rates to active factory production",
   assert.deepEqual(simulation.getFactoryProductionAssistState(factory.id), {
     workerCount: 2,
     productionRate:
-      UNIT_DEFINITIONS.worker_drone_t1.buildRate +
-      UNIT_DEFINITIONS.worker_drone_t3.buildRate,
+      UNIT_DEFINITIONS.worker_drone_t1.productionAssistRate +
+      UNIT_DEFINITIONS.worker_drone_t3.productionAssistRate,
+    powerDemand:
+      UNIT_DEFINITIONS.worker_drone_t1.productionAssistPowerDemand +
+      UNIT_DEFINITIONS.worker_drone_t3.productionAssistPowerDemand,
   });
+  assert.ok(
+    UNIT_DEFINITIONS.worker_drone_t1.productionAssistRate <
+      UNIT_DEFINITIONS.worker_drone_t1.buildRate,
+  );
+  assert.equal(
+    simulation.getStructurePowerDemandRate(factory),
+    STRUCTURE_DEFINITIONS.mech_factory_t1.powerDemand +
+      STRUCTURE_DEFINITIONS.mech_factory_t1.productionPowerDemand +
+      UNIT_DEFINITIONS.worker_drone_t1.productionAssistPowerDemand +
+      UNIT_DEFINITIONS.worker_drone_t3.productionAssistPowerDemand,
+  );
 
   simulation.updateProduction(1);
 
   assert.equal(
     factory.productionQueue[0].progress,
     STRUCTURE_DEFINITIONS.mech_factory_t1.productionRate +
-      UNIT_DEFINITIONS.worker_drone_t1.buildRate +
-      UNIT_DEFINITIONS.worker_drone_t3.buildRate,
+      UNIT_DEFINITIONS.worker_drone_t1.productionAssistRate +
+      UNIT_DEFINITIONS.worker_drone_t3.productionAssistRate,
+  );
+});
+
+test("factory production pauses when its grid cannot cover worker assistance demand", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  simulation.addStructure("generator", "player", 80, 200, { storedEnergy: 0 });
+  const factory = simulation.addStructure("mech_factory_t1", "player", 240, 200);
+  const worker = simulation.addUnit("worker_drone_t1", "player", 304, 200);
+  simulation.refreshPowerState(0);
+  simulation.queueProduction(factory.id, "scout_mech");
+  simulation.commandAssistProduction([worker.id], factory.id);
+
+  simulation.refreshPowerState(1);
+  simulation.updateProduction(1);
+
+  assert.equal(factory.powered, false);
+  assert.equal(factory.powerStatus, "no_energy");
+  assert.equal(factory.productionQueue[0].progress, 0);
+  assert.equal(simulation.getFactoryProductionAssistState(factory.id).workerCount, 1);
+
+  simulation.commandStop([worker.id]);
+  assert.deepEqual(simulation.getFactoryProductionAssistState(factory.id), {
+    workerCount: 0,
+    productionRate: 0,
+    powerDemand: 0,
+  });
+  simulation.refreshPowerState(1);
+  simulation.updateProduction(1);
+
+  assert.equal(factory.powered, true);
+  assert.equal(
+    factory.productionQueue[0].progress,
+    STRUCTURE_DEFINITIONS.mech_factory_t1.productionRate,
   );
 });
 
@@ -890,6 +949,7 @@ test("production assistance requires an active friendly factory and overrides wo
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;
   simulation.addStructure("generator", "player", 80, 200);
+  simulation.addStructure("generator", "player", 80, 280);
   const factory = simulation.addStructure("mech_factory_t1", "player", 240, 200);
   const idleFactory = simulation.addStructure("vehicle_factory_t1", "player", 240, 400, {
     powered: true,
@@ -909,7 +969,13 @@ test("production assistance requires an active friendly factory and overrides wo
 
   assert.equal(worker.attackTargetId, null);
   assert.equal(enemy.hp, UNIT_DEFINITIONS.worker_drone_t1.maxHp);
-  assert.equal(factory.productionQueue[0].progress, 0.5);
+  assert.equal(
+    factory.productionQueue[0].progress,
+    0.25 * (
+      STRUCTURE_DEFINITIONS.mech_factory_t1.productionRate +
+      UNIT_DEFINITIONS.worker_drone_t1.productionAssistRate
+    ),
+  );
 
   factory.powered = false;
   simulation.updateUnits(0.25);

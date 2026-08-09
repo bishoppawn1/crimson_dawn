@@ -788,15 +788,21 @@ construction state rather than merely the presence of a build order.
 Right-clicking a completed, powered production building with an active unfinished
 unit order assigns every selected Worker Drone to assist that factory. The command
 replaces movement, combat, construction, queued construction, and repair orders.
-Workers travel to within 24 world units of the factory footprint, then each adds its
-existing tier-specific build rate directly to the factory's own production rate;
-multiple workers stack additively. The assignment remains through temporary power
-loss or a blocked factory exit, continues across later orders already in the queue,
-and ends when the queue becomes empty or the worker receives another order. A
-selected worker identifies the assisted factory, while a selected factory reports
-the number of workers currently contributing and its combined production speed.
-Active assistance uses the worker's articulated tool animation and construction
-beam so the faster progress is visible on the battlefield.
+Workers travel to within 24 world units of the factory footprint, then Tier 1, Tier
+2, and Tier 3 workers provisionally add 0.25, 0.4, and 0.65 respectively to the
+factory's production rate instead of adding their full construction build rate.
+Each contributing worker also adds a provisional 6, 10, or 16 energy per second,
+according to its tier, to that factory's local-grid demand. Multiple workers stack
+both effects additively. If the connected grid cannot pay the factory's idle,
+production, and worker-assistance demand together, production and assistance pause
+without losing the order or assignment. The assignment remains through temporary
+power loss or a blocked factory exit, continues across later orders already in the
+queue, and ends when the queue becomes empty or the worker receives another order.
+A selected worker identifies the assisted factory, while a selected factory reports
+the number of ready workers, combined assisted production speed, added assistance
+demand, and total current energy demand. Active assistance uses the worker's
+articulated tool animation and construction beam so the faster progress is visible
+on the battlefield.
 
 Worker Drones also repair damaged friendly mobile units and completed buildings.
 An idle worker automatically acquires the nearest damaged friendly target within a

@@ -1210,7 +1210,7 @@ export class Simulation {
         worker.carriedById ||
         worker.team !== factory.team ||
         !definition?.workerTier ||
-        !definition.buildRate
+        !definition.productionAssistRate
       ) {
         continue;
       }
@@ -1240,13 +1240,16 @@ export class Simulation {
     const factory = this.getStructure(structureId);
     let workerCount = 0;
     let productionRate = 0;
-    if (!factory) return { workerCount, productionRate };
+    let powerDemand = 0;
+    if (!factory) return { workerCount, productionRate, powerDemand };
     for (const worker of this.units) {
-      if (!isActivelyAssistingProduction(worker, factory)) continue;
+      if (!isProductionAssistantReady(worker, factory)) continue;
+      const definition = UNIT_DEFINITIONS[worker.type];
       workerCount += 1;
-      productionRate += UNIT_DEFINITIONS[worker.type].buildRate || 0;
+      productionRate += definition.productionAssistRate || 0;
+      powerDemand += definition.productionAssistPowerDemand || 0;
     }
-    return { workerCount, productionRate };
+    return { workerCount, productionRate, powerDemand };
   }
 
   resetUnitNavigation(unit, orderIndex = null, orderCount = 1) {
@@ -2582,6 +2585,7 @@ export class Simulation {
       const unitDefinition = UNIT_DEFINITIONS[order.unitType];
       if (order.progress + EPSILON < unitDefinition.productionTime) {
         demand += definition.productionPowerDemand;
+        demand += this.getFactoryProductionAssistState(structure.id).powerDemand;
       }
     }
     return demand;
@@ -4021,7 +4025,8 @@ export class Simulation {
       if (!isActivelyAssistingProduction(worker, factory)) continue;
       assistRates.set(
         factory.id,
-        (assistRates.get(factory.id) || 0) + (UNIT_DEFINITIONS[worker.type].buildRate || 0),
+        (assistRates.get(factory.id) || 0) +
+          (UNIT_DEFINITIONS[worker.type].productionAssistRate || 0),
       );
     }
 
@@ -5859,8 +5864,9 @@ function isValidProductionAssistTarget(worker, factory) {
   return Boolean(
     worker?.alive &&
     !worker.carriedById &&
+    worker.productionAssistTargetId === factory?.id &&
     workerDefinition?.workerTier &&
-    workerDefinition.buildRate &&
+    workerDefinition.productionAssistRate &&
     factory?.alive &&
     factory.complete &&
     factory.team === worker.team &&
@@ -5871,9 +5877,19 @@ function isValidProductionAssistTarget(worker, factory) {
 
 function isActivelyAssistingProduction(worker, factory) {
   return Boolean(
+    isProductionAssistantReady(worker, factory) &&
+    isActivelyProducingFactory(factory)
+  );
+}
+
+function isProductionAssistantReady(worker, factory) {
+  const order = factory?.productionQueue?.[0];
+  const unitDefinition = order ? UNIT_DEFINITIONS[order.unitType] : null;
+  return Boolean(
     worker?.state === "active" &&
     isValidProductionAssistTarget(worker, factory) &&
-    isActivelyProducingFactory(factory) &&
+    unitDefinition &&
+    order.progress + EPSILON < unitDefinition.productionTime &&
     distanceToStructureFootprint(worker, factory) <=
       SIMULATION_RULES.workerProductionAssistRange + EPSILON
   );
