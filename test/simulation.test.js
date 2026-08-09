@@ -1973,7 +1973,6 @@ test("every unit type has the enlarged provisional energy capacity", () => {
       bomber_t3: 1800,
       energy_tender_t2: 3900,
       energy_tender_t3: 5700,
-      dropship_t1: 1500,
       dropship_t2: 2100,
       dropship_t3: 3000,
       radar_aircraft_t2: 1080,
@@ -2646,13 +2645,13 @@ test("bright Rich Crystal Deposits increase a harvester's actual crystal output"
   assert.ok(simulation.resources.player.metal >= startingMetal + 14.9);
 });
 
-test("each mech factory tier offers improved copies of the same seven unit roles", () => {
+test("each mech factory tier offers improved copies of the same six unit roles", () => {
   const factoryTypes = ["mech_factory_t1", "mech_factory_t2", "mech_factory_t3"];
-  const expectedRoles = ["worker", "vanguard", "bulwark", "anti_air_mech", "carrier", "radar_mech", "transport"];
+  const expectedRoles = ["worker", "vanguard", "bulwark", "anti_air_mech", "carrier", "radar_mech"];
   const definitionsByTier = factoryTypes.map((factoryType, index) => {
     const tier = index + 1;
     const production = STRUCTURE_DEFINITIONS[factoryType].production;
-    assert.equal(production.length, 7);
+    assert.equal(production.length, 6);
     const definitions = production.map((unitType) => UNIT_DEFINITIONS[unitType]);
     assert.deepEqual(definitions.map((definition) => definition.role), expectedRoles);
     assert.ok(definitions.every((definition) => definition.tier === tier));
@@ -2674,8 +2673,6 @@ test("each mech factory tier offers improved copies of the same seven unit roles
     assert.ok(currentTier.bulwark.attackDamage > previousTier.bulwark.attackDamage);
     assert.ok(currentTier.anti_air_mech.attackDamage > previousTier.anti_air_mech.attackDamage);
     assert.ok(currentTier.carrier.transferRate > previousTier.carrier.transferRate);
-    assert.ok(currentTier.transport.speed > previousTier.transport.speed);
-    assert.equal(currentTier.transport.transportCapacity, 8);
     assert.ok(currentTier.radar_mech.radarRange > previousTier.radar_mech.radarRange);
   }
 });
@@ -2707,12 +2704,12 @@ test("vehicle factories produce six matching-tier vehicle roles", () => {
   }
 });
 
-test("air factories begin at Tier 2 and produce five matching-tier aircraft roles", () => {
+test("air factories begin at Tier 2 and produce six matching-tier aircraft roles", () => {
   assert.equal(STRUCTURE_DEFINITIONS.air_factory_t1, undefined);
   assert.ok(!BUILD_MENU.includes("air_factory_t1"));
 
   const factoryTypes = ["air_factory_t2", "air_factory_t3"];
-  const expectedRoles = ["interceptor", "gunship", "bomber", "energy_tender", "radar_aircraft"];
+  const expectedRoles = ["interceptor", "gunship", "bomber", "energy_tender", "radar_aircraft", "transport"];
   const definitionsByTier = factoryTypes.map((factoryType, index) => {
     const tier = index + 2;
     const definitions = STRUCTURE_DEFINITIONS[factoryType].production
@@ -2727,6 +2724,9 @@ test("air factories begin at Tier 2 and produce five matching-tier aircraft role
     assert.ok(definitionsByTier[1][role].maxHp > definitionsByTier[0][role].maxHp);
     if (role === "energy_tender") {
       assert.ok(definitionsByTier[1][role].transferRate > definitionsByTier[0][role].transferRate);
+    } else if (role === "transport") {
+      assert.ok(definitionsByTier[1][role].speed > definitionsByTier[0][role].speed);
+      assert.equal(definitionsByTier[1][role].transportCapacity, 8);
     } else {
       assert.ok(definitionsByTier[1][role].attackDamage > definitionsByTier[0][role].attackDamage);
     }
@@ -2758,22 +2758,25 @@ test("all flying units use the faster movement profiles", () => {
   assert.ok(UNIT_DEFINITIONS.zenith_doughnut.maxHp < UNIT_DEFINITIONS.arsenal_colossus.maxHp);
 });
 
-test("Dropships exist at every tier with eight ground-unit cargo slots", () => {
-  const transports = ["dropship_t1", "dropship_t2", "dropship_t3"]
+test("Dropships begin at Tier 2 in Air Factories with eight ground-unit cargo slots", () => {
+  const transports = ["dropship_t2", "dropship_t3"]
     .map((type) => UNIT_DEFINITIONS[type]);
 
-  assert.deepEqual(transports.map((definition) => definition.tier), [1, 2, 3]);
+  assert.equal(UNIT_DEFINITIONS.dropship_t1, undefined);
+  assert.deepEqual(transports.map((definition) => definition.tier), [2, 3]);
   assert.ok(transports.every((definition) => definition.role === "transport"));
   assert.ok(transports.every((definition) => definition.movementLayer === "air"));
   assert.ok(transports.every((definition) => definition.transportCapacity === 8));
-  assert.ok(STRUCTURE_DEFINITIONS.mech_factory_t1.production.includes("dropship_t1"));
-  assert.ok(STRUCTURE_DEFINITIONS.mech_factory_t2.production.includes("dropship_t2"));
-  assert.ok(STRUCTURE_DEFINITIONS.mech_factory_t3.production.includes("dropship_t3"));
+  assert.ok(!STRUCTURE_DEFINITIONS.mech_factory_t1.production.some((type) => type.startsWith("dropship")));
+  assert.ok(!STRUCTURE_DEFINITIONS.mech_factory_t2.production.some((type) => type.startsWith("dropship")));
+  assert.ok(!STRUCTURE_DEFINITIONS.mech_factory_t3.production.some((type) => type.startsWith("dropship")));
+  assert.ok(STRUCTURE_DEFINITIONS.air_factory_t2.production.includes("dropship_t2"));
+  assert.ok(STRUCTURE_DEFINITIONS.air_factory_t3.production.includes("dropship_t3"));
 });
 
 test("explicit transport orders reserve eight slots, board nearby units, and unload them", () => {
   const simulation = new Simulation({ width: 1200, height: 900 });
-  const transport = simulation.addUnit("dropship_t1", "player", 500, 450);
+  const transport = simulation.addUnit("dropship_t2", "player", 500, 450);
   const passengers = Array.from({ length: 9 }, (_, index) =>
     simulation.addUnit(
       index === 0 ? "worker_drone_t1" : "scout_mech",
@@ -2982,7 +2985,7 @@ test("vehicle and air factories deploy their completed production orders", () =>
   assert.equal(airFactory.productionQueue.length, 0);
 });
 
-test("factories only queue the seven unit variants matching their tier", () => {
+test("mech factories only queue the six unit variants matching their tier", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;
   const tierOneFactory = simulation.addStructure("mech_factory_t1", "player", 220, 100);
@@ -2991,13 +2994,13 @@ test("factories only queue the seven unit variants matching their tier", () => {
   for (const unitType of STRUCTURE_DEFINITIONS.mech_factory_t1.production) {
     assert.equal(simulation.queueProduction(tierOneFactory.id, unitType), true);
   }
-  assert.equal(tierOneFactory.productionQueue.length, 7);
+  assert.equal(tierOneFactory.productionQueue.length, 6);
   assert.equal(simulation.queueProduction(tierOneFactory.id, "scout_mech_t2"), false);
 
   for (const unitType of STRUCTURE_DEFINITIONS.mech_factory_t2.production) {
     assert.equal(simulation.queueProduction(tierTwoFactory.id, unitType), true);
   }
-  assert.equal(tierTwoFactory.productionQueue.length, 7);
+  assert.equal(tierTwoFactory.productionQueue.length, 6);
   assert.equal(simulation.queueProduction(tierTwoFactory.id, "scout_mech"), false);
 });
 
@@ -3150,7 +3153,6 @@ test("unit roles and tiers reserve different provisional supply amounts", () => 
       bomber_t3: 16,
       energy_tender_t2: 8,
       energy_tender_t3: 11,
-      dropship_t1: 8,
       dropship_t2: 12,
       dropship_t3: 17,
       radar_aircraft_t2: 7,

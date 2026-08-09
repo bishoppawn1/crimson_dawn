@@ -72,11 +72,11 @@ The current build is the first playable field test. It includes:
   visible enemy contacts, and the current camera view, with left-click camera
   centering and right-click selected-unit movement.
 - Tier 1–3 mech factories, each offering matching-tier Worker, Vanguard, Bulwark,
-  Skyguard, Arc Energy Carrier, Watchman Radar Mech, and Dropship production lines.
+  Skyguard, Arc Energy Carrier, and Watchman Radar Mech production lines.
 - Tier 1–3 Vehicle Factories producing Scout Vehicles, Battle Tanks, Mobile
   Artillery, Flak Crawlers, Grid Tankers, and Pathfinder Radars, plus Tier 2–3 Air
-  Factories producing Interceptors, Gunships, Bombers, Energy Tenders, and Skywatch
-  Radars. Aircraft fly over terrain and structures.
+  Factories producing Interceptors, Gunships, Bombers, Energy Tenders, Skywatch
+  Radars, and Dropships. Aircraft fly over terrain and structures.
 - A Tier 3 Experimental Factory producing the multi-weapon Arsenal Colossus,
   structure-striding six-legged Hexapod Landship with three independently targeting
   cannons, and an ultra-fast Zenith Doughnut that locally seeks nearby ground

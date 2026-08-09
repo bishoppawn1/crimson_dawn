@@ -495,9 +495,9 @@ ladder.
 
 | Production building | Available tiers | Produces |
 | --- | --- | --- |
-| Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs, workers, Arc Energy Carriers, Watchman Radar Mechs, and Dropships |
+| Mech Factory | Tier 1, Tier 2, Tier 3 | Mechs, workers, Arc Energy Carriers, and Watchman Radar Mechs |
 | Vehicle Factory | Tier 1, Tier 2, Tier 3 | Scout Vehicles, Battle Tanks, Mobile Artillery, Flak Crawlers, Grid Tankers, and Pathfinder Radars |
-| Air Factory | Tier 2, Tier 3 | Interceptors, Gunships, Bombers, Energy Tenders, and Skywatch Radars |
+| Air Factory | Tier 2, Tier 3 | Interceptors, Gunships, Bombers, Energy Tenders, Skywatch Radars, and Dropships |
 | Experimental Factory | Tier 3 only | Arsenal Colossus, Hexapod Landship, and Zenith Doughnut |
 
 A player may pursue mech and vehicle technology at the same tier. Advancing one
@@ -516,7 +516,7 @@ buildings a player may construct.
 
 ### 5.1 Tiered Mech Factory Roster
 
-Every Mech Factory exposes seven consistent production lines at its own tier:
+Every Mech Factory exposes six consistent production lines at its own tier:
 
 | Production line | Battlefield role |
 | --- | --- |
@@ -525,16 +525,14 @@ Every Mech Factory exposes seven consistent production lines at its own tier:
 | Bulwark Mech | Slower, durable frontline combat with the energy-consuming Overdrive ability |
 | Skyguard Mech | Mobile missile defense with extra damage against aircraft |
 | Arc Energy Carrier | Unarmed mobile energy storage and transfer support |
-| Dropship | Unarmed aerial transport for up to eight ground units |
 | Watchman Radar Mech | Long-range mobile vision with a light defensive weapon |
 
-A Tier 1 Mech Factory produces the Tier 1 version of all seven units. Tier 2 and
-Tier 3 factories each produce a stronger version of the same seven roles at their
+A Tier 1 Mech Factory produces the Tier 1 version of all six units. Tier 2 and
+Tier 3 factories each produce a stronger version of the same six roles at their
 matching tier rather than mixing lower-tier units into their menus. Higher-tier
 copies improve the statistics relevant to their role: workers build faster,
 Vanguards, Bulwarks, and Skyguards become more combat-capable, Arc Energy Carriers
-store and transfer more energy, and Watchmen extend radar coverage. Dropships retain
-the same eight-unit capacity while improving speed, integrity, and internal energy.
+store and transfer more energy, and Watchmen extend radar coverage.
 All current unit costs, production times, and tier-to-tier stat increases are
 provisional balance values.
 
@@ -553,7 +551,7 @@ factory's matching tier:
 | Pathfinder Radar | Long-range mobile vision with a defensive cannon |
 
 Air production begins at Tier 2; there is no Tier 1 Air Factory. Tier 2 and Tier 3
-Air Factories each produce matching-tier versions of five aircraft roles:
+Air Factories each produce matching-tier versions of six aircraft roles:
 
 | Production line | Battlefield role |
 | --- | --- |
@@ -562,6 +560,7 @@ Air Factories each produce matching-tier versions of five aircraft roles:
 | Bomber | Heavy aerial strikes |
 | Energy Tender | Airborne mobile energy storage and transfer support |
 | Skywatch Radar | Fast airborne long-range vision with a light defensive weapon |
+| Dropship | Unarmed aerial transport for up to eight ground units |
 
 Watchman Radar Mechs provide provisional 650/800/950 vision at Tiers 1/2/3, while
 Pathfinder Radar vehicles provide 700/850/1,000. Skywatch Radar aircraft begin with
@@ -581,11 +580,11 @@ increases are provisional balance values.
 
 #### Dropship transport rules
 
-Tier 1, Tier 2, and Tier 3 Mech Factories each produce a matching-tier flying
-Dropship. Every Dropship has exactly eight cargo slots. It can carry active friendly
-ground units, including workers, mechs, vehicles, and ground experimentals, but it
-cannot carry aircraft or another Dropship. Cargo continues to consume supply while
-aboard.
+Tier 2 and Tier 3 Air Factories each produce a matching-tier flying Dropship; no
+Tier 1 Dropship exists. Every Dropship has exactly eight cargo slots. It can carry
+active friendly ground units, including workers, mechs, vehicles, and ground
+experimentals, but it cannot carry aircraft or another Dropship. Cargo continues
+to consume supply while aboard.
 
 Selecting one Dropship and pressing `F` assigns the nearest eligible friendly ground
 units to fill its unreserved cargo slots. If eligible ground units are selected
