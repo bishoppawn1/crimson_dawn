@@ -32,7 +32,10 @@ const {
   spawnWarsAllianceForSlot,
   spawnWarsSpawnableUnits,
 } = await import(`./spawn-wars.js${versionSuffix}`);
-const { selectableUnitIdsByExactTypeNear } = await import(`./selection.js${versionSuffix}`);
+const {
+  isUnitSelectableByTeam,
+  selectableUnitIdsByExactTypeNear,
+} = await import(`./selection.js${versionSuffix}`);
 const { FixedStepSimulationClock } = await import(`./simulation-clock.js${versionSuffix}`);
 const {
   createMultiplayerMotionUpdate,
@@ -1403,7 +1406,7 @@ function boundedUnitCommandEntries(entries) {
 function ownedUnitIds(ids, team) {
   return boundedUnitCommandEntries(ids).filter((id) => {
     const unit = simulation.getUnit(id);
-    return unit?.alive && unit.team === team;
+    return simulation.isUnitCommandable(unit) && unit.team === team;
   });
 }
 
@@ -7422,7 +7425,7 @@ function updateInterface() {
 
   const selectedUnits = [...selectedUnitIds]
     .map((id) => simulation.getUnit(id))
-    .filter((unit) => unit && !unit.carriedById);
+    .filter((unit) => isUnitSelectableByTeam(unit, localTeam));
   const selectedStructures = getSelectedStructures();
   const selectedStructure = simulation.getStructure(selectedStructureId);
   const selectedArchitect = selectedUnits.find(
@@ -7883,7 +7886,7 @@ function pruneSelection() {
   selectedUnitIds = new Set(
     [...selectedUnitIds].filter((id) => {
       const unit = simulation.getUnit(id);
-      return unit?.alive && !unit.carriedById && unit.team === localTeam;
+      return isUnitSelectableByTeam(unit, localTeam);
     }),
   );
   selectStructures(getSelectedStructures());
@@ -7969,7 +7972,11 @@ function clampValue(value, minimum, maximum) {
 
 function findUnitAt(point, team = null) {
   const candidates = simulation.units.filter((unit) => {
-    if (!unit.alive || unit.carriedById || (team && unit.team !== team)) return false;
+    if (
+      team
+        ? !isUnitSelectableByTeam(unit, team)
+        : !unit.alive || unit.carriedById
+    ) return false;
     const position = presentedPosition(unit);
     const hitRadius = Math.max(
       UNIT_DEFINITIONS[unit.type].radius + 8,
@@ -8277,7 +8284,7 @@ canvas.addEventListener("mouseup", (event) => {
     const top = Math.min(drag.start.y, drag.current.y);
     const bottom = Math.max(drag.start.y, drag.current.y);
     const boxedUnits = simulation.units.filter((unit) => {
-      if (!unit.alive || unit.carriedById || unit.team !== localTeam) return false;
+      if (!isUnitSelectableByTeam(unit, localTeam)) return false;
       const position = presentedPosition(unit);
       return position.x >= left && position.x <= right && position.y >= top && position.y <= bottom;
     });

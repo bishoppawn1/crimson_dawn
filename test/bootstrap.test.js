@@ -116,6 +116,7 @@ test("unit command authorization accepts the complete simulated army", async () 
   assert.ok(authorization);
   assert.match(authorization[0], /entries\.slice\(0, simulation\.units\.length\)/);
   assert.match(authorization[0], /boundedUnitCommandEntries\(command\.orders\)/);
+  assert.match(authorization[0], /simulation\.isUnitCommandable\(unit\)/);
   assert.doesNotMatch(authorization[0], /ids\.slice\(0, 200\)/);
   assert.doesNotMatch(authorization[0], /command\.orders\.slice\(0, 200\)/);
 });
@@ -129,6 +130,7 @@ test("double-click selection uses exact unit type without crossing tiers", async
   assert.match(game, /`\.\/selection\.js\$\{versionSuffix\}`/);
   assert.match(game, /canvas\.addEventListener\("dblclick"/);
   assert.match(game, /selectableUnitIdsByExactTypeNear\(simulation\.units/);
+  assert.match(game, /isUnitSelectableByTeam\(unit, localTeam\)/);
   assert.match(game, /type: unit\.type/);
   assert.match(game, /x: unit\.x/);
   assert.match(game, /y: unit\.y/);
@@ -252,8 +254,12 @@ test("conventional mechs and the Arsenal Colossus keep their feet hidden while m
 });
 
 test("Spawn Wars controls show synchronized waves and uncapped upgrades", async () => {
-  const game = await source("../src/game.js");
+  const [index, game] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+  ]);
 
+  assert.match(index, /Spawned lane units advance and fight automatically; they cannot be selected or given player commands/);
   assert.match(game, /spawns with each \$\{spawnWarsInterval\(unitDefinition\)\}s income payment/);
   assert.match(game, /next income \+ synchronized wave/);
   assert.match(game, /\$\{SPAWN_PAD_UPGRADES\[category\]\.label\} · Level \$\{level\}/);

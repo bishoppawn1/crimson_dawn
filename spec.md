@@ -1716,13 +1716,14 @@ spawn countdown. Removed phase platforms leave no reclaimable wreck.
 Every completed platform creates its configured unit on the shared 30-second income
 clock. Each income payment and platform wave resolve together, so platforms built
 at different times and platforms producing different unit roles or tiers all join
-the same synchronized wave. New units initially attack-move toward the opposing
-Command Core but remain fully selectable and controllable, allowing a player to
-stop and save a wave. Every spawned combat unit uses the same provisional
-105-world-unit movement speed in this mode. Normal unit identity, health, weapons,
-firing range, target restrictions, and collision remain intact; unit energy is
-continuously available so the mode's automatic lane battle does not stall on the
-standard logistics loop.
+the same synchronized wave. New units automatically attack-move toward the opposing
+Command Core. Spawned lane units cannot be selected or receive player-issued
+movement, attack, stop, patrol, transport, worker, or ability commands; players
+control the battle through their Architect and platforms instead. Every spawned
+combat unit uses the same provisional 105-world-unit movement speed in this mode.
+Normal unit identity, health, weapons, firing range, target restrictions, and
+collision remain intact; unit energy is continuously available so the mode's
+automatic lane battle does not stall on the standard logistics loop.
 
 Selecting an owned completed platform exposes uncapped Integrity, Armor, Weapon
 Damage, and Attack Speed upgrades. A player may purchase each category indefinitely

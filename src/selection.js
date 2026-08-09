@@ -1,5 +1,15 @@
 export const LOCAL_TYPE_SELECTION_RADIUS = 700;
 
+export function isUnitSelectableByTeam(unit, team) {
+  return Boolean(
+    team &&
+    unit?.alive &&
+    !unit.carriedById &&
+    !unit.spawnWarsSpawned &&
+    unit.team === team
+  );
+}
+
 export function selectableUnitIdsByExactTypeNear(
   units,
   { team, type, x, y, radius = LOCAL_TYPE_SELECTION_RADIUS } = {},
@@ -17,9 +27,7 @@ export function selectableUnitIdsByExactTypeNear(
   return units
     .filter(
       (unit) =>
-        unit?.alive &&
-        !unit.carriedById &&
-        unit.team === team &&
+        isUnitSelectableByTeam(unit, team) &&
         unit.type === type &&
         (unit.x - x) ** 2 + (unit.y - y) ** 2 <= radiusSquared,
     )

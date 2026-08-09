@@ -909,6 +909,10 @@ export class Simulation {
     return entity?.kind === "unit" ? entity : null;
   }
 
+  isUnitCommandable(unit) {
+    return Boolean(unit?.alive && !unit.carriedById && !unit.spawnWarsSpawned);
+  }
+
   getStructure(id) {
     const entity = this.entityById.get(id);
     return entity?.kind === "structure" ? entity : null;
@@ -1199,7 +1203,7 @@ export class Simulation {
 
     for (const [orderIndex, id] of orderedIds.entries()) {
       const unit = this.getUnit(id);
-      if (!unit || !unit.alive || unit.carriedById || unit.state !== "active") continue;
+      if (!this.isUnitCommandable(unit) || unit.state !== "active") continue;
       const definition = UNIT_DEFINITIONS[unit.type];
       const destination = definition.movementLayer === "air"
         ? {
@@ -1249,7 +1253,7 @@ export class Simulation {
     const orderedIds = [...unitIds];
     for (const [orderIndex, id] of orderedIds.entries()) {
       const unit = this.getUnit(id);
-      if (!unit || !unit.alive || unit.carriedById || unit.state !== "active") continue;
+      if (!this.isUnitCommandable(unit) || unit.state !== "active") continue;
       const definition = UNIT_DEFINITIONS[unit.type];
       const patrolRoute = requestedRoute.map((point) => definition.movementLayer === "air"
         ? {
@@ -1361,9 +1365,7 @@ export class Simulation {
       const unit = this.getUnit(id);
       const definition = unit && UNIT_DEFINITIONS[unit.type];
       if (
-        !unit ||
-        !unit.alive ||
-        unit.carriedById ||
+        !this.isUnitCommandable(unit) ||
         unit.state !== "active" ||
         this.areAlliedTeams(unit.team, target.team) ||
         (requireVision && !this.isEntityVisibleToTeam(unit.team, target)) ||
@@ -1417,7 +1419,7 @@ export class Simulation {
     let accepted = 0;
     for (const id of unitIds) {
       const unit = this.getUnit(id);
-      if (!unit || !unit.alive || unit.carriedById) continue;
+      if (!this.isUnitCommandable(unit)) continue;
       unit.moveTarget = null;
       unit.moveMode = null;
       unit.moveQueue = [];
@@ -1462,7 +1464,7 @@ export class Simulation {
     const transportDefinition = transport && UNIT_DEFINITIONS[transport.type];
     if (
       !this.isTransport(transport) ||
-      transport.carriedById ||
+      !this.isUnitCommandable(transport) ||
       transport.state !== "active"
     ) {
       return 0;
@@ -1480,10 +1482,8 @@ export class Simulation {
       const unit = this.getUnit(id);
       const definition = unit && UNIT_DEFINITIONS[unit.type];
       if (
-        !unit ||
-        !unit.alive ||
+        !this.isUnitCommandable(unit) ||
         unit.state !== "active" ||
-        unit.carriedById ||
         unit.transportTargetId ||
         unit.team !== transport.team ||
         definition.movementLayer === "air" ||
@@ -1519,7 +1519,7 @@ export class Simulation {
       .filter(
         (transport) =>
           this.isTransport(transport) &&
-          !transport.carriedById &&
+          this.isUnitCommandable(transport) &&
           transport.state === "active",
       )
       .sort((left, right) => left.id.localeCompare(right.id));
@@ -1529,10 +1529,9 @@ export class Simulation {
     const candidates = this.units.filter((unit) => {
       const definition = UNIT_DEFINITIONS[unit.type];
       return (
-        unit.alive &&
+        this.isUnitCommandable(unit) &&
         unit.state === "active" &&
         unit.team === team &&
-        !unit.carriedById &&
         !unit.transportTargetId &&
         definition.movementLayer !== "air" &&
         !definition.transportCapacity
@@ -1659,7 +1658,7 @@ export class Simulation {
       const transport = this.getUnit(transportId);
       if (
         !this.isTransport(transport) ||
-        transport.carriedById ||
+        !this.isUnitCommandable(transport) ||
         transport.state !== "active"
       ) continue;
       const remainingCargo = [];
@@ -1730,9 +1729,8 @@ export class Simulation {
       const worker = this.getUnit(id);
       const definition = worker && UNIT_DEFINITIONS[worker.type];
       if (
-        !worker?.alive ||
+        !this.isUnitCommandable(worker) ||
         worker.state !== "active" ||
-        worker.carriedById ||
         worker.id === target.id ||
         worker.team !== target.team ||
         !definition?.workerTier ||
@@ -1771,9 +1769,8 @@ export class Simulation {
       const worker = this.getUnit(id);
       const definition = worker && UNIT_DEFINITIONS[worker.type];
       if (
-        !worker?.alive ||
+        !this.isUnitCommandable(worker) ||
         worker.state !== "active" ||
-        worker.carriedById ||
         worker.team !== factory.team ||
         !definition?.workerTier ||
         !definition.productionAssistRate
@@ -1890,9 +1887,8 @@ export class Simulation {
     for (const id of unitIds) {
       const worker = this.getUnit(id);
       if (
-        !worker?.alive ||
+        !this.isUnitCommandable(worker) ||
         worker.state !== "active" ||
-        worker.carriedById ||
         worker.team !== structure.team ||
         !UNIT_DEFINITIONS[worker.type].workerTier ||
         !(
@@ -2368,8 +2364,7 @@ export class Simulation {
     const workers = [...new Set(unitIds || [])]
       .map((unitId) => this.getUnit(unitId))
       .filter((unit) =>
-        unit?.alive &&
-        !unit.carriedById &&
+        this.isUnitCommandable(unit) &&
         (!expectedTeam || unit.team === expectedTeam) &&
         UNIT_DEFINITIONS[unit.type]?.workerTier
       );
@@ -3279,7 +3274,7 @@ export class Simulation {
     let activated = 0;
     for (const id of unitIds) {
       const unit = this.getUnit(id);
-      if (!unit || !unit.alive || unit.state !== "active") continue;
+      if (!this.isUnitCommandable(unit) || unit.state !== "active") continue;
       const ability = UNIT_DEFINITIONS[unit.type].abilities?.[abilityId];
       if (!ability || unit.energy + EPSILON < ability.energyCost) continue;
 

@@ -174,6 +174,43 @@ test("Spawn Wars platforms are limited to their owner's zone and accept uncapped
   assert.equal(simulation.resources.enemy.metal, enemyCrystal + upgradedKillIncome);
 });
 
+test("Spawn Wars lane units stay autonomous and reject player commands", () => {
+  const simulation = Simulation.createSpawnWars({ playerCount: 2 });
+  const architect = simulation.units.find((unit) => unit.team === "player");
+  const zone = simulation.spawnWars.buildZones.player;
+  const pad = simulation.startSpawnPadConstruction(
+    [architect.id],
+    "assault_mech",
+    (zone.left + zone.right) / 2,
+    (zone.top + zone.bottom) / 2,
+  );
+  const spawned = simulation.spawnSpawnWarsUnit(pad);
+  const enemy = simulation.addUnit("scout_mech", "enemy", spawned.x + 500, spawned.y, {
+    spawnWarsSpawned: true,
+  });
+  const automaticDestination = structuredClone(spawned.moveTarget);
+  const startingEnergy = spawned.energy;
+
+  assert.equal(simulation.isUnitCommandable(architect), true);
+  assert.equal(simulation.isUnitCommandable(spawned), false);
+  assert.equal(simulation.commandMove([spawned.id], spawned.x - 200, spawned.y), 0);
+  assert.equal(simulation.commandPatrol([spawned.id], [
+    { x: spawned.x, y: spawned.y },
+    { x: spawned.x - 200, y: spawned.y },
+  ]), 0);
+  assert.equal(simulation.commandAttack([spawned.id], enemy.id), 0);
+  assert.equal(simulation.commandStop([spawned.id], true), 0);
+  assert.equal(simulation.activateAbility([spawned.id], "overdrive"), 0);
+  assert.deepEqual(spawned.moveTarget, automaticDestination);
+  assert.equal(spawned.moveMode, "advance");
+  assert.equal(spawned.holdPosition, false);
+  assert.equal(spawned.energy, startingEnergy);
+
+  const startingX = spawned.x;
+  simulation.updateUnits(0.5);
+  assert.ok(spawned.x > startingX);
+});
+
 test("Spawn Wars platforms and repeated upgrades use the discounted economy", () => {
   const vanguard = UNIT_DEFINITIONS.scout_mech;
   const bulwark = UNIT_DEFINITIONS.assault_mech;
@@ -344,7 +381,10 @@ test("Spawn Wars income, center control, equal speed, kill rewards, and objectiv
 
   const fast = simulation.addUnit("scout_mech", "player", 1000, 600, { spawnWarsSpawned: true });
   const slow = simulation.addUnit("battle_tank", "player", 1000, 700, { spawnWarsSpawned: true });
-  simulation.commandMove([fast.id, slow.id], 1400, 650);
+  for (const unit of [fast, slow]) {
+    unit.moveTarget = { x: 1400, y: 650 };
+    unit.moveMode = "advance";
+  }
   simulation.updateUnits(1);
   assert.ok(Math.abs(distance(fast, { x: 1000, y: 600 }) - SPAWN_WARS_RULES.commonMoveSpeed) < 1);
   assert.ok(Math.abs(distance(slow, { x: 1000, y: 700 }) - SPAWN_WARS_RULES.commonMoveSpeed) < 1);

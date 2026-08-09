@@ -5,13 +5,14 @@ import {
   selectableUnitIdsByExactTypeNear,
 } from "../src/selection.js";
 
-test("exact-type selection excludes other tiers, teams, cargo, and destroyed units", () => {
+test("exact-type selection excludes autonomous Spawn Wars units and invalid matches", () => {
   const units = [
     { id: "t1-a", alive: true, team: "player", type: "assault_mech", x: 100, y: 100, carriedById: null },
     { id: "t1-b", alive: true, team: "player", type: "assault_mech", x: 200, y: 100, carriedById: null },
     { id: "t2", alive: true, team: "player", type: "assault_mech_t2", x: 100, y: 100, carriedById: null },
     { id: "enemy", alive: true, team: "enemy", type: "assault_mech", x: 100, y: 100, carriedById: null },
     { id: "cargo", alive: true, team: "player", type: "assault_mech", x: 100, y: 100, carriedById: "ship" },
+    { id: "spawned", alive: true, team: "player", type: "assault_mech", x: 100, y: 100, spawnWarsSpawned: true },
     { id: "destroyed", alive: false, team: "player", type: "assault_mech", x: 100, y: 100, carriedById: null },
   ];
 
