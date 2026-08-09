@@ -1270,6 +1270,27 @@ test("enemy AI upgrades existing economy buildings after unlocking their tier", 
   assert.equal(generator.type, "generator_t3");
 });
 
+test("enemy AI purchases an eligible upgrade before routine production consumes its surplus", () => {
+  const simulation = new Simulation();
+  const generator = simulation.addStructure("generator", "enemy", 300, 300);
+  simulation.addStructure("generator", "enemy", 650, 300);
+  const factory = simulation.addStructure("mech_factory_t2", "enemy", 900, 700);
+  for (let index = 0; index < 5; index += 1) {
+    simulation.addUnit("scout_mech", "enemy", 700 + index * 35, 900);
+  }
+  const upgradeCost = STRUCTURE_DEFINITIONS.generator_t2.metalCost -
+    STRUCTURE_DEFINITIONS.generator.metalCost;
+  const strategicReserve = STRUCTURE_DEFINITIONS.sentry_turret.metalCost;
+  simulation.resources.enemy.metal =
+    upgradeCost + SIMULATION_RULES.enemyStructureUpgradeMetalReserve + strategicReserve;
+
+  simulation.aiThinkRemaining = 0;
+  simulation.updateAiTeam("enemy", 0);
+
+  assert.equal(generator.type, "generator_t2");
+  assert.equal(factory.productionQueue[0]?.unitType, "worker_drone_t2");
+});
+
 test("higher-tier Crystal Harvesters still snap to deposits", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;
@@ -6473,4 +6494,56 @@ test("mortar shells travel faster and keep tracking moving targets", () => {
   advanceToScheduledImpacts(simulation);
 
   assert.equal(target.hp, startingHp - STRUCTURE_DEFINITIONS.mortar_turret.attackDamage);
+});
+
+test("enemy AI assigns spare workers to powered factory production", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  simulation.resources.enemy.metal = 10_000;
+  simulation.addStructure("generator_t3", "enemy", 120, 200, { powered: true });
+  simulation.addStructure("generator_t3", "enemy", 120, 360, { powered: true });
+  const factory = simulation.addStructure("mech_factory_t1", "enemy", 320, 280, {
+    powered: true,
+  });
+  const workers = [
+    simulation.addUnit("worker_drone_t1", "enemy", 384, 260),
+    simulation.addUnit("worker_drone_t1", "enemy", 384, 280),
+    simulation.addUnit("worker_drone_t1", "enemy", 384, 300),
+  ];
+  assert.equal(simulation.queueProduction(factory.id, "scout_mech"), true);
+  simulation.resources.enemy.metal = 0;
+  simulation.aiThinkRemaining = 0;
+
+  simulation.updateAiTeam("enemy", 0);
+  assert.equal(workers.filter((worker) => worker.productionAssistTargetId === factory.id).length, 2);
+  assert.equal(workers.filter((worker) => !worker.productionAssistTargetId).length, 1);
+
+  simulation.updateProduction(1);
+  assert.equal(
+    factory.productionQueue[0].progress,
+    STRUCTURE_DEFINITIONS.mech_factory_t1.productionRate +
+      UNIT_DEFINITIONS.worker_drone_t1.productionAssistRate * 2,
+  );
+});
+
+test("enemy AI adds shield coverage after establishing its core force", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  simulation.resources.enemy.metal = 300;
+  const anchor = simulation.addStructure("generator", "enemy", 300, 300);
+  simulation.addStructure("generator", "enemy", 300, 500);
+  simulation.addStructure("mech_factory_t1", "enemy", 500, 300);
+  simulation.addStructure("sentry_turret", "enemy", 440, 440);
+  simulation.addStructure("metal_mine", "enemy", 220, 300);
+  simulation.addStructure("metal_mine", "enemy", 220, 500);
+  simulation.addUnit("scout_mech", "enemy", 500, 400);
+  simulation.addUnit("assault_mech", "enemy", 540, 400);
+  simulation.addUnit("skyguard_mech", "enemy", 580, 400);
+
+  const request = simulation.getEnemyStrategicConstructionRequest(
+    "enemy",
+    anchor,
+    [],
+    (forward, side = 0) => ({ x: anchor.x + forward, y: anchor.y + side }),
+  );
+
+  assert.equal(request.type, "shield_turret");
 });

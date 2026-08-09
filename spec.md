@@ -1175,9 +1175,18 @@ command available to the player. It upgrades one tier at a time, prefers bringin
 lower-tier buildings up before applying final-tier upgrades, and prioritizes power
 generation, crystal income, production, charging, and defense. It retains at least
 400 crystal plus any crystal reserved for its next strategic building or supply plan
-after current unit-production choices, and it does not upgrade a consumer when the
-resulting maximum demand would exceed its generation headroom. Normal
+after securing its required combat force. Eligible upgrades are purchased before
+routine unit orders can consume that surplus, and it does not upgrade a consumer
+when the resulting maximum demand would exceed its generation headroom. Normal
 footprint-clearance rules can postpone an upgrade.
+
+After its second generator, first Sentry Turret, and first complete combat wave are
+established, the AI adds powered Shield Turrets to its construction scoring. It
+maintains one core shield initially, scales toward three as its mining footprint
+grows, and raises shield priority when armed enemies threaten its infrastructure. It uses
+the highest shield tier supported by its completed Mech Factory and available
+worker, pays the ordinary crystal and energy costs, and upgrades existing shields
+through the same structure-upgrade rules.
 
 Aircraft observed near an AI base add a Flak Turret request to that same strategic
 scoring system. AI mech and vehicle factories also produce Skyguards and Flak
@@ -1225,6 +1234,14 @@ does not count as an ordinary combat role for production balancing. The AI field
 one supplier with its first complete attack wave, adds at most one more per eight
 additional combat units, and never exceeds three living or queued mobile suppliers
 across its Mech, Vehicle, and Air branches. These support thresholds are provisional.
+Whenever powered factories have active queues, the AI assigns otherwise idle Worker
+Drones to production assistance while retaining at least one unassigned worker for
+construction. It assigns at most two assistants to one factory, uses lower-tier
+workers first so advanced builders remain available, and adds workers only while
+the connected grid can cover their normal tier-specific assistance demand plus the
+AI's generation reserve. An assigned assistant remains with that active queue
+instead of being taken for routine construction; it becomes available again when
+the queue empties or another order invalidates the assignment.
 
 After establishing its second generator and defense, the AI begins paid
 economic expansion instead of relying indefinitely on its starting harvester. It seeks

@@ -3299,6 +3299,7 @@ export class Simulation {
     const availableWorker = enemyWorkers.find(
       (worker) =>
         !worker.buildTargetId &&
+        !worker.productionAssistTargetId &&
         worker.state === "active" &&
         constructionRequest &&
         canWorkerTierBuildStructure(
@@ -3428,6 +3429,14 @@ export class Simulation {
       liveUnitTypeCounts.set(unit.type, (liveUnitTypeCounts.get(unit.type) || 0) + 1);
     }
     const queuedUnitTypeCounts = new Map();
+    let structureUpgraded = false;
+    if (!needsCombatForce) {
+      const structureUpgrade = this.getEnemyStructureUpgradeRequest(teamId, reservedMetal);
+      structureUpgraded = Boolean(
+        structureUpgrade && this.upgradeStructure(structureUpgrade.structureId, teamId),
+      );
+    }
+
     for (const factory of enemyFactories) {
       for (const order of factory.productionQueue) {
         queuedUnitTypeCounts.set(
@@ -3513,8 +3522,11 @@ export class Simulation {
       }
     }
 
-    const structureUpgrade = this.getEnemyStructureUpgradeRequest(teamId, reservedMetal);
-    if (structureUpgrade) this.upgradeStructure(structureUpgrade.structureId, teamId);
+    if (!structureUpgraded) {
+      const structureUpgrade = this.getEnemyStructureUpgradeRequest(teamId, reservedMetal);
+      if (structureUpgrade) this.upgradeStructure(structureUpgrade.structureId, teamId);
+    }
+    this.assignEnemyProductionAssistants(teamId, enemyWorkers, enemyFactories);
 
     this.updateEnemyExpansionGarrisons(teamId, enemyAnchor, playerTargets);
     const rushTargets = playerTargets.filter((target) =>
@@ -3565,6 +3577,97 @@ export class Simulation {
     }
   }
 
+  assignEnemyProductionAssistants(teamId, enemyWorkers = null, enemyFactories = null) {
+    const workers = (enemyWorkers || this.units.filter(
+      (unit) =>
+        unit.alive &&
+        unit.team === teamId &&
+        Boolean(UNIT_DEFINITIONS[unit.type].workerTier),
+    )).filter(
+      (worker) => worker.alive && worker.team === teamId && worker.state === "active",
+    );
+    const factories = (enemyFactories || this.structures.filter(
+      (structure) =>
+        structure.alive &&
+        structure.complete &&
+        structure.team === teamId &&
+        Boolean(STRUCTURE_DEFINITIONS[structure.type].production?.length),
+    )).filter((factory) => isActivelyProducingFactory(factory));
+    if (workers.length <= SIMULATION_RULES.enemyMinimumFreeWorkers || factories.length === 0) {
+      return 0;
+    }
+
+    const assistantCounts = new Map(factories.map((factory) => [factory.id, 0]));
+    let existingAssistantCount = 0;
+    let existingAssistantDemand = 0;
+    for (const worker of workers) {
+      const factory = this.getStructure(worker.productionAssistTargetId);
+      if (
+        !factory ||
+        !assistantCounts.has(factory.id) ||
+        !isValidProductionAssistTarget(worker, factory)
+      ) {
+        continue;
+      }
+      assistantCounts.set(factory.id, assistantCounts.get(factory.id) + 1);
+      existingAssistantCount += 1;
+      existingAssistantDemand += UNIT_DEFINITIONS[worker.type].productionAssistPowerDemand || 0;
+    }
+
+    let assignmentBudget = Math.max(
+      0,
+      workers.length - SIMULATION_RULES.enemyMinimumFreeWorkers - existingAssistantCount,
+    );
+    let powerHeadroom = Math.max(
+      0,
+      this.getGenerationRate(teamId) / (1 + SIMULATION_RULES.enemyGenerationReserveRatio) -
+        this.getPlannedPowerDemandRate(teamId) -
+        existingAssistantDemand,
+    );
+    const idleWorkers = workers
+      .filter(
+        (worker) =>
+          !worker.buildTargetId &&
+          !(worker.buildQueue?.length) &&
+          !worker.repairTargetId &&
+          !worker.productionAssistTargetId &&
+          !worker.transportTargetId &&
+          !worker.attackTargetId &&
+          !worker.moveTarget &&
+          !worker.holdPosition,
+      )
+      .sort(
+        (left, right) =>
+          UNIT_DEFINITIONS[left.type].workerTier - UNIT_DEFINITIONS[right.type].workerTier ||
+          left.id.localeCompare(right.id),
+      );
+    let assigned = 0;
+    for (const worker of idleWorkers) {
+      if (assignmentBudget <= 0) break;
+      const workerDemand = UNIT_DEFINITIONS[worker.type].productionAssistPowerDemand || 0;
+      if (workerDemand > powerHeadroom + EPSILON) continue;
+      const factory = factories
+        .filter(
+          (candidate) =>
+            assistantCounts.get(candidate.id) <
+              SIMULATION_RULES.enemyMaxProductionAssistantsPerFactory,
+        )
+        .sort(
+          (left, right) =>
+            assistantCounts.get(left.id) - assistantCounts.get(right.id) ||
+            right.productionQueue.length - left.productionQueue.length ||
+            left.id.localeCompare(right.id),
+        )[0];
+      if (!factory) break;
+      if (!this.commandAssistProduction([worker.id], factory.id)) continue;
+      assistantCounts.set(factory.id, assistantCounts.get(factory.id) + 1);
+      assignmentBudget -= 1;
+      powerHeadroom -= workerDemand;
+      assigned += 1;
+    }
+    return assigned;
+  }
+
   getEnemyStrategicConstructionRequest(
     teamId,
     enemyAnchor,
@@ -3605,6 +3708,7 @@ export class Simulation {
     ).length;
     const generatorCount = countFamily("generator");
     const sentryCount = countFamily("sentry_turret");
+    const shieldCount = countFamily("shield_turret");
     const flakCount = countFamily("flak_turret");
     const chargerCount = countFamily("charger");
     const relayCount = countFamily("power_tower");
@@ -3622,6 +3726,12 @@ export class Simulation {
         (structure) => distance(structure, target) <= SIMULATION_RULES.enemyRushResponseRadius,
       ),
     );
+    const nearbyCombatThreats = nearbyThreats.filter((target) => {
+      const definition = target.kind === "unit"
+        ? UNIT_DEFINITIONS[target.type]
+        : STRUCTURE_DEFINITIONS[target.type];
+      return (definition?.attackDamage || 0) > 0;
+    });
     const enemyAircraft = playerTargets.filter(
       (target) =>
         target.kind === "unit" &&
@@ -3796,6 +3906,21 @@ export class Simulation {
       } else {
         addCandidate(88, "sentry_turret", planPoint(100, -sideSign * (160 + sentryCount * 80)));
       }
+    }
+
+    const desiredShieldCount = coreBaseReady
+      ? Math.min(
+        3,
+        1 + Math.floor(Math.max(0, mineCount - 2) / 2) +
+          (nearbyCombatThreats.length > 0 ? 1 : 0),
+      )
+      : 0;
+    if (shieldCount < desiredShieldCount) {
+      addCandidate(
+        nearbyCombatThreats.length > 0 ? 121 : 79,
+        tieredType("shield_turret", operationalTier),
+        planPoint(20 + shieldCount * 80, -sideSign * (140 + shieldCount * 110)),
+      );
     }
 
     const desiredFlakCount = Math.min(3, Math.ceil(nearbyAircraft.length / 3));

@@ -1654,6 +1654,8 @@ export const SIMULATION_RULES = Object.freeze({
   enemyInitialThinkDelay: 1,
   enemyThinkInterval: 1,
   enemyAttackWaveSize: 3,
+  enemyMinimumFreeWorkers: 1,
+  enemyMaxProductionAssistantsPerFactory: 2,
   enemyMaxMobileEnergySupport: 3,
   enemyCombatUnitsPerMobileEnergySupport: 8,
   enemyAssaultTargetEvaluationLimit: 64,
