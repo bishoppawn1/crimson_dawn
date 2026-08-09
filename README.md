@@ -105,7 +105,8 @@ The current build is the first playable field test. It includes:
 - Footprint-aware snapping and distinct one-cell through five-cell-wide building
   sizes, with every ordinary foundation edge aligned to a grid line.
 - Compact Tier 1 infrastructure with 1×1 Generator and Battery footprints, 2×2
-  Tier 1 factories, and progressively larger Tier 2 and Tier 3 buildings.
+  Tier 1 factories, Tier 3 ordinary buildings that retain their Tier 2 size, and
+  factories that grow at every tier.
 - Exact structure collision boundaries without extra invisible movement padding.
 - Pulse Generators with visible, constant per-second output that never depletes.
 - A concise HUD energy readout showing net building power per second and combined

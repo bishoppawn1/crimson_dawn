@@ -4868,6 +4868,37 @@ test("building classes use distinct grid footprints", () => {
   assert.equal(SIMULATION_RULES.structureCollisionPadding, 0);
 });
 
+test("Tier 3 ordinary buildings retain their Tier 2 footprint and physical radius", () => {
+  const tieredFamilies = [
+    ["generator_t2", "generator_t3"],
+    ["battery_t2", "battery_t3"],
+    ["power_tower_t2", "power_tower_t3"],
+    ["radar_tower_t2", "radar_tower_t3"],
+    ["charger_t2", "charger_t3"],
+    ["metal_mine_t2", "metal_mine_t3"],
+    ["sentry_turret_t2", "sentry_turret_t3"],
+    ["shield_turret_t2", "shield_turret_t3"],
+    ["mortar_turret_t2", "mortar_turret_t3"],
+    ["flak_turret_t2", "flak_turret_t3"],
+    ["salvage_yard_t2", "salvage_yard_t3"],
+  ];
+
+  for (const [tierTwoType, tierThreeType] of tieredFamilies) {
+    const tierTwo = STRUCTURE_DEFINITIONS[tierTwoType];
+    const tierThree = STRUCTURE_DEFINITIONS[tierThreeType];
+    assert.deepEqual(tierThree.footprint, tierTwo.footprint, tierThreeType);
+    assert.equal(tierThree.radius, tierTwo.radius, tierThreeType);
+  }
+
+  for (const branch of ["mech", "vehicle", "air"]) {
+    const tierTwo = STRUCTURE_DEFINITIONS[`${branch}_factory_t2`];
+    const tierThree = STRUCTURE_DEFINITIONS[`${branch}_factory_t3`];
+    assert.ok(tierThree.footprint[0] > tierTwo.footprint[0], branch);
+    assert.ok(tierThree.footprint[1] > tierTwo.footprint[1], branch);
+    assert.ok(tierThree.radius > tierTwo.radius, branch);
+  }
+});
+
 test("Crystal Harvester footprints never exceed two grid cells per side", () => {
   const mines = Object.values(STRUCTURE_DEFINITIONS).filter(
     (definition) => definition.family === "metal_mine",

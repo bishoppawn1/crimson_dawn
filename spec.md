@@ -114,7 +114,7 @@ circle, and direct attack commands against unseen hostile entities are rejected.
 
 Radar Arrays form a tiered powered building family. Tier 1, Tier 2, and Tier 3 arrays
 provide provisional 950/1,250/1,600-world-unit vision while complete and powered, use
-1×1/2×2/3×3 footprints, draw 3/5/8 energy per second, and cost 140/270/500 crystal.
+1×1/2×2/2×2 footprints, draw 3/5/8 energy per second, and cost 140/270/500 crystal.
 An incomplete array supplies no vision. A completed but disconnected or energy-starved
 array retains only the ordinary 340-world-unit building sight range. Selecting a radar
 asset displays its current coverage circle, and the minimap applies the same coverage.
@@ -793,8 +793,10 @@ Pulse Generators, Grid Batteries, Power Relay Towers, Induction Chargers, Crysta
 Harvesters, Sentry Turrets, Shield Turrets, Mortar Turrets, Flak Turrets, and
 Salvage Reclamation Yards currently have separate Tier 1, Tier 2, and Tier 3
 construction definitions.
-Higher-tier versions have larger provisional costs, footprints, durability,
-demand, and role-specific output or capacity. The Strategic Supply Complex remains
+Higher-tier versions have larger provisional costs, durability, demand, and
+role-specific output or capacity. Tier 2 ordinary buildings generally gain larger
+footprints, while Tier 3 versions retain their Tier 2 size except for factories.
+The Strategic Supply Complex remains
 a Tier 1 construction option with
 its own internal upgrade levels rather than separate tiered foundations. All new
 factory and building-variant balance values are provisional.
@@ -824,7 +826,8 @@ cost and the structure's current-tier crystal cost. The conversion is immediate,
 preserves the building's integrity percentage, retained energy, and current shield
 strength up to the new capacity, and keeps factory queues and rally orders. A Shield
 Turret regenerates the newly added empty capacity after its upgrade. The larger
-target footprint snaps to the nearest compatible grid center and must fit within the battlefield
+target footprint, when an upgrade changes it, snaps to the nearest compatible grid
+center and must fit within the battlefield
 without overlapping another structure, hostile unit, or reclamation drone. Friendly
 units are moved clear. The Strategic Supply Complex continues to use its separate
 internal supply-level upgrades rather than this structure-tier system.
@@ -968,9 +971,9 @@ Relay Tower, which remains 1×1. Crystal Harvesters are permanently capped at 2�
 both their Tier 2 and Tier 3 versions use that footprint, with higher harvesting
 output represented through their
 machinery and stats rather than a larger occupied area. Tier 2 factories use 3×3
-footprints; other Tier 3 infrastructure uses 3×3 footprints and Tier 3 factories use
-4×4 footprints. Exceptional strategic or experimental structures may use larger
-bespoke footprints.
+footprints. Every ordinary Tier 3 building keeps its Tier 2 footprint and physical
+radius except for factories, which grow to 4×4. Exceptional strategic or experimental
+structures may use larger bespoke footprints.
 
 An incomplete friendly building is a contextual construction target. Right-clicking
 it with one or more selected workers assigns those workers to continue construction,
@@ -1015,7 +1018,7 @@ network. These demand values remain provisional.
 Shield Turrets create a protective field around themselves. Their provisional Tier
 1/Tier 2/Tier 3 profiles provide 520/1,050/1,900 shield points, 250/355/480-world-unit
 field radii, and 12/22/36 shield regeneration per second. They occupy 1×1, 2×2, and
-3×3 footprints, have 340/560/820 integrity, cost 160/310/560 crystal, and passively
+2×2 footprints, have 340/560/820 integrity, cost 160/310/560 crystal, and passively
 consume 2/4/7 energy per second respectively. A field intercepts damage aimed at
 friendly units, reclamation drones, and structures whose centers are inside it,
 including the Shield Turret itself. A hit is absorbed by the nearest eligible field;
