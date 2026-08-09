@@ -326,6 +326,24 @@ test("selected completed buildings expose an authorized destroy command", async 
   assert.match(game, /destroyStructureButton\.addEventListener\("click", destroySelectedStructure\)/);
 });
 
+test("Spawn Wars platforms expose authoritative move and refund controls", async () => {
+  const [index, game, simulation, spawnWars] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+    source("../src/simulation.js"),
+    source("../src/spawn-wars.js"),
+  ]);
+
+  assert.match(index, /id="spawn-pad-move-button"[\s\S]*?Move Building/);
+  assert.match(index, /destroy it for a 75% crystal refund/);
+  assert.match(game, /case "spawn_pad_move"[\s\S]*?simulation\.moveSpawnPad\(/);
+  assert.match(game, /type: "spawn_pad_move"/);
+  assert.match(game, /spawnPadMoveButton\.addEventListener\("click"/);
+  assert.match(simulation, /spawnWarsPadDestroyRefund\(padCost\)/);
+  assert.match(simulation, /moveSpawnPad\(structureId, x, y, teamId\)/);
+  assert.match(spawnWars, /padDestroyRefundRatio: 0\.75/);
+});
+
 test("the interface and battlefield present the economy as crimson crystal", async () => {
   const [index, game, data, styles] = await Promise.all([
     source("../index.html"),

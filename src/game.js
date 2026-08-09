@@ -25,6 +25,7 @@ const {
   SPAWN_PAD_UPGRADES,
   SPAWN_WARS_RULES,
   spawnWarsPadCost,
+  spawnWarsPadDestroyRefund,
   spawnWarsPadUpgradeCost,
   spawnWarsInterval,
   spawnWarsAllianceForSlot,
@@ -165,6 +166,8 @@ const spawnIncomeUpgradeButton = document.querySelector("#spawn-income-upgrade-b
 const spawnIncomeUpgradeDetails = document.querySelector("#spawn-income-upgrade-details");
 const spawnIncomeStatus = document.querySelector("#spawn-income-status");
 const spawnPadUpgrades = document.querySelector("#spawn-pad-upgrades");
+const spawnPadMoveButton = document.querySelector("#spawn-pad-move-button");
+const spawnPadMoveDetails = document.querySelector("#spawn-pad-move-details");
 const spawnPadUpgradeGrid = document.querySelector("#spawn-pad-upgrade-grid");
 const constructNuclearMissileButton = document.querySelector("#construct-nuclear-missile-button");
 const constructNuclearMissileDetails = document.querySelector("#construct-nuclear-missile-details");
@@ -217,6 +220,7 @@ let selectionConstructionQueueSignature = null;
 let selectionDrag = null;
 let placementStructureType = null;
 let spawnPadUnitType = null;
+let movingSpawnPadId = null;
 let testerSpawnPlacement = null;
 let placementMessage = null;
 let placementCursor = null;
@@ -568,6 +572,7 @@ for (const tier of [1, 2, 3]) {
       patrolDraft = null;
       testerSpawnPlacement = null;
       spawnPadUnitType = null;
+      movingSpawnPadId = null;
       placementStructureType = placementStructureType === structureType ? null : structureType;
       placementMessage = null;
       updateInterface();
@@ -638,6 +643,7 @@ function resetPresentation() {
   selectionDrag = null;
   placementStructureType = null;
   spawnPadUnitType = null;
+  movingSpawnPadId = null;
   testerSpawnPlacement = null;
   placementMessage = null;
   placementCursor = null;
@@ -703,7 +709,7 @@ function activeStructurePlacement() {
 }
 
 function placementIsActive() {
-  return Boolean(placementStructureType || testerSpawnPlacement || spawnPadUnitType);
+  return Boolean(placementStructureType || testerSpawnPlacement || spawnPadUnitType || movingSpawnPadId);
 }
 
 function resetGame() {
@@ -1513,6 +1519,11 @@ function applyAuthorizedCommand(command, team) {
         command.y,
         { queue: Boolean(command.queue) },
       );
+    }
+    case "spawn_pad_move": {
+      const structure = ownedStructure(command.structureId, team);
+      if (!structure || !Number.isFinite(command.x) || !Number.isFinite(command.y)) return false;
+      return simulation.moveSpawnPad(structure.id, command.x, command.y, team);
     }
     case "spawn_architect_upgrade":
       return simulation.upgradeSpawnArchitect(team);
@@ -2751,12 +2762,17 @@ function drawCrystalShard(x, y, size, rotation = 0, { alpha = 1, rich = false } 
 
 function drawPlacementPreview() {
   if (!placementCursor) return;
-  if (spawnPadUnitType) {
+  const movingSpawnPad = movingSpawnPadId
+    ? simulation.getStructure(movingSpawnPadId)
+    : null;
+  const previewSpawnUnitType = movingSpawnPad?.spawnUnitType || spawnPadUnitType;
+  if (previewSpawnUnitType) {
     const placement = simulation.evaluateSpawnPadPlacement(
-      spawnPadUnitType,
+      previewSpawnUnitType,
       placementCursor.x,
       placementCursor.y,
       localTeam,
+      { ignoreStructureId: movingSpawnPad?.id || null },
     );
     const definition = STRUCTURE_DEFINITIONS[placement.padType || "spawn_pad"];
     const footprint = structureFootprint(placement.padType || "spawn_pad");
@@ -2772,7 +2788,9 @@ function drawPlacementPreview() {
     drawLabel(
       placement.x,
       placement.y + footprint.halfHeight + 22,
-      placement.valid ? `${definition.name} · ${UNIT_DEFINITIONS[spawnPadUnitType].name}` : placement.reason,
+      placement.valid
+        ? `${movingSpawnPad ? "Move" : definition.name} · ${UNIT_DEFINITIONS[previewSpawnUnitType].name}`
+        : placement.reason,
       true,
       previewColor,
     );
@@ -7660,7 +7678,10 @@ function updateInterface() {
   );
   destroyStructureButton.hidden = !canDestroyStructure;
   if (canDestroyStructure) {
-    destroyStructureDetails.textContent = STRUCTURE_DEFINITIONS[selectedStructure.type].headquarters
+    const selectedDefinition = STRUCTURE_DEFINITIONS[selectedStructure.type];
+    destroyStructureDetails.textContent = spawnWarsActive && selectedDefinition.phaseLayer
+      ? `Immediate · ${spawnWarsPadDestroyRefund(selectedStructure.spawnPadCost ?? spawnWarsPadCost(UNIT_DEFINITIONS[selectedStructure.spawnUnitType])).toLocaleString()} crystal refunded (75%)`
+      : selectedDefinition.headquarters
       ? "Eliminates this commander; surviving units become neutral derelicts"
       : "Immediate · no crystal refund";
   }
@@ -7779,6 +7800,7 @@ function updateInterface() {
   spawnPadUpgrades.hidden = matchEnded || !spawnWarsActive || !selectedSpawnPad;
   if (selectedSpawnPad) {
     const unitDefinition = UNIT_DEFINITIONS[selectedSpawnPad.spawnUnitType];
+    spawnPadMoveDetails.textContent = `Free · preserves upgrades and ${Math.ceil(selectedSpawnPad.spawnRemaining)}s spawn countdown`;
     for (const [category, button] of spawnPadUpgradeButtons) {
       const level = selectedSpawnPad.spawnUpgradeLevels?.[category] || 0;
       const cost = spawnWarsPadUpgradeCost(unitDefinition, category, level);
@@ -7834,6 +7856,10 @@ function updateInterface() {
   } else if (placementStructureType) {
     statusBanner.hidden = false;
     statusBanner.textContent = placementMessage || `PLACE ${STRUCTURE_DEFINITIONS[placementStructureType].name.toUpperCase()} · HOLD SHIFT TO QUEUE · RIGHT-CLICK TO CANCEL`;
+  } else if (movingSpawnPadId) {
+    const movingPad = simulation.getStructure(movingSpawnPadId);
+    statusBanner.hidden = false;
+    statusBanner.textContent = placementMessage || `MOVE ${UNIT_DEFINITIONS[movingPad.spawnUnitType].name.toUpperCase()} PLATFORM · LEFT-CLICK DESTINATION · RIGHT-CLICK TO CANCEL`;
   } else if (spawnPadUnitType) {
     statusBanner.hidden = false;
     statusBanner.textContent = placementMessage || `PLACE ${UNIT_DEFINITIONS[spawnPadUnitType].name.toUpperCase()} PLATFORM · HOLD SHIFT FOR MORE · RIGHT-CLICK TO CANCEL`;
@@ -7862,6 +7888,12 @@ function pruneSelection() {
     }),
   );
   selectStructures(getSelectedStructures());
+  const movingPad = simulation.getStructure(movingSpawnPadId);
+  if (movingSpawnPadId && (!movingPad?.alive || movingPad.team !== localTeam)) {
+    movingSpawnPadId = null;
+    placementMessage = null;
+    placementCursor = null;
+  }
 }
 
 function canvasScreenPoint(event) {
@@ -7891,6 +7923,16 @@ function syncPointerToCamera() {
       testerSpawnPlacement.type,
       placementCursor.x,
       placementCursor.y,
+    );
+    placementMessage = placement.valid ? null : placement.reason.toUpperCase();
+  } else if (movingSpawnPadId) {
+    const pad = simulation.getStructure(movingSpawnPadId);
+    const placement = simulation.evaluateSpawnPadPlacement(
+      pad.spawnUnitType,
+      placementCursor.x,
+      placementCursor.y,
+      localTeam,
+      { ignoreStructureId: pad.id },
     );
     placementMessage = placement.valid ? null : placement.reason.toUpperCase();
   } else if (spawnPadUnitType) {
@@ -8142,6 +8184,38 @@ function placeSpawnPad(point, keepActive = false) {
   return Boolean(accepted);
 }
 
+function placeMovedSpawnPad(point) {
+  const pad = simulation.getStructure(movingSpawnPadId);
+  if (!pad) return false;
+  const placement = simulation.evaluateSpawnPadPlacement(
+    pad.spawnUnitType,
+    point.x,
+    point.y,
+    localTeam,
+    { ignoreStructureId: pad.id },
+  );
+  if (!placement.valid) {
+    placementMessage = placement.reason.toUpperCase();
+    updateInterface();
+    return false;
+  }
+  const accepted = issueGameCommand({
+    type: "spawn_pad_move",
+    structureId: pad.id,
+    x: placement.x,
+    y: placement.y,
+  });
+  if (accepted) {
+    movingSpawnPadId = null;
+    placementMessage = null;
+    placementCursor = null;
+  } else {
+    placementMessage = (simulation.lastPlacementError || "Invalid spawn platform location.").toUpperCase();
+  }
+  updateInterface();
+  return Boolean(accepted);
+}
+
 function placeTesterSpawn(point, keepActive = false) {
   if (!testerSpawnPlacement) return false;
   const command = testerSpawnPlacement.kind === "structure"
@@ -8180,6 +8254,11 @@ canvas.addEventListener("mouseup", (event) => {
 
   if (testerSpawnPlacement) {
     placeTesterSpawn(drag.current, drag.shift);
+    return;
+  }
+
+  if (movingSpawnPadId) {
+    placeMovedSpawnPad(drag.current);
     return;
   }
 
@@ -8259,7 +8338,8 @@ canvas.addEventListener("dblclick", (event) => {
     event.button !== 0 ||
     testerSpawnPlacement ||
     placementStructureType ||
-    spawnPadUnitType
+    spawnPadUnitType ||
+    movingSpawnPadId
   ) return;
   event.preventDefault();
   pointerScreen = canvasScreenPoint(event);
@@ -8290,7 +8370,8 @@ canvas.addEventListener("contextmenu", (event) => {
       minimapTarget &&
       !testerSpawnPlacement &&
       !placementStructureType &&
-      !spawnPadUnitType
+      !spawnPadUnitType &&
+      !movingSpawnPadId
     ) {
       if (patrolDraft) {
         recordPatrolPoint(minimapTarget);
@@ -8304,10 +8385,11 @@ canvas.addEventListener("contextmenu", (event) => {
     }
     return;
   }
-  if (testerSpawnPlacement || placementStructureType || spawnPadUnitType) {
+  if (testerSpawnPlacement || placementStructureType || spawnPadUnitType || movingSpawnPadId) {
     testerSpawnPlacement = null;
     placementStructureType = null;
     spawnPadUnitType = null;
+    movingSpawnPadId = null;
     placementMessage = null;
     placementCursor = null;
     updateInterface();
@@ -8508,6 +8590,7 @@ function togglePatrolRecording() {
   testerSpawnPlacement = null;
   placementStructureType = null;
   spawnPadUnitType = null;
+  movingSpawnPadId = null;
   placementMessage = null;
   placementCursor = null;
   forceMoveArmed = false;
@@ -8612,6 +8695,19 @@ overdriveButton.addEventListener("click", activateOverdrive);
 transportDropButton.addEventListener("click", unloadSelectedTransports);
 cancelConstructionButton.addEventListener("click", cancelSelectedConstruction);
 destroyStructureButton.addEventListener("click", destroySelectedStructure);
+spawnPadMoveButton.addEventListener("click", () => {
+  const pad = simulation.getStructure(selectedStructureId);
+  if (!pad?.alive || !pad.complete || !STRUCTURE_DEFINITIONS[pad.type]?.phaseLayer) return;
+  patrolDraft = null;
+  testerSpawnPlacement = null;
+  placementStructureType = null;
+  spawnPadUnitType = null;
+  movingSpawnPadId = movingSpawnPadId === pad.id ? null : pad.id;
+  placementMessage = null;
+  placementCursor = pointerScreen ? screenToWorld(pointerScreen) : null;
+  forceMoveArmed = false;
+  updateInterface();
+});
 supplyUpgradeButton.addEventListener("click", () => {
   if (selectedStructureId) {
     issueGameCommand({ type: "supply_upgrade", structureId: selectedStructureId });
@@ -8648,6 +8744,7 @@ function armTesterSpawn(kind) {
   patrolDraft = null;
   placementStructureType = null;
   spawnPadUnitType = null;
+  movingSpawnPadId = null;
   testerSpawnPlacement = {
     kind,
     team: testerSpawnTeam.value,
@@ -8688,6 +8785,7 @@ spawnPlacePadButton.addEventListener("click", () => {
   patrolDraft = null;
   testerSpawnPlacement = null;
   placementStructureType = null;
+  movingSpawnPadId = null;
   spawnPadUnitType = spawnPadUnitType === spawnUnitSelect.value ? null : spawnUnitSelect.value;
   placementMessage = null;
   placementCursor = pointerScreen ? screenToWorld(pointerScreen) : null;
@@ -8842,6 +8940,7 @@ window.addEventListener("keydown", (event) => {
     testerSpawnPlacement = null;
     placementStructureType = null;
     spawnPadUnitType = null;
+    movingSpawnPadId = null;
     placementMessage = null;
     placementCursor = null;
     updateInterface();
@@ -8852,6 +8951,7 @@ window.addEventListener("keydown", (event) => {
     testerSpawnPlacement = null;
     placementStructureType = null;
     spawnPadUnitType = null;
+    movingSpawnPadId = null;
     placementMessage = null;
     placementCursor = null;
     selectionDrag = null;

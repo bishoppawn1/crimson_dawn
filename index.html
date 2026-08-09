@@ -273,7 +273,11 @@
             </div>
 
             <div id="spawn-pad-upgrades" class="command-group spawn-pad-upgrades" hidden>
-              <p class="sub-label">SPAWN PLATFORM UPGRADES</p>
+              <p class="sub-label">SPAWN PLATFORM</p>
+              <button id="spawn-pad-move-button" class="command-button" type="button">
+                <strong>Move Building</strong>
+                <small id="spawn-pad-move-details">Free · preserves upgrades and spawn countdown</small>
+              </button>
               <div id="spawn-pad-upgrade-grid" class="command-grid"></div>
               <button class="command-button" type="button" disabled>
                 <strong>Special Ability · Later</strong>
@@ -316,7 +320,7 @@
             <p><b>C</b> cancels a selected unfinished building and refunds part of its unbuilt crystal.</p>
             <p>A Tier 3 <b>Nuclear Missile Launcher</b> constructs one missile at a time. When it is ready, right-click terrain to choose the target and press <b>Launch Nuclear Missile</b>. A powered Tier 3 <b>Anti-Nuke Turret</b> automatically intercepts hostile missiles in its large range, then needs 60 powered seconds to reload.</p>
             <p><b>Unit Tester</b> gives the human commander Tier 3 workers, unlimited resources and energy, instant completed buildings, and instant factory production. Its Enemy Spawner can place buildings and units for any AI commander; those assets then follow normal AI, power, energy, and combat rules.</p>
-            <p><b>Spawn Wars</b> is online-only for two to four humans. Select the invulnerable flying Spawn Architect to place 2×2 automatic unit platforms or 3×3 experimental platforms inside your marked zone, upgrade income or Architect tier, and improve future waves. Phase platforms never block or absorb fire. Cross the center for bonus income, destroy the enemy frontline turret, then destroy its exposed Command Core.</p>
+            <p><b>Spawn Wars</b> is online-only for two to four humans. Select the invulnerable flying Spawn Architect to place 2×2 automatic unit platforms or 3×3 experimental platforms inside your marked zone, upgrade income or Architect tier, and improve future waves. Select a completed platform to move it for free or destroy it for a 75% crystal refund. Phase platforms never block or absorb fire. Cross the center for bonus income, destroy the enemy frontline turret, then destroy its exposed Command Core.</p>
             <p>Buildings block ground movement. Workers automatically slide around them; aircraft fly over terrain, structures, and ground units without pushing them aside.</p>
             <p>Units are compact but physical: dense groups spread out instead of stacking in one spot.</p>
             <p>Workers construct buildings, accelerate active unit production when you right-click a producing factory, and repair damaged friendly units or completed structures when you right-click the target. A worker can be repaired by another worker, but cannot repair itself. Hold Shift while placing to queue multiple foundations in order. Select a factory to queue units; box-select matching factories to share production controls and automatically route each new unit to the shortest powered queue, then right-click terrain to set their shared attack-move rally point. Selected workers and factories show the active job, live progress, and every next item in queue order.</p>

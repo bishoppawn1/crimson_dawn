@@ -1704,7 +1704,12 @@ to construct. Platforms exist on a separate phase layer: units may pass over the
 they do not participate in ground or air collision/pathfinding, enemies do not
 target them, and damage cannot affect them. Platforms cannot overlap other phase
 platforms or leave their owner's build zone. The owner may select and destroy a
-completed platform with no refund.
+completed platform for 75 percent of its original platform purchase price, rounded
+down to whole crystal; stat-upgrade spending is not refunded. Selecting a completed
+platform also exposes a Move Building command. Relocation is immediate and free,
+uses the same grid, ownership-zone, and phase-platform overlap validation as initial
+placement, and preserves the platform's configured unit, stat upgrades, and current
+spawn countdown. Removed phase platforms leave no reclaimable wreck.
 
 Every completed platform creates its configured unit on the shared 30-second income
 clock. Each income payment and platform wave resolve together, so platforms built

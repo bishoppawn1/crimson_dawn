@@ -20,6 +20,7 @@ export const SPAWN_WARS_RULES = Object.freeze({
   padCostMultiplier: 0.5,
   minimumPadCost: 25,
   padTierCostGrowth: 0.15,
+  padDestroyRefundRatio: 0.75,
   padBuildTime: 6,
   minimumPadUpgradeCost: 20,
   padUpgradeTierCostGrowth: 0.25,
@@ -91,6 +92,10 @@ export function spawnWarsPadCost(unitDefinition) {
       SPAWN_WARS_RULES.padCostMultiplier * tierMultiplier,
     ),
   );
+}
+
+export function spawnWarsPadDestroyRefund(padCost) {
+  return Math.floor(Math.max(0, padCost || 0) * SPAWN_WARS_RULES.padDestroyRefundRatio);
 }
 
 export function spawnWarsInterval() {

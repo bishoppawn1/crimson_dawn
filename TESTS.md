@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 352
+**Automated tests documented:** 354
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -108,23 +108,28 @@ this catalog is out of date.
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that selected completed buildings expose an authorized destroy command.
 
+<!-- test-catalog-entry: ["test/bootstrap.test.js","Spawn Wars platforms expose authoritative move and refund controls"] -->
+### 20. Spawn Wars platforms expose authoritative move and refund controls
+
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that Spawn Wars platforms expose authoritative move and refund controls.
+
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the interface and battlefield present the economy as crimson crystal"] -->
-### 20. the interface and battlefield present the economy as crimson crystal
+### 21. the interface and battlefield present the economy as crimson crystal
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the interface and battlefield present the economy as crimson crystal.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","production controls disclose ground damage penalties"] -->
-### 21. production controls disclose ground damage penalties
+### 22. production controls disclose ground damage penalties
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that production controls disclose ground damage penalties.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","unit selection is concise and uses one compact shared construction queue"] -->
-### 22. unit selection is concise and uses one compact shared construction queue
+### 23. unit selection is concise and uses one compact shared construction queue
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that unit selection is concise and uses one compact shared construction queue.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","match setup exposes per-AI difficulty and team assignment controls"] -->
-### 23. match setup exposes per-AI difficulty and team assignment controls
+### 24. match setup exposes per-AI difficulty and team assignment controls
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that match setup exposes per-AI difficulty and team assignment controls.
 
@@ -344,1418 +349,1423 @@ this catalog is out of date.
 
 **What it checks:** Runs the deterministic game simulation to confirm that Spawn Wars platforms synchronize every wave with the income payment.
 
+<!-- test-catalog-entry: ["test/simulation.test.js","Spawn Wars platforms move freely and refund 75 percent of their original cost"] -->
+### 5. Spawn Wars platforms move freely and refund 75 percent of their original cost
+
+**What it checks:** Runs the deterministic game simulation to confirm that Spawn Wars platforms move freely and refund 75 percent of their original cost.
+
 <!-- test-catalog-entry: ["test/simulation.test.js","Spawn Wars income, center control, equal speed, kill rewards, and objectives are deterministic"] -->
-### 5. Spawn Wars income, center control, equal speed, kill rewards, and objectives are deterministic
+### 6. Spawn Wars income, center control, equal speed, kill rewards, and objectives are deterministic
 
 **What it checks:** Runs the deterministic game simulation to confirm that Spawn Wars income, center control, equal speed, kill rewards, and objectives are deterministic.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Spawn Wars unit deaths never create crystal scrap for either alliance"] -->
-### 6. Spawn Wars unit deaths never create crystal scrap for either alliance
+### 7. Spawn Wars unit deaths never create crystal scrap for either alliance
 
 **What it checks:** Runs the deterministic game simulation to confirm that Spawn Wars unit deaths never create crystal scrap for either alliance.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","unit production and building construction use the global 4x duration scale"] -->
-### 7. unit production and building construction use the global 4x duration scale
+### 8. unit production and building construction use the global 4x duration scale
 
 **What it checks:** Runs the deterministic game simulation to confirm that unit production and building construction use the global 4x duration scale.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the irreplaceable Command Headquarters provides economy and only Tier 1 workers"] -->
-### 8. the irreplaceable Command Headquarters provides economy and only Tier 1 workers
+### 9. the irreplaceable Command Headquarters provides economy and only Tier 1 workers
 
 **What it checks:** Runs the deterministic game simulation to confirm that the irreplaceable Command Headquarters provides economy and only Tier 1 workers.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the Command Headquarters automatically fires its long-range defensive gun"] -->
-### 9. the Command Headquarters automatically fires its long-range defensive gun
+### 10. the Command Headquarters automatically fires its long-range defensive gun
 
 **What it checks:** Runs the deterministic game simulation to confirm that the Command Headquarters automatically fires its long-range defensive gun.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the tactical minimap fits the whole battlefield and maps its viewport"] -->
-### 10. the tactical minimap fits the whole battlefield and maps its viewport
+### 11. the tactical minimap fits the whole battlefield and maps its viewport
 
 **What it checks:** Runs the deterministic game simulation to confirm that the tactical minimap fits the whole battlefield and maps its viewport.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","worker tiers expose the requested inherited construction matrix"] -->
-### 11. worker tiers expose the requested inherited construction matrix
+### 12. worker tiers expose the requested inherited construction matrix
 
 **What it checks:** Runs the deterministic game simulation to confirm that worker tiers expose the requested inherited construction matrix.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Tier 3 workers unlock the nuclear launcher and 2x2 anti-nuke turret"] -->
-### 12. Tier 3 workers unlock the nuclear launcher and 2x2 anti-nuke turret
+### 13. Tier 3 workers unlock the nuclear launcher and 2x2 anti-nuke turret
 
 **What it checks:** Runs the deterministic game simulation to confirm that Tier 3 workers unlock the nuclear launcher and 2x2 anti-nuke turret.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","nuclear launchers construct one paid missile at a time and pause without power"] -->
-### 13. nuclear launchers construct one paid missile at a time and pause without power
+### 14. nuclear launchers construct one paid missile at a time and pause without power
 
 **What it checks:** Runs the deterministic game simulation to confirm that nuclear launchers construct one paid missile at a time and pause without power.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","nuclear missiles fly for exactly ten seconds and damage every team in three bands"] -->
-### 14. nuclear missiles fly for exactly ten seconds and damage every team in three bands
+### 15. nuclear missiles fly for exactly ten seconds and damage every team in three bands
 
 **What it checks:** Runs the deterministic game simulation to confirm that nuclear missiles fly for exactly ten seconds and damage every team in three bands.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","powered anti-nuke turrets protect a 30x30-cell area and preserve interception vision"] -->
-### 15. powered anti-nuke turrets protect a 30x30-cell area and preserve interception vision
+### 16. powered anti-nuke turrets protect a 30x30-cell area and preserve interception vision
 
 **What it checks:** Runs the deterministic game simulation to confirm that powered anti-nuke turrets protect a 30x30-cell area and preserve interception vision.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a nuclear missile grants its launching alliance short-range moving vision"] -->
-### 16. a nuclear missile grants its launching alliance short-range moving vision
+### 17. a nuclear missile grants its launching alliance short-range moving vision
 
 **What it checks:** Runs the deterministic game simulation to confirm that a nuclear missile grants its launching alliance short-range moving vision.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","nuclear missile and launcher readiness survive multiplayer snapshots"] -->
-### 17. nuclear missile and launcher readiness survive multiplayer snapshots
+### 18. nuclear missile and launcher readiness survive multiplayer snapshots
 
 **What it checks:** Runs the deterministic game simulation to confirm that nuclear missile and launcher readiness survive multiplayer snapshots.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","unit tester advantages apply only to the designated human team"] -->
-### 18. unit tester advantages apply only to the designated human team
+### 19. unit tester advantages apply only to the designated human team
 
 **What it checks:** Runs the deterministic game simulation to confirm that unit tester advantages apply only to the designated human team.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","unit tester construction completes immediately while AI construction stays normal"] -->
-### 19. unit tester construction completes immediately while AI construction stays normal
+### 20. unit tester construction completes immediately while AI construction stays normal
 
 **What it checks:** Runs the deterministic game simulation to confirm that unit tester construction completes immediately while AI construction stays normal.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","unit tester factory orders deploy on the next simulation step without spending crystal"] -->
-### 20. unit tester factory orders deploy on the next simulation step without spending crystal
+### 21. unit tester factory orders deploy on the next simulation step without spending crystal
 
 **What it checks:** Runs the deterministic game simulation to confirm that unit tester factory orders deploy on the next simulation step without spending crystal.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","unit tester team rules survive simulation snapshots"] -->
-### 21. unit tester team rules survive simulation snapshots
+### 22. unit tester team rules survive simulation snapshots
 
 **What it checks:** Runs the deterministic game simulation to confirm that unit tester team rules survive simulation snapshots.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","unit tester can instantly place completed buildings for an AI without funding it"] -->
-### 22. unit tester can instantly place completed buildings for an AI without funding it
+### 23. unit tester can instantly place completed buildings for an AI without funding it
 
 **What it checks:** Runs the deterministic game simulation to confirm that unit tester can instantly place completed buildings for an AI without funding it.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","unit tester can place collision-safe AI units that retain ordinary ownership"] -->
-### 23. unit tester can place collision-safe AI units that retain ordinary ownership
+### 24. unit tester can place collision-safe AI units that retain ordinary ownership
 
 **What it checks:** Runs the deterministic game simulation to confirm that unit tester can place collision-safe AI units that retain ordinary ownership.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy spawning is unavailable outside Unit Tester and cannot target the tester team"] -->
-### 24. enemy spawning is unavailable outside Unit Tester and cannot target the tester team
+### 25. enemy spawning is unavailable outside Unit Tester and cannot target the tester team
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy spawning is unavailable outside Unit Tester and cannot target the tester team.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","construction authorization is enforced by the simulation"] -->
-### 25. construction authorization is enforced by the simulation
+### 26. construction authorization is enforced by the simulation
 
 **What it checks:** Runs the deterministic game simulation to confirm that construction authorization is enforced by the simulation.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","production-building branches expose their requested tiers"] -->
-### 26. production-building branches expose their requested tiers
+### 27. production-building branches expose their requested tiers
 
 **What it checks:** Runs the deterministic game simulation to confirm that production-building branches expose their requested tiers.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","experimental factory exposes three distinct strategic units"] -->
-### 27. experimental factory exposes three distinct strategic units
+### 28. experimental factory exposes three distinct strategic units
 
 **What it checks:** Runs the deterministic game simulation to confirm that experimental factory exposes three distinct strategic units.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","experimental factory accepts paid production orders"] -->
-### 28. experimental factory accepts paid production orders
+### 29. experimental factory accepts paid production orders
 
 **What it checks:** Runs the deterministic game simulation to confirm that experimental factory accepts paid production orders.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","hexapod landship strides through structures but still respects terrain"] -->
-### 29. hexapod landship strides through structures but still respects terrain
+### 30. hexapod landship strides through structures but still respects terrain
 
 **What it checks:** Runs the deterministic game simulation to confirm that hexapod landship strides through structures but still respects terrain.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","hexapod landship shells deal damage on impact instead of before firing"] -->
-### 30. hexapod landship shells deal damage on impact instead of before firing
+### 31. hexapod landship shells deal damage on impact instead of before firing
 
 **What it checks:** Runs the deterministic game simulation to confirm that hexapod landship shells deal damage on impact instead of before firing.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","hexapod landship fires its independent weapons while moving"] -->
-### 31. hexapod landship fires its independent weapons while moving
+### 32. hexapod landship fires its independent weapons while moving
 
 **What it checks:** Runs the deterministic game simulation to confirm that hexapod landship fires its independent weapons while moving.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Zenith Doughnut stops before firing its ground beam"] -->
-### 32. Zenith Doughnut stops before firing its ground beam
+### 33. Zenith Doughnut stops before firing its ground beam
 
 **What it checks:** Runs the deterministic game simulation to confirm that Zenith Doughnut stops before firing its ground beam.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Zenith Doughnut beam pursuit only auto-acquires nearby ground targets"] -->
-### 33. Zenith Doughnut beam pursuit only auto-acquires nearby ground targets
+### 34. Zenith Doughnut beam pursuit only auto-acquires nearby ground targets
 
 **What it checks:** Runs the deterministic game simulation to confirm that Zenith Doughnut beam pursuit only auto-acquires nearby ground targets.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Zenith Doughnut AA batteries independently fire on aircraft during ground-beam attacks"] -->
-### 34. Zenith Doughnut AA batteries independently fire on aircraft during ground-beam attacks
+### 35. Zenith Doughnut AA batteries independently fire on aircraft during ground-beam attacks
 
 **What it checks:** Runs the deterministic game simulation to confirm that Zenith Doughnut AA batteries independently fire on aircraft during ground-beam attacks.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","explicit Zenith Doughnut anti-air orders pursue aircraft into battery range"] -->
-### 35. explicit Zenith Doughnut anti-air orders pursue aircraft into battery range
+### 36. explicit Zenith Doughnut anti-air orders pursue aircraft into battery range
 
 **What it checks:** Runs the deterministic game simulation to confirm that explicit Zenith Doughnut anti-air orders pursue aircraft into battery range.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Zenith Doughnuts hover directly over a locally acquired target"] -->
-### 36. Zenith Doughnuts hover directly over a locally acquired target
+### 37. Zenith Doughnuts hover directly over a locally acquired target
 
 **What it checks:** Runs the deterministic game simulation to confirm that Zenith Doughnuts hover directly over a locally acquired target.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","explicit orders take priority over automatic Zenith pursuit"] -->
-### 37. explicit orders take priority over automatic Zenith pursuit
+### 38. explicit orders take priority over automatic Zenith pursuit
 
 **What it checks:** Runs the deterministic game simulation to confirm that explicit orders take priority over automatic Zenith pursuit.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","airborne Zenith Doughnuts do not push ground units out of their beam"] -->
-### 38. airborne Zenith Doughnuts do not push ground units out of their beam
+### 39. airborne Zenith Doughnuts do not push ground units out of their beam
 
 **What it checks:** Runs the deterministic game simulation to confirm that airborne Zenith Doughnuts do not push ground units out of their beam.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","higher-tier building variants retain their family behavior"] -->
-### 39. higher-tier building variants retain their family behavior
+### 40. higher-tier building variants retain their family behavior
 
 **What it checks:** Runs the deterministic game simulation to confirm that higher-tier building variants retain their family behavior.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every higher-tier infrastructure building improves its defining function"] -->
-### 40. every higher-tier infrastructure building improves its defining function
+### 41. every higher-tier infrastructure building improves its defining function
 
 **What it checks:** Runs the deterministic game simulation to confirm that every higher-tier infrastructure building improves its defining function.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","higher-tier sentries deal more damage and reach targets that Tier 1 cannot"] -->
-### 41. higher-tier sentries deal more damage and reach targets that Tier 1 cannot
+### 42. higher-tier sentries deal more damage and reach targets that Tier 1 cannot
 
 **What it checks:** Runs the deterministic game simulation to confirm that higher-tier sentries deal more damage and reach targets that Tier 1 cannot.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","sentry turrets use the strengthened weapon profiles"] -->
-### 42. sentry turrets use the strengthened weapon profiles
+### 43. sentry turrets use the strengthened weapon profiles
 
 **What it checks:** Runs the deterministic game simulation to confirm that sentry turrets use the strengthened weapon profiles.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","mortar turrets enforce minimum and maximum range"] -->
-### 43. mortar turrets enforce minimum and maximum range
+### 44. mortar turrets enforce minimum and maximum range
 
 **What it checks:** Runs the deterministic game simulation to confirm that mortar turrets enforce minimum and maximum range.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","workers can build and upgrade every mortar turret tier"] -->
-### 44. workers can build and upgrade every mortar turret tier
+### 45. workers can build and upgrade every mortar turret tier
 
 **What it checks:** Runs the deterministic game simulation to confirm that workers can build and upgrade every mortar turret tier.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","higher-tier factories have progressively faster production throughput"] -->
-### 45. higher-tier factories have progressively faster production throughput
+### 46. higher-tier factories have progressively faster production throughput
 
 **What it checks:** Runs the deterministic game simulation to confirm that higher-tier factories have progressively faster production throughput.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","workers provide reduced tier-specific factory assistance at an added grid cost"] -->
-### 46. workers provide reduced tier-specific factory assistance at an added grid cost
+### 47. workers provide reduced tier-specific factory assistance at an added grid cost
 
 **What it checks:** Runs the deterministic game simulation to confirm that workers provide reduced tier-specific factory assistance at an added grid cost.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","worker assistance power draw increases one percentage point per worker"] -->
-### 47. worker assistance power draw increases one percentage point per worker
+### 48. worker assistance power draw increases one percentage point per worker
 
 **What it checks:** Runs the deterministic game simulation to confirm that worker assistance power draw increases one percentage point per worker.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","factory production pauses when its grid cannot cover worker assistance demand"] -->
-### 48. factory production pauses when its grid cannot cover worker assistance demand
+### 49. factory production pauses when its grid cannot cover worker assistance demand
 
 **What it checks:** Runs the deterministic game simulation to confirm that factory production pauses when its grid cannot cover worker assistance demand.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","production assistance requires an active friendly factory and overrides worker combat"] -->
-### 49. production assistance requires an active friendly factory and overrides worker combat
+### 50. production assistance requires an active friendly factory and overrides worker combat
 
 **What it checks:** Runs the deterministic game simulation to confirm that production assistance requires an active friendly factory and overrides worker combat.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","completed mech factories globally unlock matching structure upgrades"] -->
-### 50. completed mech factories globally unlock matching structure upgrades
+### 51. completed mech factories globally unlock matching structure upgrades
 
 **What it checks:** Runs the deterministic game simulation to confirm that completed mech factories globally unlock matching structure upgrades.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","structure upgrade unlocks are team-specific and expanded footprints need clear space"] -->
-### 51. structure upgrade unlocks are team-specific and expanded footprints need clear space
+### 52. structure upgrade unlocks are team-specific and expanded footprints need clear space
 
 **What it checks:** Runs the deterministic game simulation to confirm that structure upgrade unlocks are team-specific and expanded footprints need clear space.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","selected workers upgrade only one tier while preserving their active state"] -->
-### 52. selected workers upgrade only one tier while preserving their active state
+### 53. selected workers upgrade only one tier while preserving their active state
 
 **What it checks:** Runs the deterministic game simulation to confirm that selected workers upgrade only one tier while preserving their active state.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI structure upgrades keep its strategic crystal reserve"] -->
-### 53. enemy AI structure upgrades keep its strategic crystal reserve
+### 54. enemy AI structure upgrades keep its strategic crystal reserve
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI structure upgrades keep its strategic crystal reserve.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI does not upgrade existing Grid Batteries"] -->
-### 54. enemy AI does not upgrade existing Grid Batteries
+### 55. enemy AI does not upgrade existing Grid Batteries
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI does not upgrade existing Grid Batteries.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI upgrades existing economy buildings after unlocking their tier"] -->
-### 55. enemy AI upgrades existing economy buildings after unlocking their tier
+### 56. enemy AI upgrades existing economy buildings after unlocking their tier
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI upgrades existing economy buildings after unlocking their tier.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI purchases an eligible upgrade before routine production consumes its surplus"] -->
-### 56. enemy AI purchases an eligible upgrade before routine production consumes its surplus
+### 57. enemy AI purchases an eligible upgrade before routine production consumes its surplus
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI purchases an eligible upgrade before routine production consumes its surplus.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","higher-tier Crystal Harvesters still snap to deposits"] -->
-### 57. higher-tier Crystal Harvesters still snap to deposits
+### 58. higher-tier Crystal Harvesters still snap to deposits
 
 **What it checks:** Runs the deterministic game simulation to confirm that higher-tier Crystal Harvesters still snap to deposits.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the standard battlefield uses the much larger map and separated starting bases"] -->
-### 58. the standard battlefield uses the much larger map and separated starting bases
+### 59. the standard battlefield uses the much larger map and separated starting bases
 
 **What it checks:** Runs the deterministic game simulation to confirm that the standard battlefield uses the much larger map and separated starting bases.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","single-player map selection resolves every available battlefield"] -->
-### 59. single-player map selection resolves every available battlefield
+### 60. single-player map selection resolves every available battlefield
 
 **What it checks:** Runs the deterministic game simulation to confirm that single-player map selection resolves every available battlefield.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","multiplayer ignores a manual map choice and resolves a random shared map"] -->
-### 60. multiplayer ignores a manual map choice and resolves a random shared map
+### 61. multiplayer ignores a manual map choice and resolves a random shared map
 
 **What it checks:** Runs the deterministic game simulation to confirm that multiplayer ignores a manual map choice and resolves a random shared map.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","multiplayer snapshots preserve the host-selected map"] -->
-### 61. multiplayer snapshots preserve the host-selected map
+### 62. multiplayer snapshots preserve the host-selected map
 
 **What it checks:** Runs the deterministic game simulation to confirm that multiplayer snapshots preserve the host-selected map.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","both starting bases have sparse symmetrical walls with open central gates"] -->
-### 62. both starting bases have sparse symmetrical walls with open central gates
+### 63. both starting bases have sparse symmetrical walls with open central gates
 
 **What it checks:** Runs the deterministic game simulation to confirm that both starting bases have sparse symmetrical walls with open central gates.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","impassable terrain rejects construction and redirects destinations inside it"] -->
-### 63. impassable terrain rejects construction and redirects destinations inside it
+### 64. impassable terrain rejects construction and redirects destinations inside it
 
 **What it checks:** Runs the deterministic game simulation to confirm that impassable terrain rejects construction and redirects destinations inside it.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","queued move orders hand units through each waypoint in order"] -->
-### 64. queued move orders hand units through each waypoint in order
+### 65. queued move orders hand units through each waypoint in order
 
 **What it checks:** Runs the deterministic game simulation to confirm that queued move orders hand units through each waypoint in order.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","patrol orders repeat every recorded point and survive snapshots"] -->
-### 65. patrol orders repeat every recorded point and survive snapshots
+### 66. patrol orders repeat every recorded point and survive snapshots
 
 **What it checks:** Runs the deterministic game simulation to confirm that patrol orders repeat every recorded point and survive snapshots.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","patrol requires two points and explicit movement commands cancel it"] -->
-### 66. patrol requires two points and explicit movement commands cancel it
+### 67. patrol requires two points and explicit movement commands cancel it
 
 **What it checks:** Runs the deterministic game simulation to confirm that patrol requires two points and explicit movement commands cancel it.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","ordinary move orders replace queued waypoints"] -->
-### 67. ordinary move orders replace queued waypoints
+### 68. ordinary move orders replace queued waypoints
 
 **What it checks:** Runs the deterministic game simulation to confirm that ordinary move orders replace queued waypoints.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","ground units route around impassable terrain without entering it"] -->
-### 68. ground units route around impassable terrain without entering it
+### 69. ground units route around impassable terrain without entering it
 
 **What it checks:** Runs the deterministic game simulation to confirm that ground units route around impassable terrain without entering it.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","ground units relocate out of a structure pocket when no route remains"] -->
-### 69. ground units relocate out of a structure pocket when no route remains
+### 70. ground units relocate out of a structure pocket when no route remains
 
 **What it checks:** Runs the deterministic game simulation to confirm that ground units relocate out of a structure pocket when no route remains.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","group movement staggers expensive path replans across simulation ticks"] -->
-### 70. group movement staggers expensive path replans across simulation ticks
+### 71. group movement staggers expensive path replans across simulation ticks
 
 **What it checks:** Runs the deterministic game simulation to confirm that group movement staggers expensive path replans across simulation ticks.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","large formations cap visibility-path searches per simulation tick"] -->
-### 71. large formations cap visibility-path searches per simulation tick
+### 72. large formations cap visibility-path searches per simulation tick
 
 **What it checks:** Runs the deterministic game simulation to confirm that large formations cap visibility-path searches per simulation tick.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","formation movement accepts more than 200 units at once"] -->
-### 72. formation movement accepts more than 200 units at once
+### 73. formation movement accepts more than 200 units at once
 
 **What it checks:** Runs the deterministic game simulation to confirm that formation movement accepts more than 200 units at once.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","dense expanded bases bound obstacle corners considered by each route search"] -->
-### 73. dense expanded bases bound obstacle corners considered by each route search
+### 74. dense expanded bases bound obstacle corners considered by each route search
 
 **What it checks:** Runs the deterministic game simulation to confirm that dense expanded bases bound obstacle corners considered by each route search.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","ground units escape U-shaped terrain instead of dead-ending against the back wall"] -->
-### 74. ground units escape U-shaped terrain instead of dead-ending against the back wall
+### 75. ground units escape U-shaped terrain instead of dead-ending against the back wall
 
 **What it checks:** Runs the deterministic game simulation to confirm that ground units escape U-shaped terrain instead of dead-ending against the back wall.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","move orders placed on structures resolve to a reachable footprint edge"] -->
-### 75. move orders placed on structures resolve to a reachable footprint edge
+### 76. move orders placed on structures resolve to a reachable footprint edge
 
 **What it checks:** Runs the deterministic game simulation to confirm that move orders placed on structures resolve to a reachable footprint edge.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","aircraft fly directly over terrain, starting walls, and structures"] -->
-### 76. aircraft fly directly over terrain, starting walls, and structures
+### 77. aircraft fly directly over terrain, starting walls, and structures
 
 **What it checks:** Runs the deterministic game simulation to confirm that aircraft fly directly over terrain, starting walls, and structures.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","reclamation drones also route around impassable terrain"] -->
-### 77. reclamation drones also route around impassable terrain
+### 78. reclamation drones also route around impassable terrain
 
 **What it checks:** Runs the deterministic game simulation to confirm that reclamation drones also route around impassable terrain.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","reclamation drones pathfind out of concave terrain instead of dead-ending"] -->
-### 78. reclamation drones pathfind out of concave terrain instead of dead-ending
+### 79. reclamation drones pathfind out of concave terrain instead of dead-ending
 
 **What it checks:** Runs the deterministic game simulation to confirm that reclamation drones pathfind out of concave terrain instead of dead-ending.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","reclamation drones fly directly over starting walls"] -->
-### 79. reclamation drones fly directly over starting walls
+### 80. reclamation drones fly directly over starting walls
 
 **What it checks:** Runs the deterministic game simulation to confirm that reclamation drones fly directly over starting walls.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","vehicles are larger than same-tier mechs and tanks are larger than scouts"] -->
-### 80. vehicles are larger than same-tier mechs and tanks are larger than scouts
+### 81. vehicles are larger than same-tier mechs and tanks are larger than scouts
 
 **What it checks:** Runs the deterministic game simulation to confirm that vehicles are larger than same-tier mechs and tanks are larger than scouts.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","higher-tier unit sprites grow and armed variants add visible hardpoints"] -->
-### 81. higher-tier unit sprites grow and armed variants add visible hardpoints
+### 82. higher-tier unit sprites grow and armed variants add visible hardpoints
 
 **What it checks:** Runs the deterministic game simulation to confirm that higher-tier unit sprites grow and armed variants add visible hardpoints.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Zenith Doughnuts are enormous and fast strategic aircraft"] -->
-### 82. Zenith Doughnuts are enormous and fast strategic aircraft
+### 83. Zenith Doughnuts are enormous and fast strategic aircraft
 
 **What it checks:** Runs the deterministic game simulation to confirm that Zenith Doughnuts are enormous and fast strategic aircraft.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","overlapping friendly and enemy units physically separate"] -->
-### 83. overlapping friendly and enemy units physically separate
+### 84. overlapping friendly and enemy units physically separate
 
 **What it checks:** Runs the deterministic game simulation to confirm that overlapping friendly and enemy units physically separate.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","unit separation exits after one pass when no units overlap"] -->
-### 84. unit separation exits after one pass when no units overlap
+### 85. unit separation exits after one pass when no units overlap
 
 **What it checks:** Runs the deterministic game simulation to confirm that unit separation exits after one pass when no units overlap.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","finished ticks remove destroyed entity tombstones from active collections"] -->
-### 85. finished ticks remove destroyed entity tombstones from active collections
+### 86. finished ticks remove destroyed entity tombstones from active collections
 
 **What it checks:** Runs the deterministic game simulation to confirm that finished ticks remove destroyed entity tombstones from active collections.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","idle armies stagger automatic target scans after their initial acquisition"] -->
-### 86. idle armies stagger automatic target scans after their initial acquisition
+### 87. idle armies stagger automatic target scans after their initial acquisition
 
 **What it checks:** Runs the deterministic game simulation to confirm that idle armies stagger automatic target scans after their initial acquisition.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","movement consumes energy and an exhausted unit enters stasis"] -->
-### 87. movement consumes energy and an exhausted unit enters stasis
+### 88. movement consumes energy and an exhausted unit enters stasis
 
 **What it checks:** Runs the deterministic game simulation to confirm that movement consumes energy and an exhausted unit enters stasis.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","stasis regenerates only to the reactivation threshold before control returns"] -->
-### 88. stasis regenerates only to the reactivation threshold before control returns
+### 89. stasis regenerates only to the reactivation threshold before control returns
 
 **What it checks:** Runs the deterministic game simulation to confirm that stasis regenerates only to the reactivation threshold before control returns.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","active low-energy units passively regenerate an emergency reserve"] -->
-### 89. active low-energy units passively regenerate an emergency reserve
+### 90. active low-energy units passively regenerate an emergency reserve
 
 **What it checks:** Runs the deterministic game simulation to confirm that active low-energy units passively regenerate an emergency reserve.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","emergency regeneration lets an energy-starved unit resume firing"] -->
-### 90. emergency regeneration lets an energy-starved unit resume firing
+### 91. emergency regeneration lets an energy-starved unit resume firing
 
 **What it checks:** Runs the deterministic game simulation to confirm that emergency regeneration lets an energy-starved unit resume firing.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every active unit slowly regenerates to 20 percent energy"] -->
-### 91. every active unit slowly regenerates to 20 percent energy
+### 92. every active unit slowly regenerates to 20 percent energy
 
 **What it checks:** Runs the deterministic game simulation to confirm that every active unit slowly regenerates to 20 percent energy.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","attacking damages the target and spends the attacker's energy"] -->
-### 92. attacking damages the target and spends the attacker's energy
+### 93. attacking damages the target and spends the attacker's energy
 
 **What it checks:** Runs the deterministic game simulation to confirm that attacking damages the target and spends the attacker's energy.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","heavy unit projectiles deal no damage before their visible impact"] -->
-### 93. heavy unit projectiles deal no damage before their visible impact
+### 94. heavy unit projectiles deal no damage before their visible impact
 
 **What it checks:** Runs the deterministic game simulation to confirm that heavy unit projectiles deal no damage before their visible impact.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","mobile artillery trades a close-range dead zone for long-range fire"] -->
-### 94. mobile artillery trades a close-range dead zone for long-range fire
+### 95. mobile artillery trades a close-range dead zone for long-range fire
 
 **What it checks:** Runs the deterministic game simulation to confirm that mobile artillery trades a close-range dead zone for long-range fire.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","long-range projectile events remain visible until their delayed impact"] -->
-### 95. long-range projectile events remain visible until their delayed impact
+### 96. long-range projectile events remain visible until their delayed impact
 
 **What it checks:** Runs the deterministic game simulation to confirm that long-range projectile events remain visible until their delayed impact.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","ordinary weapons deal reduced damage to aircraft"] -->
-### 96. ordinary weapons deal reduced damage to aircraft
+### 97. ordinary weapons deal reduced damage to aircraft
 
 **What it checks:** Runs the deterministic game simulation to confirm that ordinary weapons deal reduced damage to aircraft.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Interceptors prioritize aircraft and trade ground damage for air superiority"] -->
-### 97. Interceptors prioritize aircraft and trade ground damage for air superiority
+### 98. Interceptors prioritize aircraft and trade ground damage for air superiority
 
 **What it checks:** Runs the deterministic game simulation to confirm that Interceptors prioritize aircraft and trade ground damage for air superiority.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","dedicated anti-air units deal bonus damage to aircraft"] -->
-### 98. dedicated anti-air units deal bonus damage to aircraft
+### 99. dedicated anti-air units deal bonus damage to aircraft
 
 **What it checks:** Runs the deterministic game simulation to confirm that dedicated anti-air units deal bonus damage to aircraft.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","flak turrets prioritize aircraft and apply their air damage bonus"] -->
-### 99. flak turrets prioritize aircraft and apply their air damage bonus
+### 100. flak turrets prioritize aircraft and apply their air damage bonus
 
 **What it checks:** Runs the deterministic game simulation to confirm that flak turrets prioritize aircraft and apply their air damage bonus.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Overdrive is restricted by unit capability and consumes energy"] -->
-### 100. Overdrive is restricted by unit capability and consumes energy
+### 101. Overdrive is restricted by unit capability and consumes energy
 
 **What it checks:** Runs the deterministic game simulation to confirm that Overdrive is restricted by unit capability and consumes energy.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a linked charger draws stored energy from a grid battery"] -->
-### 101. a linked charger draws stored energy from a grid battery
+### 102. a linked charger draws stored energy from a grid battery
 
 **What it checks:** Runs the deterministic game simulation to confirm that a linked charger draws stored energy from a grid battery.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the faster Induction Charger transfers its provisional maximum rate"] -->
-### 102. the faster Induction Charger transfers its provisional maximum rate
+### 103. the faster Induction Charger transfers its provisional maximum rate
 
 **What it checks:** Runs the deterministic game simulation to confirm that the faster Induction Charger transfers its provisional maximum rate.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the enlarged Induction Charger field reaches 260 world units"] -->
-### 103. the enlarged Induction Charger field reaches 260 world units
+### 104. the enlarged Induction Charger field reaches 260 world units
 
 **What it checks:** Runs the deterministic game simulation to confirm that the enlarged Induction Charger field reaches 260 world units.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","an Induction Charger charges every unit in its field simultaneously"] -->
-### 104. an Induction Charger charges every unit in its field simultaneously
+### 105. an Induction Charger charges every unit in its field simultaneously
 
 **What it checks:** Runs the deterministic game simulation to confirm that an Induction Charger charges every unit in its field simultaneously.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","all units receive the full charger rate when the grid can supply it"] -->
-### 105. all units receive the full charger rate when the grid can supply it
+### 106. all units receive the full charger rate when the grid can supply it
 
 **What it checks:** Runs the deterministic game simulation to confirm that all units receive the full charger rate when the grid can supply it.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every unit type has the enlarged provisional energy capacity"] -->
-### 106. every unit type has the enlarged provisional energy capacity
+### 107. every unit type has the enlarged provisional energy capacity
 
 **What it checks:** Runs the deterministic game simulation to confirm that every unit type has the enlarged provisional energy capacity.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a charger outside the generator network cannot charge units"] -->
-### 107. a charger outside the generator network cannot charge units
+### 108. a charger outside the generator network cannot charge units
 
 **What it checks:** Runs the deterministic game simulation to confirm that a charger outside the generator network cannot charge units.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","generators continuously produce and retain a capped internal reserve"] -->
-### 108. generators continuously produce and retain a capped internal reserve
+### 109. generators continuously produce and retain a capped internal reserve
 
 **What it checks:** Runs the deterministic game simulation to confirm that generators continuously produce and retain a capped internal reserve.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","battery storage is capped by completed battery capacity"] -->
-### 109. battery storage is capped by completed battery capacity
+### 110. battery storage is capped by completed battery capacity
 
 **What it checks:** Runs the deterministic game simulation to confirm that battery storage is capped by completed battery capacity.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","an isolated charged battery powers its local grid while discharging"] -->
-### 110. an isolated charged battery powers its local grid while discharging
+### 111. an isolated charged battery powers its local grid while discharging
 
 **What it checks:** Runs the deterministic game simulation to confirm that an isolated charged battery powers its local grid while discharging.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Crystal Harvesters continuously consume their passive power demand"] -->
-### 111. Crystal Harvesters continuously consume their passive power demand
+### 112. Crystal Harvesters continuously consume their passive power demand
 
 **What it checks:** Runs the deterministic game simulation to confirm that Crystal Harvesters continuously consume their passive power demand.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a charged relay keeps its local grid alive after its generator is destroyed"] -->
-### 112. a charged relay keeps its local grid alive after its generator is destroyed
+### 113. a charged relay keeps its local grid alive after its generator is destroyed
 
 **What it checks:** Runs the deterministic game simulation to confirm that a charged relay keeps its local grid alive after its generator is destroyed.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","an active factory queue adds production demand and lowers net energy"] -->
-### 113. an active factory queue adds production demand and lowers net energy
+### 114. an active factory queue adds production demand and lowers net energy
 
 **What it checks:** Runs the deterministic game simulation to confirm that an active factory queue adds production demand and lowers net energy.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","destroying a battery removes its stored energy and capacity"] -->
-### 114. destroying a battery removes its stored energy and capacity
+### 115. destroying a battery removes its stored energy and capacity
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroying a battery removes its stored energy and capacity.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","an energy carrier automatically supplies allies without crossing its protected reserve"] -->
-### 115. an energy carrier automatically supplies allies without crossing its protected reserve
+### 116. an energy carrier automatically supplies allies without crossing its protected reserve
 
 **What it checks:** Runs the deterministic game simulation to confirm that an energy carrier automatically supplies allies without crossing its protected reserve.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","an energy carrier spends exactly the energy shared fairly with nearby units"] -->
-### 116. an energy carrier spends exactly the energy shared fairly with nearby units
+### 117. an energy carrier spends exactly the energy shared fairly with nearby units
 
 **What it checks:** Runs the deterministic game simulation to confirm that an energy carrier spends exactly the energy shared fairly with nearby units.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every mobile energy supplier transfers its matching output rate"] -->
-### 117. every mobile energy supplier transfers its matching output rate
+### 118. every mobile energy supplier transfers its matching output rate
 
 **What it checks:** Runs the deterministic game simulation to confirm that every mobile energy supplier transfers its matching output rate.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every mobile energy supplier carries a tier-improving defensive weapon"] -->
-### 118. every mobile energy supplier carries a tier-improving defensive weapon
+### 119. every mobile energy supplier carries a tier-improving defensive weapon
 
 **What it checks:** Runs the deterministic game simulation to confirm that every mobile energy supplier carries a tier-improving defensive weapon.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","destroyed units create finite reclaimable wreckage"] -->
-### 119. destroyed units create finite reclaimable wreckage
+### 120. destroyed units create finite reclaimable wreckage
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroyed units create finite reclaimable wreckage.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","destroyed buildings create one finite reclaimable scrap pile"] -->
-### 120. destroyed buildings create one finite reclaimable scrap pile
+### 121. destroyed buildings create one finite reclaimable scrap pile
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroyed buildings create one finite reclaimable scrap pile.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","nearby wrecks consolidate into larger resource-conserving scrap piles"] -->
-### 121. nearby wrecks consolidate into larger resource-conserving scrap piles
+### 122. nearby wrecks consolidate into larger resource-conserving scrap piles
 
 **What it checks:** Runs the deterministic game simulation to confirm that nearby wrecks consolidate into larger resource-conserving scrap piles.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","wreck consolidation redirects reclamation drones to the surviving pile"] -->
-### 122. wreck consolidation redirects reclamation drones to the surviving pile
+### 123. wreck consolidation redirects reclamation drones to the surviving pile
 
 **What it checks:** Runs the deterministic game simulation to confirm that wreck consolidation redirects reclamation drones to the surviving pile.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a powered salvage yard automatically returns wreck crystal"] -->
-### 123. a powered salvage yard automatically returns wreck crystal
+### 124. a powered salvage yard automatically returns wreck crystal
 
 **What it checks:** Runs the deterministic game simulation to confirm that a powered salvage yard automatically returns wreck crystal.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","upgrading a salvage yard immediately improves its existing drones"] -->
-### 124. upgrading a salvage yard immediately improves its existing drones
+### 125. upgrading a salvage yard immediately improves its existing drones
 
 **What it checks:** Runs the deterministic game simulation to confirm that upgrading a salvage yard immediately improves its existing drones.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","multiple reclamation drones can harvest the same crystal scrap pile"] -->
-### 125. multiple reclamation drones can harvest the same crystal scrap pile
+### 126. multiple reclamation drones can harvest the same crystal scrap pile
 
 **What it checks:** Runs the deterministic game simulation to confirm that multiple reclamation drones can harvest the same crystal scrap pile.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","partially loaded reclamation drones visit another crystal scrap pile before returning"] -->
-### 126. partially loaded reclamation drones visit another crystal scrap pile before returning
+### 127. partially loaded reclamation drones visit another crystal scrap pile before returning
 
 **What it checks:** Runs the deterministic game simulation to confirm that partially loaded reclamation drones visit another crystal scrap pile before returning.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a powered yard replaces a destroyed drone for free after a delay"] -->
-### 127. a powered yard replaces a destroyed drone for free after a delay
+### 128. a powered yard replaces a destroyed drone for free after a delay
 
 **What it checks:** Runs the deterministic game simulation to confirm that a powered yard replaces a destroyed drone for free after a delay.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","combat units automatically attack hostile units that enter weapon range"] -->
-### 128. combat units automatically attack hostile units that enter weapon range
+### 129. combat units automatically attack hostile units that enter weapon range
 
 **What it checks:** Runs the deterministic game simulation to confirm that combat units automatically attack hostile units that enter weapon range.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","worker drones have weak, short-range defensive weapons"] -->
-### 129. worker drones have weak, short-range defensive weapons
+### 130. worker drones have weak, short-range defensive weapons
 
 **What it checks:** Runs the deterministic game simulation to confirm that worker drones have weak, short-range defensive weapons.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","worker drones do not target or retaliate while constructing"] -->
-### 130. worker drones do not target or retaliate while constructing
+### 131. worker drones do not target or retaliate while constructing
 
 **What it checks:** Runs the deterministic game simulation to confirm that worker drones do not target or retaliate while constructing.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","worker drones repair damaged friendly units and completed buildings with energy"] -->
-### 131. worker drones repair damaged friendly units and completed buildings with energy
+### 132. worker drones repair damaged friendly units and completed buildings with energy
 
 **What it checks:** Runs the deterministic game simulation to confirm that worker drones repair damaged friendly units and completed buildings with energy.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","idle worker drones automatically repair the nearest damaged friendly target"] -->
-### 132. idle worker drones automatically repair the nearest damaged friendly target
+### 133. idle worker drones automatically repair the nearest damaged friendly target
 
 **What it checks:** Runs the deterministic game simulation to confirm that idle worker drones automatically repair the nearest damaged friendly target.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","automatic worker repair respects its service radius and higher-priority orders"] -->
-### 133. automatic worker repair respects its service radius and higher-priority orders
+### 134. automatic worker repair respects its service radius and higher-priority orders
 
 **What it checks:** Runs the deterministic game simulation to confirm that automatic worker repair respects its service radius and higher-priority orders.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","active construction takes priority over automatic worker repair"] -->
-### 134. active construction takes priority over automatic worker repair
+### 135. active construction takes priority over automatic worker repair
 
 **What it checks:** Runs the deterministic game simulation to confirm that active construction takes priority over automatic worker repair.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","worker drones can repair one another but can never repair themselves"] -->
-### 135. worker drones can repair one another but can never repair themselves
+### 136. worker drones can repair one another but can never repair themselves
 
 **What it checks:** Runs the deterministic game simulation to confirm that worker drones can repair one another but can never repair themselves.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","an active repair assignment takes priority over worker combat"] -->
-### 136. an active repair assignment takes priority over worker combat
+### 137. an active repair assignment takes priority over worker combat
 
 **What it checks:** Runs the deterministic game simulation to confirm that an active repair assignment takes priority over worker combat.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","combat units automatically attack hostile structures in weapon range"] -->
-### 137. combat units automatically attack hostile structures in weapon range
+### 138. combat units automatically attack hostile structures in weapon range
 
 **What it checks:** Runs the deterministic game simulation to confirm that combat units automatically attack hostile structures in weapon range.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","player and enemy units pursue the hostile aggressor that damages them"] -->
-### 138. player and enemy units pursue the hostile aggressor that damages them
+### 139. player and enemy units pursue the hostile aggressor that damages them
 
 **What it checks:** Runs the deterministic game simulation to confirm that player and enemy units pursue the hostile aggressor that damages them.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","force-moving units do not abandon their order to retaliate"] -->
-### 139. force-moving units do not abandon their order to retaliate
+### 140. force-moving units do not abandon their order to retaliate
 
 **What it checks:** Runs the deterministic game simulation to confirm that force-moving units do not abandon their order to retaliate.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a moving unit stops to attack and resumes its route after the target is destroyed"] -->
-### 140. a moving unit stops to attack and resumes its route after the target is destroyed
+### 141. a moving unit stops to attack and resumes its route after the target is destroyed
 
 **What it checks:** Runs the deterministic game simulation to confirm that a moving unit stops to attack and resumes its route after the target is destroyed.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a force move ignores enemies until the unit reaches its destination"] -->
-### 141. a force move ignores enemies until the unit reaches its destination
+### 142. a force move ignores enemies until the unit reaches its destination
 
 **What it checks:** Runs the deterministic game simulation to confirm that a force move ignores enemies until the unit reaches its destination.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","power relay towers extend a generator network to distant structures"] -->
-### 142. power relay towers extend a generator network to distant structures
+### 143. power relay towers extend a generator network to distant structures
 
 **What it checks:** Runs the deterministic game simulation to confirm that power relay towers extend a generator network to distant structures.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","power coverage uses the same grid-aligned square cells as network connections"] -->
-### 143. power coverage uses the same grid-aligned square cells as network connections
+### 144. power coverage uses the same grid-aligned square cells as network connections
 
 **What it checks:** Runs the deterministic game simulation to confirm that power coverage uses the same grid-aligned square cells as network connections.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","powered Crystal Harvesters generate crystal over time"] -->
-### 144. powered Crystal Harvesters generate crystal over time
+### 145. powered Crystal Harvesters generate crystal over time
 
 **What it checks:** Runs the deterministic game simulation to confirm that powered Crystal Harvesters generate crystal over time.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","bright Rich Crystal Deposits increase a harvester's actual crystal output"] -->
-### 145. bright Rich Crystal Deposits increase a harvester's actual crystal output
+### 146. bright Rich Crystal Deposits increase a harvester's actual crystal output
 
 **What it checks:** Runs the deterministic game simulation to confirm that bright Rich Crystal Deposits increase a harvester's actual crystal output.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","each mech factory tier offers improved copies of the same six unit roles"] -->
-### 146. each mech factory tier offers improved copies of the same six unit roles
+### 147. each mech factory tier offers improved copies of the same six unit roles
 
 **What it checks:** Runs the deterministic game simulation to confirm that each mech factory tier offers improved copies of the same six unit roles.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","vehicle factories produce six matching-tier vehicle roles"] -->
-### 147. vehicle factories produce six matching-tier vehicle roles
+### 148. vehicle factories produce six matching-tier vehicle roles
 
 **What it checks:** Runs the deterministic game simulation to confirm that vehicle factories produce six matching-tier vehicle roles.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","air factories begin at Tier 2 and produce six matching-tier aircraft roles"] -->
-### 148. air factories begin at Tier 2 and produce six matching-tier aircraft roles
+### 149. air factories begin at Tier 2 and produce six matching-tier aircraft roles
 
 **What it checks:** Runs the deterministic game simulation to confirm that air factories begin at Tier 2 and produce six matching-tier aircraft roles.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","all flying units use the faster movement profiles"] -->
-### 149. all flying units use the faster movement profiles
+### 150. all flying units use the faster movement profiles
 
 **What it checks:** Runs the deterministic game simulation to confirm that all flying units use the faster movement profiles.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Dropships begin at Tier 2 in Air Factories with eight ground-unit cargo slots"] -->
-### 150. Dropships begin at Tier 2 in Air Factories with eight ground-unit cargo slots
+### 151. Dropships begin at Tier 2 in Air Factories with eight ground-unit cargo slots
 
 **What it checks:** Runs the deterministic game simulation to confirm that Dropships begin at Tier 2 in Air Factories with eight ground-unit cargo slots.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","explicit transport orders reserve eight slots, board nearby units, and unload them"] -->
-### 151. explicit transport orders reserve eight slots, board nearby units, and unload them
+### 152. explicit transport orders reserve eight slots, board nearby units, and unload them
 
 **What it checks:** Runs the deterministic game simulation to confirm that explicit transport orders reserve eight slots, board nearby units, and unload them.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","multi-transport filling balances reservations and rejects aircraft cargo"] -->
-### 152. multi-transport filling balances reservations and rejects aircraft cargo
+### 153. multi-transport filling balances reservations and rejects aircraft cargo
 
 **What it checks:** Runs the deterministic game simulation to confirm that multi-transport filling balances reservations and rejects aircraft cargo.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","destroying a loaded Dropship destroys its passengers and snapshots preserve cargo"] -->
-### 153. destroying a loaded Dropship destroys its passengers and snapshots preserve cargo
+### 154. destroying a loaded Dropship destroys its passengers and snapshots preserve cargo
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroying a loaded Dropship destroys its passengers and snapshots preserve cargo.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","all units and structures provide a useful deterministic vision range"] -->
-### 154. all units and structures provide a useful deterministic vision range
+### 155. all units and structures provide a useful deterministic vision range
 
 **What it checks:** Runs the deterministic game simulation to confirm that all units and structures provide a useful deterministic vision range.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy contacts are hidden until they enter current friendly vision"] -->
-### 155. enemy contacts are hidden until they enter current friendly vision
+### 156. enemy contacts are hidden until they enter current friendly vision
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy contacts are hidden until they enter current friendly vision.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","powered radar arrays reveal long range and lose that coverage off-grid"] -->
-### 156. powered radar arrays reveal long range and lose that coverage off-grid
+### 157. powered radar arrays reveal long range and lose that coverage off-grid
 
 **What it checks:** Runs the deterministic game simulation to confirm that powered radar arrays reveal long range and lose that coverage off-grid.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the Tier 3 Overseer Spire exposes five zones at 75 percent of Tier 1 radar radius"] -->
-### 157. the Tier 3 Overseer Spire exposes five zones at 75 percent of Tier 1 radar radius
+### 158. the Tier 3 Overseer Spire exposes five zones at 75 percent of Tier 1 radar radius
 
 **What it checks:** Runs the deterministic game simulation to confirm that the Tier 3 Overseer Spire exposes five zones at 75 percent of Tier 1 radar radius.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Overseer orbital vision relocates without overlapping allied sight or other zones"] -->
-### 158. Overseer orbital vision relocates without overlapping allied sight or other zones
+### 159. Overseer orbital vision relocates without overlapping allied sight or other zones
 
 **What it checks:** Runs the deterministic game simulation to confirm that Overseer orbital vision relocates without overlapping allied sight or other zones.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Overseer zones fall back to the position with the most undiscovered area"] -->
-### 159. Overseer zones fall back to the position with the most undiscovered area
+### 160. Overseer zones fall back to the position with the most undiscovered area
 
 **What it checks:** Runs the deterministic game simulation to confirm that Overseer zones fall back to the position with the most undiscovered area.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","radar towers and mobile radar units improve across every available branch tier"] -->
-### 160. radar towers and mobile radar units improve across every available branch tier
+### 161. radar towers and mobile radar units improve across every available branch tier
 
 **What it checks:** Runs the deterministic game simulation to confirm that radar towers and mobile radar units improve across every available branch tier.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI invests in radar after preserving its opening wave and garrison"] -->
-### 161. enemy AI invests in radar after preserving its opening wave and garrison
+### 162. enemy AI invests in radar after preserving its opening wave and garrison
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI invests in radar after preserving its opening wave and garrison.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","direct attack commands cannot target unseen enemies"] -->
-### 162. direct attack commands cannot target unseen enemies
+### 163. direct attack commands cannot target unseen enemies
 
 **What it checks:** Runs the deterministic game simulation to confirm that direct attack commands cannot target unseen enemies.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","vehicle and air factories only queue units from their own tier and branch"] -->
-### 163. vehicle and air factories only queue units from their own tier and branch
+### 164. vehicle and air factories only queue units from their own tier and branch
 
 **What it checks:** Runs the deterministic game simulation to confirm that vehicle and air factories only queue units from their own tier and branch.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","vehicle and air factories deploy their completed production orders"] -->
-### 164. vehicle and air factories deploy their completed production orders
+### 165. vehicle and air factories deploy their completed production orders
 
 **What it checks:** Runs the deterministic game simulation to confirm that vehicle and air factories deploy their completed production orders.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","mech factories only queue the six unit variants matching their tier"] -->
-### 165. mech factories only queue the six unit variants matching their tier
+### 166. mech factories only queue the six unit variants matching their tier
 
 **What it checks:** Runs the deterministic game simulation to confirm that mech factories only queue the six unit variants matching their tier.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","matching factory groups route production to the shortest powered queue"] -->
-### 166. matching factory groups route production to the shortest powered queue
+### 167. matching factory groups route production to the shortest powered queue
 
 **What it checks:** Runs the deterministic game simulation to confirm that matching factory groups route production to the shortest powered queue.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","repeated group production orders distribute across matching factories"] -->
-### 167. repeated group production orders distribute across matching factories
+### 168. repeated group production orders distribute across matching factories
 
 **What it checks:** Runs the deterministic game simulation to confirm that repeated group production orders distribute across matching factories.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","group production skips unpowered factories and rejects mixed factory types"] -->
-### 168. group production skips unpowered factories and rejects mixed factory types
+### 169. group production skips unpowered factories and rejects mixed factory types
 
 **What it checks:** Runs the deterministic game simulation to confirm that group production skips unpowered factories and rejects mixed factory types.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a Tier 1 mech factory spends crystal and constructs a worker drone"] -->
-### 169. a Tier 1 mech factory spends crystal and constructs a worker drone
+### 170. a Tier 1 mech factory spends crystal and constructs a worker drone
 
 **What it checks:** Runs the deterministic game simulation to confirm that a Tier 1 mech factory spends crystal and constructs a worker drone.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","unit roles and tiers reserve different provisional supply amounts"] -->
-### 170. unit roles and tiers reserve different provisional supply amounts
+### 171. unit roles and tiers reserve different provisional supply amounts
 
 **What it checks:** Runs the deterministic game simulation to confirm that unit roles and tiers reserve different provisional supply amounts.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","production reserves supply and rejects orders beyond the massive base limit"] -->
-### 171. production reserves supply and rejects orders beyond the massive base limit
+### 172. production reserves supply and rejects orders beyond the massive base limit
 
 **What it checks:** Runs the deterministic game simulation to confirm that production reserves supply and rejects orders beyond the massive base limit.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a powered Strategic Supply Complex adds and upgrades massive supply capacity"] -->
-### 172. a powered Strategic Supply Complex adds and upgrades massive supply capacity
+### 173. a powered Strategic Supply Complex adds and upgrades massive supply capacity
 
 **What it checks:** Runs the deterministic game simulation to confirm that a powered Strategic Supply Complex adds and upgrades massive supply capacity.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the Strategic Supply Complex is larger than every production building"] -->
-### 173. the Strategic Supply Complex is larger than every production building
+### 174. the Strategic Supply Complex is larger than every production building
 
 **What it checks:** Runs the deterministic game simulation to confirm that the Strategic Supply Complex is larger than every production building.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","factories choose an unobstructed exit when the preferred spawn is blocked"] -->
-### 174. factories choose an unobstructed exit when the preferred spawn is blocked
+### 175. factories choose an unobstructed exit when the preferred spawn is blocked
 
 **What it checks:** Runs the deterministic game simulation to confirm that factories choose an unobstructed exit when the preferred spawn is blocked.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","factories do not deploy a completed unit on top of another unit"] -->
-### 175. factories do not deploy a completed unit on top of another unit
+### 176. factories do not deploy a completed unit on top of another unit
 
 **What it checks:** Runs the deterministic game simulation to confirm that factories do not deploy a completed unit on top of another unit.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","player and enemy factories spread repeated output across rally formations"] -->
-### 176. player and enemy factories spread repeated output across rally formations
+### 177. player and enemy factories spread repeated output across rally formations
 
 **What it checks:** Runs the deterministic game simulation to confirm that player and enemy factories spread repeated output across rally formations.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","setting a new factory rally point resets its formation slots"] -->
-### 177. setting a new factory rally point resets its formation slots
+### 178. setting a new factory rally point resets its formation slots
 
 **What it checks:** Runs the deterministic game simulation to confirm that setting a new factory rally point resets its formation slots.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","matching factories share an atomic grouped rally point and formation"] -->
-### 178. matching factories share an atomic grouped rally point and formation
+### 179. matching factories share an atomic grouped rally point and formation
 
 **What it checks:** Runs the deterministic game simulation to confirm that matching factories share an atomic grouped rally point and formation.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","grouped rally rejects mixed factory types and tiers without changing either"] -->
-### 179. grouped rally rejects mixed factory types and tiers without changing either
+### 180. grouped rally rejects mixed factory types and tiers without changing either
 
 **What it checks:** Runs the deterministic game simulation to confirm that grouped rally rejects mixed factory types and tiers without changing either.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a completed unit waits in a surrounded factory until an exit opens"] -->
-### 180. a completed unit waits in a surrounded factory until an exit opens
+### 181. a completed unit waits in a surrounded factory until an exit opens
 
 **What it checks:** Runs the deterministic game simulation to confirm that a completed unit waits in a surrounded factory until an exit opens.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","newly produced combat units engage threats while rallying"] -->
-### 181. newly produced combat units engage threats while rallying
+### 182. newly produced combat units engage threats while rallying
 
 **What it checks:** Runs the deterministic game simulation to confirm that newly produced combat units engage threats while rallying.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","workers spend crystal and complete new structures"] -->
-### 182. workers spend crystal and complete new structures
+### 183. workers spend crystal and complete new structures
 
 **What it checks:** Runs the deterministic game simulation to confirm that workers spend crystal and complete new structures.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","damage to an unfinished building persists through construction and completion"] -->
-### 183. damage to an unfinished building persists through construction and completion
+### 184. damage to an unfinished building persists through construction and completion
 
 **What it checks:** Runs the deterministic game simulation to confirm that damage to an unfinished building persists through construction and completion.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Shift-queued construction completes foundations in placement order"] -->
-### 184. Shift-queued construction completes foundations in placement order
+### 185. Shift-queued construction completes foundations in placement order
 
 **What it checks:** Runs the deterministic game simulation to confirm that Shift-queued construction completes foundations in placement order.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","ordinary build orders replace queued construction and move orders clear it"] -->
-### 185. ordinary build orders replace queued construction and move orders clear it
+### 186. ordinary build orders replace queued construction and move orders clear it
 
 **What it checks:** Runs the deterministic game simulation to confirm that ordinary build orders replace queued construction and move orders clear it.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","cancelling construction removes it from worker queues and advances current work"] -->
-### 186. cancelling construction removes it from worker queues and advances current work
+### 187. cancelling construction removes it from worker queues and advances current work
 
 **What it checks:** Runs the deterministic game simulation to confirm that cancelling construction removes it from worker queues and advances current work.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","powered sentry turrets automatically defend against nearby enemies"] -->
-### 187. powered sentry turrets automatically defend against nearby enemies
+### 188. powered sentry turrets automatically defend against nearby enemies
 
 **What it checks:** Runs the deterministic game simulation to confirm that powered sentry turrets automatically defend against nearby enemies.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","powered sentry turrets automatically attack hostile structures"] -->
-### 188. powered sentry turrets automatically attack hostile structures
+### 189. powered sentry turrets automatically attack hostile structures
 
 **What it checks:** Runs the deterministic game simulation to confirm that powered sentry turrets automatically attack hostile structures.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a sentry capacitor charges from live generator output and fires without a grid battery"] -->
-### 189. a sentry capacitor charges from live generator output and fires without a grid battery
+### 190. a sentry capacitor charges from live generator output and fires without a grid battery
 
 **What it checks:** Runs the deterministic game simulation to confirm that a sentry capacitor charges from live generator output and fires without a grid battery.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a relay-connected sentry capacitor accepts partial surplus generator output"] -->
-### 190. a relay-connected sentry capacitor accepts partial surplus generator output
+### 191. a relay-connected sentry capacitor accepts partial surplus generator output
 
 **What it checks:** Runs the deterministic game simulation to confirm that a relay-connected sentry capacitor accepts partial surplus generator output.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","full idle sentries do not prevent a new sentry from charging"] -->
-### 191. full idle sentries do not prevent a new sentry from charging
+### 192. full idle sentries do not prevent a new sentry from charging
 
 **What it checks:** Runs the deterministic game simulation to confirm that full idle sentries do not prevent a new sentry from charging.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","workers can build and upgrade every Shield Turret tier"] -->
-### 192. workers can build and upgrade every Shield Turret tier
+### 193. workers can build and upgrade every Shield Turret tier
 
 **What it checks:** Runs the deterministic game simulation to confirm that workers can build and upgrade every Shield Turret tier.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Shield Turret protection radii use the expanded balance values"] -->
-### 193. Shield Turret protection radii use the expanded balance values
+### 194. Shield Turret protection radii use the expanded balance values
 
 **What it checks:** Runs the deterministic game simulation to confirm that Shield Turret protection radii use the expanded balance values.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Shield Turret upgrades retain existing strength and regenerate the added capacity"] -->
-### 194. Shield Turret upgrades retain existing strength and regenerate the added capacity
+### 195. Shield Turret upgrades retain existing strength and regenerate the added capacity
 
 **What it checks:** Runs the deterministic game simulation to confirm that Shield Turret upgrades retain existing strength and regenerate the added capacity.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","higher-tier Shield Turrets protect targets beyond the Tier 1 field"] -->
-### 195. higher-tier Shield Turrets protect targets beyond the Tier 1 field
+### 196. higher-tier Shield Turrets protect targets beyond the Tier 1 field
 
 **What it checks:** Runs the deterministic game simulation to confirm that higher-tier Shield Turrets protect targets beyond the Tier 1 field.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a powered Shield Turret absorbs hits inside its field and spills excess damage through"] -->
-### 196. a powered Shield Turret absorbs hits inside its field and spills excess damage through
+### 197. a powered Shield Turret absorbs hits inside its field and spills excess damage through
 
 **What it checks:** Runs the deterministic game simulation to confirm that a powered Shield Turret absorbs hits inside its field and spills excess damage through.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a powered Shield Turret protects its own structure"] -->
-### 197. a powered Shield Turret protects its own structure
+### 198. a powered Shield Turret protects its own structure
 
 **What it checks:** Runs the deterministic game simulation to confirm that a powered Shield Turret protects its own structure.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Shield Turrets do not intercept attacks outside their field or while unpowered"] -->
-### 198. Shield Turrets do not intercept attacks outside their field or while unpowered
+### 199. Shield Turrets do not intercept attacks outside their field or while unpowered
 
 **What it checks:** Runs the deterministic game simulation to confirm that Shield Turrets do not intercept attacks outside their field or while unpowered.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a damaged Shield Turret regenerates slowly by drawing local grid energy"] -->
-### 199. a damaged Shield Turret regenerates slowly by drawing local grid energy
+### 200. a damaged Shield Turret regenerates slowly by drawing local grid energy
 
 **What it checks:** Runs the deterministic game simulation to confirm that a damaged Shield Turret regenerates slowly by drawing local grid energy.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","destroyed reclamation drones drop their carried crystal scrap at the death location"] -->
-### 200. destroyed reclamation drones drop their carried crystal scrap at the death location
+### 201. destroyed reclamation drones drop their carried crystal scrap at the death location
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroyed reclamation drones drop their carried crystal scrap at the death location.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","both sides start with a Headquarters, three workers, a Tier 1 factory, a generator, and a powered Crystal Harvester"] -->
-### 201. both sides start with a Headquarters, three workers, a Tier 1 factory, a generator, and a powered Crystal Harvester
+### 202. both sides start with a Headquarters, three workers, a Tier 1 factory, a generator, and a powered Crystal Harvester
 
 **What it checks:** Runs the deterministic game simulation to confirm that both sides start with a Headquarters, three workers, a Tier 1 factory, a generator, and a powered Crystal Harvester.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Crystal Harvesters can only be placed on unused crystal deposits and snap to them"] -->
-### 202. Crystal Harvesters can only be placed on unused crystal deposits and snap to them
+### 203. Crystal Harvesters can only be placed on unused crystal deposits and snap to them
 
 **What it checks:** Runs the deterministic game simulation to confirm that Crystal Harvesters can only be placed on unused crystal deposits and snap to them.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","energy-production buildings can be placed away from crystal deposits"] -->
-### 203. energy-production buildings can be placed away from crystal deposits
+### 204. energy-production buildings can be placed away from crystal deposits
 
 **What it checks:** Runs the deterministic game simulation to confirm that energy-production buildings can be placed away from crystal deposits.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","units route around structures without crossing their collision footprint"] -->
-### 204. units route around structures without crossing their collision footprint
+### 205. units route around structures without crossing their collision footprint
 
 **What it checks:** Runs the deterministic game simulation to confirm that units route around structures without crossing their collision footprint.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a worker can leave the lane after completing a building beside another structure"] -->
-### 205. a worker can leave the lane after completing a building beside another structure
+### 206. a worker can leave the lane after completing a building beside another structure
 
 **What it checks:** Runs the deterministic game simulation to confirm that a worker can leave the lane after completing a building beside another structure.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","workers can construct from a corner of a rectangular building footprint"] -->
-### 206. workers can construct from a corner of a rectangular building footprint
+### 207. workers can construct from a corner of a rectangular building footprint
 
 **What it checks:** Runs the deterministic game simulation to confirm that workers can construct from a corner of a rectangular building footprint.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a lower-tier worker cannot resume an advanced foundation"] -->
-### 207. a lower-tier worker cannot resume an advanced foundation
+### 208. a lower-tier worker cannot resume an advanced foundation
 
 **What it checks:** Runs the deterministic game simulation to confirm that a lower-tier worker cannot resume an advanced foundation.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","right-click build commands can resume an unfinished friendly structure"] -->
-### 208. right-click build commands can resume an unfinished friendly structure
+### 209. right-click build commands can resume an unfinished friendly structure
 
 **What it checks:** Runs the deterministic game simulation to confirm that right-click build commands can resume an unfinished friendly structure.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a replacement worker can finish a project after the original builder dies"] -->
-### 209. a replacement worker can finish a project after the original builder dies
+### 210. a replacement worker can finish a project after the original builder dies
 
 **What it checks:** Runs the deterministic game simulation to confirm that a replacement worker can finish a project after the original builder dies.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a worker keeps its construction assignment through stasis and resumes after reactivation"] -->
-### 210. a worker keeps its construction assignment through stasis and resumes after reactivation
+### 211. a worker keeps its construction assignment through stasis and resumes after reactivation
 
 **What it checks:** Runs the deterministic game simulation to confirm that a worker keeps its construction assignment through stasis and resumes after reactivation.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","construction placement rejects foundations that overlap existing buildings"] -->
-### 211. construction placement rejects foundations that overlap existing buildings
+### 212. construction placement rejects foundations that overlap existing buildings
 
 **What it checks:** Runs the deterministic game simulation to confirm that construction placement rejects foundations that overlap existing buildings.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","buildings may occupy directly adjacent grid cells without invisible padding"] -->
-### 212. buildings may occupy directly adjacent grid cells without invisible padding
+### 213. buildings may occupy directly adjacent grid cells without invisible padding
 
 **What it checks:** Runs the deterministic game simulation to confirm that buildings may occupy directly adjacent grid cells without invisible padding.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","friendly units vacate a construction site when its foundation is placed"] -->
-### 213. friendly units vacate a construction site when its foundation is placed
+### 214. friendly units vacate a construction site when its foundation is placed
 
 **What it checks:** Runs the deterministic game simulation to confirm that friendly units vacate a construction site when its foundation is placed.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","new foundations immediately relocate idle units pinned against a factory"] -->
-### 214. new foundations immediately relocate idle units pinned against a factory
+### 215. new foundations immediately relocate idle units pinned against a factory
 
 **What it checks:** Runs the deterministic game simulation to confirm that new foundations immediately relocate idle units pinned against a factory.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","construction placement still rejects sites occupied by hostile units"] -->
-### 215. construction placement still rejects sites occupied by hostile units
+### 216. construction placement still rejects sites occupied by hostile units
 
 **What it checks:** Runs the deterministic game simulation to confirm that construction placement still rejects sites occupied by hostile units.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","ordinary buildings snap to the shared 40-unit construction grid"] -->
-### 216. ordinary buildings snap to the shared 40-unit construction grid
+### 217. ordinary buildings snap to the shared 40-unit construction grid
 
 **What it checks:** Runs the deterministic game simulation to confirm that ordinary buildings snap to the shared 40-unit construction grid.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","odd and even building footprints align every edge to a grid line"] -->
-### 217. odd and even building footprints align every edge to a grid line
+### 218. odd and even building footprints align every edge to a grid line
 
 **What it checks:** Runs the deterministic game simulation to confirm that odd and even building footprints align every edge to a grid line.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","building classes use distinct grid footprints"] -->
-### 218. building classes use distinct grid footprints
+### 219. building classes use distinct grid footprints
 
 **What it checks:** Runs the deterministic game simulation to confirm that building classes use distinct grid footprints.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Tier 3 ordinary buildings retain their Tier 2 footprint and physical radius"] -->
-### 219. Tier 3 ordinary buildings retain their Tier 2 footprint and physical radius
+### 220. Tier 3 ordinary buildings retain their Tier 2 footprint and physical radius
 
 **What it checks:** Runs the deterministic game simulation to confirm that Tier 3 ordinary buildings retain their Tier 2 footprint and physical radius.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","Crystal Harvester footprints never exceed two grid cells per side"] -->
-### 220. Crystal Harvester footprints never exceed two grid cells per side
+### 221. Crystal Harvester footprints never exceed two grid cells per side
 
 **What it checks:** Runs the deterministic game simulation to confirm that Crystal Harvester footprints never exceed two grid cells per side.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the Tier 2 Power Relay Tower stays compact and improves every relay function"] -->
-### 221. the Tier 2 Power Relay Tower stays compact and improves every relay function
+### 222. the Tier 2 Power Relay Tower stays compact and improves every relay function
 
 **What it checks:** Runs the deterministic game simulation to confirm that the Tier 2 Power Relay Tower stays compact and improves every relay function.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI searches nearby grid cells when its preferred generator site is occupied"] -->
-### 222. enemy AI searches nearby grid cells when its preferred generator site is occupied
+### 223. enemy AI searches nearby grid cells when its preferred generator site is occupied
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI searches nearby grid cells when its preferred generator site is occupied.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI construction avoids sites controlled by a superior hostile force"] -->
-### 223. enemy AI construction avoids sites controlled by a superior hostile force
+### 224. enemy AI construction avoids sites controlled by a superior hostile force
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI construction avoids sites controlled by a superior hostile force.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI remembers recently destroyed construction sites"] -->
-### 224. enemy AI remembers recently destroyed construction sites
+### 225. enemy AI remembers recently destroyed construction sites
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI remembers recently destroyed construction sites.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI skips a contested deposit for a safer expansion"] -->
-### 225. enemy AI skips a contested deposit for a safer expansion
+### 226. enemy AI skips a contested deposit for a safer expansion
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI skips a contested deposit for a safer expansion.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI requests generators instead of Grid Batteries at every energy level"] -->
-### 226. enemy AI requests generators instead of Grid Batteries at every energy level
+### 227. enemy AI requests generators instead of Grid Batteries at every energy level
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI requests generators instead of Grid Batteries at every energy level.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI proactively maintains multiple paid Pulse Generators"] -->
-### 227. enemy AI proactively maintains multiple paid Pulse Generators
+### 228. enemy AI proactively maintains multiple paid Pulse Generators
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI proactively maintains multiple paid Pulse Generators.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI scales generator count and output headroom with its consumers"] -->
-### 228. enemy AI scales generator count and output headroom with its consumers
+### 229. enemy AI scales generator count and output headroom with its consumers
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI scales generator count and output headroom with its consumers.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","advanced AI economies add generators matching their operational tier"] -->
-### 229. advanced AI economies add generators matching their operational tier
+### 230. advanced AI economies add generators matching their operational tier
 
 **What it checks:** Runs the deterministic game simulation to confirm that advanced AI economies add generators matching their operational tier.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI waits for its pending generator without adding a Grid Battery"] -->
-### 230. enemy AI waits for its pending generator without adding a Grid Battery
+### 231. enemy AI waits for its pending generator without adding a Grid Battery
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI waits for its pending generator without adding a Grid Battery.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI requests flak when aircraft threaten its base"] -->
-### 231. enemy AI requests flak when aircraft threaten its base
+### 232. enemy AI requests flak when aircraft threaten its base
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI requests flak when aircraft threaten its base.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a stable AI builds vehicle and air production through each available tier"] -->
-### 232. a stable AI builds vehicle and air production through each available tier
+### 233. a stable AI builds vehicle and air production through each available tier
 
 **What it checks:** Runs the deterministic game simulation to confirm that a stable AI builds vehicle and air production through each available tier.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every AI commander independently requests its missing vehicle branch"] -->
-### 233. every AI commander independently requests its missing vehicle branch
+### 234. every AI commander independently requests its missing vehicle branch
 
 **What it checks:** Runs the deterministic game simulation to confirm that every AI commander independently requests its missing vehicle branch.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a mature enemy economy deliberately progresses through Tier 2 and Tier 3 factories"] -->
-### 234. a mature enemy economy deliberately progresses through Tier 2 and Tier 3 factories
+### 235. a mature enemy economy deliberately progresses through Tier 2 and Tier 3 factories
 
 **What it checks:** Runs the deterministic game simulation to confirm that a mature enemy economy deliberately progresses through Tier 2 and Tier 3 factories.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","advanced enemy mech factories produce the worker generation needed for the next tier"] -->
-### 235. advanced enemy mech factories produce the worker generation needed for the next tier
+### 236. advanced enemy mech factories produce the worker generation needed for the next tier
 
 **What it checks:** Runs the deterministic game simulation to confirm that advanced enemy mech factories produce the worker generation needed for the next tier.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI builds at most one charger and only for depleted staged units"] -->
-### 236. enemy AI builds at most one charger and only for depleted staged units
+### 237. enemy AI builds at most one charger and only for depleted staged units
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI builds at most one charger and only for depleted staged units.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI routes depleted staged units into its charger and waits for recharge"] -->
-### 237. enemy AI routes depleted staged units into its charger and waits for recharge
+### 238. enemy AI routes depleted staged units into its charger and waits for recharge
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI routes depleted staged units into its charger and waits for recharge.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the standard enemy opening establishes defenses and launches promptly"] -->
-### 238. the standard enemy opening establishes defenses and launches promptly
+### 239. the standard enemy opening establishes defenses and launches promptly
 
 **What it checks:** Runs the deterministic game simulation to confirm that the standard enemy opening establishes defenses and launches promptly.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI builds generation before spending crystal on an unpowered consumer"] -->
-### 239. enemy AI builds generation before spending crystal on an unpowered consumer
+### 240. enemy AI builds generation before spending crystal on an unpowered consumer
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI builds generation before spending crystal on an unpowered consumer.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI places a needed relay on its connected grid"] -->
-### 240. enemy AI places a needed relay on its connected grid
+### 241. enemy AI places a needed relay on its connected grid
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI places a needed relay on its connected grid.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI places powered consumers inside its energized grid"] -->
-### 241. enemy AI places powered consumers inside its energized grid
+### 242. enemy AI places powered consumers inside its energized grid
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI places powered consumers inside its energized grid.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI completes extra generation before projected demand exceeds supply"] -->
-### 242. enemy AI completes extra generation before projected demand exceeds supply
+### 243. enemy AI completes extra generation before projected demand exceeds supply
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI completes extra generation before projected demand exceeds supply.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI reassigns an idle worker to an abandoned foundation"] -->
-### 243. enemy AI reassigns an idle worker to an abandoned foundation
+### 244. enemy AI reassigns an idle worker to an abandoned foundation
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI reassigns an idle worker to an abandoned foundation.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI builds an initial combat force before reserving for expensive construction"] -->
-### 244. enemy AI builds an initial combat force before reserving for expensive construction
+### 245. enemy AI builds an initial combat force before reserving for expensive construction
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI builds an initial combat force before reserving for expensive construction.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI balances combat roles and adds energy support as its army grows"] -->
-### 245. enemy AI balances combat roles and adds energy support as its army grows
+### 246. enemy AI balances combat roles and adds energy support as its army grows
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI balances combat roles and adds energy support as its army grows.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI never exceeds three mobile energy suppliers across all branches"] -->
-### 246. enemy AI never exceeds three mobile energy suppliers across all branches
+### 247. enemy AI never exceeds three mobile energy suppliers across all branches
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI never exceeds three mobile energy suppliers across all branches.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI reserves crystal for its next generator after fielding a combat force"] -->
-### 247. enemy AI reserves crystal for its next generator after fielding a combat force
+### 248. enemy AI reserves crystal for its next generator after fielding a combat force
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI reserves crystal for its next generator after fielding a combat force.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI only constructs a Supply Complex when its remaining supply is low"] -->
-### 248. enemy AI only constructs a Supply Complex when its remaining supply is low
+### 249. enemy AI only constructs a Supply Complex when its remaining supply is low
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI only constructs a Supply Complex when its remaining supply is low.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI establishes a paid outpost and expands to another crystal deposit"] -->
-### 249. enemy AI establishes a paid outpost and expands to another crystal deposit
+### 250. enemy AI establishes a paid outpost and expands to another crystal deposit
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI establishes a paid outpost and expands to another crystal deposit.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","fortified opposition accelerates AI expansion beyond two harvesters"] -->
-### 250. fortified opposition accelerates AI expansion beyond two harvesters
+### 251. fortified opposition accelerates AI expansion beyond two harvesters
 
 **What it checks:** Runs the deterministic game simulation to confirm that fortified opposition accelerates AI expansion beyond two harvesters.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","AI places each remote harvester sentry on its enemy-facing side"] -->
-### 251. AI places each remote harvester sentry on its enemy-facing side
+### 252. AI places each remote harvester sentry on its enemy-facing side
 
 **What it checks:** Runs the deterministic game simulation to confirm that AI places each remote harvester sentry on its enemy-facing side.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","AI outpost garrisons stay out of attack waves and answer local threats"] -->
-### 252. AI outpost garrisons stay out of attack waves and answer local threats
+### 253. AI outpost garrisons stay out of attack waves and answer local threats
 
 **What it checks:** Runs the deterministic game simulation to confirm that AI outpost garrisons stay out of attack waves and answer local threats.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI expands beyond four harvesters when crystal is low and skips player claims"] -->
-### 253. enemy AI expands beyond four harvesters when crystal is low and skips player claims
+### 254. enemy AI expands beyond four harvesters when crystal is low and skips player claims
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI expands beyond four harvesters when crystal is low and skips player claims.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","workers begin construction at the floating-point edge of build range"] -->
-### 254. workers begin construction at the floating-point edge of build range
+### 255. workers begin construction at the floating-point edge of build range
 
 **What it checks:** Runs the deterministic game simulation to confirm that workers begin construction at the floating-point edge of build range.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy combat units wait for a full wave before attacking"] -->
-### 255. enemy combat units wait for a full wave before attacking
+### 256. enemy combat units wait for a full wave before attacking
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy combat units wait for a full wave before attacking.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI does not count armed workers as an attack wave"] -->
-### 256. enemy AI does not count armed workers as an attack wave
+### 257. enemy AI does not count armed workers as an attack wave
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI does not count armed workers as an attack wave.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy combat units fire at nearby workers while advancing"] -->
-### 257. enemy combat units fire at nearby workers while advancing
+### 258. enemy combat units fire at nearby workers while advancing
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy combat units fire at nearby workers while advancing.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI holds an outmatched wave until enough attackers are staged"] -->
-### 258. enemy AI holds an outmatched wave until enough attackers are staged
+### 259. enemy AI holds an outmatched wave until enough attackers are staged
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI holds an outmatched wave until enough attackers are staged.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI chooses a safer target instead of attacking a defended position"] -->
-### 259. enemy AI chooses a safer target instead of attacking a defended position
+### 260. enemy AI chooses a safer target instead of attacking a defended position
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI chooses a safer target instead of attacking a defended position.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","an already dispatched AI assault does not turn around when defenses appear"] -->
-### 260. an already dispatched AI assault does not turn around when defenses appear
+### 261. an already dispatched AI assault does not turn around when defenses appear
 
 **What it checks:** Runs the deterministic game simulation to confirm that an already dispatched AI assault does not turn around when defenses appear.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy combat units immediately answer structures rushed near their base as a wave"] -->
-### 261. enemy combat units immediately answer structures rushed near their base as a wave
+### 262. enemy combat units immediately answer structures rushed near their base as a wave
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy combat units immediately answer structures rushed near their base as a wave.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy rush responses wait for a coordinated force instead of sending one unit"] -->
-### 262. enemy rush responses wait for a coordinated force instead of sending one unit
+### 263. enemy rush responses wait for a coordinated force instead of sending one unit
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy rush responses wait for a coordinated force instead of sending one unit.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal"] -->
-### 263. cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal
+### 264. cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal
 
 **What it checks:** Runs the deterministic game simulation to confirm that cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","a commander can destroy one completed building without a refund"] -->
-### 264. a commander can destroy one completed building without a refund
+### 265. a commander can destroy one completed building without a refund
 
 **What it checks:** Runs the deterministic game simulation to confirm that a commander can destroy one completed building without a refund.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","destroying every enemy unit and building ends the match in victory"] -->
-### 265. destroying every enemy unit and building ends the match in victory
+### 266. destroying every enemy unit and building ends the match in victory
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroying every enemy unit and building ends the match in victory.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","losing every player unit and building ends the match in defeat"] -->
-### 266. losing every player unit and building ends the match in defeat
+### 267. losing every player unit and building ends the match in defeat
 
 **What it checks:** Runs the deterministic game simulation to confirm that losing every player unit and building ends the match in defeat.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","destroying a Headquarters leaves inert neutral units and destroys its buildings"] -->
-### 267. destroying a Headquarters leaves inert neutral units and destroys its buildings
+### 268. destroying a Headquarters leaves inert neutral units and destroys its buildings
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroying a Headquarters leaves inert neutral units and destroys its buildings.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","field tests enable elimination while isolated simulations remain opt-in"] -->
-### 268. field tests enable elimination while isolated simulations remain opt-in
+### 269. field tests enable elimination while isolated simulations remain opt-in
 
 **What it checks:** Runs the deterministic game simulation to confirm that field tests enable elimination while isolated simulations remain opt-in.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","multiplayer field tests disable the enemy commander AI"] -->
-### 269. multiplayer field tests disable the enemy commander AI
+### 270. multiplayer field tests disable the enemy commander AI
 
 **What it checks:** Runs the deterministic game simulation to confirm that multiplayer field tests disable the enemy commander AI.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","simulation snapshots restore a playable multiplayer client state"] -->
-### 270. simulation snapshots restore a playable multiplayer client state
+### 271. simulation snapshots restore a playable multiplayer client state
 
 **What it checks:** Runs the deterministic game simulation to confirm that simulation snapshots restore a playable multiplayer client state.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","mixed human and AI matches continue until only one command team remains"] -->
-### 271. mixed human and AI matches continue until only one command team remains
+### 272. mixed human and AI matches continue until only one command team remains
 
 **What it checks:** Runs the deterministic game simulation to confirm that mixed human and AI matches continue until only one command team remains.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","multiplayer lobby codes are exactly ten uppercase letters and numbers"] -->
-### 272. multiplayer lobby codes are exactly ten uppercase letters and numbers
+### 273. multiplayer lobby codes are exactly ten uppercase letters and numbers
 
 **What it checks:** Runs the deterministic game simulation to confirm that multiplayer lobby codes are exactly ten uppercase letters and numbers.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every player count offers multiple dense and selectable battlefield layouts"] -->
-### 273. every player count offers multiple dense and selectable battlefield layouts
+### 274. every player count offers multiple dense and selectable battlefield layouts
 
 **What it checks:** Runs the deterministic game simulation to confirm that every player count offers multiple dense and selectable battlefield layouts.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the three-player ancient ruins map is a dense ruin complex"] -->
-### 274. the three-player ancient ruins map is a dense ruin complex
+### 275. the three-player ancient ruins map is a dense ruin complex
 
 **What it checks:** Runs the deterministic game simulation to confirm that the three-player ancient ruins map is a dense ruin complex.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","an eight-player match gives every commander the standard starting package"] -->
-### 275. an eight-player match gives every commander the standard starting package
+### 276. an eight-player match gives every commander the standard starting package
 
 **What it checks:** Runs the deterministic game simulation to confirm that an eight-player match gives every commander the standard starting package.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","match teams preserve per-AI difficulty and player-selected alliances"] -->
-### 276. match teams preserve per-AI difficulty and player-selected alliances
+### 277. match teams preserve per-AI difficulty and player-selected alliances
 
 **What it checks:** Runs the deterministic game simulation to confirm that match teams preserve per-AI difficulty and player-selected alliances.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","AI difficulty changes deterministic decision cadence and attack preparation"] -->
-### 277. AI difficulty changes deterministic decision cadence and attack preparation
+### 278. AI difficulty changes deterministic decision cadence and attack preparation
 
 **What it checks:** Runs the deterministic game simulation to confirm that AI difficulty changes deterministic decision cadence and attack preparation.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","eliminated AI commanders stop running strategic decisions"] -->
-### 278. eliminated AI commanders stop running strategic decisions
+### 279. eliminated AI commanders stop running strategic decisions
 
 **What it checks:** Runs the deterministic game simulation to confirm that eliminated AI commanders stop running strategic decisions.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","allied commanders share vision, reject friendly fire, and win together"] -->
-### 279. allied commanders share vision, reject friendly fire, and win together
+### 280. allied commanders share vision, reject friendly fire, and win together
 
 **What it checks:** Runs the deterministic game simulation to confirm that allied commanders share vision, reject friendly fire, and win together.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","snapshots preserve AI difficulties and commander alliances"] -->
-### 280. snapshots preserve AI difficulties and commander alliances
+### 281. snapshots preserve AI difficulties and commander alliances
 
 **What it checks:** Runs the deterministic game simulation to confirm that snapshots preserve AI difficulties and commander alliances.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every AI commander makes decisions with independent state and resources"] -->
-### 281. every AI commander makes decisions with independent state and resources
+### 282. every AI commander makes decisions with independent state and resources
 
 **What it checks:** Runs the deterministic game simulation to confirm that every AI commander makes decisions with independent state and resources.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","victory waits until every AI commander has been eliminated"] -->
-### 282. victory waits until every AI commander has been eliminated
+### 283. victory waits until every AI commander has been eliminated
 
 **What it checks:** Runs the deterministic game simulation to confirm that victory waits until every AI commander has been eliminated.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","snapshots preserve multi-AI teams, starts, maps, and decision state"] -->
-### 283. snapshots preserve multi-AI teams, starts, maps, and decision state
+### 284. snapshots preserve multi-AI teams, starts, maps, and decision state
 
 **What it checks:** Runs the deterministic game simulation to confirm that snapshots preserve multi-AI teams, starts, maps, and decision state.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","tactical minimap crystal markers use bright fog-independent colors"] -->
-### 284. tactical minimap crystal markers use bright fog-independent colors
+### 285. tactical minimap crystal markers use bright fog-independent colors
 
 **What it checks:** Runs the deterministic game simulation to confirm that tactical minimap crystal markers use bright fog-independent colors.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","mortar shells travel faster and keep tracking moving targets"] -->
-### 285. mortar shells travel faster and keep tracking moving targets
+### 286. mortar shells travel faster and keep tracking moving targets
 
 **What it checks:** Runs the deterministic game simulation to confirm that mortar shells travel faster and keep tracking moving targets.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI assigns spare workers to powered factory production"] -->
-### 286. enemy AI assigns spare workers to powered factory production
+### 287. enemy AI assigns spare workers to powered factory production
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI assigns spare workers to powered factory production.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","enemy AI adds shield coverage after establishing its core force"] -->
-### 287. enemy AI adds shield coverage after establishing its core force
+### 288. enemy AI adds shield coverage after establishing its core force
 
 **What it checks:** Runs the deterministic game simulation to confirm that enemy AI adds shield coverage after establishing its core force.
 

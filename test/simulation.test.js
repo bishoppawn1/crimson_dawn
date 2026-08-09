@@ -27,6 +27,7 @@ import {
   spawnWarsKillIncome,
   spawnWarsInterval,
   spawnWarsPadCost,
+  spawnWarsPadDestroyRefund,
   spawnWarsPadUpgradeCost,
 } from "../src/spawn-wars.js";
 import {
@@ -240,6 +241,59 @@ test("Spawn Wars platforms synchronize every wave with the income payment", () =
   assert.equal(simulation.units.filter((unit) => unit.spawnWarsPadId === secondPad.id).length, 1);
   assert.equal(firstPad.spawnRemaining, SPAWN_WARS_RULES.incomeInterval);
   assert.equal(secondPad.spawnRemaining, SPAWN_WARS_RULES.incomeInterval);
+});
+
+test("Spawn Wars platforms move freely and refund 75 percent of their original cost", () => {
+  const simulation = Simulation.createSpawnWars({ playerCount: 2 });
+  const architect = simulation.units.find((unit) => unit.team === "player");
+  const zone = simulation.spawnWars.buildZones.player;
+  const unitDefinition = UNIT_DEFINITIONS.scout_mech;
+  const padCost = spawnWarsPadCost(unitDefinition);
+  const pad = simulation.startSpawnPadConstruction(
+    [architect.id],
+    "scout_mech",
+    zone.left + 200,
+    zone.top + 200,
+  );
+  assert.ok(pad);
+  assert.equal(pad.spawnPadCost, padCost);
+  advance(simulation, SPAWN_WARS_RULES.padBuildTime + 0.2);
+  assert.equal(pad.complete, true);
+
+  simulation.resources.player.metal = 10_000;
+  assert.equal(simulation.upgradeSpawnPad(pad.id, "damage", "player"), true);
+  pad.spawnRemaining = 12.25;
+  const crystalBeforeMove = simulation.resources.player.metal;
+  const upgradesBeforeMove = structuredClone(pad.spawnUpgradeLevels);
+  const destination = simulation.evaluateSpawnPadPlacement(
+    pad.spawnUnitType,
+    zone.right - 200,
+    zone.bottom - 200,
+    "player",
+    { ignoreStructureId: pad.id },
+  );
+  assert.equal(destination.valid, true);
+
+  assert.equal(simulation.moveSpawnPad(pad.id, destination.x, destination.y, "enemy"), false);
+  assert.equal(simulation.moveSpawnPad(pad.id, simulation.width / 2, simulation.height / 2, "player"), false);
+  assert.equal(simulation.moveSpawnPad(pad.id, destination.x, destination.y, "player"), true);
+  assert.deepEqual({ x: pad.x, y: pad.y }, { x: destination.x, y: destination.y });
+  assert.deepEqual(pad.spawnUpgradeLevels, upgradesBeforeMove);
+  assert.equal(pad.spawnRemaining, 12.25);
+  assert.equal(simulation.resources.player.metal, crystalBeforeMove);
+  assert.equal(simulation.events.at(-1).type, "spawn_pad_moved");
+
+  const wreckCountBeforeDestroy = simulation.wrecks.length;
+  assert.equal(simulation.destroyStructure(pad.id, "enemy"), false);
+  assert.equal(simulation.destroyStructure(pad.id, "player"), true);
+  const refund = spawnWarsPadDestroyRefund(padCost);
+  assert.equal(refund, Math.floor(padCost * 0.75));
+  assert.equal(simulation.resources.player.metal, crystalBeforeMove + refund);
+  assert.equal(pad.alive, false);
+  assert.equal(simulation.wrecks.length, wreckCountBeforeDestroy);
+  assert.ok(simulation.events.some(
+    (event) => event.type === "spawn_pad_refunded" && event.refund === refund,
+  ));
 });
 
 test("Spawn Wars income, center control, equal speed, kill rewards, and objectives are deterministic", () => {

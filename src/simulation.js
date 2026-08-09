@@ -31,6 +31,7 @@ const {
   spawnWarsInterval,
   spawnWarsKillIncome,
   spawnWarsPadCost,
+  spawnWarsPadDestroyRefund,
   spawnWarsPadUpgradeCost,
   spawnWarsSideForAlliance,
 } = await import(`./spawn-wars.js${versionSuffix}`);
@@ -1975,7 +1976,21 @@ export class Simulation {
     ) {
       return false;
     }
-    if (this.isSpawnWars() && !STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer) return false;
+    const definition = STRUCTURE_DEFINITIONS[structure.type];
+    if (this.isSpawnWars() && !definition?.phaseLayer) return false;
+    if (this.isSpawnWars() && definition?.phaseLayer) {
+      const unitDefinition = UNIT_DEFINITIONS[structure.spawnUnitType];
+      if (!unitDefinition) return false;
+      const padCost = Number.isFinite(structure.spawnPadCost)
+        ? structure.spawnPadCost
+        : spawnWarsPadCost(unitDefinition);
+      const refund = spawnWarsPadDestroyRefund(padCost);
+      this.resources[structure.team].metal += refund;
+      this.emit("spawn_pad_refunded", structure.x, structure.y, {
+        structureId: structure.id,
+        refund,
+      });
+    }
     return this.destroyEntity(structure);
   }
 
@@ -2662,7 +2677,7 @@ export class Simulation {
     return structure;
   }
 
-  evaluateSpawnPadPlacement(unitType, x, y, teamId) {
+  evaluateSpawnPadPlacement(unitType, x, y, teamId, { ignoreStructureId = null } = {}) {
     const unitDefinition = UNIT_DEFINITIONS[unitType];
     const zone = this.spawnWars?.buildZones?.[teamId];
     if (!this.isSpawnWars() || !unitDefinition || !zone) {
@@ -2689,7 +2704,11 @@ export class Simulation {
       return result;
     }
     const overlaps = this.structures.some((structure) => {
-      if (!structure.alive || !STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer) return false;
+      if (
+        !structure.alive ||
+        structure.id === ignoreStructureId ||
+        !STRUCTURE_DEFINITIONS[structure.type]?.phaseLayer
+      ) return false;
       const other = structureFootprint(structure.type);
       return (
         Math.abs(snappedX - structure.x) + EPSILON < footprint.halfWidth + other.halfWidth &&
@@ -2744,6 +2763,7 @@ export class Simulation {
       connected: true,
       powerStatus: "constructing",
       spawnUnitType: unitType,
+      spawnPadCost: cost,
       spawnInterval: spawnWarsInterval(unitDefinition),
       spawnRemaining: this.spawnWars.incomeRemaining,
       spawnUpgradeLevels: { health: 0, armor: 0, damage: 0, attack_speed: 0 },
@@ -2758,6 +2778,45 @@ export class Simulation {
       }
     }
     return structure;
+  }
+
+  moveSpawnPad(structureId, x, y, teamId) {
+    this.lastPlacementError = null;
+    const pad = this.getStructure(structureId);
+    const definition = pad && STRUCTURE_DEFINITIONS[pad.type];
+    if (
+      !this.isSpawnWars() ||
+      !pad?.alive ||
+      !pad.complete ||
+      pad.team !== teamId ||
+      !definition?.phaseLayer ||
+      !UNIT_DEFINITIONS[pad.spawnUnitType]
+    ) {
+      this.lastPlacementError = "Select one of your completed spawn platforms.";
+      return false;
+    }
+    const placement = this.evaluateSpawnPadPlacement(
+      pad.spawnUnitType,
+      x,
+      y,
+      teamId,
+      { ignoreStructureId: pad.id },
+    );
+    if (!placement.valid) {
+      this.lastPlacementError = placement.reason;
+      return false;
+    }
+    const previousX = pad.x;
+    const previousY = pad.y;
+    pad.x = placement.x;
+    pad.y = placement.y;
+    this.combatSpatialIndexDirty = true;
+    this.emit("spawn_pad_moved", pad.x, pad.y, {
+      structureId: pad.id,
+      previousX,
+      previousY,
+    });
+    return true;
   }
 
   upgradeSpawnArchitect(teamId) {
@@ -7297,7 +7356,9 @@ export class Simulation {
     const salvageMetal = Math.round(
       definition.metalValue * SIMULATION_RULES.wreckSalvageRatio,
     );
-    this.addWreck(target.x, target.y, salvageMetal, target.team);
+    if (!this.isSpawnWars() || !definition.phaseLayer) {
+      this.addWreck(target.x, target.y, salvageMetal, target.team);
+    }
     this.emit("destroyed", target.x, target.y, { targetId: target.id });
 
     if (this.isSpawnWars() && definition.family === "spawn_objective_turret") {
