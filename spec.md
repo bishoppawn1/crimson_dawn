@@ -822,9 +822,10 @@ replaces movement, combat, construction, queued construction, and repair orders.
 Workers travel to within 24 world units of the factory footprint, then Tier 1, Tier
 2, and Tier 3 workers provisionally add 0.25, 0.4, and 0.65 respectively to the
 factory's production rate instead of adding their full construction build rate.
-Each contributing worker also adds a provisional 6, 10, or 16 energy per second,
-according to its tier, to that factory's local-grid demand. Multiple workers stack
-both effects additively. If the connected grid cannot pay the factory's idle,
+For power, the first assisting worker adds 20% of the factory's normal active
+demand (idle plus production demand), the second adds 21%, the third 22%, and
+each later worker adds one additional percentage point. Multiple workers stack
+these escalating percentages. If the connected grid cannot pay the factory's idle,
 production, and worker-assistance demand together, production and assistance pause
 without losing the order or assignment. The assignment remains through temporary
 power loss or a blocked factory exit, continues across later orders already in the

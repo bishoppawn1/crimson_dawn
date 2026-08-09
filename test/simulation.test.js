@@ -924,14 +924,13 @@ test("higher-tier factories have progressively faster production throughput", ()
 
 test("workers provide reduced tier-specific factory assistance at an added grid cost", () => {
   assert.deepEqual(
-    ["worker_drone_t1", "worker_drone_t2", "worker_drone_t3"].map((type) => ({
-      rate: UNIT_DEFINITIONS[type].productionAssistRate,
-      demand: UNIT_DEFINITIONS[type].productionAssistPowerDemand,
-    })),
+    ["worker_drone_t1", "worker_drone_t2", "worker_drone_t3"].map((type) =>
+      UNIT_DEFINITIONS[type].productionAssistRate,
+    ),
     [
-      { rate: 0.25, demand: 6 },
-      { rate: 0.4, demand: 10 },
-      { rate: 0.65, demand: 16 },
+      0.25,
+      0.4,
+      0.65,
     ],
   );
   const simulation = new Simulation();
@@ -954,9 +953,7 @@ test("workers provide reduced tier-specific factory assistance at an added grid 
     productionRate:
       UNIT_DEFINITIONS.worker_drone_t1.productionAssistRate +
       UNIT_DEFINITIONS.worker_drone_t3.productionAssistRate,
-    powerDemand:
-      UNIT_DEFINITIONS.worker_drone_t1.productionAssistPowerDemand +
-      UNIT_DEFINITIONS.worker_drone_t3.productionAssistPowerDemand,
+    powerDemand: 9 * (0.2 + 0.21),
   });
   assert.ok(
     UNIT_DEFINITIONS.worker_drone_t1.productionAssistRate <
@@ -966,8 +963,7 @@ test("workers provide reduced tier-specific factory assistance at an added grid 
     simulation.getStructurePowerDemandRate(factory),
     STRUCTURE_DEFINITIONS.mech_factory_t1.powerDemand +
       STRUCTURE_DEFINITIONS.mech_factory_t1.productionPowerDemand +
-      UNIT_DEFINITIONS.worker_drone_t1.productionAssistPowerDemand +
-      UNIT_DEFINITIONS.worker_drone_t3.productionAssistPowerDemand,
+      9 * (0.2 + 0.21),
   );
 
   simulation.updateProduction(1);
@@ -980,15 +976,40 @@ test("workers provide reduced tier-specific factory assistance at an added grid 
   );
 });
 
+test("worker assistance power draw increases one percentage point per worker", () => {
+  const simulation = new Simulation();
+  simulation.resources.player.metal = 10_000;
+  simulation.addStructure("generator", "player", 80, 200);
+  const factory = simulation.addStructure("mech_factory_t1", "player", 240, 200);
+  const workers = Array.from({ length: 7 }, (_, index) =>
+    simulation.addUnit("worker_drone_t1", "player", 304, 200 + index),
+  );
+  simulation.refreshPowerState(0);
+  simulation.queueProduction(factory.id, "scout_mech");
+
+  assert.equal(
+    simulation.commandAssistProduction(workers.map((worker) => worker.id), factory.id),
+    workers.length,
+  );
+  const expectedRatio = [0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26]
+    .reduce((total, ratio) => total + ratio, 0);
+  assert.equal(
+    simulation.getFactoryProductionAssistState(factory.id).powerDemand,
+    9 * expectedRatio,
+  );
+});
+
 test("factory production pauses when its grid cannot cover worker assistance demand", () => {
   const simulation = new Simulation();
   simulation.resources.player.metal = 10_000;
   simulation.addStructure("generator", "player", 80, 200, { storedEnergy: 0 });
   const factory = simulation.addStructure("mech_factory_t1", "player", 240, 200);
-  const worker = simulation.addUnit("worker_drone_t1", "player", 304, 200);
+  const workers = Array.from({ length: 7 }, (_, index) =>
+    simulation.addUnit("worker_drone_t1", "player", 304, 200 + index),
+  );
   simulation.refreshPowerState(0);
   simulation.queueProduction(factory.id, "scout_mech");
-  simulation.commandAssistProduction([worker.id], factory.id);
+  simulation.commandAssistProduction(workers.map((worker) => worker.id), factory.id);
 
   simulation.refreshPowerState(1);
   simulation.updateProduction(1);
@@ -996,9 +1017,9 @@ test("factory production pauses when its grid cannot cover worker assistance dem
   assert.equal(factory.powered, false);
   assert.equal(factory.powerStatus, "no_energy");
   assert.equal(factory.productionQueue[0].progress, 0);
-  assert.equal(simulation.getFactoryProductionAssistState(factory.id).workerCount, 1);
+  assert.equal(simulation.getFactoryProductionAssistState(factory.id).workerCount, workers.length);
 
-  simulation.commandStop([worker.id]);
+  simulation.commandStop(workers.map((worker) => worker.id));
   assert.deepEqual(simulation.getFactoryProductionAssistState(factory.id), {
     workerCount: 0,
     productionRate: 0,

@@ -1303,14 +1303,29 @@ export class Simulation {
     let productionRate = 0;
     let powerDemand = 0;
     if (!factory) return { workerCount, productionRate, powerDemand };
+    const factoryDefinition = STRUCTURE_DEFINITIONS[factory.type];
+    const order = factory.productionQueue?.[0];
+    const unitDefinition = order ? UNIT_DEFINITIONS[order.unitType] : null;
+    const productionActive = Boolean(
+      order &&
+      unitDefinition &&
+      order.progress + EPSILON < unitDefinition.productionTime,
+    );
+    const basePowerDemand = productionActive
+      ? (factoryDefinition.powerDemand || 0) + (factoryDefinition.productionPowerDemand || 0)
+      : 0;
+    let readyWorkers = 0;
     for (const worker of this.units) {
       if (!isProductionAssistantReady(worker, factory)) continue;
       const definition = UNIT_DEFINITIONS[worker.type];
       workerCount += 1;
       productionRate += definition.productionAssistRate || 0;
-      powerDemand += definition.productionAssistPowerDemand || 0;
+      powerDemand +=
+        SIMULATION_RULES.productionAssistPowerDemandRatioStart +
+        readyWorkers * SIMULATION_RULES.productionAssistPowerDemandRatioStep;
+      readyWorkers += 1;
     }
-    return { workerCount, productionRate, powerDemand };
+    return { workerCount, productionRate, powerDemand: powerDemand * basePowerDemand };
   }
 
   resetUnitNavigation(unit, orderIndex = null, orderCount = 1) {
