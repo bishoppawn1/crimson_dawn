@@ -20,7 +20,6 @@ const STRATEGIC_UNIT_ROLE_CODES = Object.freeze({
   arsenal_colossus: "AC",
   hexapod_landship: "HL",
   zenith_doughnut: "ZD",
-  raider: "RD",
 });
 
 export function strategicZoomMinimum(

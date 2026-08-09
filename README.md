@@ -49,8 +49,6 @@ The current build is the first playable field test. It includes:
   chassis passes over starting walls while rocky terrain still redirects them.
 - Automatic attacks against hostile units entering weapon range.
 - Player and enemy combat units retaliate against and pursue hostile aggressors.
-- Fast, long-endurance Raiders deal 1.75× damage to structures and automatically
-  prioritize exposed economic and power infrastructure.
 - Compact unit silhouettes with physical unit-to-unit separation for dense groups.
 - Drag-box unit selection plus matching factory-group selection, stop, and hold-position commands.
 - Crystal Harvesters, relay-tower power networks, and stronger static sentry defenses.

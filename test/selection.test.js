@@ -37,12 +37,12 @@ test("exact-type selection excludes other tiers, teams, cargo, and destroyed uni
 
 test("exact-type selection includes the local boundary and excludes distant groups", () => {
   const units = [
-    { id: "clicked", alive: true, team: "player", type: "raider", x: 100, y: 100 },
+    { id: "clicked", alive: true, team: "player", type: "scout_mech", x: 100, y: 100 },
     {
       id: "boundary",
       alive: true,
       team: "player",
-      type: "raider",
+      type: "scout_mech",
       x: 100 + LOCAL_TYPE_SELECTION_RADIUS,
       y: 100,
     },
@@ -50,7 +50,7 @@ test("exact-type selection includes the local boundary and excludes distant grou
       id: "distant-group",
       alive: true,
       team: "player",
-      type: "raider",
+      type: "scout_mech",
       x: 101 + LOCAL_TYPE_SELECTION_RADIUS,
       y: 100,
     },
@@ -59,7 +59,7 @@ test("exact-type selection includes the local boundary and excludes distant grou
   assert.deepEqual(
     selectableUnitIdsByExactTypeNear(units, {
       team: "player",
-      type: "raider",
+      type: "scout_mech",
       x: 100,
       y: 100,
     }),

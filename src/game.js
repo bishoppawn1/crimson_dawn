@@ -6210,7 +6210,6 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
   const role = definition.role || "vanguard";
   const heavy = role === "bulwark";
   const carrier = role === "carrier";
-  const raider = role === "raider";
   const antiAir = role === "anti_air_mech";
   const radar = role === "radar_mech";
   const outline = stasis ? "#24231f" : "#171d23";
@@ -6553,8 +6552,8 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
     context.arc(0.68, -0.16, 0.075, 0, Math.PI * 2);
     context.fill();
   } else {
-    // Vanguards and raiders carry a compact gun along the right side of the
-    // chassis. Its forward barrel makes the overhead facing unmistakable.
+    // Vanguards carry a compact gun along the right side of the chassis. Its
+    // forward barrel makes the overhead facing unmistakable.
     context.fillStyle = armorDark;
     context.beginPath();
     context.moveTo(-0.65, -0.3);
@@ -6602,23 +6601,6 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
     context.moveTo(0.74, -0.18);
     context.lineTo(0.88, -0.18);
     context.stroke();
-    if (raider) {
-      context.fillStyle = armorDark;
-      context.beginPath();
-      context.moveTo(-0.28, 0.35);
-      context.lineTo(-0.58, 0.72);
-      context.lineTo(-0.17, 0.5);
-      context.closePath();
-      context.fill();
-      context.stroke();
-      context.beginPath();
-      context.moveTo(0.28, 0.35);
-      context.lineTo(0.58, 0.72);
-      context.lineTo(0.17, 0.5);
-      context.closePath();
-      context.fill();
-      context.stroke();
-    }
   }
 
   context.fillStyle = accent;

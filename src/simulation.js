@@ -7687,13 +7687,7 @@ function preferredTargets(definition, candidates) {
     );
     if (preferredLayerTargets.length > 0) return preferredLayerTargets;
   }
-  if (!definition.preferredStructureFamilies?.length) return candidates;
-  const preferredStructures = candidates.filter((candidate) => {
-    if (candidate.kind !== "structure") return false;
-    const family = STRUCTURE_DEFINITIONS[candidate.type]?.family;
-    return definition.preferredStructureFamilies.includes(family);
-  });
-  return preferredStructures.length > 0 ? preferredStructures : candidates;
+  return candidates;
 }
 
 function damageMultiplierAgainstTarget(definition, target) {

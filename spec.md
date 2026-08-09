@@ -473,14 +473,6 @@ command replaces an active patrol.
 Direct attack commands still pursue their chosen target, stopping once they enter
 weapon range before firing.
 
-Raiders are fast, long-endurance harassment units rather than line fighters. Their
-provisional profile uses 108 movement speed, 105 integrity, efficient movement, and
-a 1.75× damage multiplier against structures. When acquiring targets automatically,
-they prefer exposed generators, batteries, relay towers, chargers, harvesters, salvage
-yards, supply complexes, and factories over units or static defenses in the same
-area. Explicit attack orders and retaliation remain higher priority. Their ordinary
-anti-unit damage remains deliberately weaker than a Tier 1 Vanguard's.
-
 Ground units treat completed buildings and unfinished foundations as solid
 obstacles. Movement uses deterministic multi-corner routing around compound terrain
 and exact structure footprints, with collision-time sliding retained as a safety

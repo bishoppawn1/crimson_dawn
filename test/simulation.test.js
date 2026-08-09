@@ -197,14 +197,14 @@ test("Spawn Wars unit deaths never create crystal scrap for either alliance", ()
     { spawnWarsSpawned: true },
   );
   const westVictim = simulation.addUnit(
-    "raider",
+    "scout_mech",
     "player",
     1700,
     1000,
     { spawnWarsSpawned: true },
   );
   const eastVictim = simulation.addUnit(
-    "raider",
+    "scout_mech",
     "enemy",
     1900,
     1000,
@@ -218,7 +218,7 @@ test("Spawn Wars unit deaths never create crystal scrap for either alliance", ()
 
   const killReward = Math.max(
     SPAWN_WARS_RULES.minimumKillIncome,
-    Math.round(UNIT_DEFINITIONS.raider.metalValue * SPAWN_WARS_RULES.killIncomeRatio),
+    Math.round(UNIT_DEFINITIONS.scout_mech.metalValue * SPAWN_WARS_RULES.killIncomeRatio),
   );
   assert.equal(eastVictim.alive, false);
   assert.equal(westVictim.alive, false);
@@ -274,7 +274,7 @@ test("the irreplaceable Command Headquarters provides economy and only Tier 1 wo
 test("the Command Headquarters automatically fires its long-range defensive gun", () => {
   const simulation = new Simulation({ enemyAiEnabled: false });
   const headquarters = simulation.addStructure("headquarters", "player", 300, 300);
-  const target = simulation.addUnit("raider", "enemy", 700, 300);
+  const target = simulation.addUnit("scout_mech", "enemy", 700, 300);
   const startingHp = target.hp;
 
   simulation.updateStaticDefenses(0.25);
@@ -1320,7 +1320,7 @@ test("mortar turrets enforce minimum and maximum range", () => {
   const closeMortar = closeSimulation.addStructure("mortar_turret", "player", 300, 300, {
     powered: true,
   });
-  const closeTarget = closeSimulation.addUnit("raider", "enemy", 400, 300);
+  const closeTarget = closeSimulation.addUnit("scout_mech", "enemy", 400, 300);
   const closeStartingHp = closeTarget.hp;
 
   closeSimulation.updateStaticDefenses(0.25);
@@ -1333,8 +1333,8 @@ test("mortar turrets enforce minimum and maximum range", () => {
   const rangedMortar = rangedSimulation.addStructure("mortar_turret", "player", 300, 300, {
     powered: true,
   });
-  const validTarget = rangedSimulation.addUnit("raider", "enemy", 650, 300);
-  const outsideTarget = rangedSimulation.addUnit("raider", "enemy", 760, 300);
+  const validTarget = rangedSimulation.addUnit("scout_mech", "enemy", 650, 300);
+  const outsideTarget = rangedSimulation.addUnit("scout_mech", "enemy", 760, 300);
   const validStartingHp = validTarget.hp;
   const outsideStartingHp = outsideTarget.hp;
 
@@ -2502,7 +2502,7 @@ test("active low-energy units passively regenerate an emergency reserve", () => 
 test("emergency regeneration lets an energy-starved unit resume firing", () => {
   const simulation = new Simulation();
   const attacker = simulation.addUnit("scout_mech", "player", 100, 100, { energy: 1 });
-  const target = simulation.addUnit("raider", "enemy", 150, 100);
+  const target = simulation.addUnit("scout_mech", "enemy", 150, 100);
   const startingHp = target.hp;
   const recoveryTime =
     (UNIT_DEFINITIONS.scout_mech.attackEnergy - attacker.energy) /
@@ -2547,7 +2547,7 @@ test("attacking damages the target and spends the attacker's energy", () => {
   const attacker = simulation.addUnit("scout_mech", "player", 100, 100, {
     energy: startingEnergy,
   });
-  const target = simulation.addUnit("raider", "enemy", 150, 100);
+  const target = simulation.addUnit("scout_mech", "enemy", 150, 100);
   const startingHp = target.hp;
 
   assert.equal(simulation.commandAttack([attacker.id], target.id), 1);
@@ -2628,7 +2628,7 @@ test("mobile artillery trades a close-range dead zone for long-range fire", () =
 
   const closeSimulation = new Simulation({ enemyAiEnabled: false });
   const closeArtillery = closeSimulation.addUnit("mobile_artillery", "player", 300, 300);
-  const closeTarget = closeSimulation.addUnit("raider", "enemy", 410, 300);
+  const closeTarget = closeSimulation.addUnit("scout_mech", "enemy", 410, 300);
   const closeStartingHp = closeTarget.hp;
 
   assert.equal(closeSimulation.commandAttack([closeArtillery.id], closeTarget.id), 1);
@@ -2639,8 +2639,8 @@ test("mobile artillery trades a close-range dead zone for long-range fire", () =
 
   const rangedSimulation = new Simulation({ enemyAiEnabled: false });
   const rangedArtillery = rangedSimulation.addUnit("mobile_artillery", "player", 300, 300);
-  const closeDecoy = rangedSimulation.addUnit("raider", "enemy", 400, 300);
-  const validTarget = rangedSimulation.addUnit("raider", "enemy", 690, 300);
+  const closeDecoy = rangedSimulation.addUnit("scout_mech", "enemy", 400, 300);
+  const validTarget = rangedSimulation.addUnit("scout_mech", "enemy", 690, 300);
   const validStartingHp = validTarget.hp;
 
   rangedSimulation.assignAutomaticTargets();
@@ -2649,7 +2649,7 @@ test("mobile artillery trades a close-range dead zone for long-range fire", () =
   advanceToScheduledImpacts(rangedSimulation);
 
   assert.ok(validTarget.hp < validStartingHp);
-  assert.equal(closeDecoy.hp, UNIT_DEFINITIONS.raider.maxHp);
+  assert.equal(closeDecoy.hp, UNIT_DEFINITIONS.scout_mech.maxHp);
 });
 
 test("long-range projectile events remain visible until their delayed impact", () => {
@@ -2780,53 +2780,6 @@ test("flak turrets prioritize aircraft and apply their air damage bonus", () => 
       STRUCTURE_DEFINITIONS.flak_turret.attackDamage *
       STRUCTURE_DEFINITIONS.flak_turret.airDamageMultiplier,
   );
-});
-
-test("Raiders are fast harassment units that deal bonus damage to structures", () => {
-  const definition = UNIT_DEFINITIONS.raider;
-  const vanguard = UNIT_DEFINITIONS.scout_mech;
-
-  assert.ok(definition.speed > vanguard.speed);
-  assert.ok(definition.maxHp < vanguard.maxHp);
-  assert.ok(definition.movementEnergyPerUnit < vanguard.movementEnergyPerUnit);
-  assert.ok(
-    definition.attackDamage / definition.attackCooldown <
-      vanguard.attackDamage / vanguard.attackCooldown,
-  );
-  assert.ok(definition.structureDamageMultiplier > 1);
-
-  const unitSimulation = new Simulation();
-  const unitRaider = unitSimulation.addUnit("raider", "enemy", 100, 100);
-  const unitTarget = unitSimulation.addUnit("scout_mech", "player", 150, 100);
-  unitSimulation.commandAttack([unitRaider.id], unitTarget.id);
-  unitSimulation.tick(1 / 30);
-  advanceToScheduledImpacts(unitSimulation);
-  assert.equal(unitTarget.hp, vanguard.maxHp - definition.attackDamage);
-
-  const structureSimulation = new Simulation();
-  const structureRaider = structureSimulation.addUnit("raider", "enemy", 100, 100);
-  const structureTarget = structureSimulation.addStructure("generator", "player", 150, 100);
-  structureSimulation.commandAttack([structureRaider.id], structureTarget.id);
-  structureSimulation.tick(1 / 30);
-  advanceToScheduledImpacts(structureSimulation);
-  assert.equal(
-    structureTarget.hp,
-    STRUCTURE_DEFINITIONS.generator.maxHp -
-      definition.attackDamage * definition.structureDamageMultiplier,
-  );
-});
-
-test("Raiders automatically prioritize exposed infrastructure", () => {
-  const simulation = new Simulation();
-  const raider = simulation.addUnit("raider", "enemy", 100, 100);
-  simulation.addUnit("scout_mech", "player", 120, 100);
-  const generator = simulation.addStructure("generator", "player", 180, 100);
-  simulation.addStructure("sentry_turret", "player", 150, 100);
-
-  simulation.assignAutomaticTargets();
-
-  assert.equal(raider.attackTargetId, generator.id);
-  assert.equal(raider.attackTargetMode, "automatic");
 });
 
 test("Overdrive is restricted by unit capability and consumes energy", () => {
@@ -3006,7 +2959,6 @@ test("every unit type has the enlarged provisional energy capacity", () => {
       arsenal_colossus: 6000,
       hexapod_landship: 7800,
       zenith_doughnut: 7200,
-      raider: 1080,
     },
   );
 });
@@ -3256,7 +3208,7 @@ test("every mobile energy supplier carries a tier-improving defensive weapon", (
     const definition = UNIT_DEFINITIONS[supportType];
     const support = simulation.addUnit(supportType, "player", 100, 100);
     const target = simulation.addUnit(
-      "raider",
+      "scout_mech",
       "enemy",
       100 + Math.min(100, definition.attackRange - 10),
       100,
@@ -3272,7 +3224,7 @@ test("every mobile energy supplier carries a tier-improving defensive weapon", (
 
 test("destroyed units create finite reclaimable wreckage", () => {
   const simulation = new Simulation();
-  const unit = simulation.addUnit("raider", "enemy", 100, 100);
+  const unit = simulation.addUnit("scout_mech", "enemy", 100, 100);
 
   simulation.applyDamage(unit, unit.hp);
 
@@ -3280,7 +3232,7 @@ test("destroyed units create finite reclaimable wreckage", () => {
   assert.equal(simulation.wrecks.length, 1);
   assert.equal(
     simulation.wrecks[0].metal,
-    Math.round(UNIT_DEFINITIONS.raider.metalValue * SIMULATION_RULES.wreckSalvageRatio),
+    Math.round(UNIT_DEFINITIONS.scout_mech.metalValue * SIMULATION_RULES.wreckSalvageRatio),
   );
 });
 
@@ -3463,7 +3415,7 @@ test("a powered yard replaces a destroyed drone for free after a delay", () => {
 test("combat units automatically attack hostile units that enter weapon range", () => {
   const simulation = new Simulation();
   const playerUnit = simulation.addUnit("scout_mech", "player", 100, 100);
-  const enemyUnit = simulation.addUnit("raider", "enemy", 170, 100);
+  const enemyUnit = simulation.addUnit("scout_mech", "enemy", 170, 100);
   const enemyStartingHp = enemyUnit.hp;
 
   simulation.tick(1 / 30);
@@ -3493,7 +3445,7 @@ test("worker drones have weak, short-range defensive weapons", () => {
 
   const simulation = new Simulation();
   const worker = simulation.addUnit("worker_drone_t1", "player", 100, 100);
-  const nearbyEnemy = simulation.addUnit("raider", "enemy", 150, 100);
+  const nearbyEnemy = simulation.addUnit("scout_mech", "enemy", 150, 100);
   const startingHp = nearbyEnemy.hp;
   const startingEnergy = worker.energy;
 
@@ -3512,7 +3464,7 @@ test("worker drones do not target or retaliate while constructing", () => {
     complete: false,
     constructionProgress: 0,
   });
-  const aggressor = simulation.addUnit("raider", "enemy", 100, 140);
+  const aggressor = simulation.addUnit("scout_mech", "enemy", 100, 140);
   const aggressorStartingHp = aggressor.hp;
   simulation.commandBuild([worker.id], project.id);
 
@@ -3676,7 +3628,7 @@ test("player and enemy units pursue the hostile aggressor that damages them", ()
     const simulation = new Simulation();
     const attackingTeam = defendingTeam === "player" ? "enemy" : "player";
     const defender = simulation.addUnit("scout_mech", defendingTeam, 100, 100);
-    const aggressor = simulation.addUnit("raider", attackingTeam, 500, 100);
+    const aggressor = simulation.addUnit("scout_mech", attackingTeam, 500, 100);
     const startingX = defender.x;
 
     simulation.applyDamage(defender, 1, aggressor);
@@ -3695,7 +3647,7 @@ test("player and enemy units pursue the hostile aggressor that damages them", ()
 test("force-moving units do not abandon their order to retaliate", () => {
   const simulation = new Simulation();
   const defender = simulation.addUnit("scout_mech", "player", 100, 100);
-  const aggressor = simulation.addUnit("raider", "enemy", 500, 100);
+  const aggressor = simulation.addUnit("scout_mech", "enemy", 500, 100);
   simulation.commandMove([defender.id], 100, 500, { force: true });
 
   simulation.applyDamage(defender, 1, aggressor);
@@ -4045,7 +3997,7 @@ test("all units and structures provide a useful deterministic vision range", () 
 test("enemy contacts are hidden until they enter current friendly vision", () => {
   const simulation = new Simulation({ width: 1400, height: 800 });
   const scout = simulation.addUnit("scout_mech", "player", 100, 200);
-  const enemy = simulation.addUnit("raider", "enemy", 700, 200);
+  const enemy = simulation.addUnit("scout_mech", "enemy", 700, 200);
 
   assert.equal(simulation.isEntityVisibleToTeam("player", scout), true);
   assert.equal(simulation.isEntityVisibleToTeam("player", enemy), false);
@@ -4058,7 +4010,7 @@ test("powered radar arrays reveal long range and lose that coverage off-grid", (
   const simulation = new Simulation({ width: 1800, height: 800 });
   const generator = simulation.addStructure("generator", "player", 100, 300);
   const radar = simulation.addStructure("radar_tower", "player", 220, 300);
-  const enemy = simulation.addUnit("raider", "enemy", 1120, 300);
+  const enemy = simulation.addUnit("scout_mech", "enemy", 1120, 300);
 
   assert.equal(simulation.isEntityVisibleToTeam("player", enemy), false);
   simulation.tick(0.25);
@@ -4130,7 +4082,7 @@ test("Overseer orbital vision relocates without overlapping allied sight or othe
 
   const firstZones = structuredClone(spire.overseerZones);
   const revealedEnemy = simulation.addUnit(
-    "raider",
+    "scout_mech",
     "enemy",
     firstZones[0].x,
     firstZones[0].y,
@@ -4269,7 +4221,7 @@ test("enemy AI invests in radar after preserving its opening wave and garrison",
 test("direct attack commands cannot target unseen enemies", () => {
   const simulation = new Simulation({ width: 1400, height: 800 });
   const attacker = simulation.addUnit("assault_mech", "player", 100, 200);
-  const target = simulation.addUnit("raider", "enemy", 700, 200);
+  const target = simulation.addUnit("scout_mech", "enemy", 700, 200);
 
   assert.equal(simulation.commandAttack([attacker.id], target.id, { requireVision: true }), 0);
   assert.equal(attacker.attackTargetId, null);
@@ -4496,7 +4448,6 @@ test("unit roles and tiers reserve different provisional supply amounts", () => 
       arsenal_colossus: 70,
       hexapod_landship: 120,
       zenith_doughnut: 95,
-      raider: 4,
     },
   );
 });
@@ -4758,7 +4709,7 @@ test("newly produced combat units engage threats while rallying", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 300);
   const factory = simulation.addStructure("mech_factory_t1", "player", 220, 300);
-  const enemy = simulation.addUnit("raider", "enemy", 405, 300);
+  const enemy = simulation.addUnit("assault_mech", "enemy", 405, 300);
   const enemyStartingHp = enemy.hp;
 
   assert.equal(simulation.commandRally(factory.id, 700, 300), true);
@@ -4959,7 +4910,7 @@ test("powered sentry turrets automatically defend against nearby enemies", () =>
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);
   const turret = simulation.addStructure("sentry_turret", "player", 220, 100);
-  const enemy = simulation.addUnit("raider", "enemy", 300, 100);
+  const enemy = simulation.addUnit("scout_mech", "enemy", 300, 100);
   const startingHp = enemy.hp;
 
   simulation.tick(0.25);
@@ -4992,7 +4943,7 @@ test("a sentry capacitor charges from live generator output and fires without a 
   const turret = simulation.addStructure("sentry_turret", "player", 220, 100, {
     weaponEnergy: 0,
   });
-  const enemy = simulation.addUnit("raider", "enemy", 300, 100);
+  const enemy = simulation.addUnit("scout_mech", "enemy", 300, 100);
   const startingHp = enemy.hp;
 
   advance(simulation, 0.6, 1 / 30);
@@ -5090,7 +5041,7 @@ test("Shield Turret upgrades retain existing strength and regenerate the added c
 test("higher-tier Shield Turrets protect targets beyond the Tier 1 field", () => {
   const tierOneSimulation = new Simulation();
   tierOneSimulation.addStructure("shield_turret", "player", 300, 300, { powered: true });
-  const exposedUnit = tierOneSimulation.addUnit("raider", "player", 600, 300);
+  const exposedUnit = tierOneSimulation.addUnit("scout_mech", "player", 600, 300);
   const exposedHp = exposedUnit.hp;
   tierOneSimulation.applyDamage(exposedUnit, 20);
   assert.equal(exposedUnit.hp, exposedHp - 20);
@@ -5103,7 +5054,7 @@ test("higher-tier Shield Turrets protect targets beyond the Tier 1 field", () =>
     300,
     { powered: true },
   );
-  const protectedUnit = tierTwoSimulation.addUnit("raider", "player", 600, 300);
+  const protectedUnit = tierTwoSimulation.addUnit("scout_mech", "player", 600, 300);
   const protectedHp = protectedUnit.hp;
   tierTwoSimulation.applyDamage(protectedUnit, 20);
 
@@ -5120,8 +5071,8 @@ test("a powered Shield Turret absorbs hits inside its field and spills excess da
   const shield = simulation.addStructure("shield_turret", "player", 220, 100, {
     shieldStrength: 30,
   });
-  const protectedUnit = simulation.addUnit("raider", "player", 340, 100);
-  const attacker = simulation.addUnit("raider", "enemy", 500, 100);
+  const protectedUnit = simulation.addUnit("scout_mech", "player", 340, 100);
+  const attacker = simulation.addUnit("scout_mech", "enemy", 500, 100);
   const startingHp = protectedUnit.hp;
   simulation.refreshPowerState(0.25);
 
@@ -5154,7 +5105,7 @@ test("Shield Turrets do not intercept attacks outside their field or while unpow
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);
   const shield = simulation.addStructure("shield_turret", "player", 220, 100);
-  const distantUnit = simulation.addUnit("raider", "player", 500, 100);
+  const distantUnit = simulation.addUnit("scout_mech", "player", 500, 100);
   const startingDistantHp = distantUnit.hp;
   simulation.refreshPowerState(0.25);
 
@@ -5164,7 +5115,7 @@ test("Shield Turrets do not intercept attacks outside their field or while unpow
 
   const isolated = new Simulation();
   const unpoweredShield = isolated.addStructure("shield_turret", "player", 220, 100);
-  const nearbyUnit = isolated.addUnit("raider", "player", 300, 100);
+  const nearbyUnit = isolated.addUnit("scout_mech", "player", 300, 100);
   const startingNearbyHp = nearbyUnit.hp;
   isolated.refreshPowerState(0.25);
   isolated.applyDamage(nearbyUnit, 25);
@@ -7448,7 +7399,7 @@ test("mortar shells travel faster and keep tracking moving targets", () => {
   const mortar = simulation.addStructure("mortar_turret", "player", 300, 300, {
     powered: true,
   });
-  const target = simulation.addUnit("raider", "enemy", 650, 300);
+  const target = simulation.addUnit("scout_mech", "enemy", 650, 300);
   const startingHp = target.hp;
 
   simulation.updateStaticDefenses(1 / 30);
