@@ -28,10 +28,10 @@ this catalog is out of date.
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that unit command authorization accepts the complete simulated army.
 
-<!-- test-catalog-entry: ["test/bootstrap.test.js","Dropship controls expose explicit, balanced, and unload command paths"] -->
-### 4. Dropship controls expose explicit, balanced, and unload command paths
+<!-- test-catalog-entry: ["test/bootstrap.test.js","Dropship controls appear only for Dropship selections"] -->
+### 4. Dropship controls appear only for Dropship selections
 
-**What it checks:** Inspects the browser entry point and interface wiring to confirm that Dropship controls expose explicit, balanced, and unload command paths.
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that Dropship controls appear only for Dropship selections.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the battlefield, minimap, effects, and targeting share fog visibility"] -->
 ### 5. the battlefield, minimap, effects, and targeting share fog visibility

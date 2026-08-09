@@ -874,6 +874,10 @@ canvas {
   margin-top: 8px;
 }
 
+.command-grid[hidden] {
+  display: none;
+}
+
 .build-tier-list {
   display: flex;
   flex-direction: column;

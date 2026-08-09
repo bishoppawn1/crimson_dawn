@@ -641,7 +641,9 @@ energy, be selected, or be targeted, and remain at their current integrity and e
 until deployed. Selecting one or more Dropships and pressing `U` attempts to unload
 all cargo into deterministic clear ground positions around each aircraft. A unit
 remains aboard if terrain, structures, map edges, and deployed ground units leave no
-valid nearby position. If a Dropship is destroyed, every unit aboard is destroyed
+valid nearby position. Dropship transport commands, including `U · Drop All`, appear
+only while the current unit selection contains at least one Dropship. If a Dropship
+is destroyed, every unit aboard is destroyed
 with it and produces ordinary salvage at the crash position.
 
 #### Experimental Factory roster

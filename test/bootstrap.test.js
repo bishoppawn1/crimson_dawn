@@ -66,15 +66,22 @@ test("unit command authorization accepts the complete simulated army", async () 
   assert.doesNotMatch(authorization[0], /command\.orders\.slice\(0, 200\)/);
 });
 
-test("Dropship controls expose explicit, balanced, and unload command paths", async () => {
-  const [index, game] = await Promise.all([
+test("Dropship controls appear only for Dropship selections", async () => {
+  const [index, game, styles] = await Promise.all([
     source("../index.html"),
     source("../src/game.js"),
+    source("../styles.css"),
   ]);
 
+  assert.match(index, /id="transport-commands" class="command-grid" hidden/);
   assert.match(index, /id="transport-load-button"[^>]*>[\s\S]*?F · Fill One/);
   assert.match(index, /id="transport-fill-button"[^>]*>[\s\S]*?L · Fill All/);
   assert.match(index, /id="transport-drop-button"[^>]*>[\s\S]*?U · Drop All/);
+  assert.match(
+    game,
+    /const selectedTransportUnits = selectedUnits\.filter\([\s\S]*?transportCapacity[\s\S]*?transportCommands\.hidden = matchEnded \|\| selectedTransportUnits\.length === 0/,
+  );
+  assert.match(styles, /\.command-grid\[hidden\]\s*\{\s*display: none;/);
   assert.match(game, /case "load"/);
   assert.match(game, /case "fill_transports"/);
   assert.match(game, /case "unload_transports"/);
