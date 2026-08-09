@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 314
+**Automated tests documented:** 317
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -28,68 +28,73 @@ this catalog is out of date.
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that unit command authorization accepts the complete simulated army.
 
+<!-- test-catalog-entry: ["test/bootstrap.test.js","double-click selection uses exact unit type without crossing tiers"] -->
+### 4. double-click selection uses exact unit type without crossing tiers
+
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that double-click selection uses exact unit type without crossing tiers.
+
 <!-- test-catalog-entry: ["test/bootstrap.test.js","Dropship controls appear only for Dropship selections"] -->
-### 4. Dropship controls appear only for Dropship selections
+### 5. Dropship controls appear only for Dropship selections
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that Dropship controls appear only for Dropship selections.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the battlefield, minimap, effects, and targeting share fog visibility"] -->
-### 5. the battlefield, minimap, effects, and targeting share fog visibility
+### 6. the battlefield, minimap, effects, and targeting share fog visibility
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the battlefield, minimap, effects, and targeting share fog visibility.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","fog masks batch large-army vision circles into one fill operation"] -->
-### 6. fog masks batch large-army vision circles into one fill operation
+### 7. fog masks batch large-army vision circles into one fill operation
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that fog masks batch large-army vision circles into one fill operation.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","completed Shield Turrets always render their cyan shield-strength bar"] -->
-### 7. completed Shield Turrets always render their cyan shield-strength bar
+### 8. completed Shield Turrets always render their cyan shield-strength bar
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that completed Shield Turrets always render their cyan shield-strength bar.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the Hexapod renderer uses an elongated hull, tri-claw feet, and armored turrets"] -->
-### 8. the Hexapod renderer uses an elongated hull, tri-claw feet, and armored turrets
+### 9. the Hexapod renderer uses an elongated hull, tri-claw feet, and armored turrets
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the Hexapod renderer uses an elongated hull, tri-claw feet, and armored turrets.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the Zenith Doughnut renderer shows two dorsal anti-air batteries"] -->
-### 9. the Zenith Doughnut renderer shows two dorsal anti-air batteries
+### 10. the Zenith Doughnut renderer shows two dorsal anti-air batteries
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the Zenith Doughnut renderer shows two dorsal anti-air batteries.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","higher-tier armed sprites render their data-driven weapon attachments"] -->
-### 10. higher-tier armed sprites render their data-driven weapon attachments
+### 11. higher-tier armed sprites render their data-driven weapon attachments
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that higher-tier armed sprites render their data-driven weapon attachments.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","right-clicking an active friendly factory sends selected workers to assist production"] -->
-### 11. right-clicking an active friendly factory sends selected workers to assist production
+### 12. right-clicking an active friendly factory sends selected workers to assist production
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that right-clicking an active friendly factory sends selected workers to assist production.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","worker controls upgrade one tier and keep only one construction tier open"] -->
-### 12. worker controls upgrade one tier and keep only one construction tier open
+### 13. worker controls upgrade one tier and keep only one construction tier open
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that worker controls upgrade one tier and keep only one construction tier open.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the interface and battlefield present the economy as crimson crystal"] -->
-### 13. the interface and battlefield present the economy as crimson crystal
+### 14. the interface and battlefield present the economy as crimson crystal
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the interface and battlefield present the economy as crimson crystal.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","production controls disclose ground damage penalties"] -->
-### 14. production controls disclose ground damage penalties
+### 15. production controls disclose ground damage penalties
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that production controls disclose ground damage penalties.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","unit selection is concise and uses one compact shared construction queue"] -->
-### 15. unit selection is concise and uses one compact shared construction queue
+### 16. unit selection is concise and uses one compact shared construction queue
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that unit selection is concise and uses one compact shared construction queue.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","match setup exposes per-AI difficulty and team assignment controls"] -->
-### 16. match setup exposes per-AI difficulty and team assignment controls
+### 17. match setup exposes per-AI difficulty and team assignment controls
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that match setup exposes per-AI difficulty and team assignment controls.
 
@@ -225,6 +230,18 @@ this catalog is out of date.
 ### 4. a shared worker construction queue lists each foundation only once
 
 **What it checks:** Builds queue status summaries to confirm that a shared worker construction queue lists each foundation only once.
+
+## [test/selection.test.js](test/selection.test.js)
+
+<!-- test-catalog-entry: ["test/selection.test.js","exact-type selection excludes other tiers, teams, cargo, and destroyed units"] -->
+### 1. exact-type selection excludes other tiers, teams, cargo, and destroyed units
+
+**What it checks:** Runs the automated suite to confirm that exact-type selection excludes other tiers, teams, cargo, and destroyed units.
+
+<!-- test-catalog-entry: ["test/selection.test.js","exact-type selection rejects incomplete requests"] -->
+### 2. exact-type selection rejects incomplete requests
+
+**What it checks:** Runs the automated suite to confirm that exact-type selection rejects incomplete requests.
 
 ## [test/simulation-clock.test.js](test/simulation-clock.test.js)
 

@@ -21,6 +21,7 @@ const {
   normalizeAiDifficulty,
 } = await import(`./maps.js${versionSuffix}`);
 const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix}`);
+const { selectableUnitIdsByExactType } = await import(`./selection.js${versionSuffix}`);
 const { FixedStepSimulationClock } = await import(`./simulation-clock.js${versionSuffix}`);
 const {
   createMultiplayerMotionUpdate,
@@ -7352,6 +7353,29 @@ canvas.addEventListener("mouseup", (event) => {
       selectedUnitIds.clear();
     }
   }
+  updateInterface();
+});
+
+canvas.addEventListener("dblclick", (event) => {
+  if (
+    simulation.matchResult ||
+    event.button !== 0 ||
+    testerSpawnPlacement ||
+    placementStructureType
+  ) return;
+  event.preventDefault();
+  pointerScreen = canvasScreenPoint(event);
+  if (minimapContains(currentMinimapLayout(), pointerScreen)) return;
+
+  const unit = findUnitAt(screenToWorld(pointerScreen), localTeam);
+  if (!unit) return;
+  const matchingUnitIds = selectableUnitIdsByExactType(simulation.units, {
+    team: localTeam,
+    type: unit.type,
+  });
+  if (!event.shiftKey) selectedUnitIds.clear();
+  for (const unitId of matchingUnitIds) selectedUnitIds.add(unitId);
+  selectStructures([]);
   updateInterface();
 });
 

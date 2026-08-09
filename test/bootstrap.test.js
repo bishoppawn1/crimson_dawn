@@ -67,6 +67,20 @@ test("unit command authorization accepts the complete simulated army", async () 
   assert.doesNotMatch(authorization[0], /command\.orders\.slice\(0, 200\)/);
 });
 
+test("double-click selection uses exact unit type without crossing tiers", async () => {
+  const [index, game] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+  ]);
+
+  assert.match(game, /`\.\/selection\.js\$\{versionSuffix\}`/);
+  assert.match(game, /canvas\.addEventListener\("dblclick"/);
+  assert.match(game, /selectableUnitIdsByExactType\(simulation\.units/);
+  assert.match(game, /type: unit\.type/);
+  assert.match(game, /if \(!event\.shiftKey\) selectedUnitIds\.clear\(\)/);
+  assert.match(index, /Double-click a unit to select every deployed unit of that exact type and tier/);
+});
+
 test("Dropship controls appear only for Dropship selections", async () => {
   const [index, game, styles] = await Promise.all([
     source("../index.html"),
