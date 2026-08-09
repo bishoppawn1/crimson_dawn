@@ -2516,9 +2516,9 @@ test("heavy unit projectiles deal no damage before their visible impact", () => 
 
 test("mobile artillery trades a close-range dead zone for long-range fire", () => {
   const tiers = [
-    ["battle_tank", "mobile_artillery", 160, 400],
-    ["battle_tank_t2", "mobile_artillery_t2", 180, 480],
-    ["battle_tank_t3", "mobile_artillery_t3", 200, 560],
+    ["battle_tank", "mobile_artillery", 120, 400],
+    ["battle_tank_t2", "mobile_artillery_t2", 140, 480],
+    ["battle_tank_t3", "mobile_artillery_t3", 160, 560],
   ];
 
   for (const [tankType, artilleryType, minimumRange, maximumRange] of tiers) {
@@ -2526,7 +2526,7 @@ test("mobile artillery trades a close-range dead zone for long-range fire", () =
     const artillery = UNIT_DEFINITIONS[artilleryType];
     assert.equal(artillery.minimumAttackRange, minimumRange);
     assert.equal(artillery.attackRange, maximumRange);
-    assert.ok(artillery.minimumAttackRange > tank.attackRange);
+    assert.ok(artillery.minimumAttackRange < tank.attackRange);
     assert.ok(tank.maxHp > artillery.maxHp * 2);
     assert.ok(
       tank.attackDamage / tank.attackCooldown >
@@ -2536,7 +2536,7 @@ test("mobile artillery trades a close-range dead zone for long-range fire", () =
 
   const closeSimulation = new Simulation({ enemyAiEnabled: false });
   const closeArtillery = closeSimulation.addUnit("mobile_artillery", "player", 300, 300);
-  const closeTarget = closeSimulation.addUnit("raider", "enemy", 450, 300);
+  const closeTarget = closeSimulation.addUnit("raider", "enemy", 410, 300);
   const closeStartingHp = closeTarget.hp;
 
   assert.equal(closeSimulation.commandAttack([closeArtillery.id], closeTarget.id), 1);
@@ -2547,7 +2547,7 @@ test("mobile artillery trades a close-range dead zone for long-range fire", () =
 
   const rangedSimulation = new Simulation({ enemyAiEnabled: false });
   const rangedArtillery = rangedSimulation.addUnit("mobile_artillery", "player", 300, 300);
-  const closeDecoy = rangedSimulation.addUnit("raider", "enemy", 450, 300);
+  const closeDecoy = rangedSimulation.addUnit("raider", "enemy", 400, 300);
   const validTarget = rangedSimulation.addUnit("raider", "enemy", 690, 300);
   const validStartingHp = validTarget.hp;
 
