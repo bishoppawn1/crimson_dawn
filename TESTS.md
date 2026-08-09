@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 318
+**Automated tests documented:** 320
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -97,6 +97,18 @@ this catalog is out of date.
 ### 17. match setup exposes per-AI difficulty and team assignment controls
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that match setup exposes per-AI difficulty and team assignment controls.
+
+## [test/command-indicators.test.js](test/command-indicators.test.js)
+
+<!-- test-catalog-entry: ["test/command-indicators.test.js","movement indicators include active and Shift-queued destinations immediately"] -->
+### 1. movement indicators include active and Shift-queued destinations immediately
+
+**What it checks:** Runs the automated suite to confirm that movement indicators include active and Shift-queued destinations immediately.
+
+<!-- test-catalog-entry: ["test/command-indicators.test.js","movement indicators are empty without an active move order"] -->
+### 2. movement indicators are empty without an active move order
+
+**What it checks:** Runs the automated suite to confirm that movement indicators are empty without an active move order.
 
 ## [test/determinism.test.js](test/determinism.test.js)
 

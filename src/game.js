@@ -40,6 +40,9 @@ const {
 const { describeProductionQueue, describeSharedConstructionQueue } = await import(
   `./queue-status.js${versionSuffix}`
 );
+const { movementOrderDestinations } = await import(
+  `./command-indicators.js${versionSuffix}`
+);
 const {
   calculateMinimapLayout,
   minimapContains,
@@ -2904,14 +2907,21 @@ function drawCommandIndicators() {
       context.stroke();
       context.restore();
     }
-    if (unit.moveTarget) {
+    const movementDestinations = movementOrderDestinations(unit);
+    if (movementDestinations.length > 0) {
+      context.save();
       context.strokeStyle = `${colors.selection}45`;
       context.lineWidth = 1;
       context.beginPath();
       context.moveTo(unitPosition.x, unitPosition.y);
-      context.lineTo(unit.moveTarget.x, unit.moveTarget.y);
+      for (const destination of movementDestinations) {
+        context.lineTo(destination.x, destination.y);
+      }
       context.stroke();
-      drawDestination(unit.moveTarget.x, unit.moveTarget.y, colors.selection);
+      context.restore();
+      for (const destination of movementDestinations) {
+        drawDestination(destination.x, destination.y, colors.selection);
+      }
     }
     const indicatedTargets = new Map();
     const primaryTarget = simulation.getEntity(unit.attackTargetId);

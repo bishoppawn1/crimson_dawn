@@ -434,6 +434,8 @@ movement queues; each waypoint starts after the previous one is reached. A non-S
 move replaces the active destination and clears the queued waypoints. A force move,
 armed with `G`
 before right-clicking, ignores enemies until the units reach their destination.
+Selecting a unit with a movement queue immediately displays its complete connected
+route and every destination marker, including waypoints it has not reached yet.
 Direct attack commands still pursue their chosen target, stopping once they enter
 weapon range before firing.
 
