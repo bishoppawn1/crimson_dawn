@@ -27,8 +27,8 @@ export const SPAWN_WARS_RULES = Object.freeze({
   padUpgradeHeavyRoleMultiplier: 1.15,
   padUpgradeLevelCostGrowth: 0.2,
   architectUpgradeCosts: Object.freeze([100, 200]),
-  incomeUpgradeBaseCost: 125,
-  incomeUpgradeCostGrowth: 25,
+  incomeUpgradeBaseCost: 150,
+  incomeUpgradeCostGrowth: 50,
   incomeUpgradeMultiplier: 0.35,
 });
 

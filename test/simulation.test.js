@@ -183,7 +183,7 @@ test("Spawn Wars platforms and repeated upgrades use the discounted economy", ()
   assert.deepEqual(SPAWN_WARS_RULES.architectUpgradeCosts, [100, 200]);
   assert.deepEqual(
     [0, 1, 2, 10, 100].map(spawnWarsIncomeUpgradeCost),
-    [125, 150, 175, 375, 2_625],
+    [150, 200, 250, 650, 5_150],
   );
   assert.equal(spawnWarsPadCost(vanguard), 43);
   assert.equal(spawnWarsPadCost(bulwark), 70);
