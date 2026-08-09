@@ -3,6 +3,16 @@ const INNER_PADDING = 10;
 const HEADER_HEIGHT = 26;
 const MAX_MAP_WIDTH = 240;
 const MAX_MAP_HEIGHT = 160;
+const REGULAR_DEPOSIT_MARKER = Object.freeze({
+  fill: "#ff2445",
+  stroke: "#ff9aaa",
+  radius: 3,
+});
+const RICH_DEPOSIT_MARKER = Object.freeze({
+  fill: "#ff4962",
+  stroke: "#ffe4e8",
+  radius: 4,
+});
 
 export function calculateMinimapLayout(canvasWidth, canvasHeight, worldWidth, worldHeight) {
   if (
@@ -47,6 +57,10 @@ export function minimapPoint(layout, worldX, worldY) {
     x: layout.mapLeft + worldX * layout.scale,
     y: layout.mapTop + worldY * layout.scale,
   };
+}
+
+export function minimapDepositMarkerStyle(deposit) {
+  return deposit?.rich ? RICH_DEPOSIT_MARKER : REGULAR_DEPOSIT_MARKER;
 }
 
 export function minimapViewport(layout, worldBounds) {

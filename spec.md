@@ -57,6 +57,9 @@ layouts remain provisional for balance testing.
 
 A compact tactical minimap occupies the top-right corner of the battlefield. It
 always shows the complete terrain and deposit layout at a fixed overview scale.
+Every unoccupied crystal deposit is drawn as a bright-red diamond above the minimap
+fog, with rich deposits using a larger, lighter scarlet marker; an occupied deposit
+defers to its harvester marker.
 Friendly contacts and currently visible opposing contacts use their team colors as
 compact dots, while opposing contacts outside current vision are hidden. The current
 camera view appears as a white rectangle. Left-clicking the minimap recenters the battlefield camera.

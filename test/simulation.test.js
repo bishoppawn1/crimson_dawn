@@ -35,6 +35,7 @@ import {
 import {
   calculateMinimapLayout,
   minimapContains,
+  minimapDepositMarkerStyle,
   minimapPoint,
   minimapViewport,
   minimapWorldPoint,
@@ -5877,4 +5878,17 @@ test("snapshots preserve multi-AI teams, starts, maps, and decision state", () =
   assert.equal(restored.mapId, host.mapId);
   assert.equal(restored.mapName, host.mapName);
   assert.equal(Object.keys(restored.resources).length, 5);
+});
+
+test("tactical minimap crystal markers use bright fog-independent colors", () => {
+  assert.deepEqual(minimapDepositMarkerStyle({ rich: false }), {
+    fill: "#ff2445",
+    stroke: "#ff9aaa",
+    radius: 3,
+  });
+  assert.deepEqual(minimapDepositMarkerStyle({ rich: true }), {
+    fill: "#ff4962",
+    stroke: "#ffe4e8",
+    radius: 4,
+  });
 });

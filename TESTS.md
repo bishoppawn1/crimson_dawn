@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 283
+**Automated tests documented:** 284
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -1409,6 +1409,11 @@ this catalog is out of date.
 ### 242. snapshots preserve multi-AI teams, starts, maps, and decision state
 
 **What it checks:** Runs the deterministic game simulation to confirm that snapshots preserve multi-AI teams, starts, maps, and decision state.
+
+<!-- test-catalog-entry: ["test/simulation.test.js","tactical minimap crystal markers use bright fog-independent colors"] -->
+### 243. tactical minimap crystal markers use bright fog-independent colors
+
+**What it checks:** Runs the deterministic game simulation to confirm that tactical minimap crystal markers use bright fog-independent colors.
 
 ## [test/strategic-view.test.js](test/strategic-view.test.js)
 

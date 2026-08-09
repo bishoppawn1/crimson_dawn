@@ -41,6 +41,7 @@ const { describeConstructionQueue, describeProductionQueue } = await import(
 const {
   calculateMinimapLayout,
   minimapContains,
+  minimapDepositMarkerStyle,
   minimapPoint,
   minimapViewport,
   minimapWorldPoint,
@@ -2207,17 +2208,6 @@ function drawMinimap() {
     );
   }
 
-  for (const deposit of simulation.metalDeposits) {
-    const point = minimapPoint(layout, deposit.x, deposit.y);
-    context.fillStyle = deposit.rich ? "#ff7b8c" : "#d83452";
-    context.shadowColor = deposit.rich ? "#ff8b99" : "#c91f3f";
-    context.shadowBlur = deposit.rich ? 7 : 4;
-    context.beginPath();
-    context.arc(point.x, point.y, deposit.rich ? 3 : 2, 0, Math.PI * 2);
-    context.fill();
-    context.shadowBlur = 0;
-  }
-
   const minimapFogWidth = Math.max(1, Math.ceil(layout.mapWidth));
   const minimapFogHeight = Math.max(1, Math.ceil(layout.mapHeight));
   if (
@@ -2247,6 +2237,7 @@ function drawMinimap() {
   }
   minimapFogContext.globalCompositeOperation = "source-over";
   context.drawImage(minimapFogCanvas, layout.mapLeft, layout.mapTop);
+  drawMinimapCrystalDeposits(layout);
 
   for (const structure of simulation.structures) {
     if (!structure.alive || !entityIsVisibleToLocalTeam(structure)) continue;
@@ -2280,6 +2271,26 @@ function drawMinimap() {
   context.lineWidth = 2;
   context.strokeRect(viewport.left, viewport.top, viewport.width, viewport.height);
   context.restore();
+}
+
+function drawMinimapCrystalDeposits(layout) {
+  const occupiedIds = occupiedCrystalDepositIds();
+  for (const deposit of simulation.metalDeposits) {
+    if (occupiedIds.has(deposit.id)) continue;
+    const point = minimapPoint(layout, deposit.x, deposit.y);
+    const marker = minimapDepositMarkerStyle(deposit);
+    context.fillStyle = marker.fill;
+    context.strokeStyle = marker.stroke;
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(point.x, point.y - marker.radius);
+    context.lineTo(point.x + marker.radius, point.y);
+    context.lineTo(point.x, point.y + marker.radius);
+    context.lineTo(point.x - marker.radius, point.y);
+    context.closePath();
+    context.fill();
+    context.stroke();
+  }
 }
 
 function drawTerrain(reducedDetail = false) {

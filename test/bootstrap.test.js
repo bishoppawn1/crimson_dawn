@@ -96,6 +96,10 @@ test("the battlefield, minimap, effects, and targeting share fog visibility", as
   assert.match(game, /fogContext\.globalCompositeOperation = "destination-out"/);
   assert.match(game, /context\.drawImage\(fogCanvas, 0, 0\)/);
   assert.match(game, /minimapFogContext\.globalCompositeOperation = "destination-out"/);
+  assert.match(
+    game,
+    /context\.drawImage\(minimapFogCanvas, layout\.mapLeft, layout\.mapTop\);\s*drawMinimapCrystalDeposits\(layout\)/,
+  );
   assert.match(game, /entityIsVisibleToLocalTeam\(structure\)/);
   assert.match(game, /pointIsVisibleToLocalTeam\(event\.x, event\.y, 20\)/);
   assert.match(game, /findEnemyAt[\s\S]*entityIsVisibleToLocalTeam\(entity\)/);
