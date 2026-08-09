@@ -5736,6 +5736,89 @@ test("an eight-player match gives every commander the standard starting package"
   }
 });
 
+test("match teams preserve per-AI difficulty and player-selected alliances", () => {
+  const teams = createMatchTeams(4, [
+    { allianceId: "alpha" },
+    { allianceId: "alpha", difficulty: "easy" },
+    { allianceId: "beta", difficulty: "hard" },
+    { allianceId: "beta", difficulty: "invalid" },
+  ]);
+
+  assert.deepEqual(teams.map((team) => team.allianceId), ["alpha", "alpha", "beta", "beta"]);
+  assert.deepEqual(teams.slice(1).map((team) => team.difficulty), ["easy", "hard", "medium"]);
+
+  const duelTeams = createMatchTeams(2, [
+    { allianceId: "same" },
+    { allianceId: "same", difficulty: "hard" },
+  ]);
+  assert.deepEqual(duelTeams.map((team) => team.allianceId), ["team-1", "team-2"]);
+});
+
+test("AI difficulty changes deterministic decision cadence and attack preparation", () => {
+  const simulation = new Simulation({
+    teams: createMatchTeams(4, [
+      {},
+      { difficulty: "easy" },
+      { difficulty: "medium" },
+      { difficulty: "hard" },
+    ]),
+  });
+  const aiTeams = simulation.teams.filter((team) => team.kind === "ai");
+  for (const team of aiTeams) {
+    simulation.aiStates[team.id].thinkRemaining = 0;
+    simulation.updateAiTeam(team.id, 0);
+  }
+
+  assert.deepEqual(
+    aiTeams.map((team) => simulation.aiStates[team.id].thinkRemaining),
+    [1.8, 1, 0.55],
+  );
+  assert.deepEqual(aiTeams.map((team) => simulation.getEnemyAttackWaveSize(team.id)), [5, 3, 3]);
+});
+
+test("allied commanders share vision, reject friendly fire, and win together", () => {
+  const teams = createMatchTeams(3, [
+    { allianceId: "allies" },
+    { allianceId: "allies", difficulty: "medium" },
+    { allianceId: "opposition", difficulty: "medium" },
+  ]);
+  const simulation = new Simulation({ teams, matchRulesEnabled: true, enemyAiEnabled: false });
+  const playerUnit = simulation.addUnit("scout_mech", "player", 100, 100);
+  const alliedUnit = simulation.addUnit("scout_mech", "enemy", 130, 100);
+  const hostileUnit = simulation.addUnit("scout_mech", "enemy-2", 180, 100);
+
+  assert.equal(simulation.isEntityVisibleToTeam("player", alliedUnit), true);
+  assert.equal(simulation.commandAttack([playerUnit.id], alliedUnit.id), 0);
+  const alliedHp = alliedUnit.hp;
+  simulation.applyDamage(alliedUnit, 25, playerUnit);
+  assert.equal(alliedUnit.hp, alliedHp);
+
+  simulation.assignAutomaticTargets();
+  assert.equal(playerUnit.attackTargetId, hostileUnit.id);
+  assert.equal(simulation.updateMatchResult(), null);
+
+  simulation.applyDamage(hostileUnit, hostileUnit.hp, playerUnit);
+  simulation.tick(1 / 30);
+  assert.equal(simulation.matchResult, "victory");
+  assert.equal(alliedUnit.alive, true);
+});
+
+test("snapshots preserve AI difficulties and commander alliances", () => {
+  const original = Simulation.createFieldTest({
+    playerCount: 3,
+    commanderOptions: [
+      { allianceId: "blue" },
+      { allianceId: "blue", difficulty: "easy" },
+      { allianceId: "red", difficulty: "hard" },
+    ],
+  });
+  const restored = Simulation.fromSnapshot(original.createSnapshot());
+
+  assert.deepEqual(restored.teams, original.teams);
+  assert.equal(restored.getAllianceId("enemy"), "blue");
+  assert.equal(restored.getTeam("enemy-2").difficulty, "hard");
+});
+
 test("every AI commander makes decisions with independent state and resources", () => {
   const simulation = Simulation.createFieldTest({ playerCount: 4 });
   for (const team of simulation.teams.filter((candidate) => candidate.kind === "ai")) {

@@ -948,15 +948,16 @@ military.
 
 ### 5.5 Match End and Restart
 
-A player wins when every AI opponent has no living units and no living buildings.
-The same elimination rule causes defeat when the player has no living units and no
-living buildings, even if multiple AI commanders remain. Active, stasis, and
-unfinished entities count while they remain alive; wrecks and reclamation drones do
-not postpone elimination. Destroying a commander's Headquarters immediately destroys
-all of that commander's remaining units, reclamation drones, completed structures,
-and foundations; normal match resolution then checks the surviving commanders without
-waiting for another simulation tick. If the human and final AI opponent are eliminated by the
-same resolution, the player receives a defeat.
+A player wins when the only commanders with living units or buildings belong to the
+player's selected team. The same rule causes defeat when only an opposing team has
+living assets. Active, stasis, and unfinished entities count while they remain
+alive; wrecks and reclamation drones do not postpone elimination. Destroying a
+commander's Headquarters immediately destroys all of that commander's remaining
+units, reclamation drones, completed structures, and foundations; allies remain in
+the match and can still win for their shared team. Normal match resolution then
+checks the surviving teams without waiting for another simulation tick. If the
+player's team and final opposing team are eliminated by the same resolution, the
+player receives a defeat.
 
 The simulation stops advancing once the result is decided. The battlefield displays
 `You win.` or `You lose.` with an explanation and a restart button. Restarting creates
@@ -1035,12 +1036,25 @@ producing units, maintaining defenses, supplying unit energy,
 fighting, and reclaiming wreckage. It uses the same simulation commands and pays
 the same costs; it does not receive hidden free units or buildings.
 
-In matches with multiple AI opponents, each AI is a separate free-for-all
-commander. It owns independent crystal, power, supply, technology unlocks, workers,
-production queues, expansion choices, strategic decision state, and decision timing.
-AI commanders may attack one another as well as the human, claim any currently
-unused deposit, and are subject to the same placement and occupancy checks. They do
-not share resources, vision-derived decisions, construction projects, or armies.
+In matches with multiple AI opponents, each AI remains a separate commander. It
+owns independent crystal, power, supply, technology unlocks, workers, production
+queues, expansion choices, strategic decision state, and decision timing. By
+default every commander is assigned to a different team. When three or more total
+commanders are selected, the player may instead assign any human or AI commanders
+to the same team. Teammates are non-hostile, share fog-of-war vision and victory,
+and are included as friendly strength in AI construction decisions. They do not
+share resources, power grids, direct unit control, construction projects, or
+armies. Commanders on different teams may attack one another, claim any currently
+unused deposit, and are subject to the same placement and occupancy checks.
+
+Every AI has an independently selected Easy, Medium, or Hard difficulty, with
+Medium as the default. Difficulty never grants free crystal, energy, units,
+buildings, faster construction, extra weapon damage, or other hidden rule
+exceptions. It changes deterministic command cadence and attack preparation:
+Easy reevaluates every 1.8 seconds and waits for a five-unit ordinary assault wave,
+Medium preserves the one-second cadence and three-unit wave, and Hard reevaluates
+every 0.55 seconds while retaining the three-unit wave. The initial think delay
+matches the selected cadence. These values remain provisional tuning.
 
 The AI reassigns an available worker to an unfinished enemy foundation when its
 original builder is destroyed or otherwise lost. If a preferred ordinary build
@@ -1259,13 +1273,16 @@ dimensions so it cannot expose space beyond the battlefield boundary.
 ### 9.2 Match Menu, Unit Tester, and Multiplayer
 
 The game opens on a mode menu. Single Player lets the human choose two through eight
-total players and then choose among every map supporting that player count. All AI
-opponents run their full commander logic. The local human is blue,
-and up to seven opponents receive distinct red, orange, yellow, purple, green,
-magenta, and pale-gray accents so ownership remains readable.
+total players and then choose among every map supporting that player count. Each AI
+row has its own Easy, Medium, or Hard selector. At three or more total players,
+every commander row also has a Team selector; two-player matches remain opposing
+one-on-one matches and hide team controls. At least two teams must be represented
+before a match can begin. All AI opponents run their full commander logic. The
+local human is blue, and up to seven opponents receive distinct red, orange,
+yellow, purple, green, magenta, and pale-gray accents so ownership remains readable.
 
-Unit Tester is a separate single-player setup with the same two-through-eight-player
-and compatible-map choices. The human commander starts with Tier 3 Worker Drones
+Unit Tester is a separate single-player setup with the same two-through-eight-player,
+per-AI difficulty, team-assignment, and compatible-map choices. The human commander starts with Tier 3 Worker Drones
 and has unlimited crystal, grid energy, unit energy, and supply. Human foundations
 complete as soon as they are placed, and human factory orders finish on the next
 simulation step while retaining collision-safe factory exits. Normal placement,
@@ -1288,9 +1305,12 @@ restoring the field preserves the mode's rules.
 Multiplayer uses a visible pre-match roster shared by the host and guest. The roster
 always identifies the host and lists the connected guest and every AI bot. The host
 may add or remove bots up to the eight-commander match maximum and explicitly
-starts the match. A lobby can start with the host and AI bots even when no guest is
-connected. When a guest is present, the host controls the first team, the guest
-controls the second team, and any remaining slots are independent AI commanders.
+starts the match. The host selects every bot's difficulty. Once the roster has at
+least three commanders, the host also assigns the host, guest, and bots to teams;
+the synchronized guest roster displays those choices read-only. At least two teams
+must be represented. A lobby can start with the host and AI bots even when no guest
+is connected. When a guest is present, the host controls the first commander, the
+guest controls the second commander, and any remaining slots are AI commanders.
 If a guest joins a host-plus-seven-AI lobby, the final AI slot is removed to honor
 the eight-player maximum.
 

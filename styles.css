@@ -134,6 +134,47 @@ button {
   font: inherit;
 }
 
+.commander-setup {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.commander-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) repeat(2, minmax(120px, 1fr));
+  align-items: end;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #3d3037;
+  border-radius: 6px;
+  background: #110e12;
+}
+
+.commander-row > strong {
+  align-self: center;
+  color: #f3e8ec;
+}
+
+.single-player-setup .commander-row label {
+  margin: 0;
+}
+
+.single-player-setup .commander-row select {
+  margin-top: 5px;
+  padding: 8px;
+}
+
+.team-warning {
+  margin: 0;
+  color: #ff8b9b;
+  font-size: 12px;
+}
+
+.team-warning[hidden] {
+  display: none;
+}
+
 .map-description {
   margin: 12px 0 18px;
   color: #aaa1aa;
@@ -284,6 +325,16 @@ button {
 .lobby-player-list small {
   color: #968d95;
   text-transform: uppercase;
+}
+
+.lobby-commander-select {
+  min-width: 110px;
+  padding: 7px 9px;
+  border: 1px solid #5b424c;
+  border-radius: 5px;
+  background: #0b090c;
+  color: #f4ecef;
+  font: inherit;
 }
 
 .lobby-host-controls label {
@@ -901,6 +952,15 @@ button:not(:disabled):hover {
   .mode-choices,
   .connection-columns {
     grid-template-columns: 1fr;
+  }
+
+  .commander-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lobby-player-list li {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .start-menu {

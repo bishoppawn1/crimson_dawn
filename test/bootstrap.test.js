@@ -140,3 +140,19 @@ test("the interface and battlefield present the economy as crimson crystal", asy
   assert.match(game, /CRYSTAL SCRAP/);
   assert.match(styles, /\.crystal-icon/);
 });
+
+test("match setup exposes per-AI difficulty and team assignment controls", async () => {
+  const [index, game, maps] = await Promise.all([
+    source("../index.html"),
+    source("../src/game.js"),
+    source("../src/maps.js"),
+  ]);
+
+  assert.match(index, /id="single-player-commanders"/);
+  assert.match(index, /id="unit-tester-commanders"/);
+  assert.match(game, /AI_DIFFICULTIES/);
+  assert.match(game, /difficulty\.dataset\.difficulty/);
+  assert.match(game, /alliance\.dataset\.alliance/);
+  assert.match(game, /commanderOptions: roster\.map/);
+  assert.match(maps, /AI_DIFFICULTIES = Object\.freeze\(\["easy", "medium", "hard"\]\)/);
+});

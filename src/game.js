@@ -13,9 +13,13 @@ const {
   projectileKinetics,
   structureFootprint,
 } = await import(`./data.js${versionSuffix}`);
-const { getMapsForPlayerCount, getMatchMap, getRandomMatchMap } = await import(
-  `./maps.js${versionSuffix}`
-);
+const {
+  AI_DIFFICULTIES,
+  getMapsForPlayerCount,
+  getMatchMap,
+  getRandomMatchMap,
+  normalizeAiDifficulty,
+} = await import(`./maps.js${versionSuffix}`);
 const { energyRatio, Simulation } = await import(`./simulation.js${versionSuffix}`);
 const { FixedStepSimulationClock } = await import(`./simulation-clock.js${versionSuffix}`);
 const {
@@ -69,6 +73,7 @@ const modeChoices = document.querySelector("#mode-choices");
 const singlePlayerButton = document.querySelector("#single-player-button");
 const singlePlayerSetup = document.querySelector("#single-player-setup");
 const singlePlayerCount = document.querySelector("#single-player-count");
+const singlePlayerCommanders = document.querySelector("#single-player-commanders");
 const singlePlayerMap = document.querySelector("#single-player-map");
 const singlePlayerMapDescription = document.querySelector("#single-player-map-description");
 const startSinglePlayerButton = document.querySelector("#start-single-player-button");
@@ -76,6 +81,7 @@ const backFromSinglePlayerButton = document.querySelector("#back-from-single-pla
 const unitTesterButton = document.querySelector("#unit-tester-button");
 const unitTesterSetup = document.querySelector("#unit-tester-setup");
 const unitTesterCount = document.querySelector("#unit-tester-count");
+const unitTesterCommanders = document.querySelector("#unit-tester-commanders");
 const unitTesterMap = document.querySelector("#unit-tester-map");
 const unitTesterMapDescription = document.querySelector("#unit-tester-map-description");
 const startUnitTesterButton = document.querySelector("#start-unit-tester-button");
@@ -146,6 +152,7 @@ let matchMode = "menu";
 let localTeam = "player";
 let activeMapId = DEFAULT_MAP_ID;
 let activePlayerCount = 2;
+let activeCommanderOptions = [];
 let peerSession = null;
 let multiplayerConnected = false;
 let lobbyRole = null;
@@ -323,9 +330,104 @@ function populateMapSelect(select, playerCount, selectedMapId = null) {
   select.value = selectedMap.id;
   return selectedMap;
 }
+
+function readCommanderOptions(container, playerCount) {
+  return Array.from({ length: playerCount }, (_, slot) => {
+    const row = container.querySelector(`[data-commander-slot="${slot}"]`);
+    return {
+      allianceId: row?.querySelector("[data-alliance]")?.value || `team-${slot + 1}`,
+      ...(slot === 0
+        ? {}
+        : {
+          difficulty: normalizeAiDifficulty(
+            row?.querySelector("[data-difficulty]")?.value,
+          ),
+        }),
+    };
+  });
+}
+
+function commanderOptionsHaveOpponents(options) {
+  return new Set(options.map((option) => option.allianceId)).size > 1;
+}
+
+function syncCommanderSetupValidity(container, startButton, playerCount) {
+  const valid = commanderOptionsHaveOpponents(readCommanderOptions(container, playerCount));
+  startButton.disabled = !valid;
+  const warning = container.querySelector("[data-team-warning]");
+  if (warning) warning.hidden = valid;
+  return valid;
+}
+
+function renderCommanderSetup(container, startButton, playerCount) {
+  const previousOptions = readCommanderOptions(container, container.children.length || 0);
+  const rows = [];
+  for (let slot = 0; slot < playerCount; slot += 1) {
+    const option = previousOptions[slot] || {
+      allianceId: `team-${slot + 1}`,
+      difficulty: "medium",
+    };
+    const row = document.createElement("section");
+    row.className = "commander-row";
+    row.dataset.commanderSlot = String(slot);
+
+    const identity = document.createElement("strong");
+    identity.textContent = slot === 0 ? "You" : `AI ${slot}`;
+    row.append(identity);
+
+    if (slot > 0) {
+      const difficultyLabel = document.createElement("label");
+      difficultyLabel.textContent = "Difficulty";
+      const difficulty = document.createElement("select");
+      difficulty.dataset.difficulty = "";
+      difficulty.setAttribute("aria-label", `AI ${slot} difficulty`);
+      difficulty.replaceChildren(...AI_DIFFICULTIES.map((level) => {
+        const difficultyOption = document.createElement("option");
+        difficultyOption.value = level;
+        difficultyOption.textContent = level[0].toUpperCase() + level.slice(1);
+        return difficultyOption;
+      }));
+      difficulty.value = normalizeAiDifficulty(option.difficulty);
+      difficultyLabel.append(difficulty);
+      row.append(difficultyLabel);
+    }
+
+    if (playerCount > 2) {
+      const allianceLabel = document.createElement("label");
+      allianceLabel.textContent = "Team";
+      const alliance = document.createElement("select");
+      alliance.dataset.alliance = "";
+      alliance.setAttribute("aria-label", `${slot === 0 ? "Player" : `AI ${slot}`} team`);
+      alliance.replaceChildren(...Array.from({ length: playerCount }, (_, teamIndex) => {
+        const teamOption = document.createElement("option");
+        teamOption.value = `team-${teamIndex + 1}`;
+        teamOption.textContent = `Team ${teamIndex + 1}`;
+        return teamOption;
+      }));
+      alliance.value = option.allianceId;
+      if (!alliance.value) alliance.value = `team-${slot + 1}`;
+      allianceLabel.append(alliance);
+      row.append(allianceLabel);
+    }
+    rows.push(row);
+  }
+  const warning = document.createElement("p");
+  warning.className = "team-warning";
+  warning.dataset.teamWarning = "";
+  warning.textContent = "Assign commanders to at least two different teams.";
+  rows.push(warning);
+  container.replaceChildren(...rows);
+  container.onchange = () => {
+    syncCommanderSetupValidity(container, startButton, playerCount);
+  };
+  syncCommanderSetupValidity(container, startButton, playerCount);
+}
+
 populateMapSelect(singlePlayerMap, 2, DEFAULT_MAP_ID);
+renderCommanderSetup(singlePlayerCommanders, startSinglePlayerButton, 2);
 updateSinglePlayerMapDescription();
 populateMapSelect(unitTesterMap, 2, DEFAULT_MAP_ID);
+renderCommanderSetup(unitTesterCommanders, startUnitTesterButton, 2);
 updateUnitTesterMapDescription();
 
 for (const [tier, definitions] of Object.entries(
@@ -529,6 +631,7 @@ function resetGame() {
     enemyAiEnabled: isAiMatch,
     mapId: activeMapId,
     playerCount: isAiMatch ? activePlayerCount : 2,
+    commanderOptions: isAiMatch ? activeCommanderOptions : [],
     testerTeams: matchMode === "unit_tester" ? [localTeam] : [],
   });
   resetAuthoritativeCommands();
@@ -543,6 +646,7 @@ function resetAuthoritativeCommands() {
 
 function updateSinglePlayerMapDescription() {
   const playerCount = Number(singlePlayerCount.value);
+  renderCommanderSetup(singlePlayerCommanders, startSinglePlayerButton, playerCount);
   const map = populateMapSelect(singlePlayerMap, playerCount, singlePlayerMap.value);
   singlePlayerMap.disabled = false;
   singlePlayerMapDescription.textContent = `${map.description} ${playerCount - 1} AI commander${playerCount === 2 ? "" : "s"} will use independent bases, economies, and armies.`;
@@ -560,6 +664,7 @@ function showSinglePlayerSetup() {
 
 function updateUnitTesterMapDescription() {
   const playerCount = Number(unitTesterCount.value);
+  renderCommanderSetup(unitTesterCommanders, startUnitTesterButton, playerCount);
   const map = populateMapSelect(unitTesterMap, playerCount, unitTesterMap.value);
   unitTesterMap.disabled = false;
   unitTesterMapDescription.textContent = `${map.description} ${playerCount - 1} AI commander${playerCount === 2 ? "" : "s"} will use normal resources, power, construction, production, and combat logic.`;
@@ -584,14 +689,67 @@ function setConnectionStatus(message, error = false) {
   connectionStatus.classList.toggle("error", error);
 }
 
+function normalizeLobbyAlliance(allianceId, fallback, playerCount) {
+  const allowed = Array.from({ length: playerCount }, (_, index) => `team-${index + 1}`);
+  return allowed.includes(allianceId) ? allianceId : fallback;
+}
+
 function lobbyRoster(state = multiplayerLobby) {
   if (!state) return [];
-  const roster = [{ name: "Host", role: "Human · Host" }];
-  if (state.guestConnected) roster.push({ name: "Player 2", role: "Human · Guest" });
+  const playerCount = 1 + Number(state.guestConnected) + state.botCount;
+  const roster = [{
+    name: "Host",
+    role: "Human · Host",
+    allianceId: playerCount <= 2
+      ? "team-1"
+      : normalizeLobbyAlliance(state.hostAlliance, "team-1", playerCount),
+    configKind: "host",
+  }];
+  if (state.guestConnected) roster.push({
+    name: "Player 2",
+    role: "Human · Guest",
+    allianceId: playerCount <= 2
+      ? "team-2"
+      : normalizeLobbyAlliance(state.guestAlliance, "team-2", playerCount),
+    configKind: "guest",
+  });
   for (let index = 0; index < state.botCount; index += 1) {
-    roster.push({ name: `AI Bot ${index + 1}`, role: "Computer" });
+    const fallbackAlliance = `team-${roster.length + 1}`;
+    roster.push({
+      name: `AI Bot ${index + 1}`,
+      role: "Computer",
+      allianceId: playerCount <= 2
+        ? fallbackAlliance
+        : normalizeLobbyAlliance(
+          state.botAlliances?.[index],
+          fallbackAlliance,
+          playerCount,
+        ),
+      difficulty: normalizeAiDifficulty(state.botDifficulties?.[index]),
+      configKind: "bot",
+      botIndex: index,
+    });
   }
   return roster;
+}
+
+function updateLobbyCommander(player, update) {
+  if (lobbyRole !== "host" || !multiplayerLobby) return;
+  if (player.configKind === "host") {
+    updateHostedLobby({ hostAlliance: update.allianceId });
+    return;
+  }
+  if (player.configKind === "guest") {
+    updateHostedLobby({ guestAlliance: update.allianceId });
+    return;
+  }
+  const botAlliances = [...(multiplayerLobby.botAlliances || [])];
+  const botDifficulties = [...(multiplayerLobby.botDifficulties || [])];
+  if (update.allianceId) botAlliances[player.botIndex] = update.allianceId;
+  if (update.difficulty) {
+    botDifficulties[player.botIndex] = normalizeAiDifficulty(update.difficulty);
+  }
+  updateHostedLobby({ botAlliances, botDifficulties });
 }
 
 function renderMultiplayerLobby() {
@@ -607,6 +765,43 @@ function renderMultiplayerLobby() {
     const role = document.createElement("small");
     role.textContent = player.role;
     item.append(name, role);
+
+    if (player.configKind === "bot") {
+      const difficulty = document.createElement("select");
+      difficulty.className = "lobby-commander-select";
+      difficulty.setAttribute("aria-label", `${player.name} difficulty`);
+      difficulty.disabled = lobbyRole !== "host";
+      difficulty.replaceChildren(...AI_DIFFICULTIES.map((level) => {
+        const option = document.createElement("option");
+        option.value = level;
+        option.textContent = level[0].toUpperCase() + level.slice(1);
+        return option;
+      }));
+      difficulty.value = player.difficulty;
+      difficulty.addEventListener("change", () => {
+        updateLobbyCommander(player, { difficulty: difficulty.value });
+      });
+      item.append(difficulty);
+    }
+
+    if (roster.length > 2) {
+      const alliance = document.createElement("select");
+      alliance.className = "lobby-commander-select";
+      alliance.setAttribute("aria-label", `${player.name} team`);
+      alliance.disabled = lobbyRole !== "host";
+      alliance.replaceChildren(...Array.from({ length: roster.length }, (_, teamIndex) => {
+        const option = document.createElement("option");
+        option.value = `team-${teamIndex + 1}`;
+        option.textContent = `Team ${teamIndex + 1}`;
+        return option;
+      }));
+      alliance.value = player.allianceId;
+      if (!alliance.value) alliance.value = `team-${index + 1}`;
+      alliance.addEventListener("change", () => {
+        updateLobbyCommander(player, { allianceId: alliance.value });
+      });
+      item.append(alliance);
+    }
     return item;
   }));
 
@@ -622,12 +817,15 @@ function renderMultiplayerLobby() {
   lobbyMap.disabled = true;
   addAiButton.disabled = matchStarting || playerCount >= 8;
   removeAiButton.disabled = matchStarting || multiplayerLobby.botCount === 0;
-  startLobbyMatchButton.disabled = matchStarting || playerCount < 2;
+  const validTeams = commanderOptionsHaveOpponents(roster);
+  startLobbyMatchButton.disabled = matchStarting || playerCount < 2 || !validTeams;
   lobbyMapSummary.textContent = matchStarting
     ? "Waiting for Player 2 to load and acknowledge the match…"
     : playerCount < 2
     ? "Add an AI bot or wait for a guest before starting."
-    : `One of ${eligibleMaps.length} ${playerCount}-player green grassland or red wasteland battlefields will be selected randomly when the match starts.`;
+    : !validTeams
+      ? "Assign commanders to at least two different teams before starting."
+      : `One of ${eligibleMaps.length} ${playerCount}-player green grassland or red wasteland battlefields will be selected randomly when the match starts.`;
 }
 
 function sendLobbyState() {
@@ -656,6 +854,7 @@ function startSinglePlayer() {
   matchMode = "single_player";
   localTeam = "player";
   activePlayerCount = Number(singlePlayerCount.value);
+  activeCommanderOptions = readCommanderOptions(singlePlayerCommanders, activePlayerCount);
   activeMapId = getMatchMap(activePlayerCount, singlePlayerMap.value).id;
   resetGame();
   matchModeLabel.textContent = `SINGLE PLAYER · ${activePlayerCount} PLAYERS · ${simulation.mapName.toUpperCase()}`;
@@ -670,6 +869,7 @@ function startUnitTester() {
   matchMode = "unit_tester";
   localTeam = "player";
   activePlayerCount = Number(unitTesterCount.value);
+  activeCommanderOptions = readCommanderOptions(unitTesterCommanders, activePlayerCount);
   activeMapId = getMatchMap(activePlayerCount, unitTesterMap.value).id;
   resetGame();
   matchModeLabel.textContent = `UNIT TESTER · ${activePlayerCount} PLAYERS · ${simulation.mapName.toUpperCase()} · INSTANT PLAYER ASSETS`;
@@ -683,6 +883,7 @@ function configureGuestTeam(sim) {
   if (!guestTeam) return;
   guestTeam.kind = "human";
   guestTeam.name = "Player 2";
+  delete guestTeam.difficulty;
   delete sim.aiStates.enemy;
 }
 
@@ -714,12 +915,18 @@ function startHostedLobbyMatch() {
   if (lobbyRole !== "host" || !multiplayerLobby) return;
   const playerCount = lobbyRoster().length;
   if (playerCount < 2) return;
+  const roster = lobbyRoster();
+  if (!commanderOptionsHaveOpponents(roster)) return;
   const map = getRandomMatchMap(playerCount, Math.random());
   const hasGuest = multiplayerLobby.guestConnected;
   simulation = Simulation.createFieldTest({
     enemyAiEnabled: multiplayerLobby.botCount > 0,
     mapId: map.id,
     playerCount,
+    commanderOptions: roster.map((commander) => ({
+      allianceId: commander.allianceId,
+      difficulty: commander.difficulty,
+    })),
   });
   if (hasGuest) configureGuestTeam(simulation);
   if (hasGuest) {
@@ -755,6 +962,7 @@ function returnToMenu() {
   matchMode = "menu";
   localTeam = "player";
   activePlayerCount = 2;
+  activeCommanderOptions = [];
   simulation = Simulation.createFieldTest({ enemyAiEnabled: false });
   resetPresentation();
   resetButton.textContent = "Reset field test";
@@ -782,7 +990,12 @@ function multiplayerHandlers(role) {
       if (role === "host") {
         const previousBotCount = multiplayerLobby?.botCount || 0;
         const botCount = Math.min(previousBotCount, 6);
-        updateHostedLobby({ guestConnected: true, botCount });
+        const botAlliances = (multiplayerLobby?.botAlliances || [])
+          .slice(0, botCount)
+          .map((allianceId, index) =>
+            allianceId === `team-${index + 2}` ? `team-${index + 3}` : allianceId
+          );
+        updateHostedLobby({ guestConnected: true, botCount, botAlliances });
         setConnectionStatus(botCount < previousBotCount
           ? "Player joined the final slot; the last AI bot was removed."
           : "Player joined. The host can now start the match.");
@@ -909,7 +1122,11 @@ function multiplayerHandlers(role) {
       if (matchMode === "menu") {
         if (role === "host") {
           matchStartHandshake?.reset();
-          updateHostedLobby({ guestConnected: false });
+          const botAlliances = (multiplayerLobby?.botAlliances || []).map(
+            (allianceId, index) =>
+              allianceId === `team-${index + 3}` ? `team-${index + 2}` : allianceId,
+          );
+          updateHostedLobby({ guestConnected: false, botAlliances });
           setConnectionStatus("The guest disconnected before the match started. The lobby is still open.", true);
         } else {
           setConnectionStatus("The host closed the lobby.", true);
@@ -943,6 +1160,10 @@ async function createHostMatch() {
       code: created.lobbyCode,
       guestConnected: false,
       botCount: 0,
+      hostAlliance: "team-1",
+      guestAlliance: "team-2",
+      botAlliances: [],
+      botDifficulties: [],
       mapId: DEFAULT_MAP_ID,
     };
     hostLobbyCode.value = created.lobbyCode;
@@ -978,6 +1199,10 @@ async function joinMultiplayerLobby() {
       code: created.lobbyCode,
       guestConnected: true,
       botCount: 0,
+      hostAlliance: "team-1",
+      guestAlliance: "team-2",
+      botAlliances: [],
+      botDifficulties: [],
       mapId: DEFAULT_MAP_ID,
     };
     renderMultiplayerLobby();
@@ -6786,14 +7011,20 @@ function findEnemyAt(point) {
       (entity) =>
         entity.alive &&
         !entity.carriedById &&
-        entity.team !== localTeam &&
+        simulation.areHostileTeams(entity.team, localTeam) &&
         entityIsVisibleToLocalTeam(entity),
     ),
     ...simulation.structures.filter(
-      (entity) => entity.alive && entity.team !== localTeam && entityIsVisibleToLocalTeam(entity),
+      (entity) =>
+        entity.alive &&
+        simulation.areHostileTeams(entity.team, localTeam) &&
+        entityIsVisibleToLocalTeam(entity),
     ),
     ...simulation.getDrones().filter(
-      (entity) => entity.alive && entity.team !== localTeam && entityIsVisibleToLocalTeam(entity),
+      (entity) =>
+        entity.alive &&
+        simulation.areHostileTeams(entity.team, localTeam) &&
+        entityIsVisibleToLocalTeam(entity),
     ),
   ];
   return (
@@ -7321,11 +7552,27 @@ copyLobbyCodeButton.addEventListener("click", copyLobbyCode);
 joinLobbyButton.addEventListener("click", joinMultiplayerLobby);
 addAiButton.addEventListener("click", () => {
   const playerCount = lobbyRoster().length;
-  if (playerCount < 8) updateHostedLobby({ botCount: multiplayerLobby.botCount + 1 });
+  if (playerCount < 8) {
+    updateHostedLobby({
+      botCount: multiplayerLobby.botCount + 1,
+      botAlliances: [
+        ...(multiplayerLobby.botAlliances || []),
+        `team-${playerCount + 1}`,
+      ],
+      botDifficulties: [
+        ...(multiplayerLobby.botDifficulties || []),
+        "medium",
+      ],
+    });
+  }
 });
 removeAiButton.addEventListener("click", () => {
   if (multiplayerLobby?.botCount > 0) {
-    updateHostedLobby({ botCount: multiplayerLobby.botCount - 1 });
+    updateHostedLobby({
+      botCount: multiplayerLobby.botCount - 1,
+      botAlliances: (multiplayerLobby.botAlliances || []).slice(0, -1),
+      botDifficulties: (multiplayerLobby.botDifficulties || []).slice(0, -1),
+    });
   }
 });
 startLobbyMatchButton.addEventListener("click", startHostedLobbyMatch);

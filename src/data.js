@@ -1606,6 +1606,11 @@ export const SIMULATION_RULES = Object.freeze({
   enemyInitialThinkDelay: 1,
   enemyThinkInterval: 1,
   enemyAttackWaveSize: 3,
+  enemyDifficultyProfiles: Object.freeze({
+    easy: Object.freeze({ thinkInterval: 1.8, initialThinkDelay: 1.8, attackWaveSize: 5 }),
+    medium: Object.freeze({ thinkInterval: 1, initialThinkDelay: 1, attackWaveSize: 3 }),
+    hard: Object.freeze({ thinkInterval: 0.55, initialThinkDelay: 0.55, attackWaveSize: 3 }),
+  }),
   enemyRushResponseRadius: 800,
   enemyConstructionThreatRadius: 360,
   enemyConstructionSafetyStrengthRatio: 1,

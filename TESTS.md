@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 278
+**Automated tests documented:** 283
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -52,6 +52,11 @@ this catalog is out of date.
 ### 8. the interface and battlefield present the economy as crimson crystal
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the interface and battlefield present the economy as crimson crystal.
+
+<!-- test-catalog-entry: ["test/bootstrap.test.js","match setup exposes per-AI difficulty and team assignment controls"] -->
+### 9. match setup exposes per-AI difficulty and team assignment controls
+
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that match setup exposes per-AI difficulty and team assignment controls.
 
 ## [test/determinism.test.js](test/determinism.test.js)
 
@@ -1370,18 +1375,38 @@ this catalog is out of date.
 
 **What it checks:** Runs the deterministic game simulation to confirm that an eight-player match gives every commander the standard starting package.
 
+<!-- test-catalog-entry: ["test/simulation.test.js","match teams preserve per-AI difficulty and player-selected alliances"] -->
+### 236. match teams preserve per-AI difficulty and player-selected alliances
+
+**What it checks:** Runs the deterministic game simulation to confirm that match teams preserve per-AI difficulty and player-selected alliances.
+
+<!-- test-catalog-entry: ["test/simulation.test.js","AI difficulty changes deterministic decision cadence and attack preparation"] -->
+### 237. AI difficulty changes deterministic decision cadence and attack preparation
+
+**What it checks:** Runs the deterministic game simulation to confirm that AI difficulty changes deterministic decision cadence and attack preparation.
+
+<!-- test-catalog-entry: ["test/simulation.test.js","allied commanders share vision, reject friendly fire, and win together"] -->
+### 238. allied commanders share vision, reject friendly fire, and win together
+
+**What it checks:** Runs the deterministic game simulation to confirm that allied commanders share vision, reject friendly fire, and win together.
+
+<!-- test-catalog-entry: ["test/simulation.test.js","snapshots preserve AI difficulties and commander alliances"] -->
+### 239. snapshots preserve AI difficulties and commander alliances
+
+**What it checks:** Runs the deterministic game simulation to confirm that snapshots preserve AI difficulties and commander alliances.
+
 <!-- test-catalog-entry: ["test/simulation.test.js","every AI commander makes decisions with independent state and resources"] -->
-### 236. every AI commander makes decisions with independent state and resources
+### 240. every AI commander makes decisions with independent state and resources
 
 **What it checks:** Runs the deterministic game simulation to confirm that every AI commander makes decisions with independent state and resources.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","victory waits until every AI commander has been eliminated"] -->
-### 237. victory waits until every AI commander has been eliminated
+### 241. victory waits until every AI commander has been eliminated
 
 **What it checks:** Runs the deterministic game simulation to confirm that victory waits until every AI commander has been eliminated.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","snapshots preserve multi-AI teams, starts, maps, and decision state"] -->
-### 238. snapshots preserve multi-AI teams, starts, maps, and decision state
+### 242. snapshots preserve multi-AI teams, starts, maps, and decision state
 
 **What it checks:** Runs the deterministic game simulation to confirm that snapshots preserve multi-AI teams, starts, maps, and decision state.
 

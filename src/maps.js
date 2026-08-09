@@ -8,6 +8,8 @@ const {
 
 export const MIN_MATCH_PLAYERS = 2;
 export const MAX_MATCH_PLAYERS = 8;
+export const AI_DIFFICULTIES = Object.freeze(["easy", "medium", "hard"]);
+export const DEFAULT_AI_DIFFICULTY = "medium";
 
 const MAP_NAMES = Object.freeze({
   2: "Duel Basin",
@@ -478,12 +480,22 @@ export function getRandomMatchMap(playerCount = 2, randomValue = 0) {
   return maps[Math.floor(boundedRandom * maps.length)];
 }
 
-export function createMatchTeams(playerCount = 2) {
+export function normalizeAiDifficulty(difficulty) {
+  return AI_DIFFICULTIES.includes(difficulty) ? difficulty : DEFAULT_AI_DIFFICULTY;
+}
+
+export function createMatchTeams(playerCount = 2, commanderOptions = []) {
   getMapsForPlayerCount(playerCount);
   return Object.freeze(Array.from({ length: playerCount }, (_, slot) => Object.freeze({
     id: slot === 0 ? "player" : slot === 1 ? "enemy" : `enemy-${slot}`,
     name: slot === 0 ? "Player" : `AI ${slot}`,
     kind: slot === 0 ? "human" : "ai",
     slot,
+    allianceId: playerCount > 2 && commanderOptions[slot]?.allianceId
+      ? String(commanderOptions[slot].allianceId)
+      : `team-${slot + 1}`,
+    ...(slot === 0
+      ? {}
+      : { difficulty: normalizeAiDifficulty(commanderOptions[slot]?.difficulty) }),
   })));
 }

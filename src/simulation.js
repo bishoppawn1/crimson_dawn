@@ -18,7 +18,9 @@ const {
   projectileKinetics,
   structureFootprint,
 } = await import(`./data.js${versionSuffix}`);
-const { createMatchTeams, getMatchMap } = await import(`./maps.js${versionSuffix}`);
+const { createMatchTeams, getMatchMap, normalizeAiDifficulty } = await import(
+  `./maps.js${versionSuffix}`
+);
 const { SIMULATION_STEP_SECONDS } = await import(`./determinism.js${versionSuffix}`);
 
 const EPSILON = 0.0001;
@@ -108,7 +110,11 @@ export class Simulation {
     this.mapName = mapName;
     this.mapTheme = mapTheme;
     this.testerTeams = new Set(testerTeams);
-    this.teams = teams.map((team) => ({ ...team }));
+    this.teams = teams.map((team) => ({
+      ...team,
+      allianceId: team.allianceId || team.id,
+      ...(team.kind === "ai" ? { difficulty: normalizeAiDifficulty(team.difficulty) } : {}),
+    }));
     this.teamStarts = {};
     this.structureTechTier = Object.fromEntries(this.teams.map((team) => [team.id, 1]));
     this.resources = Object.fromEntries(
@@ -118,8 +124,9 @@ export class Simulation {
     this.aiStates = Object.fromEntries(
       aiTeams
         .map((team, index) => [team.id, {
-          thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay +
-            (index / Math.max(1, aiTeams.length)) * SIMULATION_RULES.enemyThinkInterval,
+          thinkRemaining: this.getAiDifficultyProfile(team.id).initialThinkDelay +
+            (index / Math.max(1, aiTeams.length)) *
+              this.getAiDifficultyProfile(team.id).thinkInterval,
           decisionIndex: 0,
           constructionLosses: [],
         }]),
@@ -152,7 +159,7 @@ export class Simulation {
       playerCount = 2,
     } = normalizedOptions;
     const map = getMatchMap(playerCount, mapId);
-    const teams = createMatchTeams(playerCount);
+    const teams = createMatchTeams(playerCount, normalizedOptions.commanderOptions || []);
     const simulation = new Simulation({
       width: map.width,
       height: map.height,
@@ -205,7 +212,14 @@ export class Simulation {
 
   ensureTeam(teamId, kind = teamId === "player" ? "human" : "ai") {
     if (!this.teams.some((team) => team.id === teamId)) {
-      this.teams.push({ id: teamId, name: teamId, kind, slot: this.teams.length });
+      this.teams.push({
+        id: teamId,
+        name: teamId,
+        kind,
+        slot: this.teams.length,
+        allianceId: teamId,
+        ...(kind === "ai" ? { difficulty: "medium" } : {}),
+      });
     }
     if (!this.resources[teamId]) {
       this.resources[teamId] = { metal: 520, energy: 0, energyCapacity: 0 };
@@ -213,12 +227,36 @@ export class Simulation {
     if (!this.structureTechTier[teamId]) this.structureTechTier[teamId] = 1;
     if (kind === "ai" && !this.aiStates[teamId]) {
       this.aiStates[teamId] = {
-        thinkRemaining: SIMULATION_RULES.enemyInitialThinkDelay +
-          deterministicPhase(teamId, SIMULATION_RULES.enemyThinkInterval),
+        thinkRemaining: this.getAiDifficultyProfile(teamId).initialThinkDelay +
+          deterministicPhase(teamId, this.getAiDifficultyProfile(teamId).thinkInterval),
         decisionIndex: 0,
         constructionLosses: [],
       };
     }
+  }
+
+  getTeam(teamId) {
+    return this.teams.find((team) => team.id === teamId) || null;
+  }
+
+  getAllianceId(teamId) {
+    const team = this.getTeam(teamId);
+    return team?.allianceId || team?.id || teamId;
+  }
+
+  areAlliedTeams(leftTeamId, rightTeamId) {
+    if (!leftTeamId || !rightTeamId) return false;
+    return this.getAllianceId(leftTeamId) === this.getAllianceId(rightTeamId);
+  }
+
+  areHostileTeams(leftTeamId, rightTeamId) {
+    return Boolean(leftTeamId && rightTeamId && !this.areAlliedTeams(leftTeamId, rightTeamId));
+  }
+
+  getAiDifficultyProfile(teamId) {
+    const difficulty = normalizeAiDifficulty(this.getTeam(teamId)?.difficulty);
+    return SIMULATION_RULES.enemyDifficultyProfiles[difficulty] ||
+      SIMULATION_RULES.enemyDifficultyProfiles.medium;
   }
 
   createSnapshot() {
@@ -647,7 +685,7 @@ export class Simulation {
       ...this.structures,
       ...this.getDrones(),
     ]
-      .filter((entity) => entity.alive && entity.team === teamId)
+      .filter((entity) => entity.alive && this.areAlliedTeams(entity.team, teamId))
       .map((entity) => ({
         id: entity.id,
         x: entity.x,
@@ -667,7 +705,7 @@ export class Simulation {
 
   isEntityVisibleToTeam(teamId, entity, visionSources = null) {
     if (!entity?.alive) return false;
-    if (entity.team === teamId) return true;
+    if (this.areAlliedTeams(entity.team, teamId)) return true;
     return this.isPointVisibleToTeam(
       teamId,
       entity.x,
@@ -785,7 +823,7 @@ export class Simulation {
         !unit.alive ||
         unit.carriedById ||
         unit.state !== "active" ||
-        unit.team === target.team ||
+        this.areAlliedTeams(unit.team, target.team) ||
         (requireVision && !this.isEntityVisibleToTeam(unit.team, target)) ||
         !canUnitAttackTarget(definition, target)
       ) {
@@ -2095,11 +2133,11 @@ export class Simulation {
       return entity.complete && combatStrength(entity) > EPSILON;
     });
     const hostileStrength = nearbyCombatants
-      .filter((entity) => entity.team !== teamId)
+      .filter((entity) => this.areHostileTeams(entity.team, teamId))
       .reduce((total, entity) => total + combatStrength(entity), 0);
     if (hostileStrength <= EPSILON) return true;
     const friendlyStrength = nearbyCombatants
-      .filter((entity) => entity.team === teamId)
+      .filter((entity) => this.areAlliedTeams(entity.team, teamId))
       .reduce((total, entity) => total + combatStrength(entity), 0);
     return hostileStrength <=
       friendlyStrength * SIMULATION_RULES.enemyConstructionSafetyStrengthRatio + EPSILON;
@@ -2228,10 +2266,14 @@ export class Simulation {
       this.units.some((unit) => unit.alive && unit.team === team) ||
       this.structures.some((structure) => structure.alive && structure.team === team);
     const livingTeams = this.teams.filter((team) => hasLivingAssets(team.id));
-    if (livingTeams.length > 1) return null;
+    const livingAllianceIds = new Set(livingTeams.map((team) => this.getAllianceId(team.id)));
+    if (livingAllianceIds.size > 1) return null;
 
-    this.matchWinnerTeamId = livingTeams[0]?.id || null;
-    this.matchResult = this.matchWinnerTeamId === "player" ? "victory" : "defeat";
+    const winnerAllianceId = livingAllianceIds.values().next().value || null;
+    const playerAllianceId = this.getAllianceId("player");
+    this.matchWinnerTeamId = livingTeams.find((team) => team.id === "player")?.id ||
+      livingTeams[0]?.id || null;
+    this.matchResult = winnerAllianceId === playerAllianceId ? "victory" : "defeat";
     this.emit("match_complete", this.width / 2, this.height / 2, {
       result: this.matchResult,
       winner: this.matchWinnerTeamId,
@@ -2678,7 +2720,9 @@ export class Simulation {
         const occupants = this.combatSpatialIndex.get(`${cellX},${cellY}`);
         if (!occupants) continue;
         for (const target of occupants) {
-          if (target.team !== origin.team && target.alive) candidates.push(target);
+          if (this.areHostileTeams(target.team, origin.team) && target.alive) {
+            candidates.push(target);
+          }
         }
       }
     }
@@ -2785,7 +2829,7 @@ export class Simulation {
       }
       if (
         existingTarget?.alive &&
-        existingTarget.team !== unit.team &&
+        this.areHostileTeams(existingTarget.team, unit.team) &&
         canUnitAttackTarget(definition, existingTarget) &&
         (
           unit.attackTargetMode === "explicit" ||
@@ -2812,7 +2856,7 @@ export class Simulation {
   assignAutomaticBeamPursuit(unit, definition, existingTarget) {
     const validTarget = (target) => Boolean(
       target?.alive &&
-      target.team !== unit.team &&
+      this.areHostileTeams(target.team, unit.team) &&
       canUnitAttackTarget(definition, target)
     );
     const followingPlayerRoute = Boolean(
@@ -2862,7 +2906,7 @@ export class Simulation {
     );
     aiState.thinkRemaining -= delta;
     if (aiState.thinkRemaining > 0) return;
-    aiState.thinkRemaining = SIMULATION_RULES.enemyThinkInterval;
+    aiState.thinkRemaining = this.getAiDifficultyProfile(teamId).thinkInterval;
 
     const enemyFactories = this.structures.filter((structure) =>
       structure.alive &&
@@ -2897,8 +2941,12 @@ export class Simulation {
       y: baseY + inwardY * forward + tangentY * side,
     });
     const playerTargets = [
-      ...this.units.filter((entity) => entity.alive && entity.team !== teamId),
-      ...this.structures.filter((entity) => entity.alive && entity.team !== teamId),
+      ...this.units.filter(
+        (entity) => entity.alive && this.areHostileTeams(entity.team, teamId),
+      ),
+      ...this.structures.filter(
+        (entity) => entity.alive && this.areHostileTeams(entity.team, teamId),
+      ),
     ];
     const desiredWaveSize = this.getEnemyAttackWaveSize(teamId);
     const expansionMines = this.getEnemyExpansionMines(teamId, enemyAnchor);
@@ -3712,7 +3760,7 @@ export class Simulation {
       (structure) =>
         structure.alive &&
         structure.complete &&
-        structure.team !== teamId &&
+        this.areHostileTeams(structure.team, teamId) &&
         STRUCTURE_DEFINITIONS[structure.type].family === "sentry_turret",
     );
     const heaviestDefenseCluster = defenses.reduce(
@@ -3728,8 +3776,8 @@ export class Simulation {
     return heaviestDefenseCluster >= SIMULATION_RULES.enemyHeavyDefenseCount;
   }
 
-  getEnemyAttackWaveSize() {
-    return SIMULATION_RULES.enemyAttackWaveSize;
+  getEnemyAttackWaveSize(teamId = "enemy") {
+    return this.getAiDifficultyProfile(teamId).attackWaveSize;
   }
 
   getEnemyChargerDemandUnits(teamId, anchor = null) {
@@ -4316,7 +4364,7 @@ export class Simulation {
         unit.attackTargetId &&
         (!attackTarget ||
           !attackTarget.alive ||
-          attackTarget.team === unit.team ||
+          this.areAlliedTeams(attackTarget.team, unit.team) ||
           !canUnitAttackTarget(definition, attackTarget))
       ) {
         if (unit.moveMode === "pursuit") {
@@ -4339,7 +4387,7 @@ export class Simulation {
           definition.underbellyBeamRadius &&
           unit.moveMode === "pursuit" &&
           attackTarget?.alive &&
-          attackTarget.team !== unit.team
+          this.areHostileTeams(attackTarget.team, unit.team)
         );
         if (pursuingBeamTarget) {
           this.moveUnitToward(
@@ -4356,7 +4404,7 @@ export class Simulation {
           if (!hasIndependentWeapons) this.tryAttack(unit, attackTarget, definition);
         } else if (
           attackTarget?.alive &&
-          attackTarget.team !== unit.team &&
+          this.areHostileTeams(attackTarget.team, unit.team) &&
           unit.attackTargetMode === "retaliation"
         ) {
           this.moveUnitToward(
@@ -4369,7 +4417,7 @@ export class Simulation {
         } else if (unit.state === "active" && unit.moveTarget) {
           this.moveUnitToward(unit, unit.moveTarget, delta, 4);
         }
-      } else if (attackTarget?.alive && attackTarget.team !== unit.team) {
+      } else if (attackTarget?.alive && this.areHostileTeams(attackTarget.team, unit.team)) {
         const separation = distance(unit, attackTarget);
         const targetRadius = entityRadius(attackTarget);
         if (separation <= definition.attackRange + targetRadius) {
@@ -4539,7 +4587,7 @@ export class Simulation {
       const state = weaponSystems[index];
       const targetInRange = (target) => Boolean(
         target?.alive &&
-        target.team !== unit.team &&
+        this.areHostileTeams(target.team, unit.team) &&
         canUnitAttackTarget(definition, target) &&
         distance(unit, target) <= weaponDefinition.attackRange + entityRadius(target)
       );
@@ -4658,7 +4706,7 @@ export class Simulation {
       unit.moveMode !== "force" &&
       definition?.attackRange > 0 &&
       target?.alive &&
-      target.team !== unit.team &&
+      this.areHostileTeams(target.team, unit.team) &&
       distance(unit, target) <= definition.attackRange + entityRadius(target)
     );
   }
@@ -5411,7 +5459,11 @@ export class Simulation {
   }
 
   applyDamage(target, amount, source = null) {
-    if (!target?.alive || amount <= 0) return;
+    if (
+      !target?.alive ||
+      amount <= 0 ||
+      (source?.team && this.areAlliedTeams(source.team, target.team))
+    ) return;
     const shield = this.findProtectingShield(target);
     let remainingDamage = amount;
     if (shield) {
@@ -5523,7 +5575,7 @@ export class Simulation {
       target.state !== "active" ||
       !aggressor?.alive ||
       !aggressor.id ||
-      aggressor.team === target.team ||
+      this.areAlliedTeams(aggressor.team, target.team) ||
       definition.attackRange <= 0 ||
       !canUnitAttackTarget(definition, aggressor) ||
       (
