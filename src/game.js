@@ -1000,9 +1000,13 @@ async function copyLobbyCode() {
   }
 }
 
+function boundedUnitCommandEntries(entries) {
+  if (!Array.isArray(entries)) return [];
+  return entries.slice(0, simulation.units.length);
+}
+
 function ownedUnitIds(ids, team) {
-  if (!Array.isArray(ids)) return [];
-  return ids.slice(0, 200).filter((id) => {
+  return boundedUnitCommandEntries(ids).filter((id) => {
     const unit = simulation.getUnit(id);
     return unit?.alive && unit.team === team;
   });
@@ -1019,7 +1023,7 @@ function applyAuthorizedCommand(command, team) {
     case "move": {
       if (!Array.isArray(command.orders)) return false;
       let moved = false;
-      for (const order of command.orders.slice(0, 200)) {
+      for (const order of boundedUnitCommandEntries(command.orders)) {
         if (!Number.isFinite(order?.x) || !Number.isFinite(order?.y)) continue;
         const unitIds = ownedUnitIds([order.unitId], team);
         if (unitIds.length === 0) continue;

@@ -52,6 +52,19 @@ test("the tactical minimap routes right-clicks into selected-unit move orders", 
   assert.match(index, /right-click it with units selected to move them/);
 });
 
+test("unit command authorization accepts the complete simulated army", async () => {
+  const game = await source("../src/game.js");
+  const authorization = game.match(
+    /function boundedUnitCommandEntries[\s\S]*?function issueGameCommand/,
+  );
+
+  assert.ok(authorization);
+  assert.match(authorization[0], /entries\.slice\(0, simulation\.units\.length\)/);
+  assert.match(authorization[0], /boundedUnitCommandEntries\(command\.orders\)/);
+  assert.doesNotMatch(authorization[0], /ids\.slice\(0, 200\)/);
+  assert.doesNotMatch(authorization[0], /command\.orders\.slice\(0, 200\)/);
+});
+
 test("Dropship controls expose explicit, balanced, and unload command paths", async () => {
   const [index, game] = await Promise.all([
     source("../index.html"),

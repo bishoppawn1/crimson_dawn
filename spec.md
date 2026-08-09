@@ -386,6 +386,11 @@ the aggressor is destroyed or is no longer a valid target.
 Explicit movement, attack, stop, hold-position, transport loading, and transport
 unloading commands remain available.
 Commands are contextual rather than limited to special-ability buttons.
+Unit selection and movement commands have no fixed 200-unit ceiling: every living,
+owned unit in a legitimate selection can receive the same formation command. The
+host bounds incoming multiplayer unit lists by the current simulation population
+before validating ownership, so malformed payloads remain finite without truncating
+real armies.
 An explicit terrain move remains as a resumable route when a unit acquires a hostile
 in weapon range. The unit stops in place, attacks while stationary—including between
 shots during its weapon cooldown—and continues toward the saved destination after

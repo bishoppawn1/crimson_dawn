@@ -1301,6 +1301,21 @@ test("large formations cap visibility-path searches per simulation tick", () => 
   assert.ok(simulation.lastNavigationSearchCount <= 4);
 });
 
+test("formation movement accepts more than 200 units at once", () => {
+  const simulation = new Simulation({ width: 2400, height: 1600 });
+  const units = Array.from({ length: 240 }, (_, index) =>
+    simulation.addUnit(
+      "scout_mech",
+      "player",
+      100 + (index % 24) * 32,
+      100 + Math.floor(index / 24) * 32,
+    ),
+  );
+
+  assert.equal(simulation.commandMove(units.map((unit) => unit.id), 1800, 900), 240);
+  assert.ok(units.every((unit) => unit.moveTarget));
+});
+
 test("dense expanded bases bound obstacle corners considered by each route search", () => {
   const terrain = Array.from({ length: 80 }, (_, index) => ({
     id: `dense-obstacle-${index}`,
