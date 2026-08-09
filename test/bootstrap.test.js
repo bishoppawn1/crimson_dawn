@@ -40,17 +40,18 @@ test("the static bootstrap requests a fresh, consistent local module set", async
   assert.match(game, /createDeterministicStateMessage\(\{/);
 });
 
-test("the tactical minimap routes right-clicks into selected-unit move orders", async () => {
+test("the tactical minimap routes right-clicks into unit moves and factory rallies", async () => {
   const [index, game] = await Promise.all([
     source("../index.html"),
     source("../src/game.js"),
   ]);
 
   assert.match(game, /minimapWorldPoint\(minimapLayout, screenPoint\)/);
+  assert.match(game, /issueSelectedFactoryRally\(minimapTarget\)/);
   assert.match(game, /issueSelectedUnitMove\(minimapTarget, event\.shiftKey\)/);
   assert.match(game, /queue: Boolean\(queue\)/);
-  assert.match(game, /TACTICAL MAP · L:CENTER · R:MOVE/);
-  assert.match(index, /right-click it with units selected to move them/);
+  assert.match(game, /TACTICAL MAP · L:CENTER · R:MOVE\/RALLY/);
+  assert.match(index, /right-click it with units selected to move them or with factories selected to set their rally point/);
 });
 
 test("unit command authorization accepts the complete simulated army", async () => {

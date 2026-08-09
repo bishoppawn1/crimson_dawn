@@ -65,7 +65,9 @@ compact dots, while opposing contacts outside current vision are hidden. The cur
 camera view appears as a white rectangle. Left-clicking the minimap recenters the battlefield camera.
 Right-clicking a point inside the map area with units selected issues the same
 formation move command at the corresponding world position without moving the
-camera; an armed force-move modifier is preserved for this command.
+camera; an armed force-move modifier is preserved for this command. With one
+production building or a valid matching factory group selected instead, the same
+minimap right-click sets the factory selection's rally point at that world position.
 The main battlefield camera also supports a seamless strategic zoom. Its dynamic
 minimum scale fits the complete active map inside the Canvas, while its maximum
 remains 200%. Zoom stays anchored beneath the mouse cursor. At 45% scale and below,
@@ -876,7 +878,8 @@ Changing the rally point resets the formation sequence. Physical separation rema
 active during movement as a fallback for dense groups and mixed orders.
 
 The player can select a production building and right-click terrain to set its
-rally point. Dragging a selection box around two or more friendly factories of the
+rally point. The same command is available by right-clicking a world position on
+the tactical minimap. Dragging a selection box around two or more friendly factories of the
 same branch and tier selects them as a factory group; other factory types and tiers
 are not mixed into that group. Right-clicking terrain then assigns one shared rally
 point atomically to every selected factory. Their formation slots are interleaved so

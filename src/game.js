@@ -2008,7 +2008,7 @@ function drawMinimap() {
   context.fillStyle = "#b7c4ce";
   context.font = "700 12px ui-monospace, monospace";
   context.textAlign = "left";
-  context.fillText("TACTICAL MAP · L:CENTER · R:MOVE", layout.mapLeft, layout.top + 18);
+  context.fillText("TACTICAL MAP · L:CENTER · R:MOVE/RALLY", layout.mapLeft, layout.top + 18);
 
   context.beginPath();
   context.rect(layout.mapLeft, layout.mapTop, layout.mapWidth, layout.mapHeight);
@@ -7364,11 +7364,13 @@ canvas.addEventListener("contextmenu", (event) => {
     const minimapTarget = minimapWorldPoint(minimapLayout, screenPoint);
     if (
       minimapTarget &&
-      selectedUnitIds.size > 0 &&
       !testerSpawnPlacement &&
       !placementStructureType
     ) {
-      issueSelectedUnitMove(minimapTarget, event.shiftKey);
+      if (issueSelectedFactoryRally(minimapTarget)) return;
+      if (selectedUnitIds.size > 0) {
+        issueSelectedUnitMove(minimapTarget, event.shiftKey);
+      }
     }
     return;
   }
@@ -7381,21 +7383,7 @@ canvas.addEventListener("contextmenu", (event) => {
     return;
   }
   const point = canvasPoint(event);
-  const selectedStructures = getSelectedStructures();
-  const selectedStructure = selectedStructures[0];
-  if (
-    selectedStructure?.team === localTeam &&
-    STRUCTURE_DEFINITIONS[selectedStructure.type].production &&
-    issueGameCommand({
-      type: "rally",
-      structureIds: selectedStructures.map((structure) => structure.id),
-      x: point.x,
-      y: point.y,
-    })
-  ) {
-    updateInterface();
-    return;
-  }
+  if (issueSelectedFactoryRally(point)) return;
   if (selectedUnitIds.size === 0) return;
   const forceMove = forceMoveArmed;
   if (!forceMove) {
@@ -7471,6 +7459,26 @@ canvas.addEventListener("contextmenu", (event) => {
 
   issueSelectedUnitMove(point, event.shiftKey);
 });
+
+function issueSelectedFactoryRally(point) {
+  const selectedStructures = getSelectedStructures();
+  const selectedStructure = selectedStructures[0];
+  if (
+    !selectedStructure ||
+    selectedStructure.team !== localTeam ||
+    !STRUCTURE_DEFINITIONS[selectedStructure.type].production
+  ) {
+    return false;
+  }
+  const accepted = issueGameCommand({
+    type: "rally",
+    structureIds: selectedStructures.map((structure) => structure.id),
+    x: point.x,
+    y: point.y,
+  });
+  if (accepted) updateInterface();
+  return Boolean(accepted);
+}
 
 function issueSelectedUnitMove(point, queue = false) {
   const selected = [...selectedUnitIds];

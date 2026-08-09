@@ -18,10 +18,10 @@ this catalog is out of date.
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the static bootstrap requests a fresh, consistent local module set.
 
-<!-- test-catalog-entry: ["test/bootstrap.test.js","the tactical minimap routes right-clicks into selected-unit move orders"] -->
-### 2. the tactical minimap routes right-clicks into selected-unit move orders
+<!-- test-catalog-entry: ["test/bootstrap.test.js","the tactical minimap routes right-clicks into unit moves and factory rallies"] -->
+### 2. the tactical minimap routes right-clicks into unit moves and factory rallies
 
-**What it checks:** Inspects the browser entry point and interface wiring to confirm that the tactical minimap routes right-clicks into selected-unit move orders.
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that the tactical minimap routes right-clicks into unit moves and factory rallies.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","unit command authorization accepts the complete simulated army"] -->
 ### 3. unit command authorization accepts the complete simulated army

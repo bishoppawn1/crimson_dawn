@@ -70,7 +70,7 @@ The current build is the first playable field test. It includes:
   contacts and effects, and the same visibility rules on the tactical minimap.
 - A top-right tactical minimap showing terrain, deposits, friendly assets, currently
   visible enemy contacts, and the current camera view, with left-click camera
-  centering and right-click selected-unit movement.
+  centering, right-click selected-unit movement, and right-click factory rally points.
 - Tier 1–3 mech factories, each offering matching-tier Worker, Vanguard, Bulwark,
   Skyguard, Arc Energy Carrier, and Watchman Radar Mech production lines.
 - Tier 1–3 Vehicle Factories producing Scout Vehicles, Battle Tanks, Mobile
