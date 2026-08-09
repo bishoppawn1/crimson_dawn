@@ -7200,10 +7200,12 @@ export class Simulation {
     unit.productionAssistTargetId = null;
     unit.navigationObstacleId = null;
     unit.navigationSide = null;
-    const salvageMetal = Math.round(
-      UNIT_DEFINITIONS[unit.type].metalValue * SIMULATION_RULES.wreckSalvageRatio,
-    );
-    this.addWreck(destroyedAt.x, destroyedAt.y, salvageMetal, unit.team);
+    if (!this.isSpawnWars()) {
+      const salvageMetal = Math.round(
+        UNIT_DEFINITIONS[unit.type].metalValue * SIMULATION_RULES.wreckSalvageRatio,
+      );
+      this.addWreck(destroyedAt.x, destroyedAt.y, salvageMetal, unit.team);
+    }
     this.emit("destroyed", destroyedAt.x, destroyedAt.y, { targetId: unit.id });
 
     for (const passengerId of cargoIds) {

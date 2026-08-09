@@ -166,6 +166,53 @@ test("Spawn Wars income, center control, equal speed, kill rewards, and objectiv
   assert.equal(simulation.matchResult, "victory");
 });
 
+test("Spawn Wars unit deaths never create crystal scrap for either alliance", () => {
+  const simulation = Simulation.createSpawnWars({ playerCount: 2 });
+  const westAttacker = simulation.addUnit(
+    "scout_mech",
+    "player",
+    1700,
+    900,
+    { spawnWarsSpawned: true },
+  );
+  const eastAttacker = simulation.addUnit(
+    "scout_mech",
+    "enemy",
+    1900,
+    900,
+    { spawnWarsSpawned: true },
+  );
+  const westVictim = simulation.addUnit(
+    "raider",
+    "player",
+    1700,
+    1000,
+    { spawnWarsSpawned: true },
+  );
+  const eastVictim = simulation.addUnit(
+    "raider",
+    "enemy",
+    1900,
+    1000,
+    { spawnWarsSpawned: true },
+  );
+  const westCrystal = simulation.resources.player.metal;
+  const eastCrystal = simulation.resources.enemy.metal;
+
+  simulation.applyDamage(eastVictim, eastVictim.hp, westAttacker);
+  simulation.applyDamage(westVictim, westVictim.hp, eastAttacker);
+
+  const killReward = Math.max(
+    SPAWN_WARS_RULES.minimumKillIncome,
+    Math.round(UNIT_DEFINITIONS.raider.metalValue * SPAWN_WARS_RULES.killIncomeRatio),
+  );
+  assert.equal(eastVictim.alive, false);
+  assert.equal(westVictim.alive, false);
+  assert.equal(simulation.resources.player.metal, westCrystal + killReward);
+  assert.equal(simulation.resources.enemy.metal, eastCrystal + killReward);
+  assert.equal(simulation.wrecks.length, 0);
+});
+
 test("unit production and building construction use the global 4x duration scale", () => {
   assert.equal(BUILD_DURATION_MULTIPLIER, 4);
   assert.equal(UNIT_DEFINITIONS.worker_drone_t1.productionTime, 5 * BUILD_DURATION_MULTIPLIER);
