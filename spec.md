@@ -437,9 +437,9 @@ before right-clicking, ignores enemies until the units reach their destination.
 Selecting a unit with a movement queue immediately displays its complete connected
 route and every destination marker, including waypoints it has not reached yet.
 The unit command panel also provides Patrol for any selection containing active
-units. Clicking Patrol begins route recording without moving the units; each
+units. Pressing `P` or clicking Patrol begins route recording without moving the units; each
 terrain or tactical-minimap right-click adds another point, and players may add as
-many points as they want. Clicking Patrol again with at least two recorded points
+many points as they want. Pressing `P` or clicking Patrol again with at least two recorded points
 starts a repeating, formation-aware route through every point in order and then
 back from the final point to the first. Selected patrolling units display that
 complete closed route immediately. Escape or changing the unit selection cancels

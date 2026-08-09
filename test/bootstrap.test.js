@@ -63,13 +63,15 @@ test("the Patrol command records an arbitrary closed route before issuing it", a
   ]);
 
   assert.match(index, /id="patrol-button"/);
-  assert.match(index, /Record a repeating route/);
+  assert.match(index, /P · Patrol/);
+  assert.match(index, /Press <b>P<\/b> or click <b>Patrol<\/b>/);
   assert.match(game, /function togglePatrolRecording\(\)/);
   assert.match(game, /function recordPatrolPoint\(point\)/);
   assert.match(game, /patrolDraft\.points\.push/);
   assert.match(game, /patrolDraft\.points\.length < 2/);
   assert.match(game, /issueGameCommand\(\{ type: "patrol", orders \}\)/);
   assert.match(game, /patrolButton\.addEventListener\("click", togglePatrolRecording\)/);
+  assert.match(game, /key === "p" && !event\.repeat[\s\S]*?event\.preventDefault\(\);[\s\S]*?togglePatrolRecording\(\)/);
   assert.match(game, /if \(patrolDraft\) \{\s*recordPatrolPoint\(minimapTarget\)/);
   assert.match(game, /movementOrderLoops\(unit\)/);
   assert.match(game, /case "patrol"/);

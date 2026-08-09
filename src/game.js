@@ -7017,7 +7017,7 @@ function updateInterface() {
       !selectedUnits.some((unit) => unit.state === "active"));
   patrolButton.classList.toggle("active", patrolRecording);
   patrolButton.setAttribute("aria-pressed", String(patrolRecording));
-  patrolButtonTitle.textContent = patrolRecording ? "Finish Patrol" : "Patrol";
+  patrolButtonTitle.textContent = patrolRecording ? "P · Finish Patrol" : "P · Patrol";
   patrolButtonDetails.textContent = patrolRecording
     ? patrolDraft.points.length >= 2
       ? `${patrolDraft.points.length} points recorded · click to start loop`
@@ -8068,6 +8068,10 @@ window.addEventListener("keydown", (event) => {
     cameraKeys.add(key);
   }
   if (key === "q" && !event.repeat) activateOverdrive();
+  if (key === "p" && !event.repeat) {
+    event.preventDefault();
+    togglePatrolRecording();
+  }
   const hasSelectedTransport = selectedTransports().length > 0;
   if (key === "f" && hasSelectedTransport && !event.repeat) {
     event.preventDefault();
