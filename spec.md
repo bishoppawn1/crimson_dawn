@@ -1198,10 +1198,12 @@ after the local target is gone, and nearby targets do not pull the formation int
 chase. Newly produced attackers wait for a later wave instead of crossing the map
 individually. Automatic attacks within weapon range still allow staged units to
 defend themselves locally. If a player unit or structure appears within 800 world
-units of enemy infrastructure, available defenders respond immediately without
-waiting for a complete wave or applying the ordinary assault preflight check. The
-cadence, response radius, defense-evaluation radius, strength ratio, and minimum
-wave size are provisional.
+units of enemy infrastructure, available defenders respond as soon as a minimum
+three-unit force is staged. This local response bypasses the ordinary assault
+target-selection preflight, but it still launches as one coordinated wave; a lone
+defender waits for reinforcements instead of being sent into the fight piecemeal.
+The cadence, response radius, defense-evaluation radius, strength ratio, and
+minimum wave size are provisional.
 
 Every completed AI harvester at least 480 world units from its starting command point is
 treated as an outpost rather than an unprotected income structure. The building AI

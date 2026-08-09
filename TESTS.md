@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 284
+**Automated tests documented:** 285
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -1310,108 +1310,113 @@ this catalog is out of date.
 
 **What it checks:** Runs the deterministic game simulation to confirm that an already dispatched AI assault does not turn around when defenses appear.
 
-<!-- test-catalog-entry: ["test/simulation.test.js","enemy combat units immediately answer structures rushed near their base"] -->
-### 223. enemy combat units immediately answer structures rushed near their base
+<!-- test-catalog-entry: ["test/simulation.test.js","enemy combat units immediately answer structures rushed near their base as a wave"] -->
+### 223. enemy combat units immediately answer structures rushed near their base as a wave
 
-**What it checks:** Runs the deterministic game simulation to confirm that enemy combat units immediately answer structures rushed near their base.
+**What it checks:** Runs the deterministic game simulation to confirm that enemy combat units immediately answer structures rushed near their base as a wave.
+
+<!-- test-catalog-entry: ["test/simulation.test.js","enemy rush responses wait for a coordinated force instead of sending one unit"] -->
+### 224. enemy rush responses wait for a coordinated force instead of sending one unit
+
+**What it checks:** Runs the deterministic game simulation to confirm that enemy rush responses wait for a coordinated force instead of sending one unit.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal"] -->
-### 224. cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal
+### 225. cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal
 
 **What it checks:** Runs the deterministic game simulation to confirm that cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","destroying every enemy unit and building ends the match in victory"] -->
-### 225. destroying every enemy unit and building ends the match in victory
+### 226. destroying every enemy unit and building ends the match in victory
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroying every enemy unit and building ends the match in victory.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","losing every player unit and building ends the match in defeat"] -->
-### 226. losing every player unit and building ends the match in defeat
+### 227. losing every player unit and building ends the match in defeat
 
 **What it checks:** Runs the deterministic game simulation to confirm that losing every player unit and building ends the match in defeat.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","destroying a Headquarters instantly eliminates all of that commander's assets"] -->
-### 227. destroying a Headquarters instantly eliminates all of that commander's assets
+### 228. destroying a Headquarters instantly eliminates all of that commander's assets
 
 **What it checks:** Runs the deterministic game simulation to confirm that destroying a Headquarters instantly eliminates all of that commander's assets.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","field tests enable elimination while isolated simulations remain opt-in"] -->
-### 228. field tests enable elimination while isolated simulations remain opt-in
+### 229. field tests enable elimination while isolated simulations remain opt-in
 
 **What it checks:** Runs the deterministic game simulation to confirm that field tests enable elimination while isolated simulations remain opt-in.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","multiplayer field tests disable the enemy commander AI"] -->
-### 229. multiplayer field tests disable the enemy commander AI
+### 230. multiplayer field tests disable the enemy commander AI
 
 **What it checks:** Runs the deterministic game simulation to confirm that multiplayer field tests disable the enemy commander AI.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","simulation snapshots restore a playable multiplayer client state"] -->
-### 230. simulation snapshots restore a playable multiplayer client state
+### 231. simulation snapshots restore a playable multiplayer client state
 
 **What it checks:** Runs the deterministic game simulation to confirm that simulation snapshots restore a playable multiplayer client state.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","mixed human and AI matches continue until only one command team remains"] -->
-### 231. mixed human and AI matches continue until only one command team remains
+### 232. mixed human and AI matches continue until only one command team remains
 
 **What it checks:** Runs the deterministic game simulation to confirm that mixed human and AI matches continue until only one command team remains.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","multiplayer lobby codes are exactly ten uppercase letters and numbers"] -->
-### 232. multiplayer lobby codes are exactly ten uppercase letters and numbers
+### 233. multiplayer lobby codes are exactly ten uppercase letters and numbers
 
 **What it checks:** Runs the deterministic game simulation to confirm that multiplayer lobby codes are exactly ten uppercase letters and numbers.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every player count offers multiple dense and selectable battlefield layouts"] -->
-### 233. every player count offers multiple dense and selectable battlefield layouts
+### 234. every player count offers multiple dense and selectable battlefield layouts
 
 **What it checks:** Runs the deterministic game simulation to confirm that every player count offers multiple dense and selectable battlefield layouts.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","the three-player ancient ruins map is a dense ruin complex"] -->
-### 234. the three-player ancient ruins map is a dense ruin complex
+### 235. the three-player ancient ruins map is a dense ruin complex
 
 **What it checks:** Runs the deterministic game simulation to confirm that the three-player ancient ruins map is a dense ruin complex.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","an eight-player match gives every commander the standard starting package"] -->
-### 235. an eight-player match gives every commander the standard starting package
+### 236. an eight-player match gives every commander the standard starting package
 
 **What it checks:** Runs the deterministic game simulation to confirm that an eight-player match gives every commander the standard starting package.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","match teams preserve per-AI difficulty and player-selected alliances"] -->
-### 236. match teams preserve per-AI difficulty and player-selected alliances
+### 237. match teams preserve per-AI difficulty and player-selected alliances
 
 **What it checks:** Runs the deterministic game simulation to confirm that match teams preserve per-AI difficulty and player-selected alliances.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","AI difficulty changes deterministic decision cadence and attack preparation"] -->
-### 237. AI difficulty changes deterministic decision cadence and attack preparation
+### 238. AI difficulty changes deterministic decision cadence and attack preparation
 
 **What it checks:** Runs the deterministic game simulation to confirm that AI difficulty changes deterministic decision cadence and attack preparation.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","allied commanders share vision, reject friendly fire, and win together"] -->
-### 238. allied commanders share vision, reject friendly fire, and win together
+### 239. allied commanders share vision, reject friendly fire, and win together
 
 **What it checks:** Runs the deterministic game simulation to confirm that allied commanders share vision, reject friendly fire, and win together.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","snapshots preserve AI difficulties and commander alliances"] -->
-### 239. snapshots preserve AI difficulties and commander alliances
+### 240. snapshots preserve AI difficulties and commander alliances
 
 **What it checks:** Runs the deterministic game simulation to confirm that snapshots preserve AI difficulties and commander alliances.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","every AI commander makes decisions with independent state and resources"] -->
-### 240. every AI commander makes decisions with independent state and resources
+### 241. every AI commander makes decisions with independent state and resources
 
 **What it checks:** Runs the deterministic game simulation to confirm that every AI commander makes decisions with independent state and resources.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","victory waits until every AI commander has been eliminated"] -->
-### 241. victory waits until every AI commander has been eliminated
+### 242. victory waits until every AI commander has been eliminated
 
 **What it checks:** Runs the deterministic game simulation to confirm that victory waits until every AI commander has been eliminated.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","snapshots preserve multi-AI teams, starts, maps, and decision state"] -->
-### 242. snapshots preserve multi-AI teams, starts, maps, and decision state
+### 243. snapshots preserve multi-AI teams, starts, maps, and decision state
 
 **What it checks:** Runs the deterministic game simulation to confirm that snapshots preserve multi-AI teams, starts, maps, and decision state.
 
 <!-- test-catalog-entry: ["test/simulation.test.js","tactical minimap crystal markers use bright fog-independent colors"] -->
-### 243. tactical minimap crystal markers use bright fog-independent colors
+### 244. tactical minimap crystal markers use bright fog-independent colors
 
 **What it checks:** Runs the deterministic game simulation to confirm that tactical minimap crystal markers use bright fog-independent colors.
 

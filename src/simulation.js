@@ -3214,7 +3214,11 @@ export class Simulation {
     const stagedUnits = this.getEnemyStagedCombatUnits(teamId, {
       includeRecharging: rushTargets.length > 0,
     });
-    const assaultPlan = rushTargets.length > 0 && stagedUnits.length > 0
+    // A local threat should trigger a fast response, but never by sending a
+    // single newly produced defender across the map. Keep the response
+    // immediate once a force is ready while requiring the same minimum
+    // coordinated wave as a normal assault.
+    const assaultPlan = rushTargets.length > 0 && stagedUnits.length >= desiredWaveSize
       ? {
         target: nearest(stagedUnits[0], rushTargets),
         wave: stagedUnits,

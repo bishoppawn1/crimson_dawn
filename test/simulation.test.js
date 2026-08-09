@@ -5448,17 +5448,17 @@ test("an already dispatched AI assault does not turn around when defenses appear
   assert.ok(!simulation.events.some((event) => event.type === "enemy_retreat"));
 });
 
-test("enemy combat units immediately answer structures rushed near their base", () => {
+test("enemy combat units immediately answer structures rushed near their base as a wave", () => {
   const simulation = new Simulation();
   const enemyGenerator = simulation.addStructure("generator", "enemy", 1000, 800);
-  const defender = simulation.addUnit("scout_mech", "enemy", 1080, 800);
+  const defenders = [
+    simulation.addUnit("scout_mech", "enemy", 1080, 800),
+    simulation.addUnit("scout_mech", "enemy", 1080, 840),
+    simulation.addUnit("scout_mech", "enemy", 1080, 760),
+  ];
   const forwardGenerator = simulation.addStructure("generator", "player", 1500, 800);
   simulation.addStructure("sentry_turret", "player", 1460, 800);
   simulation.aiThinkRemaining = 0;
-  const startingDistance = Math.hypot(
-    defender.x - forwardGenerator.x,
-    defender.y - forwardGenerator.y,
-  );
 
   simulation.tick(1 / 30);
 
@@ -5466,15 +5466,28 @@ test("enemy combat units immediately answer structures rushed near their base", 
     Math.hypot(forwardGenerator.x - enemyGenerator.x, forwardGenerator.y - enemyGenerator.y) <=
       SIMULATION_RULES.enemyRushResponseRadius,
   );
-  assert.equal(defender.attackTargetId, null);
-  assert.equal(defender.moveMode, "advance");
-  assert.ok(defender.moveTarget);
+  assert.ok(defenders.every((defender) => defender.attackTargetId === null));
+  assert.ok(defenders.every((defender) => defender.moveMode === "advance"));
+  assert.ok(defenders.every((defender) => defender.moveTarget));
 
-  advance(simulation, 1);
-  assert.ok(
-    Math.hypot(defender.x - forwardGenerator.x, defender.y - forwardGenerator.y) <
-      startingDistance,
+  assert.equal(
+    simulation.events.find((event) => event.type === "enemy_wave").unitIds.length,
+    defenders.length,
   );
+});
+
+test("enemy rush responses wait for a coordinated force instead of sending one unit", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "enemy", 1000, 800);
+  const defender = simulation.addUnit("scout_mech", "enemy", 1080, 800);
+  simulation.addStructure("generator", "player", 1500, 800);
+  simulation.aiThinkRemaining = 0;
+
+  simulation.tick(1 / 30);
+
+  assert.equal(defender.moveMode, null);
+  assert.equal(defender.moveTarget, null);
+  assert.ok(!simulation.events.some((event) => event.type === "enemy_wave"));
 });
 
 test("cancelling construction removes the foundation, clears workers, and refunds unbuilt crystal", () => {
