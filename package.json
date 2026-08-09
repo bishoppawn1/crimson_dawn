@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
+    "tests:catalog": "node scripts/generate-catalog.mjs",
     "test": "node --test",
-    "check": "node --check src/data.js && node --check src/determinism.js && node --check src/maps.js && node --check src/simulation.js && node --check src/simulation-clock.js && node --check src/network-presentation.js && node --check src/multiplayer.js && node --check src/minimap.js && node --check src/queue-status.js && node --check src/strategic-view.js && node --check src/game.js"
+    "check": "node scripts/generate-catalog.mjs --check && node --check src/data.js && node --check src/determinism.js && node --check src/maps.js && node --check src/simulation.js && node --check src/simulation-clock.js && node --check src/network-presentation.js && node --check src/multiplayer.js && node --check src/minimap.js && node --check src/queue-status.js && node --check src/strategic-view.js && node --check src/game.js"
   }
 }

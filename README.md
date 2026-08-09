@@ -135,6 +135,9 @@ npm run check
 ```
 
 No package installation or external runtime is required.
+The root [TESTS.md](TESTS.md) catalog lists every automated test with a short
+explanation of what it checks. Run `npm run tests:catalog` after changing test names
+or adding/removing tests; validation rejects an out-of-date catalog.
 
 ## Multiplayer
 
