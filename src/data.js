@@ -1642,6 +1642,7 @@ export const SIMULATION_RULES = Object.freeze({
   structureCollisionPadding: 0,
   unitCollisionPadding: 2,
   rallyFormationSpacing: 32,
+  wreckMergeRadius: 80,
   buildingGridSize: 40,
   constructionStartingHpRatio: 0.1,
   constructionCancelRefundRate: 0.75,

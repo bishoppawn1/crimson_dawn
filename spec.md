@@ -1042,6 +1042,15 @@ descriptive placeholders until the factions and visual language are established.
 Destroyed units leave wreckage containing a portion of their original crystal value.
 Wreck fields turn locations of major battles into economic objectives.
 
+Whenever a new wreck or dropped crystal scrap pile appears, every existing pile in
+the same connected cluster within a provisional 80-world-unit merge radius
+automatically consolidates into one larger pile. The consolidated pile contains the
+exact sum of the remaining crystal, grows visually with that amount, and remains one
+salvage target for every reclamation drone already traveling to the cluster. Distant
+wreck fields remain separate. Consolidation happens when scrap is created rather
+than through a repeated battlefield-wide scan, so large battles do not leave an
+ever-growing collection of overlapping wreck entities.
+
 ### 7.1 Salvage Reclamation Yard
 
 The Salvage Reclamation Yard is an optional economy building intended to become

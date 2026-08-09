@@ -664,7 +664,59 @@ export class Simulation {
     };
     this.wrecks.push(wreck);
     this.entityById.set(wreck.id, wreck);
-    return wreck;
+    return this.mergeNearbyWrecks(wreck);
+  }
+
+  mergeNearbyWrecks(seedWreck) {
+    if (!seedWreck || seedWreck.metal <= EPSILON) return seedWreck;
+
+    const component = [seedWreck];
+    const componentIds = new Set([seedWreck.id]);
+    for (let index = 0; index < component.length; index += 1) {
+      const anchor = component[index];
+      for (const candidate of this.wrecks) {
+        if (
+          componentIds.has(candidate.id) ||
+          candidate.metal <= EPSILON ||
+          distance(anchor, candidate) > SIMULATION_RULES.wreckMergeRadius + EPSILON
+        ) continue;
+        component.push(candidate);
+        componentIds.add(candidate.id);
+      }
+    }
+    if (component.length === 1) return seedWreck;
+
+    const survivor = this.wrecks.find((wreck) => componentIds.has(wreck.id));
+    const totalMetal = component.reduce((total, wreck) => total + wreck.metal, 0);
+    const totalInitialMetal = component.reduce(
+      (total, wreck) => total + Math.max(wreck.metal, wreck.initialMetal || 0),
+      0,
+    );
+    if (totalMetal > EPSILON) {
+      survivor.x = component.reduce((total, wreck) => total + wreck.x * wreck.metal, 0) / totalMetal;
+      survivor.y = component.reduce((total, wreck) => total + wreck.y * wreck.metal, 0) / totalMetal;
+    }
+    survivor.metal = totalMetal;
+    survivor.initialMetal = Math.max(totalMetal, totalInitialMetal);
+    if (!component.every((wreck) => wreck.team === survivor.team)) survivor.team = "neutral";
+
+    for (const wreck of component) {
+      if (wreck === survivor) continue;
+      this.entityById.delete(wreck.id);
+    }
+    this.wrecks = this.wrecks.filter(
+      (wreck) => wreck === survivor || !componentIds.has(wreck.id),
+    );
+
+    for (const drone of this.droneCache) {
+      if (!componentIds.has(drone.targetWreckId)) continue;
+      drone.targetWreckId = survivor.id;
+      if (drone.mode === "collecting" && distance(drone, survivor) > 12 + EPSILON) {
+        drone.mode = "to_wreck";
+      }
+      this.resetDroneNavigation(drone);
+    }
+    return survivor;
   }
 
   getUnit(id) {

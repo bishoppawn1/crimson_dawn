@@ -6072,10 +6072,18 @@ function drawDrone(drone) {
 }
 
 function drawWreck(wreck) {
-  const ratio = wreck.initialMetal > 0 ? wreck.metal / wreck.initialMetal : 0;
+  const ratio = wreck.initialMetal > 0
+    ? clampValue(wreck.metal / wreck.initialMetal, 0, 1)
+    : 0;
+  const pileScale = clampValue(
+    1 + Math.log2(Math.max(1, wreck.metal) / 40) * 0.2,
+    0.75,
+    2.1,
+  );
   context.save();
   context.translate(wreck.x, wreck.y);
   context.rotate((wreck.x + wreck.y) * 0.01);
+  context.scale(pileScale, pileScale);
   context.fillStyle = "#35383a";
   context.strokeStyle = "#9f998c";
   context.lineWidth = 2;
@@ -6088,22 +6096,26 @@ function drawWreck(wreck) {
   context.closePath();
   context.fill();
   context.stroke();
-  const visibleScrap = Math.max(1, Math.ceil(ratio * 5));
+  const visibleScrap = Math.min(12, Math.max(1, Math.ceil(ratio * 5 * pileScale)));
   for (let shard = 0; shard < visibleScrap; shard += 1) {
     drawCrystalShard(
-      -10 + shard * 5,
-      5 - (shard % 2) * 7,
+      -10 + (shard % 5) * 5,
+      5 - Math.floor(shard / 5) * 6 - (shard % 2) * 3,
       3 + (shard % 3),
       shard * 0.38,
       { rich: shard % 4 === 0 },
     );
   }
   context.restore();
-  drawBar(wreck.x, wreck.y - 22, 40, ratio, colors.crystal);
+  drawBar(wreck.x, wreck.y - 22 * pileScale, 40 * pileScale, ratio, colors.crystal);
   context.fillStyle = "#ff9ca8";
   context.font = "600 10px ui-monospace, monospace";
   context.textAlign = "center";
-  context.fillText(`${Math.ceil(wreck.metal)}C · CRYSTAL SCRAP`, wreck.x, wreck.y + 28);
+  context.fillText(
+    `${Math.ceil(wreck.metal)}C · CRYSTAL SCRAP`,
+    wreck.x,
+    wreck.y + 28 * pileScale,
+  );
   context.textAlign = "start";
 }
 

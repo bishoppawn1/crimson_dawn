@@ -1860,7 +1860,11 @@ test("finished ticks remove destroyed entity tombstones from active collections"
   assert.equal(simulation.structures.length, 0);
   assert.equal(simulation.getUnit(destroyedUnits[0].id), null);
   assert.equal(simulation.getStructure(destroyedStructure.id), null);
-  assert.equal(simulation.wrecks.length, destroyedUnits.length);
+  assert.ok(simulation.wrecks.length <= 8);
+  assert.equal(
+    simulation.wrecks.reduce((total, wreck) => total + wreck.metal, 0),
+    destroyedUnits.length * Math.round(UNIT_DEFINITIONS.scout_mech.metalValue * 0.55),
+  );
 });
 
 test("idle armies stagger automatic target scans after their initial acquisition", () => {
@@ -2648,6 +2652,47 @@ test("destroyed units create finite reclaimable wreckage", () => {
   );
 });
 
+test("nearby wrecks consolidate into larger resource-conserving scrap piles", () => {
+  const simulation = new Simulation();
+  const first = simulation.addWreck(100, 100, 20, "player");
+  const merged = simulation.addWreck(150, 100, 30, "enemy");
+  const distant = simulation.addWreck(
+    150 + SIMULATION_RULES.wreckMergeRadius + 1,
+    100,
+    40,
+  );
+
+  assert.equal(merged, first);
+  assert.equal(simulation.wrecks.length, 2);
+  assert.equal(first.metal, 50);
+  assert.equal(first.initialMetal, 50);
+  assert.equal(first.x, 130);
+  assert.equal(first.team, "neutral");
+  assert.equal(distant.metal, 40);
+  assert.equal(
+    simulation.wrecks.reduce((total, wreck) => total + wreck.metal, 0),
+    90,
+  );
+});
+
+test("wreck consolidation redirects reclamation drones to the surviving pile", () => {
+  const simulation = new Simulation();
+  simulation.addStructure("generator", "player", 400, 100);
+  const yard = simulation.addStructure("salvage_yard", "player", 320, 100);
+  const oldestPile = simulation.addWreck(100, 100, 20);
+  const targetedPile = simulation.addWreck(240, 100, 20);
+  simulation.tick(1 / 30);
+
+  assert.ok(yard.drones.every((drone) => drone.targetWreckId === targetedPile.id));
+  simulation.addWreck(170, 100, 20);
+
+  assert.equal(simulation.wrecks.length, 1);
+  assert.equal(simulation.wrecks[0], oldestPile);
+  assert.equal(oldestPile.metal, 60);
+  assert.ok(yard.drones.every((drone) => drone.targetWreckId === oldestPile.id));
+  assert.ok(yard.drones.every((drone) => drone.mode === "to_wreck"));
+});
+
 test("a powered salvage yard automatically returns wreck crystal", () => {
   const simulation = new Simulation();
   simulation.addStructure("generator", "player", 100, 100);
@@ -3274,7 +3319,12 @@ test("destroying a loaded Dropship destroys its passengers and snapshots preserv
   simulation.applyDamage(transport, transport.hp);
   assert.equal(transport.alive, false);
   assert.equal(passenger.alive, false);
-  assert.equal(simulation.wrecks.length, 2);
+  assert.equal(simulation.wrecks.length, 1);
+  assert.equal(
+    simulation.wrecks[0].metal,
+    Math.round(UNIT_DEFINITIONS.dropship_t3.metalValue * 0.55) +
+      Math.round(UNIT_DEFINITIONS.battle_tank_t3.metalValue * 0.55),
+  );
 });
 
 test("all units and structures provide a useful deterministic vision range", () => {
