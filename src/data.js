@@ -1683,7 +1683,7 @@ Object.assign(structureDefinitions, {
     maxHp: 900,
     powerDemand: 12,
     overseerZoneCount: 5,
-    overseerZoneRadius: 950,
+    overseerZoneRadius: structureDefinitions.radar_tower.radarRange * 0.75,
     overseerShiftInterval: 60,
     metalCost: 750,
     buildTime: 30,

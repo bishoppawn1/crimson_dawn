@@ -121,16 +121,18 @@ asset displays its current coverage circle, and the minimap applies the same cov
 
 The Tier 3 **Overseer Spire** is a separate strategic reconnaissance building. While
 completed and powered, it projects up to five remote orbital vision circles, each
-with the Tier 1 Radar Array's provisional 950-world-unit radius. Every 60 powered
-seconds, all of its circles relocate deterministically. At relocation time, each
-new circle's center must remain at least 475 world units inside the battlefield,
-stay outside conventional vision from the owner or an ally, and remain far enough
-from every other allied Overseer circle that the orbital circles do not overlap. A
-previous circle's replacement also moves at least 475 world units from that old
-position. Circle edges may extend beyond the battlefield boundary, where they have
-no effect. When battlefield geometry and existing allied vision leave fewer than
-five legal locations, the Spire uses only the legal circles it can place. Losing
-power hides every orbital circle and pauses the relocation timer;
+75 percent of the Tier 1 Radar Array's radius: 712.5 world units under the current
+provisional radar value. Every 60 powered seconds, all of its circles relocate
+deterministically. At relocation time, each new circle first seeks a center at least
+356.25 world units inside the battlefield where the whole reveal circle overlaps
+neither conventional allied vision nor another allied Overseer circle. A previous
+circle's replacement also moves at least 356.25 world units from that old position.
+If no completely non-overlapping position exists for the next circle, that slot
+instead uses deterministic uniform area sampling to choose the position whose
+in-bounds circle contains the most currently undiscovered area. Fallback circles
+may overlap existing vision or one another, but never reuse the same candidate
+center. Circle edges may extend beyond the battlefield boundary, where they have no
+effect. Losing power hides every orbital circle and pauses the relocation timer;
 restoring power returns the same circles until their remaining timer expires.
 Orbital coverage is authoritative vision shared with allies, so it affects fog,
 targeting, the tactical minimap, snapshots, and multiplayer exactly like other

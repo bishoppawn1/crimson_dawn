@@ -3981,7 +3981,7 @@ test("powered radar arrays reveal long range and lose that coverage off-grid", (
   assert.equal(simulation.isEntityVisibleToTeam("player", enemy), false);
 });
 
-test("the Tier 3 Overseer Spire exposes five Tier 1 radar-sized orbital zones", () => {
+test("the Tier 3 Overseer Spire exposes five zones at 75 percent of Tier 1 radar radius", () => {
   assert.ok(BUILD_MENU_BY_TIER[3].includes("overseer_spire"));
   assert.equal(canWorkerTierBuildStructure(2, "overseer_spire"), false);
   assert.equal(canWorkerTierBuildStructure(3, "overseer_spire"), true);
@@ -3989,7 +3989,7 @@ test("the Tier 3 Overseer Spire exposes five Tier 1 radar-sized orbital zones", 
   assert.equal(STRUCTURE_DEFINITIONS.overseer_spire.overseerZoneCount, 5);
   assert.equal(
     STRUCTURE_DEFINITIONS.overseer_spire.overseerZoneRadius,
-    STRUCTURE_DEFINITIONS.radar_tower.radarRange,
+    STRUCTURE_DEFINITIONS.radar_tower.radarRange * 0.75,
   );
   assert.equal(STRUCTURE_DEFINITIONS.overseer_spire.overseerShiftInterval, 60);
 });
@@ -4001,14 +4001,14 @@ test("Overseer orbital vision relocates without overlapping allied sight or othe
     { id: "enemy", name: "Enemy", kind: "ai", slot: 2, allianceId: "enemy" },
   ];
   const simulation = new Simulation({
-    width: 5200,
-    height: 3200,
+    width: 8560,
+    height: 6280,
     teams,
     enemyAiEnabled: false,
   });
-  simulation.addStructure("generator", "player", 600, 1600);
-  const spire = simulation.addStructure("overseer_spire", "player", 720, 1600);
-  simulation.addUnit("scout_mech", "ally", 2600, 1600);
+  simulation.addStructure("generator", "player", 600, 3140);
+  const spire = simulation.addStructure("overseer_spire", "player", 720, 3140);
+  simulation.addUnit("scout_mech", "ally", 4280, 3140);
   const conventionalSources = simulation.getConventionalVisionSources("player");
   const definition = STRUCTURE_DEFINITIONS.overseer_spire;
 
@@ -4027,7 +4027,9 @@ test("Overseer orbital vision relocates without overlapping allied sight or othe
     assert.ok(zone.y >= definition.overseerZoneRadius * 0.5);
     assert.ok(zone.y <= simulation.height - definition.overseerZoneRadius * 0.5);
     for (const source of conventionalSources) {
-      assert.ok(distance(zone, source) >= source.range - 0.001);
+      assert.ok(
+        distance(zone, source) >= definition.overseerZoneRadius + source.range - 0.001,
+      );
     }
     for (const otherZone of spire.overseerZones.slice(index + 1)) {
       assert.ok(distance(zone, otherZone) >= definition.overseerZoneRadius * 2 - 0.001);
@@ -4060,6 +4062,47 @@ test("Overseer orbital vision relocates without overlapping allied sight or othe
   assert.deepEqual(restoredSpire.overseerZones, spire.overseerZones);
   assert.equal(restoredSpire.overseerCycle, spire.overseerCycle);
   assert.equal(restoredSpire.overseerShiftRemaining, spire.overseerShiftRemaining);
+});
+
+test("Overseer zones fall back to the position with the most undiscovered area", () => {
+  const simulation = new Simulation({ width: 1200, height: 1000, enemyAiEnabled: false });
+  const spire = simulation.addStructure("overseer_spire", "player", 200, 500);
+  const alliedSpire = simulation.addStructure("overseer_spire", "player", 300, 500);
+  const radius = STRUCTURE_DEFINITIONS.overseer_spire.overseerZoneRadius;
+  spire.powered = true;
+  alliedSpire.powered = true;
+  alliedSpire.overseerZones = [{ x: 600, y: 500 }];
+
+  const coverageSources = [
+    ...simulation.getConventionalVisionSources("player"),
+    { x: 600, y: 500, range: radius },
+  ];
+  const margin = radius * 0.5;
+  const step = Math.max(80, Math.round(radius / 4));
+  const samplingAxis = (start, end) => {
+    const values = [];
+    for (let value = start; value <= end + 0.000001; value += step) values.push(value);
+    if (end - values[values.length - 1] > 0.000001) values.push(end);
+    return values;
+  };
+  const candidates = samplingAxis(margin, simulation.height - margin).flatMap((y) =>
+    samplingAxis(margin, simulation.width - margin).map((x) => ({ x, y })));
+  const bestUndiscoveredSamples = Math.max(
+    ...candidates.map((candidate) =>
+      simulation.countUncoveredOverseerSamples(candidate, radius, coverageSources)),
+  );
+
+  simulation.repositionOverseerZones(spire);
+
+  assert.equal(spire.overseerZones.length, STRUCTURE_DEFINITIONS.overseer_spire.overseerZoneCount);
+  assert.equal(
+    simulation.countUncoveredOverseerSamples(spire.overseerZones[0], radius, coverageSources),
+    bestUndiscoveredSamples,
+  );
+  assert.ok(
+    spire.overseerZones.some((zone) => distance(zone, alliedSpire.overseerZones[0]) < radius * 2),
+  );
+  assert.equal(new Set(spire.overseerZones.map((zone) => `${zone.x}:${zone.y}`)).size, 5);
 });
 
 test("radar towers and mobile radar units improve across every available branch tier", () => {

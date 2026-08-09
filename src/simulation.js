@@ -1078,23 +1078,79 @@ export class Simulation {
       })))
       .sort((left, right) => left.score - right.score || left.y - right.y || left.x - right.x);
     const zones = [];
-    for (const candidate of candidates) {
-      if (
-        conventionalSources.some(
-          (source) => distance(candidate, source) + EPSILON < source.range,
-        ) ||
-        reservedZones.some((zone) => distance(candidate, zone) + EPSILON < radius * 2) ||
-        zones.some((zone) => distance(candidate, zone) + EPSILON < radius * 2) ||
-        previousZones.some((zone) => distance(candidate, zone) + EPSILON < radius * 0.5)
-      ) {
-        continue;
+    const usedCandidates = new Set();
+    while (zones.length < definition.overseerZoneCount) {
+      let availableCandidates = candidates.filter(
+        (candidate) =>
+          !usedCandidates.has(candidate) &&
+          previousZones.every(
+            (zone) => distance(candidate, zone) + EPSILON >= radius * 0.5,
+          ),
+      );
+      if (!availableCandidates.length) {
+        availableCandidates = candidates.filter((candidate) => !usedCandidates.has(candidate));
       }
+      if (!availableCandidates.length) break;
+
+      const occupiedOrbitalZones = [...reservedZones, ...zones];
+      let candidate = availableCandidates.find(
+        (option) =>
+          conventionalSources.every(
+            (source) => distance(option, source) + EPSILON >= radius + source.range,
+          ) &&
+          occupiedOrbitalZones.every(
+            (zone) => distance(option, zone) + EPSILON >= radius * 2,
+          ),
+      );
+      if (!candidate) {
+        const coverageSources = [
+          ...conventionalSources,
+          ...occupiedOrbitalZones.map((zone) => ({ ...zone, range: radius })),
+        ];
+        let bestUndiscoveredSamples = -1;
+        for (const option of availableCandidates) {
+          const undiscoveredSamples = this.countUncoveredOverseerSamples(
+            option,
+            radius,
+            coverageSources,
+          );
+          if (undiscoveredSamples > bestUndiscoveredSamples) {
+            candidate = option;
+            bestUndiscoveredSamples = undiscoveredSamples;
+          }
+        }
+      }
+      usedCandidates.add(candidate);
       zones.push({ x: candidate.x, y: candidate.y });
-      if (zones.length >= definition.overseerZoneCount) break;
     }
     structure.overseerZones = zones;
     structure.overseerCycle += 1;
     return zones;
+  }
+
+  countUncoveredOverseerSamples(candidate, radius, coverageSources) {
+    const relevantSources = coverageSources.filter(
+      (source) => distance(candidate, source) < radius + source.range + EPSILON,
+    );
+    let uncoveredSamples = 0;
+    for (let sample = 0; sample < OVERSEER_UNDISCOVERED_SAMPLE_COUNT; sample += 1) {
+      const sampleRadius = radius * Math.sqrt(
+        (sample + 0.5) / OVERSEER_UNDISCOVERED_SAMPLE_COUNT,
+      );
+      const sampleAngle = sample * OVERSEER_GOLDEN_ANGLE;
+      const x = candidate.x + Math.cos(sampleAngle) * sampleRadius;
+      const y = candidate.y + Math.sin(sampleAngle) * sampleRadius;
+      if (x < 0 || x > this.width || y < 0 || y > this.height) continue;
+      if (
+        relevantSources.some(
+          (source) => Math.hypot(source.x - x, source.y - y) <= source.range + EPSILON,
+        )
+      ) {
+        continue;
+      }
+      uncoveredSamples += 1;
+    }
+    return uncoveredSamples;
   }
 
   isPointVisibleToTeam(teamId, x, y, radius = 0, visionSources = null) {
@@ -7881,6 +7937,9 @@ function deterministicHash(value) {
   }
   return hash;
 }
+
+const OVERSEER_UNDISCOVERED_SAMPLE_COUNT = 48;
+const OVERSEER_GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 function overseerSamplingAxis(start, end, step) {
   if (end + EPSILON < start) return [];
