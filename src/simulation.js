@@ -6450,7 +6450,9 @@ export class Simulation {
     unit.productionAssistTargetId = null;
     unit.navigationObstacleId = null;
     unit.navigationSide = null;
-    const salvageMetal = Math.round(UNIT_DEFINITIONS[unit.type].metalValue * 0.55);
+    const salvageMetal = Math.round(
+      UNIT_DEFINITIONS[unit.type].metalValue * SIMULATION_RULES.wreckSalvageRatio,
+    );
     this.addWreck(destroyedAt.x, destroyedAt.y, salvageMetal, unit.team);
     this.emit("destroyed", destroyedAt.x, destroyedAt.y, { targetId: unit.id });
 
@@ -6526,6 +6528,10 @@ export class Simulation {
     target.powered = false;
     target.connected = false;
     target.powerStatus = "destroyed";
+    const salvageMetal = Math.round(
+      definition.metalValue * SIMULATION_RULES.wreckSalvageRatio,
+    );
+    this.addWreck(target.x, target.y, salvageMetal, target.team);
     this.emit("destroyed", target.x, target.y, { targetId: target.id });
 
     if (triggerHeadquartersLoss && definition.headquarters) {

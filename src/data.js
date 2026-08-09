@@ -1128,6 +1128,7 @@ const structureDefinitions = {
     productionRate: 1,
     production: ["worker_drone_t1"],
     metalCost: 0,
+    metalValue: 600,
     buildTime: 0,
     provisionalBalance: true,
   },
@@ -1595,6 +1596,7 @@ Object.assign(structureDefinitions, {
 for (const [type, definition] of Object.entries(structureDefinitions)) {
   structureDefinitions[type] = Object.freeze({
     ...definition,
+    metalValue: definition.metalValue ?? definition.metalCost,
     visionRange: definition.visionRange ?? Math.max(340, (definition.attackRange || 0) + 80),
     buildTime: definition.buildTime * BUILD_DURATION_MULTIPLIER,
   });
@@ -1678,6 +1680,7 @@ export const SIMULATION_RULES = Object.freeze({
   unitCollisionPadding: 2,
   rallyFormationSpacing: 32,
   wreckMergeRadius: 80,
+  wreckSalvageRatio: 0.55,
   buildingGridSize: 40,
   constructionStartingHpRatio: 0.1,
   constructionCancelRefundRate: 0.75,

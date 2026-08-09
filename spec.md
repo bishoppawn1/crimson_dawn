@@ -9,7 +9,7 @@ Crimson Dawn is a real-time strategy game set in the future. Its central strateg
 idea is that energy is required not only to run a base but also to keep an army
 mobile and combat-capable. Players expand to secure crystal, construct power
 infrastructure, move energy toward the front, destroy enemy supply assets, and
-recover crystal from wrecked units.
+recover crystal from wrecked units and buildings.
 
 The intended pressure is logistical rather than primarily mechanical: players
 should make meaningful decisions about range, reserves, supply, and retreat without
@@ -191,7 +191,7 @@ Crystal can be obtained from:
 
 - Crystal Harvesters built on map-defined crimson crystal deposits.
 - Converting energy into crystal.
-- Reclaiming crystal scrap from the wreckage of destroyed units.
+- Reclaiming crystal scrap from the wreckage of destroyed units and buildings.
 
 Most deposits are individually distributed, while remote frontier locations group
 several deposits into expansion objectives. Distance from a starting base does not
@@ -1153,8 +1153,13 @@ descriptive placeholders until the factions and visual language are established.
 
 ## 7. Wreckage and Salvage
 
-Destroyed units leave wreckage containing a portion of their original crystal value.
-Wreck fields turn locations of major battles into economic objectives.
+Destroyed units, completed buildings, and unfinished foundations leave wreckage
+containing a provisional 55 percent of their data-defined crystal value. Structures
+normally use their construction cost as that value; the irreplaceable, zero-cost
+Command Headquarters has a provisional 600-crystal salvage value. Cancelling an
+unfinished foundation applies its normal refund and does not also create scrap.
+Wreck fields turn locations of major battles and destroyed bases into economic
+objectives.
 
 Whenever a new wreck or dropped crystal scrap pile appears, every existing pile in
 the same connected cluster within a provisional 80-world-unit merge radius
@@ -1184,7 +1189,7 @@ from the yard when the upgrade completes. The provisional tier progression is:
 
 Their default behavior is:
 
-1. Find the nearest eligible unit wreck or crystal scrap pile with crystal remaining. More
+1. Find the nearest eligible unit or building wreck or crystal scrap pile with crystal remaining. More
    than one drone may choose the same pile.
 2. Dispatch an available drone to the wreck.
 3. Harvest crystal scrap from that wreck.
@@ -1439,7 +1444,7 @@ not attempt the final unit roster. It should include:
 - One mobile energy supplier.
 - Unit movement and weapon energy consumption.
 - Stasis, emergency regeneration, and reactivation.
-- Destroyed-unit wreckage.
+- Destroyed-unit and destroyed-building wreckage.
 - One Salvage Reclamation Yard with three destructible, freely replaced drones.
 - At least one energy-consuming special ability, used to validate the ability
   framework without making abilities universal.

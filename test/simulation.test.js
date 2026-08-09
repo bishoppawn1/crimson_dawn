@@ -2019,7 +2019,11 @@ test("finished ticks remove destroyed entity tombstones from active collections"
   assert.ok(simulation.wrecks.length <= 8);
   assert.equal(
     simulation.wrecks.reduce((total, wreck) => total + wreck.metal, 0),
-    destroyedUnits.length * Math.round(UNIT_DEFINITIONS.scout_mech.metalValue * 0.55),
+    destroyedUnits.length * Math.round(
+      UNIT_DEFINITIONS.scout_mech.metalValue * SIMULATION_RULES.wreckSalvageRatio,
+    ) + Math.round(
+      STRUCTURE_DEFINITIONS.generator.metalValue * SIMULATION_RULES.wreckSalvageRatio,
+    ),
   );
 });
 
@@ -2863,8 +2867,41 @@ test("destroyed units create finite reclaimable wreckage", () => {
   assert.equal(simulation.wrecks.length, 1);
   assert.equal(
     simulation.wrecks[0].metal,
-    Math.round(UNIT_DEFINITIONS.raider.metalValue * 0.55),
+    Math.round(UNIT_DEFINITIONS.raider.metalValue * SIMULATION_RULES.wreckSalvageRatio),
   );
+});
+
+test("destroyed buildings create one finite reclaimable scrap pile", () => {
+  const simulation = new Simulation();
+  const structure = simulation.addStructure("generator", "player", 200, 200);
+
+  assert.ok(
+    Object.values(STRUCTURE_DEFINITIONS).every((definition) => definition.metalValue > 0),
+    "every building type should have a positive salvage value",
+  );
+
+  simulation.applyDamage(structure, structure.hp);
+
+  assert.equal(structure.alive, false);
+  assert.equal(simulation.wrecks.length, 1);
+  assert.deepEqual(
+    {
+      x: simulation.wrecks[0].x,
+      y: simulation.wrecks[0].y,
+      team: simulation.wrecks[0].team,
+      metal: simulation.wrecks[0].metal,
+    },
+    {
+      x: structure.x,
+      y: structure.y,
+      team: structure.team,
+      metal: Math.round(
+        STRUCTURE_DEFINITIONS.generator.metalValue * SIMULATION_RULES.wreckSalvageRatio,
+      ),
+    },
+  );
+  assert.equal(simulation.destroyEntity(structure), false);
+  assert.equal(simulation.wrecks.length, 1, "a building must not drop scrap twice");
 });
 
 test("nearby wrecks consolidate into larger resource-conserving scrap piles", () => {
@@ -3570,8 +3607,11 @@ test("destroying a loaded Dropship destroys its passengers and snapshots preserv
   assert.equal(simulation.wrecks.length, 1);
   assert.equal(
     simulation.wrecks[0].metal,
-    Math.round(UNIT_DEFINITIONS.dropship_t3.metalValue * 0.55) +
-      Math.round(UNIT_DEFINITIONS.battle_tank_t3.metalValue * 0.55),
+    Math.round(
+      UNIT_DEFINITIONS.dropship_t3.metalValue * SIMULATION_RULES.wreckSalvageRatio,
+    ) + Math.round(
+      UNIT_DEFINITIONS.battle_tank_t3.metalValue * SIMULATION_RULES.wreckSalvageRatio,
+    ),
   );
 });
 
