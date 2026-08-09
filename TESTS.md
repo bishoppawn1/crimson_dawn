@@ -1457,10 +1457,10 @@ this catalog is out of date.
 
 **What it checks:** Calculates strategic-view presentation data to confirm that strategic unit tags identify role and tier with compact markers.
 
-<!-- test-catalog-entry: ["test/strategic-view.test.js","crowded or medium zoom views use the reduced-cost renderer"] -->
-### 5. crowded or medium zoom views use the reduced-cost renderer
+<!-- test-catalog-entry: ["test/strategic-view.test.js","normal battlefield zooms stay outside the strategic icon view"] -->
+### 5. normal battlefield zooms stay outside the strategic icon view
 
-**What it checks:** Calculates strategic-view presentation data to confirm that crowded or medium zoom views use the reduced-cost renderer.
+**What it checks:** Calculates strategic-view presentation data to confirm that normal battlefield zooms stay outside the strategic icon view.
 
 ## [test/test-catalog.test.js](test/test-catalog.test.js)
 

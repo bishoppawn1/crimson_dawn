@@ -2,9 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  FULL_DETAIL_VISIBLE_ENTITY_LIMIT,
-  FULL_DETAIL_ZOOM_THRESHOLD,
-  reducedDetailViewActive,
   STRATEGIC_ICON_ZOOM_THRESHOLD,
   strategicIconWorldSize,
   strategicUnitCode,
@@ -59,14 +56,8 @@ test("strategic unit tags identify role and tier with compact markers", () => {
   assert.equal(strategicUnitCode({ role: "unknown" }), "U");
 });
 
-test("crowded or medium zoom views use the reduced-cost renderer", () => {
-  assert.equal(reducedDetailViewActive(STRATEGIC_ICON_ZOOM_THRESHOLD, 100), false);
-  assert.equal(reducedDetailViewActive(STRATEGIC_ICON_ZOOM_THRESHOLD + 0.01, 1), true);
-  assert.equal(reducedDetailViewActive(FULL_DETAIL_ZOOM_THRESHOLD - 0.01, 1), true);
-  assert.equal(reducedDetailViewActive(FULL_DETAIL_ZOOM_THRESHOLD, 1), false);
-  assert.equal(
-    reducedDetailViewActive(1, FULL_DETAIL_VISIBLE_ENTITY_LIMIT + 1),
-    true,
-  );
-  assert.equal(reducedDetailViewActive(1, FULL_DETAIL_VISIBLE_ENTITY_LIMIT), false);
+test("normal battlefield zooms stay outside the strategic icon view", () => {
+  for (const zoom of [STRATEGIC_ICON_ZOOM_THRESHOLD + 0.01, 0.6, 0.72, 1, 2]) {
+    assert.equal(strategicViewActive(zoom), false);
+  }
 });

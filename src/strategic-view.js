@@ -1,6 +1,4 @@
 export const STRATEGIC_ICON_ZOOM_THRESHOLD = 0.45;
-export const FULL_DETAIL_ZOOM_THRESHOLD = 0.72;
-export const FULL_DETAIL_VISIBLE_ENTITY_LIMIT = 42;
 export const STRATEGIC_UNIT_CODE_SCREEN_SIZE = 11;
 export const STRATEGIC_UNIT_MIN_SCREEN_RADIUS = 3.5;
 
@@ -43,17 +41,6 @@ export function strategicZoomMinimum(
 
 export function strategicViewActive(zoom) {
   return Number.isFinite(zoom) && zoom <= STRATEGIC_ICON_ZOOM_THRESHOLD;
-}
-
-export function reducedDetailViewActive(zoom, visibleEntityCount = 0) {
-  if (!Number.isFinite(zoom) || zoom <= STRATEGIC_ICON_ZOOM_THRESHOLD) return false;
-  const safeEntityCount = Number.isFinite(visibleEntityCount)
-    ? Math.max(0, visibleEntityCount)
-    : FULL_DETAIL_VISIBLE_ENTITY_LIMIT + 1;
-  return (
-    zoom < FULL_DETAIL_ZOOM_THRESHOLD ||
-    safeEntityCount > FULL_DETAIL_VISIBLE_ENTITY_LIMIT
-  );
 }
 
 export function strategicIconWorldSize(zoom, screenPixels = 10) {

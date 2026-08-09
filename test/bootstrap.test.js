@@ -104,8 +104,7 @@ test("the battlefield, minimap, effects, and targeting share fog visibility", as
   assert.match(game, /pointIsVisibleToLocalTeam\(event\.x, event\.y, 20\)/);
   assert.match(game, /findEnemyAt[\s\S]*entityIsVisibleToLocalTeam\(entity\)/);
   assert.match(game, /command\.unitIds,[\s\S]*requireVision: true/);
-  assert.match(game, /reducedDetailViewActive\(camera\.zoom, visibleRenderEntityCount\(\)\)/);
-  assert.match(game, /drawReducedDetailEntities\(\)/);
+  assert.doesNotMatch(game, /reducedDetailViewActive|drawReducedDetailEntities|PERFORMANCE DETAIL/);
   assert.match(index, /Fog of war hides enemy contacts/);
 });
 

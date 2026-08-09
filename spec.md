@@ -84,13 +84,10 @@ ring without enlarging the underlying marker. Each Headquarters retains a ringed
 diamond inside its actual footprint. Team colors, selection highlighting, forgiving
 hit testing, movement orders, and combat targeting remain usable in this whole-map
 view.
-Between tactical zoom and 72% scale, the battlefield uses a reduced-detail view
-with flat unit silhouettes, simplified structures and terrain, conditional status
-bars, and no per-entity gradients, shadows, or labels. The same reduced renderer
-also activates at closer zoom when more than 42 mobile entities, structures,
-drones, and wrecks are visible. This prevents the tactical-to-normal transition and
-crowded battles from causing a sudden rendering-cost spike while preserving full
-unit artwork in close, uncrowded views.
+Every non-strategic zoom level uses the same full-detail unit, structure, wreck, and
+terrain artwork regardless of how many entities are visible. The game does not
+silently switch to simplified silhouettes or expose a separate performance-detail
+mode when the camera zooms out or a battle becomes crowded.
 On desktop displays, the battlefield expands across the available browser width;
 outer padding and the command column remain narrow enough to prioritize the play
 surface.
@@ -1267,9 +1264,9 @@ The battlefield uses Canvas rendering. Menus, command panels, accessibility
 features, and other interface elements may use HTML and CSS where appropriate.
 Canvas passes cull off-screen units, structures, deposits, terrain details, and grid
 segments so match cost scales primarily with what the camera can actually show.
-Medium zoom and crowded close views use a reduced-cost entity and terrain pass,
-avoiding the gradients, shadows, dense labels, and decorative geometry that create
-a render-cost cliff when leaving tactical view.
+All non-strategic views retain the complete entity and terrain renderer even in
+crowded battles; performance work must preserve that presentation rather than
+silently substituting a lower-detail mode.
 The static-page bootstrap gives every local JavaScript module in a page load the
 same fresh version token. This prevents the hosting cache from mixing an older map
 or simulation module with a newly deployed menu after reload.
