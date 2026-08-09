@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 288
+**Automated tests documented:** 289
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -1434,6 +1434,11 @@ this catalog is out of date.
 ### 245. tactical minimap crystal markers use bright fog-independent colors
 
 **What it checks:** Runs the deterministic game simulation to confirm that tactical minimap crystal markers use bright fog-independent colors.
+
+<!-- test-catalog-entry: ["test/simulation.test.js","mortar shells travel faster and keep tracking moving targets"] -->
+### 246. mortar shells travel faster and keep tracking moving targets
+
+**What it checks:** Runs the deterministic game simulation to confirm that mortar shells travel faster and keep tracking moving targets.
 
 ## [test/strategic-view.test.js](test/strategic-view.test.js)
 

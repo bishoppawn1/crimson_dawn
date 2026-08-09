@@ -383,12 +383,14 @@ structures—including unfinished foundations—that enter their weapon range.
 Firing is presented as a short physical sequence with a fixed muzzle origin,
 weapon recoil, a visible moving tracer or shell, and a brief impact flash. Heavy
 cannons and artillery use slower, weightier projectiles and larger impacts than
-rapid weapons. These effects use the authoritative attack event's firing-time
-positions; they do not stretch from a shooter or target that moves after the shot,
-and they do not change deterministic hit resolution. Every weapon represented by a
-moving tracer, missile, or shell applies its damage only when that projectile
-reaches the event's fixed impact position. Projectile speed and minimum travel time
-are shared by the simulation and renderer so damage cannot precede the visible hit.
+rapid weapons. Ordinary projectile effects use the authoritative attack event's
+firing-time positions; they do not stretch from a shooter or target that moves
+after the shot. Mortar shells are the exception: their arc continually adjusts
+toward the chosen target's current presented position so a moving unit is struck
+where it is now rather than where it was when the turret fired. Every weapon
+represented by a moving tracer, missile, or shell applies its damage only when that
+projectile arrives. Projectile speed and minimum travel time are shared by the
+simulation and renderer so damage cannot precede the visible hit.
 Attack events remain available through their entire flight and impact effect, even
 for long-range artillery whose travel time exceeds the ordinary event lifetime.
 Instant and sustained beam weapons apply damage while their beam is active.
@@ -926,8 +928,9 @@ in one simulation tick. The selected-defense interface displays weapon range,
 capacitor charge, and current behavior such as charging, ready, tracking, or firing.
 Sentry and Mortar Turrets have no separate passive power demand: a full, idle
 turret consumes no grid energy, and it draws power only when its capacitor needs to
-replace energy spent firing. Mortars launch a visibly arcing projectile and report
-`TARGET TOO CLOSE` when hostile targets exist only inside their dead zone.
+replace energy spent firing. Mortars launch a visibly arcing, target-tracking shell
+at a provisional 520 world units per second and report `TARGET TOO CLOSE` when
+hostile targets exist only inside their dead zone.
 
 The Strategic Supply Complex is an exceptionally large 8-by-6-grid-cell economic
 building. It costs 1,200 crystal, takes 80 seconds to construct, and passively draws

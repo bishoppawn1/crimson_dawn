@@ -1737,7 +1737,7 @@ test("long-range projectile events remain visible until their delayed impact", (
   const mortar = simulation.addStructure("mortar_turret_t3", "player", 300, 300, {
     powered: true,
   });
-  const target = simulation.addStructure("generator", "enemy", 950, 300);
+  const target = simulation.addStructure("generator", "enemy", 990, 300);
   const startingHp = target.hp;
 
   simulation.updateStaticDefenses(1 / 30);
@@ -5959,4 +5959,28 @@ test("tactical minimap crystal markers use bright fog-independent colors", () =>
     stroke: "#ffe4e8",
     radius: 4,
   });
+});
+
+test("mortar shells travel faster and keep tracking moving targets", () => {
+  const simulation = new Simulation({ enemyAiEnabled: false });
+  const mortar = simulation.addStructure("mortar_turret", "player", 300, 300, {
+    powered: true,
+  });
+  const target = simulation.addUnit("raider", "enemy", 650, 300);
+  const startingHp = target.hp;
+
+  simulation.updateStaticDefenses(1 / 30);
+
+  const attackEvent = simulation.events.find(
+    (event) => event.type === "attack" && event.sourceId === mortar.id,
+  );
+  assert.equal(STRUCTURE_DEFINITIONS.mortar_turret.projectileSpeed, 520);
+  assert.equal(attackEvent.tracksTarget, true);
+  assert.ok(attackEvent.impactDelay < 0.7);
+
+  target.x = 760;
+  target.y = 380;
+  advanceToScheduledImpacts(simulation);
+
+  assert.equal(target.hp, startingHp - STRUCTURE_DEFINITIONS.mortar_turret.attackDamage);
 });

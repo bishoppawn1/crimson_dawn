@@ -101,7 +101,11 @@ test("the battlefield, minimap, effects, and targeting share fog visibility", as
     /context\.drawImage\(minimapFogCanvas, layout\.mapLeft, layout\.mapTop\);\s*drawMinimapCrystalDeposits\(layout\)/,
   );
   assert.match(game, /entityIsVisibleToLocalTeam\(structure\)/);
-  assert.match(game, /pointIsVisibleToLocalTeam\(event\.x, event\.y, 20\)/);
+  assert.match(game, /pointIsVisibleToLocalTeam\(eventPosition\.x, eventPosition\.y, 20\)/);
+  assert.match(
+    game,
+    /function attackEventTargetPosition[\s\S]*event\.tracksTarget[\s\S]*presentedPosition\(target\)/,
+  );
   assert.match(game, /findEnemyAt[\s\S]*entityIsVisibleToLocalTeam\(entity\)/);
   assert.match(game, /command\.unitIds,[\s\S]*requireVision: true/);
   assert.doesNotMatch(game, /reducedDetailViewActive|drawReducedDetailEntities|PERFORMANCE DETAIL/);

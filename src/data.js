@@ -1313,6 +1313,8 @@ const structureDefinitions = {
     attackDamage: 60,
     attackEnergy: 18,
     attackCooldown: 3.2,
+    projectileSpeed: 520,
+    projectileTracksTarget: true,
     capacitorCapacity: 36,
     capacitorChargeRate: 12,
     metalCost: 165,

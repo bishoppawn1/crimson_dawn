@@ -6031,7 +6031,10 @@ function drawWreck(wreck) {
 
 function drawEvents() {
   for (const event of simulation.events) {
-    if (!pointIsVisibleToLocalTeam(event.x, event.y, 20)) continue;
+    const eventPosition = event.type === "attack"
+      ? attackEventTargetPosition(event)
+      : event;
+    if (!pointIsVisibleToLocalTeam(eventPosition.x, eventPosition.y, 20)) continue;
     const age = simulation.time - event.time;
     if (event.type === "attack") {
       drawAttackEvent(event, age);
@@ -6053,13 +6056,25 @@ function drawEvents() {
   }
 }
 
+function attackEventTargetPosition(event) {
+  const target = event.tracksTarget
+    ? simulation.getEntity(event.targetId)
+    : null;
+  if (target) return presentedPosition(target);
+  return {
+    x: event.targetX ?? event.x,
+    y: event.targetY ?? event.y,
+  };
+}
+
 function drawAttackEvent(event, age) {
   const source = simulation.getEntity(event.sourceId);
   const profile = attackPresentation(source, event);
   const sourceX = event.sourceX ?? source?.x;
   const sourceY = event.sourceY ?? source?.y;
-  const targetX = event.targetX ?? event.x;
-  const targetY = event.targetY ?? event.y;
+  const targetPosition = attackEventTargetPosition(event);
+  const targetX = targetPosition.x;
+  const targetY = targetPosition.y;
   if (![sourceX, sourceY, targetX, targetY].every(Number.isFinite)) return;
 
   const deltaX = targetX - sourceX;

@@ -4651,7 +4651,10 @@ export class Simulation {
     } else {
       this.applyDamage(target, damage, source);
     }
-    this.emitAttack(source, target, impactDelay, eventDetail);
+    this.emitAttack(source, target, impactDelay, {
+      ...eventDetail,
+      tracksTarget: Boolean(definition.projectileTracksTarget),
+    });
   }
 
   updateUnderbellyBeam(unit, definition, delta) {
