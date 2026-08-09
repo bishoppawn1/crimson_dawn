@@ -879,7 +879,7 @@ export class Simulation {
       ) {
         continue;
       }
-      if (definition.underbellyBeamRadius) {
+      if (definition.underbellyBeamRadius && isUnderbellyBeamTarget(target)) {
         unit.attackTargetId = targetId;
         unit.attackTargetMode = "explicit";
         unit.moveTarget = { x: target.x, y: target.y };
@@ -897,7 +897,7 @@ export class Simulation {
         accepted += 1;
         continue;
       }
-      if (definition.attackRange <= 0) continue;
+      if (unitAttackRangeAgainstTarget(definition, target) <= 0) continue;
       unit.attackTargetId = targetId;
       unit.attackTargetMode = "explicit";
       unit.moveTarget = null;
@@ -3021,6 +3021,14 @@ export class Simulation {
         continue;
       }
       if (definition.automaticallyPursuesBeamTargets) {
+        if (
+          existingTarget?.alive &&
+          unit.attackTargetMode === "explicit" &&
+          !isUnderbellyBeamTarget(existingTarget) &&
+          canUnitAttackTarget(definition, existingTarget)
+        ) {
+          continue;
+        }
         if (existingTarget?.alive || automaticScanDue) {
           this.assignAutomaticBeamPursuit(unit, definition, existingTarget);
         }
@@ -3063,7 +3071,7 @@ export class Simulation {
     const validTarget = (target) => Boolean(
       target?.alive &&
       this.areHostileTeams(target.team, unit.team) &&
-      canUnitAttackTarget(definition, target)
+      isUnderbellyBeamTarget(target)
     );
     const followingPlayerRoute = Boolean(
       unit.moveTarget && unit.moveMode !== "pursuit"
@@ -4677,6 +4685,7 @@ export class Simulation {
           definition.underbellyBeamRadius &&
           unit.moveMode === "pursuit" &&
           attackTarget?.alive &&
+          isUnderbellyBeamTarget(attackTarget) &&
           this.areHostileTeams(attackTarget.team, unit.team)
         );
         if (pursuingBeamTarget) {
@@ -4697,11 +4706,12 @@ export class Simulation {
           this.areHostileTeams(attackTarget.team, unit.team) &&
           unit.attackTargetMode === "retaliation"
         ) {
+          const attackRange = unitAttackRangeAgainstTarget(definition, attackTarget);
           this.moveUnitToward(
             unit,
             attackTarget,
             delta,
-            definition.attackRange + entityRadius(attackTarget) * 0.75,
+            attackRange + entityRadius(attackTarget) * 0.75,
             { preserveMoveOrder: true },
           );
         } else if (unit.state === "active" && unit.moveTarget) {
@@ -4710,13 +4720,14 @@ export class Simulation {
       } else if (attackTarget?.alive && this.areHostileTeams(attackTarget.team, unit.team)) {
         const separation = distance(unit, attackTarget);
         const targetRadius = entityRadius(attackTarget);
-        if (separation <= definition.attackRange + targetRadius) {
+        const attackRange = unitAttackRangeAgainstTarget(definition, attackTarget);
+        if (separation <= attackRange + targetRadius) {
           if (!hasIndependentWeapons) this.tryAttack(unit, attackTarget, definition);
         } else if (
           unit.attackTargetMode === "explicit" ||
           unit.attackTargetMode === "retaliation"
         ) {
-          this.moveUnitToward(unit, attackTarget, delta, definition.attackRange + targetRadius * 0.75);
+          this.moveUnitToward(unit, attackTarget, delta, attackRange + targetRadius * 0.75);
         } else {
           unit.attackTargetId = null;
           unit.attackTargetMode = null;
@@ -4869,8 +4880,7 @@ export class Simulation {
     }
 
     const maximumRange = Math.max(...weaponDefinitions.map((weapon) => weapon.attackRange));
-    const candidates = this.getNearbyHostileTargets(unit, maximumRange)
-      .filter((target) => canUnitAttackTarget(definition, target));
+    const candidates = this.getNearbyHostileTargets(unit, maximumRange);
     const assignedTargets = new Set();
     let fired = false;
 
@@ -4879,7 +4889,7 @@ export class Simulation {
       const targetInRange = (target) => Boolean(
         target?.alive &&
         this.areHostileTeams(target.team, unit.team) &&
-        canUnitAttackTarget(definition, target) &&
+        canWeaponSystemAttackTarget(definition, weaponDefinition, target) &&
         distance(unit, target) <= weaponDefinition.attackRange + entityRadius(target)
       );
       const availableTargets = candidates.filter(
@@ -4890,12 +4900,12 @@ export class Simulation {
         ? primaryTarget
         : targetInRange(existingTarget) && !assignedTargets.has(existingTarget.id)
           ? existingTarget
-          : nearest(unit, preferredTargets(definition, availableTargets));
+          : nearest(unit, preferredTargets({ ...definition, ...weaponDefinition }, availableTargets));
       if (!target && targetInRange(primaryTarget)) target = primaryTarget;
       if (!target) {
         target = nearest(
           unit,
-          preferredTargets(definition, candidates.filter(targetInRange)),
+          preferredTargets({ ...definition, ...weaponDefinition }, candidates.filter(targetInRange)),
         );
       }
       state.targetId = target?.id || null;
@@ -4915,7 +4925,10 @@ export class Simulation {
         ...weaponDefinition,
         salvoCount: 1,
       };
-      const damage = weaponDefinition.attackDamage * damageMultiplierAgainstTarget(definition, target);
+      const damage = weaponDefinition.attackDamage * damageMultiplierAgainstTarget(
+        firingDefinition,
+        target,
+      );
       this.fireWeapon(unit, target, damage, firingDefinition, { weaponSystemIndex: index });
       fired = true;
       if (unit.energy <= EPSILON) {
@@ -4945,7 +4958,6 @@ export class Simulation {
   }
 
   updateUnderbellyBeam(unit, definition, delta) {
-    for (const weaponSystem of unit.weaponSystems || []) weaponSystem.targetId = null;
     unit.underbellyBeamActive = false;
     unit.underbellyBeamTargetIds = [];
     const targets = this.getNearbyHostileTargets(unit, definition.underbellyBeamRadius)
@@ -4998,10 +5010,11 @@ export class Simulation {
       unit.state === "active" &&
       unit.moveTarget &&
       unit.moveMode !== "force" &&
-      definition?.attackRange > 0 &&
+      unitAttackRangeAgainstTarget(definition, target) > 0 &&
       target?.alive &&
       this.areHostileTeams(target.team, unit.team) &&
-      distance(unit, target) <= definition.attackRange + entityRadius(target)
+      distance(unit, target) <=
+        unitAttackRangeAgainstTarget(definition, target) + entityRadius(target)
     );
   }
 
@@ -5985,13 +5998,52 @@ export function energyRatio(unit) {
 }
 
 function canUnitAttackTarget(definition, target) {
-  if (target?.carriedById) return false;
+  return Boolean(
+    canPrimaryWeaponAttackTarget(definition, target) ||
+    definition?.weaponSystems?.some(
+      (weaponDefinition) =>
+        canWeaponSystemAttackTarget(definition, weaponDefinition, target),
+    )
+  );
+}
+
+function canPrimaryWeaponAttackTarget(definition, target) {
+  if (!target || target.carriedById) return false;
   if (definition?.underbellyBeamRadius) return isUnderbellyBeamTarget(target);
   if (!definition?.groundAttackOnly || target.kind !== "unit") return true;
   return UNIT_DEFINITIONS[target.type]?.movementLayer !== "air";
 }
 
+function canWeaponSystemAttackTarget(definition, weaponDefinition, target) {
+  if (!target || target.carriedById) return false;
+  if (weaponDefinition.targetLayer === "air") {
+    return Boolean(
+      target.kind === "unit" &&
+      UNIT_DEFINITIONS[target.type]?.movementLayer === "air"
+    );
+  }
+  if (weaponDefinition.targetLayer === "ground") return isUnderbellyBeamTarget(target);
+  return canPrimaryWeaponAttackTarget(
+    { ...definition, underbellyBeamRadius: 0 },
+    target,
+  );
+}
+
+function unitAttackRangeAgainstTarget(definition, target) {
+  if (!definition || !target) return 0;
+  const weaponRanges = (definition.weaponSystems || [])
+    .filter((weaponDefinition) =>
+      canWeaponSystemAttackTarget(definition, weaponDefinition, target),
+    )
+    .map((weaponDefinition) => weaponDefinition.attackRange || 0);
+  return Math.max(
+    canPrimaryWeaponAttackTarget(definition, target) ? definition.attackRange || 0 : 0,
+    ...weaponRanges,
+  );
+}
+
 function isUnderbellyBeamTarget(target) {
+  if (!target) return false;
   if (target.kind === "structure") return true;
   return (
     target.kind === "unit" &&

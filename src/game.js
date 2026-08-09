@@ -539,8 +539,14 @@ for (const unitType of producibleUnitTypes) {
   const button = document.createElement("button");
   button.className = "command-button";
   const roleSummary = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
+  const antiAirWeapons = (definition.weaponSystems || []).filter(
+    (weapon) => weapon.targetLayer === "air",
+  );
+  const antiAirSummary = antiAirWeapons.length
+    ? ` · ${antiAirWeapons.length} AA batteries · ${antiAirWeapons[0].attackRange} range · ${antiAirWeapons[0].airDamageMultiplier}× vs air`
+    : "";
   const combatSummary = definition.underbellyBeamRadius
-    ? ` · ${definition.underbellyBeamDamagePerSecond}/s underbelly beam · ${definition.underbellyBeamRadius} radius${definition.automaticTargetAcquisitionRange ? ` · seeks ground targets within ${definition.automaticTargetAcquisitionRange}` : ""}`
+    ? ` · ${definition.underbellyBeamDamagePerSecond}/s underbelly beam · ${definition.underbellyBeamRadius} radius${definition.automaticTargetAcquisitionRange ? ` · seeks ground targets within ${definition.automaticTargetAcquisitionRange}` : ""}${antiAirSummary}`
     : definition.attackRange
       ? ` · ${definition.attackDamage} damage · ${definition.attackRange} range${definition.airDamageMultiplier ? ` · ${definition.airDamageMultiplier}× vs air` : ""}`
       : "";
@@ -3835,6 +3841,23 @@ function drawUnit(unit) {
     drawZenithUnderbellyBeam(unit, definition, selected);
   }
 
+  const antiAirRange = Math.max(
+    0,
+    ...(definition.weaponSystems || [])
+      .filter((weapon) => weapon.targetLayer === "air")
+      .map((weapon) => weapon.attackRange),
+  );
+  if (selected && antiAirRange > 0) {
+    context.save();
+    context.strokeStyle = "#ffb65f66";
+    context.lineWidth = 1.5;
+    context.setLineDash([9, 8]);
+    context.beginPath();
+    context.arc(unit.x, unit.y, antiAirRange, 0, Math.PI * 2);
+    context.stroke();
+    context.restore();
+  }
+
   if (definition.transferRate && selected) {
     context.save();
     context.strokeStyle = `${colors.energy}80`;
@@ -4396,6 +4419,7 @@ function drawArsenalColossusSprite(definition, teamColor, stasis, pose) {
 const HEXAPOD_FOOT_CLAW_COUNT = 3;
 const HEXAPOD_HULL_FRONT = -1.2;
 const HEXAPOD_HULL_REAR = 1.18;
+const ZENITH_AA_MOUNT_OFFSETS = Object.freeze([-0.58, 0.58]);
 
 function drawHexapodFoot(palette, footX, footY, rotation) {
   context.save();
@@ -4690,6 +4714,30 @@ function drawZenithDoughnutSprite(definition, teamColor, stasis) {
   context.beginPath();
   context.arc(0, 0, 0.9, Math.PI * 1.05, Math.PI * 1.65);
   context.stroke();
+
+  for (const mountX of ZENITH_AA_MOUNT_OFFSETS) {
+    context.fillStyle = palette.joint;
+    context.strokeStyle = palette.outline;
+    context.lineWidth = 0.045;
+    context.beginPath();
+    context.arc(mountX, -0.08, 0.16, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+
+    context.fillStyle = palette.armorLight;
+    context.beginPath();
+    context.roundRect(mountX - 0.11, -0.2, 0.22, 0.19, 0.045);
+    context.fill();
+    context.stroke();
+    context.strokeStyle = palette.energy;
+    context.lineWidth = 0.04;
+    for (const barrelOffset of [-0.055, 0.055]) {
+      context.beginPath();
+      context.moveTo(mountX + barrelOffset, -0.17);
+      context.lineTo(mountX + barrelOffset, -0.42);
+      context.stroke();
+    }
+  }
   context.restore();
 }
 
@@ -6115,11 +6163,15 @@ function drawAttackEvent(event, age) {
   const sourceRadius = event.sourceRadius || (source ? entityRenderRadius(source) : 8);
   const muzzleDistance = Math.max(5, sourceRadius * 0.72);
   const impactInset = Math.max(2, (event.targetRadius || 8) * 0.3);
-  const lateralMuzzleOffset = event.weaponSystemIndex === 1
-    ? -sourceRadius * 0.34
-    : event.weaponSystemIndex === 2
-      ? sourceRadius * 0.34
-      : 0;
+  const lateralMuzzleOffset = source?.type === "zenith_doughnut"
+    ? event.weaponSystemIndex === 0
+      ? -sourceRadius * 0.58
+      : sourceRadius * 0.58
+    : event.weaponSystemIndex === 1
+      ? -sourceRadius * 0.34
+      : event.weaponSystemIndex === 2
+        ? sourceRadius * 0.34
+        : 0;
   const startX = sourceX + directionX * muzzleDistance - directionY * lateralMuzzleOffset;
   const startY = sourceY + directionY * muzzleDistance + directionX * lateralMuzzleOffset;
   const endX = targetX - directionX * impactInset;
@@ -6298,7 +6350,10 @@ function attackPresentation(source, event = null) {
     : source?.kind === "unit"
       ? UNIT_DEFINITIONS[source.type]
       : null;
-  const kinetics = projectileKinetics(definition) || {
+  const weaponDefinition = definition?.weaponSystems?.[event?.weaponSystemIndex];
+  const kinetics = projectileKinetics(
+    weaponDefinition ? { ...definition, ...weaponDefinition } : definition,
+  ) || {
     speed: 980,
     minimumTravelTime: 0.055,
   };
@@ -6335,6 +6390,17 @@ function attackPresentation(source, event = null) {
       impactDuration: 0.5, impactSize: 36, sparkCount: 15, glow: 18, smoke: true,
       projectileColor: "#fff4c0", trailColor: "#ffad50", muzzleColor: "#fff0a6",
       glowColor: "#ff7733", impactColor: "#ff9f43", sparkColor: "#ffe0a0",
+    };
+  }
+  if (role === "zenith_doughnut") {
+    return {
+      salvoCount: 1, salvoSpread: 0,
+      speed: kinetics.speed, minimumTravelTime: kinetics.minimumTravelTime,
+      trailFraction: 0.14, arcHeight: 4,
+      projectileSize: 3.6, trailWidth: 2.4, muzzleDuration: 0.1, muzzleSize: 11,
+      impactDuration: 0.3, impactSize: 20, sparkCount: 10, glow: 16, smoke: false,
+      projectileColor: "#e9feff", trailColor: "#72eaff", muzzleColor: "#ffffff",
+      glowColor: "#34d9ff", impactColor: "#9bf6ff", sparkColor: "#d8fdff",
     };
   }
   if (role === "artillery" || role === "bomber") {
@@ -6707,8 +6773,14 @@ function updateInterface() {
       : "";
     const roleText = definition.roleDescription ? ` · ${definition.roleDescription}` : "";
     const visionText = ` · ${definition.visionRange} VISION${definition.radarRange ? " · RADAR" : ""}`;
+    const antiAirWeapons = (definition.weaponSystems || []).filter(
+      (weapon) => weapon.targetLayer === "air",
+    );
+    const antiAirText = antiAirWeapons.length
+      ? ` · ${antiAirWeapons.length} INDEPENDENT AA BATTERIES · ${antiAirWeapons[0].attackRange} AA RANGE · ${antiAirWeapons[0].airDamageMultiplier}× VS AIR`
+      : "";
     const combatText = definition.underbellyBeamRadius
-      ? ` · ${definition.underbellyBeamDamagePerSecond} damage/s underbelly beam · ${definition.underbellyBeamRadius} radius · ${definition.speed} speed${definition.automaticTargetAcquisitionRange ? ` · ${definition.automaticTargetAcquisitionRange} LOCAL ACQUISITION` : ""}`
+      ? ` · ${definition.underbellyBeamDamagePerSecond} damage/s underbelly beam · ${definition.underbellyBeamRadius} radius · ${definition.speed} speed${definition.automaticTargetAcquisitionRange ? ` · ${definition.automaticTargetAcquisitionRange} LOCAL ACQUISITION` : ""}${antiAirText}`
       : definition.weaponSystems?.length
         ? ` · ${definition.weaponSystems.length} independent cannons · ${definition.attackDamage} combined damage · ${definition.attackRange} maximum range · ${definition.speed} speed`
       : definition.attackRange

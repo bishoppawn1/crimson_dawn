@@ -584,13 +584,27 @@ const FACTORY_UNIT_DEFINITIONS = Object.freeze({
   }),
   zenith_doughnut: provisionalFactoryUnit({
     name: "Zenith Doughnut", role: "zenith_doughnut",
-    roleDescription: "Mmm, tasty!",
+    roleDescription: "Toroidal ground-beam aircraft with twin dorsal anti-air batteries",
     unitDomain: "air", tier: 3, radius: 72, maxHp: 2100, maxEnergy: 7200,
     speed: 375, movementEnergyPerUnit: 0.14, attackRange: 0, attackDamage: 0,
     attackEnergy: 0, attackCooldown: 0, metalCost: 2500, productionTime: 62,
     supplyCost: 95, groundAttackOnly: true, underbellyBeamRadius: 48,
     underbellyBeamDamagePerSecond: 150, underbellyBeamEnergyPerSecond: 38,
     automaticallyPursuesBeamTargets: true, automaticTargetAcquisitionRange: 400,
+    weaponSystems: Object.freeze([
+      Object.freeze({
+        id: "port_aa", name: "Port Dorsal AA Battery", targetLayer: "air",
+        attackRange: 340, attackDamage: 18, attackEnergy: 9, attackCooldown: 0.45,
+        airDamageMultiplier: 2, projectileSpeed: 1050,
+        minimumProjectileTravelTime: 0.07, projectileTracksTarget: true,
+      }),
+      Object.freeze({
+        id: "starboard_aa", name: "Starboard Dorsal AA Battery", targetLayer: "air",
+        attackRange: 340, attackDamage: 18, attackEnergy: 9, attackCooldown: 0.45,
+        airDamageMultiplier: 2, projectileSpeed: 1050,
+        minimumProjectileTravelTime: 0.07, projectileTracksTarget: true,
+      }),
+    ]),
   }),
 });
 

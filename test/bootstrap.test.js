@@ -158,6 +158,18 @@ test("the Hexapod renderer uses an elongated hull, tri-claw feet, and armored tu
   assert.match(renderer[0], /bodyHalfWidth: 0\.24/);
 });
 
+test("the Zenith Doughnut renderer shows two dorsal anti-air batteries", async () => {
+  const game = await source("../src/game.js");
+  const renderer = game.match(
+    /const ZENITH_AA_MOUNT_OFFSETS[\s\S]*?function drawZenithUnderbellyBeam/,
+  );
+
+  assert.ok(renderer);
+  assert.match(renderer[0], /Object\.freeze\(\[-0\.58, 0\.58\]\)/);
+  assert.match(renderer[0], /for \(const mountX of ZENITH_AA_MOUNT_OFFSETS\)/);
+  assert.match(renderer[0], /for \(const barrelOffset of \[-0\.055, 0\.055\]\)/);
+});
+
 test("higher-tier armed sprites render their data-driven weapon attachments", async () => {
   const [data, game] = await Promise.all([
     source("../src/data.js"),

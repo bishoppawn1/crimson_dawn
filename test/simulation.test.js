@@ -412,8 +412,11 @@ test("experimental factory exposes three distinct strategic units", () => {
   assert.equal(doughnut.groundAttackOnly, true);
   assert.equal(doughnut.attackRange, 0);
   assert.ok(doughnut.underbellyBeamRadius > 0);
+  assert.equal(doughnut.weaponSystems.length, 2);
+  assert.ok(doughnut.weaponSystems.every((weapon) => weapon.targetLayer === "air"));
+  assert.ok(doughnut.weaponSystems.every((weapon) => weapon.airDamageMultiplier === 2));
   assert.equal(doughnut.speed, 375);
-  assert.equal(doughnut.roleDescription, "Mmm, tasty!");
+  assert.match(doughnut.roleDescription, /anti-air batteries/);
 
   for (const unitType of roster) {
     const definition = UNIT_DEFINITIONS[unitType];
@@ -537,7 +540,7 @@ test("Zenith Doughnut burns ground targets directly beneath it while moving", ()
   const distantStructureStartingHp = distantGroundStructure.hp;
   const startingEnergy = doughnut.energy;
 
-  assert.equal(simulation.commandAttack([doughnut.id], enemyAircraft.id), 0);
+  assert.equal(simulation.commandAttack([doughnut.id], enemyAircraft.id), 1);
   assert.equal(simulation.commandAttack([doughnut.id], enemyStructure.id), 1);
   assert.deepEqual(doughnut.moveTarget, {
     x: enemyStructure.x,
@@ -591,7 +594,7 @@ test("Zenith Doughnut burns ground targets directly beneath it while moving", ()
   assert.equal(aircraftUnderBeam.hp, aircraftUnderBeamStartingHp);
 });
 
-test("Zenith Doughnuts only auto-acquire nearby ground targets", () => {
+test("Zenith Doughnut beam pursuit only auto-acquires nearby ground targets", () => {
   const simulation = new Simulation({ width: 1600, height: 1000, enemyAiEnabled: false });
   const doughnut = simulation.addUnit("zenith_doughnut", "player", 200, 500);
   const acquisitionRange = UNIT_DEFINITIONS.zenith_doughnut.automaticTargetAcquisitionRange;
@@ -631,6 +634,72 @@ test("Zenith Doughnuts only auto-acquire nearby ground targets", () => {
   assert.equal(idleDoughnut.moveTarget, null);
   assert.equal(idleDoughnut.x, 200, "a distant enemy must not trigger cross-map pursuit");
   assert.equal(distantTarget.hp, STRUCTURE_DEFINITIONS.generator.maxHp);
+});
+
+test("Zenith Doughnut AA batteries independently fire on aircraft during ground-beam attacks", () => {
+  const simulation = new Simulation({ width: 1200, height: 800, enemyAiEnabled: false });
+  const doughnut = simulation.addUnit("zenith_doughnut", "player", 300, 400, {
+    holdPosition: true,
+  });
+  const groundTarget = simulation.addUnit("worker_drone_t1", "enemy", 300, 400, {
+    holdPosition: true,
+  });
+  const aircraft = [
+    simulation.addUnit("gunship_t2", "enemy", 500, 360, { holdPosition: true }),
+    simulation.addUnit("gunship_t2", "enemy", 520, 460, { holdPosition: true }),
+  ];
+  const groundStartingHp = groundTarget.hp;
+  const aircraftStartingHp = aircraft.map((target) => target.hp);
+  const startingEnergy = doughnut.energy;
+  const definition = UNIT_DEFINITIONS.zenith_doughnut;
+
+  simulation.tick(1 / 30);
+
+  assert.equal(doughnut.underbellyBeamActive, true);
+  assert.ok(groundTarget.hp < groundStartingHp);
+  assert.deepEqual(
+    new Set(doughnut.weaponSystems.map((weapon) => weapon.targetId)),
+    new Set(aircraft.map((target) => target.id)),
+  );
+  const attackEvents = simulation.events.filter(
+    (event) => event.type === "attack" && event.sourceId === doughnut.id,
+  );
+  assert.deepEqual(
+    attackEvents.map((event) => event.weaponSystemIndex).sort(),
+    [0, 1],
+  );
+  assert.ok(attackEvents.every((event) => event.impactDelay > 0 && event.tracksTarget));
+  assert.deepEqual(aircraft.map((target) => target.hp), aircraftStartingHp);
+  assert.ok(
+    doughnut.energy <=
+      startingEnergy - definition.underbellyBeamEnergyPerSecond / 30 - 18,
+  );
+
+  advanceToScheduledImpacts(simulation);
+  for (const [index, target] of aircraft.entries()) {
+    assert.equal(
+      target.hp,
+      aircraftStartingHp[index] -
+        definition.weaponSystems[index].attackDamage *
+          definition.weaponSystems[index].airDamageMultiplier,
+    );
+  }
+});
+
+test("explicit Zenith Doughnut anti-air orders pursue aircraft into battery range", () => {
+  const simulation = new Simulation({ width: 1400, height: 800, enemyAiEnabled: false });
+  const doughnut = simulation.addUnit("zenith_doughnut", "player", 200, 400);
+  const aircraft = simulation.addUnit("gunship_t2", "enemy", 800, 400, {
+    holdPosition: true,
+  });
+
+  assert.equal(simulation.commandAttack([doughnut.id], aircraft.id), 1);
+  simulation.tick(1 / 30);
+
+  assert.equal(doughnut.attackTargetId, aircraft.id);
+  assert.equal(doughnut.attackTargetMode, "explicit");
+  assert.ok(doughnut.x > 200);
+  assert.equal(doughnut.underbellyBeamActive, false);
 });
 
 test("Zenith Doughnuts hover directly over a locally acquired target", () => {
@@ -1700,6 +1769,9 @@ test("Zenith Doughnuts are enormous and fast strategic aircraft", () => {
   assert.equal(doughnut.automaticTargetAcquisitionRange, 400);
   assert.equal(doughnut.underbellyBeamDamagePerSecond, 150);
   assert.equal(doughnut.automaticallyPursuesBeamTargets, true);
+  assert.equal(doughnut.weaponSystems.length, 2);
+  assert.ok(doughnut.weaponSystems.every((weapon) => weapon.attackRange >= 340));
+  assert.ok(doughnut.weaponSystems.every((weapon) => weapon.targetLayer === "air"));
 });
 
 test("overlapping friendly and enemy units physically separate", () => {

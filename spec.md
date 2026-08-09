@@ -644,7 +644,7 @@ The Tier 3 Experimental Factory produces exactly three enormous strategic units:
 | --- | --- |
 | Arsenal Colossus | Huge assault mech carrying eight visible weapon systems and firing a converging multi-projectile salvo |
 | Hexapod Landship | Six-legged walking battleship with three independently targeting siege cannons, extreme durability, and the ability to stride across living building footprints |
-| Zenith Doughnut | Giant circular toroidal aircraft that locally seeks nearby ground targets, hovers over them, and projects a sustained high-energy laser straight down |
+| Zenith Doughnut | Giant circular toroidal aircraft with a downward ground beam and twin independently targeting dorsal anti-air batteries |
 
 The Arsenal Colossus follows the same overhead leg language as conventional mechs:
 its hull hides the walking assembly while stationary, leaving only compact rear hip
@@ -675,11 +675,21 @@ every hostile ground unit or structure inside its 48-unit-radius footprint witho
 stopping movement. Players can also attack by routing the aircraft over enemy
 assets; attack commands on ground targets track and pursue the chosen target. The
 laser cannot damage aircraft
-and consumes energy continuously while it is damaging at least one target. All
-three use ordinary paid production, supply, movement-energy, weapon-energy, damage,
-destruction, and salvage rules. The Zenith's current provisional size is 72 radius
-and its movement speed is 250 world units per second. Its beam deals a provisional
-150 damage per second. All experimental balance values remain provisional.
+and consumes energy continuously while it is damaging at least one target. Two
+visible dorsal anti-air batteries cover the Doughnut out to a provisional
+340-world-unit range. Each battery independently selects only hostile aircraft,
+prefers a different target when multiple aircraft are available, and converges on
+one aircraft when necessary. They continue operating while the aircraft moves or
+uses its ground beam, except during force-movement. Each battery fires a tracking
+projectile for 18 base damage, applies the dedicated 2× anti-air multiplier,
+consumes 9 unit energy, and has a provisional 0.45-second cooldown. Players may
+explicitly order the Doughnut to attack an aircraft; if it is outside battery range,
+the Doughnut pursues until it can fire. Anti-air projectile damage resolves on
+impact rather than at launch. All three experimental units use ordinary paid
+production, supply, movement-energy, weapon-energy, damage, destruction, and
+salvage rules. The Zenith's current provisional size is 72 radius and its movement
+speed is 375 world units per second. Its beam deals a provisional 150 damage per
+second. All experimental balance values remain provisional.
 
 ### 5.3 Worker Drones and Construction
 
