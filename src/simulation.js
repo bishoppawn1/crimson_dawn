@@ -6190,6 +6190,7 @@ export class Simulation {
         target?.alive &&
         this.areHostileTeams(target.team, unit.team) &&
         canWeaponSystemAttackTarget(definition, weaponDefinition, target) &&
+        distance(unit, target) + EPSILON >= (weaponDefinition.minimumAttackRange || 0) &&
         distance(unit, target) <= weaponDefinition.attackRange + entityRadius(target)
       );
       const availableTargets = candidates.filter(

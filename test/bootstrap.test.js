@@ -233,6 +233,7 @@ test("the Hexapod renderer uses an elongated hull, tri-claw feet, and armored tu
   assert.match(renderer[0], /HEXAPOD_FLAK_MOUNTS = Object\.freeze/);
   assert.match(renderer[0], /function drawHexapodFlakTurret/);
   assert.match(renderer[0], /for \(const barrelX of \[-0\.038, 0\.038\]\)/);
+  assert.match(game, /definition\.footprintHitbox \? definition\.radius : renderedRadius/);
 });
 
 test("conventional mechs and the Arsenal Colossus keep their feet hidden while moving", async () => {

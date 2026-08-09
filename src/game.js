@@ -4368,6 +4368,7 @@ function drawUnit(unit) {
   const selected = selectedUnitIds.has(unit.id);
   const spriteScale = definition.spriteScale || 1;
   const renderedRadius = definition.radius * spriteScale;
+  const selectionRadius = definition.footprintHitbox ? definition.radius : renderedRadius;
   const lowEnergy = energyRatio(unit) <= SIMULATION_RULES.lowEnergyRatio;
   const overdrive = unit.abilityActiveUntil.overdrive > simulation.time;
   const activeBuildTarget = getActiveConstructionTarget(unit);
@@ -4456,7 +4457,7 @@ function drawUnit(unit) {
     context.strokeStyle = colors.selection;
     context.lineWidth = 2;
     context.beginPath();
-    context.arc(0, 0, renderedRadius + 7, 0, Math.PI * 2);
+    context.arc(0, 0, selectionRadius + 7, 0, Math.PI * 2);
     context.stroke();
   }
   if (overdrive) {
@@ -4507,8 +4508,8 @@ function drawUnit(unit) {
     unit.energy / definition.maxEnergy,
     lowEnergy ? colors.stasis : colors.energy,
   );
-  if (unit.state === "stasis") drawLabel(unit.x, unit.y + definition.radius + 17, "STASIS", false, colors.stasis);
-  if (unit.state === "neutral") drawLabel(unit.x, unit.y + definition.radius + 17, "NEUTRAL", false, neutralTeamPalette.bright);
+  if (unit.state === "stasis") drawLabel(unit.x, unit.y + renderedRadius + 17, "STASIS", false, colors.stasis);
+  if (unit.state === "neutral") drawLabel(unit.x, unit.y + renderedRadius + 17, "NEUTRAL", false, neutralTeamPalette.bright);
 }
 
 function getActiveConstructionTarget(unit) {

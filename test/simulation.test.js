@@ -780,11 +780,25 @@ test("experimental factory exposes three distinct strategic units", () => {
   assert.equal(landship.stridesOverStructures, true);
   assert.equal(landship.firesWhileMoving, true);
   assert.equal(landship.movementLayer, "ground");
+  assert.equal(landship.radius, 60);
+  assert.equal(landship.radius * landship.spriteScale, 44);
+  assert.equal(landship.footprintHitbox, "feet");
+  assert.equal(landship.minimumAttackRange, 80);
+  assert.equal(landship.attackRange, 460);
+  assert.deepEqual(
+    landship.weaponSystems
+      .filter((weapon) => weapon.targetLayer === "ground")
+      .map((weapon) => [weapon.minimumAttackRange, weapon.attackRange]),
+    [[80, 460], [80, 420], [80, 420]],
+  );
   const landshipFlak = landship.weaponSystems.filter((weapon) => weapon.weaponRole === "flak");
   assert.equal(landshipFlak.length, 4);
   assert.ok(
     landshipFlak.every(
-      (weapon) => weapon.targetLayer === "air" && weapon.airDamageMultiplier === 2,
+      (weapon) =>
+        weapon.targetLayer === "air" &&
+        weapon.airDamageMultiplier === 2 &&
+        !weapon.minimumAttackRange,
     ),
   );
   assert.deepEqual(
@@ -847,9 +861,26 @@ test("hexapod landship strides through structures but still respects terrain", (
 test("hexapod landship shells deal damage on impact instead of before firing", () => {
   const simulation = new Simulation({ enemyAiEnabled: false });
   const landship = simulation.addUnit("hexapod_landship", "player", 100, 300);
-  const target = simulation.addUnit("scout_mech", "enemy", 400, 300);
+  const minimumRange = UNIT_DEFINITIONS.hexapod_landship.minimumAttackRange;
+  const target = simulation.addUnit(
+    "scout_mech",
+    "enemy",
+    100 + minimumRange - 1,
+    300,
+    { state: "neutral" },
+  );
   const startingHp = target.hp;
 
+  assert.equal(simulation.commandAttack([landship.id], target.id), 1);
+  simulation.tick(1 / 30);
+  assert.equal(
+    simulation.events.some((event) => event.type === "attack"),
+    false,
+    "the siege battery should not fire directly beneath its feet",
+  );
+  assert.equal(simulation.pendingImpacts.length, 0);
+
+  target.x = 400;
   assert.equal(simulation.commandAttack([landship.id], target.id), 1);
   simulation.tick(1 / 30);
 

@@ -739,7 +739,10 @@ while moving. An explicit ground attack order directs the main siege cannon whil
 the two side cannons opportunistically engage other surface targets in range; all
 three may converge on one target when no alternatives exist. The four flak mounts
 independently engage aircraft, prefer separate targets when several are available,
-and deal the standard dedicated anti-air 2× damage multiplier.
+and deal the standard dedicated anti-air 2× damage multiplier. The main siege
+cannon reaches 460 world units and each side cannon reaches 420. All three heavy
+guns share a compact 80-unit minimum range directly beneath the Landship; the flak
+mounts retain no minimum-range restriction.
 Shell damage resolves when each visible projectile reaches its target, not when the
 firing order begins. Its six legs retain their deliberate pull-step gait, but the
 two sides use offset phases and shortened travel lanes so neighboring feet do not
@@ -747,7 +750,9 @@ cross. Its slightly elongated walking-battleship hull carries three visibly comp
 independently rotating armored turret assemblies plus four compact twin-barrel flak
 mounts, giving it the mixed heavy and anti-air battery of a battleship. Each
 foot ends in a circular armored hub with three trapezoidal claws spaced exactly 120
-degrees apart. The Zenith
+degrees apart. Its 60-unit gameplay hitbox encloses the six-foot footprint rather
+than hugging the central hull, while a compensating sprite scale preserves the
+Landship's existing visible size. The Zenith
 Doughnut ignores terrain, structures, and ground-unit separation. When idle, it
 automatically selects the nearest hostile ground target within a provisional
 400-world-unit local acquisition radius, flies directly over it, hovers while the
