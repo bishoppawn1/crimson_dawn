@@ -4502,8 +4502,10 @@ function drawUnit(unit) {
   context.rotate(pose.facing);
   context.translate(0, pose.recoil * definition.radius);
   const visuallyInactive = unit.state === "stasis" || unit.state === "neutral";
+  drawUnitDepthUnderlay(definition, visuallyInactive);
   drawUnitSprite(definition, teamColor, darkColor, visuallyInactive, pose);
   drawTierWeaponAttachments(definition, teamColor, visuallyInactive);
+  drawUnitMaterialFinish(definition, teamColor, visuallyInactive);
   context.restore();
   context.restore();
 
@@ -4812,9 +4814,142 @@ function drawUnitGroundShadow(definition) {
 function unitSurfaceGradient(light, base, dark) {
   const gradient = context.createLinearGradient(-0.8, -0.9, 0.85, 0.95);
   gradient.addColorStop(0, light);
-  gradient.addColorStop(0.42, base);
+  gradient.addColorStop(0.16, light);
+  gradient.addColorStop(0.43, base);
+  gradient.addColorStop(0.72, dark);
   gradient.addColorStop(1, dark);
   return gradient;
+}
+
+function traceUnitMass(definition) {
+  context.beginPath();
+  if (definition.role === "zenith_doughnut") {
+    context.arc(0, 0, 1.06, 0, Math.PI * 2);
+    context.arc(0, 0, 0.36, 0, Math.PI * 2, true);
+    return;
+  }
+  if (definition.role === "hexapod_landship") {
+    context.roundRect(-0.65, -1.22, 1.3, 2.42, 0.28);
+    return;
+  }
+  if (definition.role === "arsenal_colossus") {
+    context.roundRect(-0.73, -0.76, 1.46, 1.38, 0.26);
+    return;
+  }
+  if (definition.unitDomain === "air") {
+    context.ellipse(0, -0.02, 0.82, 0.92, 0, 0, Math.PI * 2);
+    return;
+  }
+  if (definition.unitDomain === "vehicle") {
+    context.roundRect(-0.66, -0.86, 1.32, 1.74, 0.25);
+    return;
+  }
+  context.ellipse(0, 0, definition.workerTier ? 0.6 : 0.72, 0.7, 0, 0, Math.PI * 2);
+}
+
+function drawUnitDepthUnderlay(definition, stasis) {
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  context.translate(0.07, 0.12);
+  context.fillStyle = stasis ? "#24231fe8" : "#111920ed";
+  context.shadowColor = "#05090bd8";
+  context.shadowBlur = 0.16;
+  context.shadowOffsetX = 0.04;
+  context.shadowOffsetY = 0.07;
+  traceUnitMass(definition);
+  context.fill("evenodd");
+  context.restore();
+}
+
+function drawUnitMaterialFinish(definition, teamColor, stasis) {
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  traceUnitMass(definition);
+  context.clip("evenodd");
+
+  const sheen = context.createLinearGradient(-0.72, -0.82, 0.62, 0.72);
+  sheen.addColorStop(0, stasis ? "#d8cfb20b" : "#f4ffff2f");
+  sheen.addColorStop(0.28, stasis ? "#d8cfb206" : "#dff7f410");
+  sheen.addColorStop(0.55, "#ffffff00");
+  sheen.addColorStop(1, "#02070cb8");
+  context.fillStyle = sheen;
+  context.fillRect(-1.35, -1.35, 2.7, 2.7);
+
+  const edgeShade = context.createRadialGradient(-0.2, -0.28, 0.12, 0, 0, 1.22);
+  edgeShade.addColorStop(0, "#ffffff00");
+  edgeShade.addColorStop(0.68, "#ffffff00");
+  edgeShade.addColorStop(1, "#02070c88");
+  context.fillStyle = edgeShade;
+  context.fillRect(-1.35, -1.35, 2.7, 2.7);
+  context.restore();
+
+  context.save();
+  context.scale(definition.radius, definition.radius);
+  const fastenerColor = stasis ? "#a49a8370" : "#d9e2df9c";
+  const fasteners = definition.unitDomain === "air"
+    ? [[-0.28, 0.22], [0.28, 0.22]]
+    : definition.unitDomain === "vehicle"
+      ? [[-0.31, -0.42], [0.31, -0.42], [-0.29, 0.42], [0.29, 0.42]]
+      : [[-0.3, 0.17], [0.3, 0.17]];
+  context.fillStyle = fastenerColor;
+  for (const [x, y] of fasteners) {
+    context.beginPath();
+    context.arc(x, y, 0.026, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.fillStyle = stasis ? `${teamColor}55` : `${teamColor}b8`;
+  context.beginPath();
+  context.roundRect(-0.16, 0.43, 0.32, 0.045, 0.015);
+  context.fill();
+  context.restore();
+}
+
+function drawArmoredBarrel(x, breechY, muzzleY, width, palette, recoil = 0) {
+  const top = Math.min(breechY, muzzleY + recoil);
+  const bottom = Math.max(breechY, muzzleY + recoil);
+  const height = Math.max(0.08, bottom - top);
+  context.fillStyle = palette.outline;
+  context.beginPath();
+  context.roundRect(x - width / 2, top, width, height, width * 0.28);
+  context.fill();
+  context.fillStyle = palette.armor;
+  context.beginPath();
+  context.roundRect(
+    x - width * 0.26,
+    top + width * 0.15,
+    width * 0.52,
+    Math.max(0.04, height - width * 0.3),
+    width * 0.15,
+  );
+  context.fill();
+  context.fillStyle = palette.armorLight;
+  context.globalAlpha = 0.72;
+  context.fillRect(x - width * 0.17, top + width * 0.2, width * 0.13, Math.max(0.03, height - width * 0.45));
+  context.globalAlpha = 1;
+  context.fillStyle = palette.outline;
+  context.beginPath();
+  context.roundRect(x - width * 0.68, top - width * 0.16, width * 1.36, width * 0.36, width * 0.1);
+  context.fill();
+}
+
+function drawMechanicalLink(x1, y1, x2, y2, width, palette) {
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const length = Math.hypot(x2 - x1, y2 - y1);
+  context.save();
+  context.translate(x1, y1);
+  context.rotate(angle);
+  context.fillStyle = palette.outline;
+  context.beginPath();
+  context.roundRect(0, -width / 2, length, width, width * 0.4);
+  context.fill();
+  context.fillStyle = palette.armor;
+  context.beginPath();
+  context.roundRect(width * 0.13, -width * 0.27, Math.max(0.01, length - width * 0.26), width * 0.54, width * 0.22);
+  context.fill();
+  context.fillStyle = palette.armorLight;
+  context.globalAlpha = 0.7;
+  context.fillRect(width * 0.24, -width * 0.19, Math.max(0.01, length - width * 0.48), width * 0.11);
+  context.restore();
 }
 
 function drawUnitSprite(definition, teamColor, darkColor, stasis, pose) {
@@ -4873,15 +5008,13 @@ function drawTierWeaponAttachments(definition, teamColor, stasis) {
     context.fill();
     context.stroke();
 
-    context.strokeStyle = outline;
-    context.lineWidth = 0.095;
-    context.beginPath();
-    context.moveTo(mountX, mountY - 0.08);
-    context.lineTo(mountX, muzzleY);
-    context.stroke();
-    context.strokeStyle = armorLight;
-    context.lineWidth = 0.035;
-    context.stroke();
+    drawArmoredBarrel(
+      mountX,
+      mountY - 0.08,
+      muzzleY,
+      0.095,
+      { outline, armor, armorLight },
+    );
 
     context.fillStyle = accent;
     context.fillRect(mountX - 0.07, mountY + 0.055, 0.14, 0.045);
@@ -4943,17 +5076,7 @@ function drawArsenalColossusSprite(definition, teamColor, stasis, pose) {
   for (const side of [-1, 1]) {
     for (const xOffset of [0.36, 0.52, 0.68]) {
       const x = side * xOffset;
-      context.strokeStyle = palette.outline;
-      context.lineWidth = 0.16;
-      context.beginPath();
-      context.moveTo(x, -0.18);
-      context.lineTo(x, -0.94);
-      context.stroke();
-      context.strokeStyle = palette.armorLight;
-      context.lineWidth = 0.075;
-      context.stroke();
-      context.fillStyle = palette.outline;
-      context.fillRect(x - 0.11, -1.02, 0.22, 0.12);
+      drawArmoredBarrel(x, -0.18, -0.94, 0.16, palette);
     }
   }
   context.fillStyle = palette.armorDark;
@@ -5146,13 +5269,15 @@ function drawHexapodFlakTurret(palette, mount, facing, recoil) {
   context.fill();
   context.stroke();
 
-  context.strokeStyle = palette.armorDark;
-  context.lineWidth = 0.042;
   for (const barrelX of [-0.038, 0.038]) {
-    context.beginPath();
-    context.moveTo(barrelX, -0.055);
-    context.lineTo(barrelX, -0.31 + recoil * 0.45);
-    context.stroke();
+    drawArmoredBarrel(
+      barrelX,
+      -0.055,
+      -0.31,
+      0.042,
+      palette,
+      recoil * 0.45,
+    );
   }
   context.fillStyle = palette.accent;
   context.fillRect(-0.065, 0.03, 0.13, 0.032);
@@ -5187,16 +5312,16 @@ function drawHexapodLandshipSprite(definition, teamColor, stasis, pose) {
       const footX = side * 1.08;
       const footY = legY + footTravel - footLift * 0.35;
 
-      context.strokeStyle = palette.outline;
-      context.lineWidth = 0.21;
-      context.beginPath();
-      context.moveTo(side * 0.48, legY);
-      context.lineTo(kneeX, kneeY);
-      context.lineTo(footX, footY);
-      context.stroke();
-      context.strokeStyle = palette.armorDark;
-      context.lineWidth = 0.11;
-      context.stroke();
+      drawMechanicalLink(side * 0.48, legY, kneeX, kneeY, 0.21, {
+        outline: palette.outline,
+        armor: palette.armorDark,
+        armorLight: palette.armorLight,
+      });
+      drawMechanicalLink(kneeX, kneeY, footX, footY, 0.18, {
+        outline: palette.outline,
+        armor: palette.armorDark,
+        armorLight: palette.armorLight,
+      });
 
       if (planted && pose.landshipStep !== null) {
         context.strokeStyle = `${palette.accent}80`;
@@ -5336,13 +5461,14 @@ function drawZenithDoughnutSprite(definition, teamColor, stasis) {
     context.roundRect(mountX - 0.11, -0.2, 0.22, 0.19, 0.045);
     context.fill();
     context.stroke();
-    context.strokeStyle = palette.energy;
-    context.lineWidth = 0.04;
     for (const barrelOffset of [-0.055, 0.055]) {
-      context.beginPath();
-      context.moveTo(mountX + barrelOffset, -0.17);
-      context.lineTo(mountX + barrelOffset, -0.42);
-      context.stroke();
+      drawArmoredBarrel(
+        mountX + barrelOffset,
+        -0.17,
+        -0.42,
+        0.045,
+        palette,
+      );
     }
   }
   context.restore();
@@ -5420,19 +5546,9 @@ function drawWorkerDroneSprite(definition, teamColor, darkColor, stasis, pose) {
       const elbowY = rear < 0 ? -0.55 + toolSwing * side : 0.57 - toolSwing * side;
       const tipX = side * (rear < 0 ? 0.98 : 0.88);
       const tipY = rear < 0 ? -0.72 + toolSwing * side : 0.82 - toolSwing * side;
-      context.strokeStyle = joint;
-      context.lineWidth = 0.2;
-      context.beginPath();
-      context.moveTo(shoulderX, shoulderY);
-      context.lineTo(elbowX, elbowY);
-      context.lineTo(tipX, tipY);
-      context.stroke();
-      context.strokeStyle = armorLight;
-      context.lineWidth = 0.065;
-      context.beginPath();
-      context.moveTo(shoulderX, shoulderY - 0.025);
-      context.lineTo(elbowX, elbowY - 0.025);
-      context.stroke();
+      const armPalette = { outline, armor: armorDark, armorLight };
+      drawMechanicalLink(shoulderX, shoulderY, elbowX, elbowY, 0.2, armPalette);
+      drawMechanicalLink(elbowX, elbowY, tipX, tipY, 0.15, armPalette);
       context.fillStyle = joint;
       for (const jointPoint of [[shoulderX, shoulderY], [elbowX, elbowY]]) {
         context.beginPath();
@@ -5690,15 +5806,14 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
     if (antiAir) {
       // Four short autocannons and a rear tracking dish distinguish the flak
       // crawler from the single-gun direct-fire vehicles.
-      context.strokeStyle = outline;
-      context.lineWidth = 0.11;
       for (const barrelX of [-0.18, -0.06, 0.06, 0.18]) {
-        context.beginPath();
-        context.moveTo(barrelX, -0.19);
-        context.lineTo(barrelX, -0.91);
-        context.stroke();
-        context.fillStyle = outline;
-        context.fillRect(barrelX - 0.055, -0.96, 0.11, 0.09);
+        drawArmoredBarrel(
+          barrelX,
+          -0.19,
+          -0.91,
+          0.11,
+          { outline, armor: armorDark, armorLight },
+        );
       }
       context.strokeStyle = accent;
       context.lineWidth = 0.07;
@@ -5715,12 +5830,13 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
         stasis ? colors.stasis : colors.energy,
       );
       // One short defensive cannon leaves the dish as the dominant equipment.
-      context.strokeStyle = outline;
-      context.lineWidth = 0.085;
-      context.beginPath();
-      context.moveTo(0.39, -0.12);
-      context.lineTo(0.39, -0.53);
-      context.stroke();
+      drawArmoredBarrel(
+        0.39,
+        -0.12,
+        -0.53,
+        0.1,
+        { outline, armor: armorDark, armorLight },
+      );
       context.fillStyle = accent;
       context.beginPath();
       context.arc(0.39, -0.12, 0.075, 0, Math.PI * 2);
@@ -5728,32 +5844,21 @@ function drawVehicleSprite(definition, teamColor, darkColor, stasis) {
     } else {
       // A dark breech, armored barrel sleeve, and muzzle brake give the weapon
       // a credible mechanical assembly while the narrow team stripe identifies it.
-      context.strokeStyle = outline;
-      context.lineWidth = artillery ? 0.19 : 0.16;
-      context.beginPath();
-      context.moveTo(0, artillery ? -0.02 : -0.18);
-      context.lineTo(0, artillery ? -1.25 : scout ? -0.82 : -1.05);
-      context.stroke();
-      context.strokeStyle = armorLight;
-      context.lineWidth = artillery ? 0.105 : 0.085;
-      context.beginPath();
-      context.moveTo(0, artillery ? -0.1 : -0.22);
-      context.lineTo(0, artillery ? -1.14 : scout ? -0.72 : -0.94);
-      context.stroke();
-      context.fillStyle = outline;
-      context.fillRect(artillery ? -0.14 : -0.11, artillery ? -1.28 : scout ? -0.87 : -1.09, artillery ? 0.28 : 0.22, 0.11);
+      drawArmoredBarrel(
+        0,
+        artillery ? -0.02 : -0.18,
+        artillery ? -1.25 : scout ? -0.82 : -1.05,
+        artillery ? 0.19 : 0.16,
+        { outline, armor: armorDark, armorLight },
+      );
     }
     context.fillStyle = accent;
     context.fillRect(-turretHalfWidth, turretY + 0.12, turretHalfWidth * 2, 0.07);
   }
   if (artillery) {
-    context.lineWidth = 0.08;
-    context.beginPath();
-    context.moveTo(-0.3, 0.35);
-    context.lineTo(-0.72, 0.86);
-    context.moveTo(0.3, 0.35);
-    context.lineTo(0.72, 0.86);
-    context.stroke();
+    const stabilizerPalette = { outline, armor: armorDark, armorLight };
+    drawMechanicalLink(-0.3, 0.35, -0.72, 0.86, 0.1, stabilizerPalette);
+    drawMechanicalLink(0.3, 0.35, 0.72, 0.86, 0.1, stabilizerPalette);
   }
   context.restore();
 }
@@ -5884,12 +5989,7 @@ function drawRadarAircraft(definition, palette, stasis) {
   );
 
   // The sole weapon is a short defensive gun tucked beside the sensor deck.
-  context.strokeStyle = palette.outline;
-  context.lineWidth = 0.08;
-  context.beginPath();
-  context.moveTo(0.48, -0.18);
-  context.lineTo(0.48, -0.58);
-  context.stroke();
+  drawArmoredBarrel(0.48, -0.18, -0.58, 0.09, palette);
   context.fillStyle = palette.accent;
   context.beginPath();
   context.arc(0.48, -0.18, 0.07, 0, Math.PI * 2);
@@ -6071,16 +6171,9 @@ function drawGunshipAircraft(definition, palette, stasis) {
   context.lineTo(0.48, 0.01);
   context.stroke();
   // Visible chin cannon and paired wing guns reinforce its close-assault role.
-  context.strokeStyle = palette.outline;
-  context.lineWidth = 0.1;
-  context.beginPath();
-  context.moveTo(0, -0.62);
-  context.lineTo(0, -1.16);
-  context.moveTo(-0.83, -0.08);
-  context.lineTo(-0.83, -0.46);
-  context.moveTo(0.83, -0.08);
-  context.lineTo(0.83, -0.46);
-  context.stroke();
+  drawArmoredBarrel(0, -0.62, -1.16, 0.11, palette);
+  drawArmoredBarrel(-0.83, -0.08, -0.46, 0.09, palette);
+  drawArmoredBarrel(0.83, -0.08, -0.46, 0.09, palette);
   if (definition.tier >= 3) {
     context.fillStyle = palette.accent;
     context.fillRect(-0.35, 0.62, 0.7, 0.07);
@@ -6482,13 +6575,14 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
       context.arc(-0.865, rivetY, 0.035, 0, Math.PI * 2);
       context.fill();
     }
-    context.strokeStyle = joint;
-    context.lineWidth = 0.11;
     for (const offset of [-0.08, 0.08]) {
-      context.beginPath();
-      context.moveTo(0.79 + offset, -0.18);
-      context.lineTo(0.79 + offset, -1.08);
-      context.stroke();
+      drawArmoredBarrel(
+        0.79 + offset,
+        -0.18,
+        -1.08,
+        0.11,
+        { outline, armor: joint, armorLight },
+      );
     }
     context.strokeStyle = armorLight;
     context.lineWidth = 0.045;
@@ -6563,12 +6657,13 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
       stasis ? colors.stasis : colors.energy,
     );
     // One compact shoulder gun provides defense without competing with the dish.
-    context.strokeStyle = outline;
-    context.lineWidth = 0.085;
-    context.beginPath();
-    context.moveTo(0.68, -0.16);
-    context.lineTo(0.68, -0.58);
-    context.stroke();
+    drawArmoredBarrel(
+      0.68,
+      -0.16,
+      -0.58,
+      0.1,
+      { outline, armor: armorDark, armorLight },
+    );
     context.fillStyle = accent;
     context.beginPath();
     context.arc(0.68, -0.16, 0.075, 0, Math.PI * 2);
@@ -6605,12 +6700,13 @@ function drawMechSprite(definition, teamColor, darkColor, stasis, pose) {
     context.beginPath();
     context.arc(0.77, -0.02, 0.11, 0, Math.PI * 2);
     context.fill();
-    context.strokeStyle = outline;
-    context.lineWidth = 0.12;
-    context.beginPath();
-    context.moveTo(0.82, -0.55);
-    context.lineTo(0.82, -1.08);
-    context.stroke();
+    drawArmoredBarrel(
+      0.82,
+      -0.55,
+      -1.08,
+      0.12,
+      { outline, armor: armorDark, armorLight },
+    );
     context.fillStyle = armorLight;
     context.fillRect(0.775, -0.77, 0.09, 0.2);
     context.fillStyle = outline;
@@ -6682,6 +6778,10 @@ function drawDrone(drone) {
   context.rotate(facing);
   context.scale(DRONE_DEFINITION.radius, DRONE_DEFINITION.radius);
   context.lineJoin = "round";
+  context.fillStyle = "#111920e8";
+  context.beginPath();
+  context.ellipse(0.07, 0.12, 0.58, 0.76, 0, 0, Math.PI * 2);
+  context.fill();
   context.fillStyle = unitSurfaceGradient("#d0d3ce", "#858e8e", "#3e4749");
   context.strokeStyle = "#172027";
   context.lineWidth = 0.1;
@@ -6695,6 +6795,20 @@ function drawDrone(drone) {
   context.closePath();
   context.fill();
   context.stroke();
+  const droneSheen = context.createLinearGradient(-0.42, -0.68, 0.38, 0.58);
+  droneSheen.addColorStop(0, "#f4ffff38");
+  droneSheen.addColorStop(0.48, "#ffffff00");
+  droneSheen.addColorStop(1, "#02070c7d");
+  context.fillStyle = droneSheen;
+  context.beginPath();
+  context.moveTo(0, -0.78);
+  context.lineTo(0.36, -0.18);
+  context.lineTo(0.27, 0.52);
+  context.lineTo(0, 0.65);
+  context.lineTo(-0.27, 0.52);
+  context.lineTo(-0.36, -0.18);
+  context.closePath();
+  context.fill();
   context.fillStyle = "#252e31";
   for (const side of [-1, 1]) {
     context.fillRect(side * 0.52 - 0.26, -0.1, 0.52, 0.14);

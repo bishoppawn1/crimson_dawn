@@ -9,7 +9,7 @@ Do not edit the generated test entries by hand. Run `npm run tests:catalog` afte
 adding, removing, or renaming a test. `npm test` and `npm run check` both fail when
 this catalog is out of date.
 
-**Automated tests documented:** 356
+**Automated tests documented:** 357
 
 ## [test/bootstrap.test.js](test/bootstrap.test.js)
 
@@ -93,43 +93,48 @@ this catalog is out of date.
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that higher-tier armed sprites render their data-driven weapon attachments.
 
+<!-- test-catalog-entry: ["test/bootstrap.test.js","full-detail mobile sprites use solid mechanical volume instead of line-art assemblies"] -->
+### 17. full-detail mobile sprites use solid mechanical volume instead of line-art assemblies
+
+**What it checks:** Inspects the browser entry point and interface wiring to confirm that full-detail mobile sprites use solid mechanical volume instead of line-art assemblies.
+
 <!-- test-catalog-entry: ["test/bootstrap.test.js","right-clicking an active friendly factory sends selected workers to assist production"] -->
-### 17. right-clicking an active friendly factory sends selected workers to assist production
+### 18. right-clicking an active friendly factory sends selected workers to assist production
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that right-clicking an active friendly factory sends selected workers to assist production.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","worker controls upgrade one tier and keep only one construction tier open"] -->
-### 18. worker controls upgrade one tier and keep only one construction tier open
+### 19. worker controls upgrade one tier and keep only one construction tier open
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that worker controls upgrade one tier and keep only one construction tier open.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","selected completed buildings expose an authorized destroy command"] -->
-### 19. selected completed buildings expose an authorized destroy command
+### 20. selected completed buildings expose an authorized destroy command
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that selected completed buildings expose an authorized destroy command.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","Spawn Wars platforms expose authoritative move and refund controls"] -->
-### 20. Spawn Wars platforms expose authoritative move and refund controls
+### 21. Spawn Wars platforms expose authoritative move and refund controls
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that Spawn Wars platforms expose authoritative move and refund controls.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","the interface and battlefield present the economy as crimson crystal"] -->
-### 21. the interface and battlefield present the economy as crimson crystal
+### 22. the interface and battlefield present the economy as crimson crystal
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that the interface and battlefield present the economy as crimson crystal.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","production controls disclose ground damage penalties"] -->
-### 22. production controls disclose ground damage penalties
+### 23. production controls disclose ground damage penalties
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that production controls disclose ground damage penalties.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","unit selection is concise and uses one compact shared construction queue"] -->
-### 23. unit selection is concise and uses one compact shared construction queue
+### 24. unit selection is concise and uses one compact shared construction queue
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that unit selection is concise and uses one compact shared construction queue.
 
 <!-- test-catalog-entry: ["test/bootstrap.test.js","match setup exposes per-AI difficulty and team assignment controls"] -->
-### 24. match setup exposes per-AI difficulty and team assignment controls
+### 25. match setup exposes per-AI difficulty and team assignment controls
 
 **What it checks:** Inspects the browser entry point and interface wiring to confirm that match setup exposes per-AI difficulty and team assignment controls.
 

@@ -551,7 +551,10 @@ weapons. Layered armor plates, panel seams, joints, cooling vents, fasteners, an
 weapon or support housings add detail. Directional lighting, offset ground
 shadows, sparse edge wear, articulated movement, and units turning toward movement,
 construction, transfer, or combat targets give the machinery a grounded physical
-presence. Vehicles expose wheels or track rollers, engine grilles, exhausts, and
+presence. Every full-detail mobile sprite also receives a solid underbody volume,
+ambient edge shading, a directional metal sheen, and filled armored barrels and
+linkages; thin strokes are reserved for true seams, markings, and small cables
+rather than defining a machine's primary mass. Vehicles expose wheels or track rollers, engine grilles, exhausts, and
 complete turret assemblies; aircraft expose engine nacelles, control surfaces,
 hardpoints, and navigation lights. Skyguards expose paired shoulder missile racks
 and a central tracking dish, Flak Crawlers use four short autocannons and a rear

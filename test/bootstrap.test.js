@@ -295,6 +295,21 @@ test("higher-tier armed sprites render their data-driven weapon attachments", as
   assert.match(game, /function drawTierWeaponAttachments\(/);
 });
 
+test("full-detail mobile sprites use solid mechanical volume instead of line-art assemblies", async () => {
+  const game = await source("../src/game.js");
+
+  assert.match(game, /function traceUnitMass\(/);
+  assert.match(game, /function drawUnitDepthUnderlay\([\s\S]*?context\.fill\("evenodd"\)/);
+  assert.match(game, /function drawUnitMaterialFinish\([\s\S]*?context\.clip\("evenodd"\)/);
+  assert.match(game, /function drawArmoredBarrel\([\s\S]*?context\.roundRect\(/);
+  assert.match(game, /function drawMechanicalLink\([\s\S]*?context\.roundRect\(/);
+  assert.match(
+    game,
+    /drawUnitDepthUnderlay\(definition, visuallyInactive\);[\s\S]*?drawUnitSprite\([\s\S]*?drawUnitMaterialFinish\(definition, teamColor, visuallyInactive\);/,
+  );
+  assert.match(game, /function drawDrone\([\s\S]*?const droneSheen = context\.createLinearGradient/);
+});
+
 test("right-clicking an active friendly factory sends selected workers to assist production", async () => {
   const game = await source("../src/game.js");
 
